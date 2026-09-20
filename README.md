@@ -228,23 +228,6 @@ The project uses GitHub Actions for:
 
 ---
 
-## 👤 **Author**
-
-This project was created by **Jorge Hecherat**.
-
-Feel free to reach out if you have any questions or feedback!
-
-- GitHub: [Jorge Hecherat](https://github.com/Hechprad)
-- Email: [hecherat@gmail.com](mailto:hecherat@gmail.com)
-
----
-
-## 📜 **License**
-
-This project is open-source and available under the [MIT License](LICENSE).
-
----
-
 ## 🤝 **How to Contribute**
 
 1. Fork the project.
