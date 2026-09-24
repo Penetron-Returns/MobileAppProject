@@ -16,7 +16,10 @@ import type {
   AvailabilityRuleInput,
   UUID,
 } from '../../../shared/api';
+import type { Database, Json, TablesUpdate } from '../../../shared/database.types';
 import type { Db } from '../lib/db';
+
+type TableName = keyof Database['public']['Tables'];
 import { AppError, mapDbError, type PostgrestLikeError } from '../lib/errors';
 import { serializeTsRange } from '../lib/time';
 import type {
@@ -262,7 +265,7 @@ function check(result: Result<unknown>): void {
 }
 
 export function createSupabaseRepository(db: Db): BookingRepository {
-  const t = (table: string) => db.from(table);
+  const t = <T extends TableName>(table: T) => db.from(table);
 
   return {
     // ----- catalog -----
@@ -285,7 +288,7 @@ export function createSupabaseRepository(db: Db): BookingRepository {
       );
     },
     async replaceBusinessHours(businessId, hours) {
-      check(await db.rpc('replace_business_hours', { p_business_id: businessId, p_rows: hours }));
+      check(await db.rpc('replace_business_hours', { p_business_id: businessId, p_rows: hours as unknown as Json }));
     },
 
     async listServices(businessId, opts = {}) {
@@ -338,9 +341,9 @@ export function createSupabaseRepository(db: Db): BookingRepository {
       );
     },
     async deleteStaff(businessId, staffId) {
-      for (const table of ['staff_services', 'availability_rules', 'availability_overrides']) {
-        check(await t(table).delete().eq('business_id', businessId).eq('staff_id', staffId));
-      }
+      check(await t('staff_services').delete().eq('business_id', businessId).eq('staff_id', staffId));
+      check(await t('availability_rules').delete().eq('business_id', businessId).eq('staff_id', staffId));
+      check(await t('availability_overrides').delete().eq('business_id', businessId).eq('staff_id', staffId));
       check(await t('staff').delete().eq('business_id', businessId).eq('id', staffId));
     },
     async listStaffServices(businessId) {
@@ -359,7 +362,7 @@ export function createSupabaseRepository(db: Db): BookingRepository {
       );
     },
     async replaceStaffAvailability(_businessId, staffId, rules) {
-      check(await db.rpc('replace_staff_availability', { p_staff_id: staffId, p_rows: rules }));
+      check(await db.rpc('replace_staff_availability', { p_staff_id: staffId, p_rows: rules as unknown as Json }));
     },
 
     async listOverrides(businessId, from, to) {
@@ -439,8 +442,8 @@ export function createSupabaseRepository(db: Db): BookingRepository {
           p_source: a.source,
           p_idempotency_key: a.idempotencyKey,
           p_actor: a.actor,
-          p_actor_id: a.actorId,
-          p_notes: a.notes,
+          p_actor_id: a.actorId ?? '',
+          p_notes: a.notes ?? undefined,
         }),
         'Appointment',
       );
@@ -450,9 +453,9 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         await db.rpc('reschedule_appointment', {
           p_appointment_id: a.appointmentId,
           p_starts_at: a.startsAt,
-          p_staff_id: a.staffId,
+          p_staff_id: a.staffId ?? undefined,
           p_actor: a.actor,
-          p_actor_id: a.actorId,
+          p_actor_id: a.actorId ?? '',
         }),
         'Appointment',
       );
@@ -462,8 +465,8 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         await db.rpc('cancel_appointment', {
           p_appointment_id: a.appointmentId,
           p_actor: a.actor,
-          p_actor_id: a.actorId,
-          p_reason: a.reason,
+          p_actor_id: a.actorId ?? '',
+          p_reason: a.reason ?? undefined,
         }),
         'Appointment',
       );
@@ -474,14 +477,14 @@ export function createSupabaseRepository(db: Db): BookingRepository {
           p_appointment_id: a.appointmentId,
           p_status: a.status,
           p_actor: a.actor,
-          p_actor_id: a.actorId,
+          p_actor_id: a.actorId ?? '',
         }),
         'Appointment',
       );
     },
     async checkInAppointment(appointmentId, actorId) {
       return rpcRow(
-        await db.rpc('check_in_appointment', { p_appointment_id: appointmentId, p_actor_id: actorId }),
+        await db.rpc('check_in_appointment', { p_appointment_id: appointmentId, p_actor_id: actorId ?? '' }),
         'Appointment',
       );
     },
@@ -502,7 +505,7 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     },
     async upsertClientByPhone(businessId, phoneE164, name) {
       return rpcRow(
-        await db.rpc('upsert_client_by_phone', { p_business_id: businessId, p_phone_e164: phoneE164, p_name: name }),
+        await db.rpc('upsert_client_by_phone', { p_business_id: businessId, p_phone_e164: phoneE164, p_name: name ?? undefined }),
         'Client',
       );
     },
@@ -554,7 +557,7 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     async updateAttempt(businessId, attemptId, patch) {
       return one(
         await t('booking_attempts')
-          .update(patch)
+          .update(patch as TablesUpdate<'booking_attempts'>)
           .eq('business_id', businessId)
           .eq('id', attemptId)
           .select(ATTEMPT_COLS)
@@ -597,7 +600,7 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     },
     async recordWebhookEvent(source, eventKey, payload) {
       const cols = 'id, source, event_key, payload, received_at, processed_at, error, attempts';
-      const inserted = await t('webhook_events').insert({ source, event_key: eventKey, payload }).select(cols).single();
+      const inserted = await t('webhook_events').insert({ source, event_key: eventKey, payload: payload as Json }).select(cols).single();
       if (!inserted.error) return { row: inserted.data as WebhookEventRow, duplicate: false };
       if (inserted.error.code !== '23505') throw mapDbError(inserted.error);
       const existing = one<WebhookEventRow>(

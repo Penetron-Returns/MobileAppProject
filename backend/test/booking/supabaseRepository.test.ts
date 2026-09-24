@@ -116,7 +116,6 @@ describe('Supabase repository', () => {
       p_idempotency_key: 'web:k',
       p_actor: 'customer',
       p_actor_id: 'c1',
-      p_notes: null,
     });
   });
 
