@@ -1,0 +1,21 @@
+/**
+ * Authenticated admin REST API (docs/BUILD_PLAN.md §4, WS-B table).
+ * Mounted at /v1 behind requireAuth() + idempotency(); owner-only routes
+ * add requireOwner. Responses are always `{ data }`.
+ */
+import { Hono } from 'hono';
+
+import type { AppEnv } from '../../types.ts';
+import { appointmentRoutes } from './appointments.ts';
+import { availabilityRoutes } from './availability.ts';
+import { businessRoutes } from './business.ts';
+import { catalogRoutes } from './catalog.ts';
+import { clientRoutes } from './clients.ts';
+
+export const v1Routes = new Hono<AppEnv>();
+
+v1Routes.route('/', businessRoutes);
+v1Routes.route('/', catalogRoutes);
+v1Routes.route('/', clientRoutes);
+v1Routes.route('/', availabilityRoutes);
+v1Routes.route('/', appointmentRoutes);

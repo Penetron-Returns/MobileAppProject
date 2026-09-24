@@ -1,0 +1,63 @@
+{
+  "templates": [
+    {
+      "name": "booking_confirmation",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Your booking at {{1}} is confirmed: {{2}} on {{3}} with {{4}}. Tap below if you need to change it.",
+          "example": { "body_text": [["Nadia Hair", "Haircut", "Tue 30 Sep 2026 at 09:00", "Sam"]] }
+        },
+        { "type": "BUTTONS", "buttons": [{ "type": "QUICK_REPLY", "text": "Manage booking" }] }
+      ]
+    },
+    {
+      "name": "booking_reminder",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Reminder from {{1}}: your {{2}} appointment is on {{3}} with {{4}}. Will you make it?",
+          "example": { "body_text": [["Nadia Hair", "Haircut", "Tue 30 Sep 2026 at 09:00", "Sam"]] }
+        },
+        {
+          "type": "BUTTONS",
+          "buttons": [
+            { "type": "QUICK_REPLY", "text": "Keep" },
+            { "type": "QUICK_REPLY", "text": "Reschedule" },
+            { "type": "QUICK_REPLY", "text": "Cancel" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "booking_rescheduled",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Your booking at {{1}} has been moved: {{2}} is now on {{3}} with {{4}}.",
+          "example": { "body_text": [["Nadia Hair", "Haircut", "Wed 1 Oct 2026 at 11:00", "Sam"]] }
+        },
+        { "type": "BUTTONS", "buttons": [{ "type": "QUICK_REPLY", "text": "Manage booking" }] }
+      ]
+    },
+    {
+      "name": "booking_cancelled",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Your booking at {{1}} for {{2}} on {{3}} with {{4}} has been cancelled.",
+          "example": { "body_text": [["Nadia Hair", "Haircut", "Tue 30 Sep 2026 at 09:00", "Sam"]] }
+        },
+        { "type": "BUTTONS", "buttons": [{ "type": "QUICK_REPLY", "text": "Book again" }] }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,14 @@
 **/*.svg
 **/*.png
 coverage/
-dist
+dist/
 node_modules/
 package-lock.json
+.expo/
+
+# Formatted by their own conventions, not the app's Prettier config.
+apps/backend/
+supabase/
+packages/shared/database.types.ts
+docs/
+.claude/skills/

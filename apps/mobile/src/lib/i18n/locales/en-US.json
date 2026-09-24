@@ -1,0 +1,59 @@
+{
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "search": "Search",
+    "signOut": "Sign out"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "loadFailed": "Couldn't load this.",
+    "requestId": "Reference: {{id}}",
+    "codes": {
+      "VALIDATION_FAILED": "Some details are invalid.",
+      "IDEMPOTENCY_KEY_REQUIRED": "Something went wrong sending that request.",
+      "UNAUTHENTICATED": "Please sign in again.",
+      "FORBIDDEN": "You don't have access to do that.",
+      "NO_BUSINESS": "Your account isn't linked to a business.",
+      "NOT_FOUND": "That couldn't be found.",
+      "SLOT_UNAVAILABLE": "That time is no longer available.",
+      "WINDOW_CLOSED": "The WhatsApp reply window has closed.",
+      "IDEMPOTENCY_KEY_REUSED": "That request was already used with different details.",
+      "RULE_VIOLATION": "That breaks one of the booking rules.",
+      "RATE_LIMITED": "Too many requests. Please wait a moment.",
+      "UPSTREAM_META_ERROR": "WhatsApp couldn't be reached. Please try again.",
+      "INTERNAL": "Something went wrong on our end.",
+      "NETWORK_ERROR": "Could not reach the server. Check your connection.",
+      "BAD_RESPONSE": "The server returned an unexpected response.",
+      "NOT_CONFIGURED": "This app isn't configured yet."
+    }
+  },
+  "status": {
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "completed": "Completed",
+    "no_show": "No-show"
+  },
+  "tabs": {
+    "dashboard": "Dashboard",
+    "calendar": "Calendar",
+    "add": "Add",
+    "clients": "Clients",
+    "settings": "Settings"
+  },
+  "noBusiness": {
+    "title": "No business linked",
+    "description": "Your account isn't linked to a business yet. Ask an owner to invite you, or contact support if this looks wrong."
+  },
+  "pages": {
+    "notFound": {
+      "title": "This screen doesn't exist.",
+      "link": "Go to Dashboard"
+    }
+  }
+}
