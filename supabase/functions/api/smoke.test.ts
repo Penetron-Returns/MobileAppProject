@@ -5,7 +5,7 @@ Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
 
 const { Hono } = await import('hono');
-const { createApp } = await import('../../../backend/src/app.ts');
+const { createApp } = await import('../../../apps/backend/src/app.ts');
 const server = new Hono().route('/api', createApp());
 
 function assertEquals(actual: unknown, expected: unknown, label: string) {
@@ -31,7 +31,7 @@ Deno.test('cron routes require the shared secret', async () => {
 });
 
 Deno.test('node:crypto AES-GCM secrets round-trip under Deno', async () => {
-  const { encryptSecret, decryptSecret } = await import('../../../backend/src/lib/crypto.ts');
+  const { encryptSecret, decryptSecret } = await import('../../../apps/backend/src/lib/crypto.ts');
   const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
   assertEquals(decryptSecret(encryptSecret('EAAG-token', key), key), 'EAAG-token', 'round trip');
 });

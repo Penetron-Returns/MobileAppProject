@@ -14,7 +14,7 @@ Write code a teammate can change safely in six months. Prefer boring, explicit c
 2. Apply **Open/Closed**: extend by adding, not by editing scattered switches. Register cron jobs in `CRON_JOBS`, add message builders, add `cva` variants, and add conversation-state handlers to the transition table.
 3. Apply **Liskov Substitution**: every implementation of a port behaves identically (same `AppError` codes, ordering, idempotency, nullability). In-memory fakes honour the real contract. When a fake and the real implementation disagree, fix the fake.
 4. Apply **Interface Segregation**: keep ports and props small. `BookingService` and `NotificationService` are separate on purpose. Components take the fields they render. Several mutually exclusive boolean props mean it should be a `variant`.
-5. Apply **Dependency Inversion**: domain code depends on ports ([ports.ts](/backend/src/ports.ts), repository interfaces), never on `supabase-js`, `fetch` or Clerk directly. Wire implementations only in [container.ts](/backend/src/container.ts) or app providers.
+5. Apply **Dependency Inversion**: domain code depends on ports ([ports.ts](/apps/backend/src/ports.ts), repository interfaces), never on `supabase-js`, `fetch` or Clerk directly. Wire implementations only in [container.ts](/apps/backend/src/container.ts) or app providers.
 6. Prefer YAGNI to speculative abstraction. Add an interface only for a real boundary or a second implementation (a test fake counts).
 7. Use composition over inheritance. No class hierarchies in React.
 8. Keep a pure core and a thin shell. Availability, conversation transitions, calendar layout and formatting are pure functions with injected `now`/timezone/ID generators.

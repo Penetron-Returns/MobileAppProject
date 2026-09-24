@@ -56,23 +56,26 @@ Exact app versions are in `package.json` and [docs/mobile-app.md](docs/mobile-ap
 ## Repository layout
 
 ```
-src/                      Expo app
-  app/                    routes (Expo Router)
-  features/<feature>/     hooks, components and logic per feature
-  components/ui/          design-system primitives (react-native-reusables)
-  lib/                    Supabase + API clients, env, formatters
-backend/                  API source (Hono), tests (Vitest)
-  src/booking/            availability engine + booking service
-  src/whatsapp/           Graph API client, conversation engine, Flows, onboarding
-  src/notifications/      confirmations, reminders, push
-  src/routes/             /v1 (app), /public (web comparator), webhooks, cron
-  whatsapp/               Flow JSON, message templates, Flows key generator
-supabase/
-  functions/api/          Edge Function entry (serves backend/src under /api)
+apps/
+  mobile/                 Expo app (own package.json, Jest)
+    src/app/              routes (Expo Router)
+    src/features/         hooks, components and logic per feature
+    src/components/ui/    design-system primitives (react-native-reusables)
+    src/lib/              Supabase + API clients, env, formatters
+  backend/                API source (Hono, own package.json, Vitest)
+    src/booking/          availability engine + booking service
+    src/whatsapp/         Graph API client, conversation engine, Flows, onboarding
+    src/notifications/    confirmations, reminders, push
+    src/routes/           /v1 (app), /public (web comparator), webhooks, cron
+    whatsapp/             Flow JSON, message templates, Flows key generator
+packages/
+  shared/                 types shared by app and API (api.ts, generated database.types.ts)
+supabase/                 stays at the root, where the Supabase CLI expects it
+  functions/api/          Edge Function entry (serves apps/backend/src under /api)
   migrations/ tests/      schema, row-level security, database functions, SQL tests
   seed.sql                demo business "Ashgrove Hair & Beauty"
-shared/                   types shared by app and API (api.ts, generated database.types.ts)
 docs/                     build plan and design notes
+scripts/                  database test harness, AI-config sync
 .claude/                  AI rules, agents, skills, hooks (see .claude/CLAUDE.md)
 ```
 
@@ -91,8 +94,7 @@ docs/                     build plan and design notes
 ```bash
 git clone https://github.com/Penetron-Returns/MobileAppProject.git
 cd MobileAppProject
-npm install              # app
-npm --prefix backend install   # API
+npm run setup            # root git tooling + apps/mobile + apps/backend dependencies
 ```
 
 ### 2. Database
@@ -107,15 +109,16 @@ Set up Clerk as a third-party auth provider in Supabase. See [docs/database.md](
 ### 3. API (Edge Function)
 
 ```bash
-cp backend/.env.example backend/.env   # fill in Clerk, Meta and secret values
-npm --prefix backend run serve         # supabase functions serve api
+cp apps/backend/.env.example apps/backend/.env   # fill in Clerk, Meta and secret values
+npm --prefix apps/backend run serve    # supabase functions serve api
 ```
 
-The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp Flows key pair with `node backend/whatsapp/generate-flow-keys.mjs`. [docs/whatsapp.md](docs/whatsapp.md) covers webhooks, Flows and connecting a number.
+The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp Flows key pair with `node apps/backend/whatsapp/generate-flow-keys.mjs`. [docs/whatsapp.md](docs/whatsapp.md) covers webhooks, Flows and connecting a number.
 
 ### 4. App
 
 ```bash
+cd apps/mobile
 cp .env.example .env.local    # EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_URL/_ANON_KEY, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
 npx expo run:android          # or run:ios: builds and installs a local dev build (Clerk's native UI needs one)
                               # no local toolchain? eas build --profile development --platform android
@@ -131,18 +134,19 @@ Run the checks for every area you touched before opening a PR:
 
 | Area | Command |
 | --- | --- |
-| App | `npm run lint && npx tsc --noEmit && npm run test:no-watch` (+ `npm run export:web` / `export:android` to catch bundling regressions) |
-| API | `cd backend && npx tsc --noEmit && npx vitest run` |
-| Edge runtime | `cd backend && npm run check:edge && npm run test:edge` |
+| App | `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch` (+ `npm run export:web` / `export:android` to catch bundling regressions) |
+| API | `cd apps/backend && npx tsc --noEmit && npx vitest run` |
+| Everything (app + API + Edge) | `npm run check` from the repo root |
+| Edge runtime | `cd apps/backend && npm run check:edge && npm run test:edge` |
 | Database | `scripts/db/test.sh` (throwaway Postgres: migrations, seed, SQL tests, types check) |
-| DB types | `scripts/db/gen-types.sh` after changing a migration, then commit `shared/database.types.ts` |
+| DB types | `scripts/db/gen-types.sh` after changing a migration, then commit `packages/shared/database.types.ts` |
 
 ## Deploying
 
 | Part | How |
 | --- | --- |
 | Database | `supabase db push` (dev project first, then prod) |
-| API | `supabase functions deploy api` · secrets via `supabase secrets set --env-file backend/.env` |
+| API | `supabase functions deploy api` · secrets via `supabase secrets set --env-file apps/backend/.env` |
 | Cron | store `api_base_url` and `cron_secret` in Supabase Vault (see [docs/database.md](docs/database.md)) |
 | WhatsApp | point the Meta webhook at `https://<project-ref>.supabase.co/functions/v1/api/webhooks/whatsapp` |
 | App | EAS builds and updates on the `preview` and `production` channels |
