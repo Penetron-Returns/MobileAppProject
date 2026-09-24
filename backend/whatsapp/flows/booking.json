@@ -1,0 +1,263 @@
+{
+  "version": "7.1",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "SERVICE": ["STAFF", "DATE"],
+    "STAFF": ["DATE"],
+    "DATE": ["SLOT"],
+    "SLOT": ["DETAILS"],
+    "DETAILS": ["SUMMARY"],
+    "SUMMARY": []
+  },
+  "screens": [
+    {
+      "id": "SERVICE",
+      "title": "Book an appointment",
+      "data": {
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "__example__": [{ "id": "00000000-0000-4000-8000-000000000001", "title": "Haircut", "description": "60 min · R 250,00" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "Which service would you like?" },
+          {
+            "type": "Dropdown",
+            "name": "service_id",
+            "label": "Service",
+            "required": true,
+            "data-source": "${data.services}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "service_id": "${form.service_id}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "STAFF",
+      "title": "Choose who",
+      "data": {
+        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "staff": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [
+            { "id": "any", "title": "No preference" },
+            { "id": "00000000-0000-4000-8000-000000000002", "title": "Sam" }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "Who would you like to see?" },
+          {
+            "type": "Dropdown",
+            "name": "staff_id",
+            "label": "Staff member",
+            "required": true,
+            "data-source": "${data.staff}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "service_id": "${data.service_id}", "staff_id": "${form.staff_id}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DATE",
+      "title": "Choose a date",
+      "data": {
+        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "staff_id": { "type": "string", "__example__": "any" },
+        "min_date": { "type": "string", "__example__": "2026-09-29" },
+        "max_date": { "type": "string", "__example__": "2026-11-27" },
+        "unavailable_dates": {
+          "type": "array",
+          "items": { "type": "string" },
+          "__example__": ["2026-10-04"]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "Which day suits you?" },
+          {
+            "type": "DatePicker",
+            "name": "date",
+            "label": "Date",
+            "required": true,
+            "min-date": "${data.min_date}",
+            "max-date": "${data.max_date}",
+            "unavailable-dates": "${data.unavailable_dates}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "service_id": "${data.service_id}",
+                "staff_id": "${data.staff_id}",
+                "date": "${form.date}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SLOT",
+      "title": "Choose a time",
+      "data": {
+        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "staff_id": { "type": "string", "__example__": "any" },
+        "date": { "type": "string", "__example__": "2026-09-29" },
+        "date_label": { "type": "string", "__example__": "Tue 29 Sep" },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+          },
+          "__example__": [{ "id": "slot:2026-09-29T07:00:00.000Z|any", "title": "09:00" }]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "${data.date_label}" },
+          {
+            "type": "Dropdown",
+            "name": "slot",
+            "label": "Time",
+            "required": true,
+            "data-source": "${data.slots}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "service_id": "${data.service_id}",
+                "staff_id": "${data.staff_id}",
+                "date": "${data.date}",
+                "slot": "${form.slot}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DETAILS",
+      "title": "Your details",
+      "data": {
+        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "staff_id": { "type": "string", "__example__": "any" },
+        "date": { "type": "string", "__example__": "2026-09-29" },
+        "slot": { "type": "string", "__example__": "slot:2026-09-29T07:00:00.000Z|any" },
+        "name": { "type": "string", "__example__": "Nadia" },
+        "email": { "type": "string", "__example__": "" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextInput",
+            "name": "name",
+            "label": "Your name",
+            "input-type": "text",
+            "required": true,
+            "init-value": "${data.name}"
+          },
+          {
+            "type": "TextInput",
+            "name": "email",
+            "label": "Email (optional)",
+            "input-type": "email",
+            "required": false,
+            "init-value": "${data.email}"
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "service_id": "${data.service_id}",
+                "staff_id": "${data.staff_id}",
+                "date": "${data.date}",
+                "slot": "${data.slot}",
+                "name": "${form.name}",
+                "email": "${form.email}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "SUMMARY",
+      "title": "Confirm booking",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "staff_id": { "type": "string", "__example__": "any" },
+        "date": { "type": "string", "__example__": "2026-09-29" },
+        "slot": { "type": "string", "__example__": "slot:2026-09-29T07:00:00.000Z|any" },
+        "name": { "type": "string", "__example__": "Nadia" },
+        "email": { "type": "string", "__example__": "" },
+        "summary": { "type": "string", "__example__": "Service: Haircut\nDate: Tue 29 Sep 2026\nTime: 09:00" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextSubheading", "text": "Please check your booking" },
+          { "type": "TextBody", "text": "${data.summary}" },
+          {
+            "type": "Footer",
+            "label": "Confirm booking",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "service_id": "${data.service_id}",
+                "staff_id": "${data.staff_id}",
+                "date": "${data.date}",
+                "slot": "${data.slot}",
+                "name": "${data.name}",
+                "email": "${data.email}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
