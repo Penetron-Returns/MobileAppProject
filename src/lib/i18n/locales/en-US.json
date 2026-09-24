@@ -1,77 +1,59 @@
 {
-  "alert": {
-    "emailCheck": "Please check your email!",
-    "passwordUpdated": "Password changed successfully!"
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "search": "Search",
+    "signOut": "Sign out"
   },
-  "buttons": {
-    "signIn": "Sign In",
-    "signUp": "Sign Up"
-  },
-  "links": {
-    "forgotPassword": "Forgot password",
-    "signUp": "Don't have an account? Sign up"
-  },
-  "fields": {
-    "email": {
-      "label": "Email",
-      "placeholder": "Enter your email",
-      "errors": {
-        "required": "The email is required",
-        "invalid": "Invalid email"
-      }
-    },
-    "firstName": {
-      "label": "First Name",
-      "placeholder": "Enter your first name",
-      "errors": {
-        "required": "The first name is required",
-        "minLength": "The first name must be at least 2 characters"
-      }
-    },
-    "lastName": {
-      "label": "Surname",
-      "placeholder": "Enter your surname",
-      "errors": {
-        "required": "The surname is required",
-        "minLength": "The surname must be at least 2 characters"
-      }
-    },
-    "password": {
-      "label": "Password",
-      "placeholder": "Enter your password",
-      "errors": {
-        "required": "The password is required",
-        "minLength": "The password must be at least 6 characters",
-        "uppercase": "The password must contain at least one uppercase letter",
-        "lowercase": "The password must contain at least one lowercase letter",
-        "specialCharacter": "The password must contain at least one special character"
-      }
-    },
-    "global": {
-      "required": "Required field"
+  "errors": {
+    "generic": "Something went wrong.",
+    "loadFailed": "Couldn't load this.",
+    "requestId": "Reference: {{id}}",
+    "codes": {
+      "VALIDATION_FAILED": "Some details are invalid.",
+      "IDEMPOTENCY_KEY_REQUIRED": "Something went wrong sending that request.",
+      "UNAUTHENTICATED": "Please sign in again.",
+      "FORBIDDEN": "You don't have access to do that.",
+      "NO_BUSINESS": "Your account isn't linked to a business.",
+      "NOT_FOUND": "That couldn't be found.",
+      "SLOT_UNAVAILABLE": "That time is no longer available.",
+      "WINDOW_CLOSED": "The WhatsApp reply window has closed.",
+      "IDEMPOTENCY_KEY_REUSED": "That request was already used with different details.",
+      "RULE_VIOLATION": "That breaks one of the booking rules.",
+      "RATE_LIMITED": "Too many requests. Please wait a moment.",
+      "UPSTREAM_META_ERROR": "WhatsApp couldn't be reached. Please try again.",
+      "INTERNAL": "Something went wrong on our end.",
+      "NETWORK_ERROR": "Could not reach the server. Check your connection.",
+      "BAD_RESPONSE": "The server returned an unexpected response.",
+      "NOT_CONFIGURED": "This app isn't configured yet."
     }
   },
-  "errors": {},
+  "status": {
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "completed": "Completed",
+    "no_show": "No-show"
+  },
+  "tabs": {
+    "dashboard": "Dashboard",
+    "calendar": "Calendar",
+    "add": "Add",
+    "clients": "Clients",
+    "settings": "Settings"
+  },
+  "noBusiness": {
+    "title": "No business linked",
+    "description": "Your account isn't linked to a business yet. Ask an owner to invite you, or contact support if this looks wrong."
+  },
   "pages": {
-    "forgotPassword": {
-      "title": "Recover password",
-      "button": "Send"
-    },
     "notFound": {
       "title": "This screen doesn't exist.",
-      "link": "Go to home screen!"
-    },
-    "signUp": {
-      "title": "Create an account"
-    },
-    "update": {
-      "title": "A new version is available!",
-      "message": "Update the app to continue using with the new features and improvements!",
-      "button": "Update"
-    },
-    "updatePassword": {
-      "title": "Update password",
-      "button": "Update"
+      "link": "Go to Dashboard"
     }
   }
 }
