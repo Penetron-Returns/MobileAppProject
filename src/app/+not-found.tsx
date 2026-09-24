@@ -1,32 +1,28 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
+import { SearchX } from 'lucide-react-native';
+
+import { Screen } from '@/components/Screen';
+import { EmptyState } from '@/components/States';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 
 export default function NotFoundScreen() {
-  const { t } = useTranslation();
-
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={styles.container}>
-        <Text>{t('pages.notFound.title')}</Text>
-        <Link href="/dashboard/page" style={styles.link}>
-          <Text>{t('pages.notFound.link')}</Text>
-        </Link>
-      </View>
+      <Stack.Screen options={{ title: 'Not found' }} />
+      <Screen>
+        <EmptyState
+          icon={SearchX}
+          title="This screen doesn't exist."
+          action={
+            <Link href="/" asChild>
+              <Button>
+                <Text>Go to Dashboard</Text>
+              </Button>
+            </Link>
+          }
+        />
+      </Screen>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-});
