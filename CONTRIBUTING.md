@@ -8,7 +8,7 @@
 2. Branch off it: `git switch -c <your-name>/<short-description>` (e.g. `charl/login-page`)
 3. Commit, then push your branch: `git push -u origin HEAD`
 4. Open a pull request into `master` on GitHub.
-5. CI must pass and a code owner (see `.github/CODEOWNERS`) must approve.
+5. CI must pass and one of the leads (@xd-Park3rr or @JpegAndre, see `.github/CODEOWNERS`) must approve. Only the leads can merge.
 6. Merge with **Squash and merge**, then delete the branch.
 
 ## Rules
