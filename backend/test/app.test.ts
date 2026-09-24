@@ -1,15 +1,15 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
-import { createApp } from '../src/app';
-import { AppError, mapDbError } from '../src/lib/errors';
-import { redact } from '../src/lib/logger';
-import { decryptSecret, encryptSecret } from '../src/lib/crypto';
-import { orgFromClaims } from '../src/middleware/auth';
-import { baseContext, errorHandler } from '../src/middleware/common';
-import { idempotency } from '../src/middleware/idempotency';
-import type { AppEnv } from '../src/types';
-import { memoryIdempotencyStore, TEST_ENV, testContainer } from './helpers';
+import { createApp } from '../src/app.ts';
+import { AppError, mapDbError } from '../src/lib/errors.ts';
+import { redact } from '../src/lib/logger.ts';
+import { decryptSecret, encryptSecret } from '../src/lib/crypto.ts';
+import { orgFromClaims } from '../src/middleware/auth.ts';
+import { baseContext, errorHandler } from '../src/middleware/common.ts';
+import { idempotency } from '../src/middleware/idempotency.ts';
+import type { AppEnv } from '../src/types.ts';
+import { memoryIdempotencyStore, TEST_ENV, testContainer } from './helpers.ts';
 
 describe('app shell', () => {
   it('serves /health with a request id', async () => {

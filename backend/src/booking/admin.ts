@@ -24,11 +24,11 @@ import type {
   UpdateServiceRequest,
   UpdateStaffRequest,
   UUID,
-} from '../../../shared/api';
-import { AppError, notFound } from '../lib/errors';
-import { normalizePhone } from '../lib/phone';
-import { normaliseTimeOfDay } from '../lib/time';
-import type { Actor } from '../ports';
+} from '../../../shared/api.ts';
+import { AppError, notFound } from '../lib/errors.ts';
+import { normalizePhone } from '../lib/phone.ts';
+import { normaliseTimeOfDay } from '../lib/time.ts';
+import type { Actor } from '../ports.ts';
 import {
   bookingRules,
   toAppointmentDTO,
@@ -38,9 +38,9 @@ import {
   toClientNoteDTO,
   toServiceDTO,
   toStaffDTO,
-} from './mappers';
-import type { BookingRepository, ClientPatch, ServiceValues, StaffValues } from './repository';
-import type { BusinessRow, OverrideRow } from './rows';
+} from './mappers.ts';
+import type { BookingRepository, ClientPatch, ServiceValues, StaffValues } from './repository.ts';
+import type { BusinessRow, OverrideRow } from './rows.ts';
 
 /** Not in shared/api.ts (additive, WS-B only): response of POST /v1/overrides. */
 export interface OverrideDTO {

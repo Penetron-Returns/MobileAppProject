@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 
-import { isIsoDate, isTimeOfDay, isValidTimeZone, parseTimeOfDay, diffDays } from '../../lib/time';
+import { isIsoDate, isTimeOfDay, isValidTimeZone, parseTimeOfDay, diffDays } from '../../lib/time.ts';
 
 export const uuid = z.guid();
 export const isoDate = z.string().refine(isIsoDate, 'Expected a date YYYY-MM-DD');

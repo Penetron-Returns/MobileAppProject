@@ -1,12 +1,12 @@
 /** /v1/me, /v1/business, /v1/business/hours, /v1/devices */
 import { Hono } from 'hono';
 
-import { getMe, registerDevice, replaceBusinessHours, updateBusiness } from '../../booking/admin';
-import { parseJson } from '../../lib/validation';
-import { requireOwner } from '../../middleware/auth';
-import type { AppEnv } from '../../types';
-import { deps } from './context';
-import { registerDeviceSchema, replaceHoursSchema, updateBusinessSchema } from './schemas';
+import { getMe, registerDevice, replaceBusinessHours, updateBusiness } from '../../booking/admin.ts';
+import { parseJson } from '../../lib/validation.ts';
+import { requireOwner } from '../../middleware/auth.ts';
+import type { AppEnv } from '../../types.ts';
+import { deps } from './context.ts';
+import { registerDeviceSchema, replaceHoursSchema, updateBusinessSchema } from './schemas.ts';
 
 export const businessRoutes = new Hono<AppEnv>();
 

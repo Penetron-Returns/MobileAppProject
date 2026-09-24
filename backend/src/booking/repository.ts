@@ -15,13 +15,13 @@ import type {
   BusinessHoursRow,
   AvailabilityRuleInput,
   UUID,
-} from '../../../shared/api';
-import type { Database, Json, TablesUpdate } from '../../../shared/database.types';
-import type { Db } from '../lib/db';
+} from '../../../shared/api.ts';
+import type { Database, Json, TablesUpdate } from '../../../shared/database.types.ts';
+import type { Db } from '../lib/db.ts';
 
 type TableName = keyof Database['public']['Tables'];
-import { AppError, mapDbError, type PostgrestLikeError } from '../lib/errors';
-import { serializeTsRange } from '../lib/time';
+import { AppError, mapDbError, type PostgrestLikeError } from '../lib/errors.ts';
+import { serializeTsRange } from '../lib/time.ts';
 import type {
   ActorRef,
   AppointmentRow,
@@ -39,7 +39,7 @@ import type {
   StaffServiceRow,
   UserRow,
   WebhookEventRow,
-} from './rows';
+} from './rows.ts';
 
 // ---------- value types ----------
 

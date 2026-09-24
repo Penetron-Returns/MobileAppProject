@@ -12,11 +12,11 @@ import {
   replaceStaffServices,
   updateService,
   updateStaff,
-} from '../../booking/admin';
-import { parseJson } from '../../lib/validation';
-import { requireOwner } from '../../middleware/auth';
-import type { AppEnv } from '../../types';
-import { deps, idParam } from './context';
+} from '../../booking/admin.ts';
+import { parseJson } from '../../lib/validation.ts';
+import { requireOwner } from '../../middleware/auth.ts';
+import type { AppEnv } from '../../types.ts';
+import { deps, idParam } from './context.ts';
 import {
   createOverrideSchema,
   createServiceSchema,
@@ -25,7 +25,7 @@ import {
   staffServicesSchema,
   updateServiceSchema,
   updateStaffSchema,
-} from './schemas';
+} from './schemas.ts';
 
 export const catalogRoutes = new Hono<AppEnv>();
 

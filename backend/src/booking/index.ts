@@ -2,17 +2,17 @@
  * Booking core entry point: availability engine + BookingService
  * (see docs/booking-core.md).
  */
-import type { Container } from '../container';
-import type { Env } from '../env';
-import type { Db } from '../lib/db';
-import { createLogger } from '../lib/logger';
-import type { BookingService, NotificationService } from '../ports';
-import { createSupabaseRepository, type BookingRepository } from './repository';
-import { createBookingServiceFromRepository } from './service';
+import type { Container } from '../container.ts';
+import type { Env } from '../env.ts';
+import type { Db } from '../lib/db.ts';
+import { createLogger } from '../lib/logger.ts';
+import type { BookingService, NotificationService } from '../ports.ts';
+import { createSupabaseRepository, type BookingRepository } from './repository.ts';
+import { createBookingServiceFromRepository } from './service.ts';
 
-export { createBookingServiceFromRepository } from './service';
-export { createMemoryRepository } from './memoryRepository';
-export type { BookingRepository } from './repository';
+export { createBookingServiceFromRepository } from './service.ts';
+export { createMemoryRepository } from './memoryRepository.ts';
+export type { BookingRepository } from './repository.ts';
 
 export interface BookingDeps {
   env: Env;

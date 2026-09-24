@@ -1,11 +1,11 @@
 import { Webhook } from 'svix';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { slugify } from '../../src/booking/clerkSync';
-import { runCleanupJob } from '../../src/booking/jobs';
-import { testContainer } from '../helpers';
-import { NOW } from './fixtures';
-import { harness, type Harness } from './harness';
+import { slugify } from '../../src/booking/clerkSync.ts';
+import { runCleanupJob } from '../../src/booking/jobs.ts';
+import { testContainer } from '../helpers.ts';
+import { NOW } from './fixtures.ts';
+import { harness, type Harness } from './harness.ts';
 
 const SECRET = `whsec_${Buffer.alloc(32, 9).toString('base64')}`;
 

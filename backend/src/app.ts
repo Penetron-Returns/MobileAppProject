@@ -1,22 +1,22 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-import { getContainer as defaultGetContainer, type Container } from './container';
-import { AppError } from './lib/errors';
-import { requireAuth, type ClerkClaims } from './middleware/auth';
-import { baseContext, errorHandler, requireCronSecret } from './middleware/common';
-import { idempotency, type IdempotencyStore } from './middleware/idempotency';
-import { clerkWebhookRoutes } from './routes/clerk';
-import { cronRoutes } from './routes/cron';
-import { publicRoutes } from './routes/public';
-import { v1Routes } from './routes/v1';
+import { getContainer as defaultGetContainer, type Container } from './container.ts';
+import { AppError } from './lib/errors.ts';
+import { requireAuth, type ClerkClaims } from './middleware/auth.ts';
+import { baseContext, errorHandler, requireCronSecret } from './middleware/common.ts';
+import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';
+import { clerkWebhookRoutes } from './routes/clerk.ts';
+import { cronRoutes } from './routes/cron.ts';
+import { publicRoutes } from './routes/public.ts';
+import { v1Routes } from './routes/v1/index.ts';
 import {
   v1InboxRoutes,
   v1WhatsAppRoutes,
   whatsappFlowRoutes,
   whatsappWebhookRoutes,
-} from './routes/whatsapp';
-import type { AppEnv } from './types';
+} from './routes/whatsapp/index.ts';
+import type { AppEnv } from './types.ts';
 
 export interface AppOptions {
   getContainer?: () => Container;
@@ -56,7 +56,7 @@ export function createApp(options: AppOptions = {}) {
   app.route('/webhooks/whatsapp', whatsappWebhookRoutes);
   app.route('/flows/whatsapp', whatsappFlowRoutes);
 
-  // Scheduled jobs (pg_cron via pg_net, or Vercel Cron)
+  // Scheduled jobs (pg_cron via pg_net)
   app.use('/cron/*', requireCronSecret);
   app.route('/cron', cronRoutes);
 

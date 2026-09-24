@@ -1,14 +1,14 @@
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createRateLimiter } from '../../src/booking/rateLimit';
-import { baseContext, errorHandler } from '../../src/middleware/common';
-import { idempotency } from '../../src/middleware/idempotency';
-import { createPublicRoutes, publicRateLimiter } from '../../src/routes/public';
-import type { AppEnv } from '../../src/types';
-import { memoryIdempotencyStore, testContainer } from '../helpers';
-import { sast, WED } from './fixtures';
-import { harness, type Harness } from './harness';
+import { createRateLimiter } from '../../src/booking/rateLimit.ts';
+import { baseContext, errorHandler } from '../../src/middleware/common.ts';
+import { idempotency } from '../../src/middleware/idempotency.ts';
+import { createPublicRoutes, publicRateLimiter } from '../../src/routes/public.ts';
+import type { AppEnv } from '../../src/types.ts';
+import { memoryIdempotencyStore, testContainer } from '../helpers.ts';
+import { sast, WED } from './fixtures.ts';
+import { harness, type Harness } from './harness.ts';
 
 let h: Harness;
 beforeEach(() => {

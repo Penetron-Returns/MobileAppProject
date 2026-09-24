@@ -1,7 +1,7 @@
 // STUB — WS-C implements. See docs/BUILD_PLAN.md §4–5.
 import { Hono } from 'hono';
 
-import type { AppEnv } from '../../types';
+import type { AppEnv } from '../../types.ts';
 
 /** Mounted at /webhooks/whatsapp (GET verify, POST signed events) */
 export const whatsappWebhookRoutes = new Hono<AppEnv>();

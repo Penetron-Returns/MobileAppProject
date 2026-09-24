@@ -1,4 +1,4 @@
-import type { ApiErrorCode } from '../../../shared/api';
+import type { ApiErrorCode } from '../../../shared/api.ts';
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   VALIDATION_FAILED: 400,

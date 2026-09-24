@@ -8,8 +8,8 @@ import type {
   ClientNoteDTO,
   ServiceDTO,
   StaffDTO,
-} from '../../../shared/api';
-import { normaliseTimeOfDay, rangeBounds, toIsoInstant } from '../lib/time';
+} from '../../../shared/api.ts';
+import { normaliseTimeOfDay, rangeBounds, toIsoInstant } from '../lib/time.ts';
 import {
   DEFAULT_BOOKING_RULES,
   type AppointmentRow,
@@ -19,7 +19,7 @@ import {
   type ClientRow,
   type ServiceRow,
   type StaffRow,
-} from './rows';
+} from './rows.ts';
 
 const iso = (v: string | null) => (v === null ? null : toIsoInstant(v));
 

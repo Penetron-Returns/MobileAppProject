@@ -5,7 +5,7 @@
  */
 import { parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 
-import { AppError } from './errors';
+import { AppError } from './errors.ts';
 
 export const DEFAULT_PHONE_REGION: CountryCode = 'ZA';
 

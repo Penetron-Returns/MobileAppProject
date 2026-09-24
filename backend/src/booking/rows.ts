@@ -10,7 +10,7 @@ import type {
   BookingRules,
   MemberRole,
   UUID,
-} from '../../../shared/api';
+} from '../../../shared/api.ts';
 
 export const DEFAULT_BOOKING_RULES: BookingRules = {
   lead_time_minutes: 60,

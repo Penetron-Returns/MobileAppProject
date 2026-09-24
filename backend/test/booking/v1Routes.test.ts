@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { sast, WED } from './fixtures';
-import { harness, type Harness } from './harness';
+import { sast, WED } from './fixtures.ts';
+import { harness, type Harness } from './harness.ts';
 
 let h: Harness;
 beforeEach(() => {

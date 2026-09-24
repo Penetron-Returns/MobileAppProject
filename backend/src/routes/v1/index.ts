@@ -5,12 +5,12 @@
  */
 import { Hono } from 'hono';
 
-import type { AppEnv } from '../../types';
-import { appointmentRoutes } from './appointments';
-import { availabilityRoutes } from './availability';
-import { businessRoutes } from './business';
-import { catalogRoutes } from './catalog';
-import { clientRoutes } from './clients';
+import type { AppEnv } from '../../types.ts';
+import { appointmentRoutes } from './appointments.ts';
+import { availabilityRoutes } from './availability.ts';
+import { businessRoutes } from './business.ts';
+import { catalogRoutes } from './catalog.ts';
+import { clientRoutes } from './clients.ts';
 
 export const v1Routes = new Hono<AppEnv>();
 

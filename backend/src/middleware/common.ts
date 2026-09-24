@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 import type { ErrorHandler, MiddlewareHandler } from 'hono';
 
-import type { ApiErrorBody } from '../../../shared/api';
-import type { Container } from '../container';
-import { safeEqual } from '../lib/crypto';
-import { AppError } from '../lib/errors';
-import { createLogger } from '../lib/logger';
-import type { AppEnv } from '../types';
+import type { ApiErrorBody } from '../../../shared/api.ts';
+import type { Container } from '../container.ts';
+import { safeEqual } from '../lib/crypto.ts';
+import { AppError } from '../lib/errors.ts';
+import { createLogger } from '../lib/logger.ts';
+import type { AppEnv } from '../types.ts';
 
 /** Attaches request id, logger and the DI container to every request. */
 export function baseContext(getContainer: () => Container): MiddlewareHandler<AppEnv> {
@@ -43,7 +43,7 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
   return c.json(body, appError.status as 400);
 };
 
-/** Accepts `x-cron-secret: <CRON_SECRET>` (pg_cron) or `Authorization: Bearer <CRON_SECRET>` (Vercel cron). */
+/** Accepts `x-cron-secret: <CRON_SECRET>` (pg_cron via pg_net) or `Authorization: Bearer <CRON_SECRET>`. */
 export const requireCronSecret: MiddlewareHandler<AppEnv> = async (c, next) => {
   const secret = c.get('container').env.CRON_SECRET;
   const provided =

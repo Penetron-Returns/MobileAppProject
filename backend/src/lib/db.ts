@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '../../../shared/database.types';
-import type { Env } from '../env';
+import type { Database } from '../../../shared/database.types.ts';
+import type { Env } from '../env.ts';
 
 /**
  * Service-role Supabase client. Bypasses RLS, so it is only ever used

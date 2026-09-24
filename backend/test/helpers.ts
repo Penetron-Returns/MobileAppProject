@@ -1,8 +1,8 @@
-import type { Container } from '../src/container';
-import type { Env } from '../src/env';
-import type { Db } from '../src/lib/db';
-import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency';
-import type { BookingService, NotificationService } from '../src/ports';
+import type { Container } from '../src/container.ts';
+import type { Env } from '../src/env.ts';
+import type { Db } from '../src/lib/db.ts';
+import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
+import type { BookingService, NotificationService } from '../src/ports.ts';
 
 export const TEST_ENV: Env = {
   SUPABASE_URL: 'http://localhost:54321',

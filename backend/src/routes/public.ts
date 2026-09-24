@@ -12,19 +12,19 @@ import type {
   PublicBusinessResponse,
   StartAttemptResponse,
   UUID,
-} from '../../../shared/api';
-import { getBookingRepository } from '../booking';
-import { upsertClient } from '../booking/admin';
-import { completeAttempt, failAttempt, recordWebStep, requireOpenWebAttempt, startWebAttempt } from '../booking/attempts';
-import { bookingRules, toServiceDTO } from '../booking/mappers';
-import { clientIp, createRateLimiter, type RateLimiter } from '../booking/rateLimit';
-import type { BookingRepository } from '../booking/repository';
-import type { BusinessRow } from '../booking/rows';
-import { AppError, notFound } from '../lib/errors';
-import { parseJson, parseParam, parseQuery } from '../lib/validation';
-import type { AppEnv } from '../types';
-import { rpcIdempotencyKey, type Ctx } from './v1/context';
-import { attemptStepSchema, daysQuerySchema, publicBookingSchema, slotsQuerySchema, slugParam, uuid } from './v1/schemas';
+} from '../../../shared/api.ts';
+import { getBookingRepository } from '../booking/index.ts';
+import { upsertClient } from '../booking/admin.ts';
+import { completeAttempt, failAttempt, recordWebStep, requireOpenWebAttempt, startWebAttempt } from '../booking/attempts.ts';
+import { bookingRules, toServiceDTO } from '../booking/mappers.ts';
+import { clientIp, createRateLimiter, type RateLimiter } from '../booking/rateLimit.ts';
+import type { BookingRepository } from '../booking/repository.ts';
+import type { BusinessRow } from '../booking/rows.ts';
+import { AppError, notFound } from '../lib/errors.ts';
+import { parseJson, parseParam, parseQuery } from '../lib/validation.ts';
+import type { AppEnv } from '../types.ts';
+import { rpcIdempotencyKey, type Ctx } from './v1/context.ts';
+import { attemptStepSchema, daysQuerySchema, publicBookingSchema, slotsQuerySchema, slugParam, uuid } from './v1/schemas.ts';
 
 /** 60 POSTs per minute per client IP, per warm instance. */
 export const PUBLIC_RATE_LIMIT = { limit: 60, windowMs: 60_000 };

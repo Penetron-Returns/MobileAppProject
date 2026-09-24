@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from 'hono';
 
-import type { Json } from '../../../shared/database.types';
-import { sha256Hex } from '../lib/crypto';
-import { AppError } from '../lib/errors';
-import type { AppEnv } from '../types';
+import type { Json } from '../../../shared/database.types.ts';
+import { sha256Hex } from '../lib/crypto.ts';
+import { AppError } from '../lib/errors.ts';
+import type { AppEnv } from '../types.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const KEY_RE = /^[A-Za-z0-9_\-:.]{8,200}$/;

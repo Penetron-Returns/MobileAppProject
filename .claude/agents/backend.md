@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Backend engineer for the Hono/Vercel API, Supabase migrations and the WhatsApp engine. Implements endpoints, services, repositories, SQL and tests following .claude/rules/backend. Never edits app code.
+description: Backend engineer for the Hono API on Supabase Edge Functions, Supabase migrations and the WhatsApp engine. Implements endpoints, services, repositories, SQL and tests following .claude/rules/backend. Never edits app code.
 tools: *
 color: green
 ---
