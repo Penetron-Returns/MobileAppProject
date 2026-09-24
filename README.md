@@ -41,7 +41,7 @@ pg_cron ──▶ api /cron/* (reminders, conversation expiry, number health, to
 
 | Layer | Technology |
 | --- | --- |
-| Mobile app | Expo (dev builds) · React Native · Expo Router · TypeScript |
+| Mobile app | Expo SDK 57 (dev builds) · React 19 · React Native 0.86 · Expo Router · TypeScript |
 | UI | NativeWind · react-native-reusables (shadcn for React Native) · lucide icons |
 | App data | TanStack Query · Supabase JS (reads + Realtime) |
 | Auth | Clerk, prebuilt UI only. Organisations are businesses, with owner and staff roles |

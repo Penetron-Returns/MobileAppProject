@@ -78,7 +78,7 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 
 | Layer | Technology | Notes |
 | --- | --- | --- |
-| Mobile/web app | Expo (SDK ≥ 53, dev builds), React Native, Expo Router, TypeScript | `src/`. Exact versions in `package.json` |
+| Mobile/web app | Expo SDK 57 (dev builds), React 19, React Native 0.86 (New Architecture), Expo Router, TypeScript | `src/`. Exact versions in `package.json` |
 | UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `src/components/ui/`, tokens in `global.css` |
 | App data | TanStack Query, Supabase JS (reads + Realtime), `src/lib/api.ts` (writes) | |
 | Auth | Clerk (`@clerk/expo`), **prebuilt UI only**. Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
