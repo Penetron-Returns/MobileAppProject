@@ -3,10 +3,10 @@
  * Availability is always computed live from the repository; writes go
  * through the SQL RPCs, which remain the final guard (exclusion constraint).
  */
-import type { AvailableSlotsResponse, ISODate, ServiceDTO, StaffDTO, UUID } from '../../../shared/api';
-import { AppError, notFound, ruleViolation } from '../lib/errors';
-import { createLogger, type Logger } from '../lib/logger';
-import { addDays, dateInZone, dayBoundsInZone, rangeBounds } from '../lib/time';
+import type { AvailableSlotsResponse, ISODate, ServiceDTO, StaffDTO, UUID } from '../../../shared/api.ts';
+import { AppError, notFound, ruleViolation } from '../lib/errors.ts';
+import { createLogger, type Logger } from '../lib/logger.ts';
+import { addDays, dateInZone, dayBoundsInZone, rangeBounds } from '../lib/time.ts';
 import type {
   Actor,
   AppointmentChangeKind,
@@ -15,7 +15,7 @@ import type {
   CreateAppointmentInput,
   NotificationService,
   RescheduleAppointmentInput,
-} from '../ports';
+} from '../ports.ts';
 import {
   bookableDateRange,
   computeSlots,
@@ -23,10 +23,10 @@ import {
   freeStaffIgnoringHours,
   listAvailableDays as engineListDays,
   type AvailabilityInput,
-} from './availability';
-import { bookingRules, toAppointmentDTO, toBusinessDTO, toServiceDTO, toStaffDTO } from './mappers';
-import type { BookingRepository } from './repository';
-import type { AppointmentRow, BusinessRow, ServiceRow, StaffRow } from './rows';
+} from './availability.ts';
+import { bookingRules, toAppointmentDTO, toBusinessDTO, toServiceDTO, toStaffDTO } from './mappers.ts';
+import type { BookingRepository } from './repository.ts';
+import type { AppointmentRow, BusinessRow, ServiceRow, StaffRow } from './rows.ts';
 
 export interface BookingServiceOptions {
   repository: BookingRepository;

@@ -1,9 +1,9 @@
 import { verifyToken } from '@clerk/backend';
 import type { MiddlewareHandler } from 'hono';
 
-import type { MemberRole } from '../../../shared/api';
-import { AppError } from '../lib/errors';
-import type { AppEnv } from '../types';
+import type { MemberRole } from '../../../shared/api.ts';
+import { AppError } from '../lib/errors.ts';
+import type { AppEnv } from '../types.ts';
 
 export interface ClerkClaims {
   sub: string;

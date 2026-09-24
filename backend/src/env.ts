@@ -25,6 +25,8 @@ const EnvSchema = z.object({
   TOKEN_ENCRYPTION_KEY: optional,
   FLOW_TOKEN_SECRET: optional,
   CRON_SECRET: optional,
+  /** Public base URL of this API, e.g. https://<ref>.supabase.co/functions/v1/api (used for Flows endpoint_uri) */
+  API_BASE_URL: optional,
   PUBLIC_WEB_BOOKING_URL: optional,
   EXPO_ACCESS_TOKEN: optional,
 });
@@ -33,7 +35,7 @@ export type Env = z.infer<typeof EnvSchema>;
 
 let cached: Env | undefined;
 
-/** Parses process.env once per warm function instance. */
+/** Parses process.env once per warm Edge Function instance. */
 export function getEnv(source: Record<string, string | undefined> = process.env): Env {
   if (source === process.env && cached) return cached;
   const parsed = EnvSchema.safeParse(source);

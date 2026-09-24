@@ -14,7 +14,7 @@ import type {
   ServiceDTO,
   StaffDTO,
   UUID,
-} from '../../shared/api';
+} from '../../shared/api.ts';
 
 export interface Actor {
   type: ActorType;

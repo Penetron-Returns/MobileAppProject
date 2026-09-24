@@ -46,3 +46,17 @@ additional_redirect_urls = ["http://localhost:8081"]
 [auth.third_party.clerk]
 enabled = true
 domain = "env(CLERK_DOMAIN)"
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+# The whole backend API (Hono) runs as one Edge Function: https://<ref>.supabase.co/functions/v1/api/*
+[functions.api]
+enabled = true
+# Meta webhooks, the Flows endpoint and pg_cron don't send a Supabase JWT. The API authenticates
+# every route itself (Clerk JWT on /v1, signatures on webhooks, x-cron-secret on /cron).
+verify_jwt = false
+import_map = "./functions/api/deno.json"
+entrypoint = "./functions/api/index.ts"

@@ -82,14 +82,14 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 | UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `src/components/ui/`, tokens in `global.css` |
 | App data | TanStack Query, Supabase JS (reads + Realtime), `src/lib/api.ts` (writes) | |
 | Auth | Clerk (`@clerk/expo`), **prebuilt UI only**. Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
-| API | Hono on Vercel serverless (single function), TypeScript, zod v4, luxon | `backend/`, tests with Vitest |
+| API | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon | source in `backend/`, entry in `supabase/functions/api/`, tests with Vitest + Deno smoke tests |
 | Database | Supabase Postgres + RLS, Realtime, Storage, pg_cron + pg_net | `supabase/` migrations, seed, SQL tests |
 | Channel | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates | `backend/src/whatsapp/` |
 | Payments | Stripe (planned) | server-side only |
-| Builds | EAS (development / preview / production channels), Vercel deployments | |
+| Builds | EAS (development / preview / production channels), `supabase functions deploy api` | |
 | Tooling | ESLint, Prettier, Husky, Jest (app), Vitest (backend), GitHub Actions | |
 
-**Environments:** separate dev/prod Supabase projects, Clerk instances and Vercel deployments, a Meta
+**Environments:** separate dev/prod Supabase projects (DB + Edge Functions) and Clerk instances, a Meta
 test number, and EAS preview vs production.
 
 ---
@@ -97,7 +97,7 @@ test number, and EAS preview vs production.
 ## 3. How the system works
 
 ```
-Customer ──WhatsApp──▶ Meta Cloud API ──signed webhook──▶ backend (Vercel/Hono)
+Customer ──WhatsApp──▶ Meta Cloud API ──signed webhook──▶ Edge Function api (Hono)
                                                            │  deterministic state machine
 Owner/staff ──Expo app──▶ Clerk (JWT) ──────────────────▶  │  booking service → RPCs
       │                                                     ▼
@@ -141,7 +141,8 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 | Backend | `cd backend && npx tsc --noEmit && npx vitest run` |
 | Database | `scripts/db/test.sh` (throwaway Postgres 16 → migrations → seed → SQL tests → types check) |
 | DB types | `scripts/db/gen-types.sh` after any migration change |
-| Dev | `npx expo start --dev-client` (app) · `cd backend && npx vercel dev` (API) |
+| Edge | `cd backend && npm run check:edge && npm run test:edge` (Deno typecheck + smoke tests) |
+| Dev | `npx expo start --dev-client` (app) · `cd backend && npm run serve` (API, needs Supabase CLI + Docker) |
 
 ---
 

@@ -3,9 +3,9 @@
  * users and staff. Handlers are idempotent (upserts), so Svix retries and
  * out-of-order delivery (membership before organisation) are safe.
  */
-import type { MemberRole, UUID } from '../../../shared/api';
-import type { BookingRepository } from './repository';
-import type { BusinessRow } from './rows';
+import type { MemberRole, UUID } from '../../../shared/api.ts';
+import type { BookingRepository } from './repository.ts';
+import type { BusinessRow } from './rows.ts';
 
 export interface ClerkEvent {
   type: string;

@@ -1,6 +1,6 @@
-import { createMemoryRepository, type MemoryRepository } from '../../src/booking/memoryRepository';
-import { DEFAULT_BOOKING_RULES, type BusinessRow, type ClientRow, type ServiceRow, type StaffRow } from '../../src/booking/rows';
-import type { BookingRules } from '../../../shared/api';
+import { createMemoryRepository, type MemoryRepository } from '../../src/booking/memoryRepository.ts';
+import { DEFAULT_BOOKING_RULES, type BusinessRow, type ClientRow, type ServiceRow, type StaffRow } from '../../src/booking/rows.ts';
+import type { BookingRules } from '../../../shared/api.ts';
 
 /** Monday 2026-09-28 08:00 SAST. */
 export const NOW = new Date('2026-09-28T06:00:00.000Z');

@@ -85,7 +85,7 @@ For one calendar date `D` in the business timezone:
   - Each step appends `{step, at}` and increments `step_count`. Step ids must match `^[a-z0-9][a-z0-9_:.-]{0,63}$` (no free text), with at most 200 per attempt.
   - Success sets `outcome='completed'`, `completed_at`, `appointment_id` and `client_id`.
   - A failed booking sets `outcome='failed'` and `error_code` (the rule code for rule violations, otherwise the API error code). A failed attempt stays open so the customer can retry, while `completed` and `abandoned` are final (`ATTEMPT_CLOSED`).
-- **Rate limit**: 60 POSTs per minute per client IP (first `x-forwarded-for` hop, which Vercel sets), fixed window, in memory for each warm instance. This is best effort: it resets on cold start and isn't shared across instances, and it is the only hidden state in the booking core. IPs are never logged.
+- **Rate limit**: 60 POSTs per minute per client IP (first `x-forwarded-for` hop, set by the Supabase Edge gateway), fixed window, in memory for each warm instance. This is best effort: it resets on cold start and isn't shared across instances, and it is the only hidden state in the booking core. IPs are never logged.
 
 ## Clerk webhook
 

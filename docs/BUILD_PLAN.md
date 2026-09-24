@@ -7,7 +7,7 @@ Source spec: *ITMDA3 Deliverable 3, Group S14*. This file pins the contracts tha
 | Tier | Tech | Role |
 | --- | --- | --- |
 | Client | Expo (React Native), Expo Router, NativeWind + react-native-reusables (shadcn for RN) | Owner/staff app. Reads through Supabase (RLS) and writes through the API |
-| API | Vercel serverless functions (TypeScript, Hono), `backend/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
+| API | Supabase Edge Functions (Deno, TypeScript, Hono): one function `api`, code in `backend/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
 | Data | Supabase Postgres + RLS + Realtime + Storage + pg_cron | Single source of truth |
 | Identity | Clerk (orgs = businesses, roles owner/staff) | JWTs trusted by Supabase (third-party auth) and verified by the API |
 | Channel | Meta WhatsApp Cloud API + WhatsApp Flows | Customer surface. Deterministic, with no AI and no free-text parsing |
@@ -33,8 +33,8 @@ Rules that are never broken:
   api.ts                  DTOs + request/response contracts          → me (scaffold); additive edits OK
   database.types.ts       Supabase `Database` type                     → WS-A
 /supabase                 config.toml, migrations, seed, SQL tests     → WS-A
-/backend                  Vercel project (Root Directory = backend)
-  api/index.ts            single Hono entry (Vercel function)         → scaffold
+/backend                  API source (runtime-agnostic Hono app, Node/Vitest for tests)
+/supabase/functions/api   Edge Function entry (Deno) serving backend/src/app.ts under /api
   src/app.ts              route mounting                               → scaffold
   src/env.ts, src/lib/**, src/middleware/**                            → scaffold
   src/ports.ts            BookingService / NotificationService         → scaffold
@@ -130,7 +130,9 @@ All raise with SQLSTATE-coded errors that the API maps:
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
 `reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
 
-## 4. API contract (backend/, Hono on Vercel)
+## 4. API contract (backend/, Hono on Supabase Edge Functions)
+
+Base URL: `https://<project-ref>.supabase.co/functions/v1/api` (the paths below are relative to it).
 
 Envelope: success `{ "data": … }`. Error `{ "error": { "code", "message", "details"?, "request_id" } }`.
 Headers: `Authorization: Bearer <Clerk session JWT>` on `/v1/**`. `Idempotency-Key: <uuid>` is **required** on every mutating `/v1/**` and `/public/**` call. Every response carries `x-request-id`.
@@ -212,7 +214,7 @@ Stack: NativeWind v4 + react-native-reusables components in `src/components/ui`,
 
 ## 7. Backend environment
 
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push).
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push).
 
 ## 8. Workstreams and sequencing
 

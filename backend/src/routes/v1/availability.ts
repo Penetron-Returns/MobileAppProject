@@ -1,11 +1,11 @@
 /** Member routes: live availability (never cached). */
 import { Hono } from 'hono';
 
-import type { AvailableDaysResponse } from '../../../../shared/api';
-import { parseQuery } from '../../lib/validation';
-import type { AppEnv } from '../../types';
-import { deps } from './context';
-import { daysQuerySchema, slotsQuerySchema } from './schemas';
+import type { AvailableDaysResponse } from '../../../../shared/api.ts';
+import { parseQuery } from '../../lib/validation.ts';
+import type { AppEnv } from '../../types.ts';
+import { deps } from './context.ts';
+import { daysQuerySchema, slotsQuerySchema } from './schemas.ts';
 
 export const availabilityRoutes = new Hono<AppEnv>();
 

@@ -1,15 +1,15 @@
 import { Hono } from 'hono';
 
-import { runCleanupJob } from '../booking/jobs';
-import type { Container } from '../container';
-import { AppError } from '../lib/errors';
-import type { AppEnv } from '../types';
+import { runCleanupJob } from '../booking/jobs.ts';
+import type { Container } from '../container.ts';
+import { AppError } from '../lib/errors.ts';
+import type { AppEnv } from '../types.ts';
 import {
   runConversationExpiryJob,
   runRemindersJob,
   runTokenRefreshJob,
   runWabaHealthJob,
-} from '../whatsapp/jobs';
+} from '../whatsapp/jobs.ts';
 
 type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
 
@@ -21,7 +21,7 @@ export const CRON_JOBS: Record<string, Job> = {
   cleanup: runCleanupJob,
 };
 
-/** Mounted at /cron behind requireCronSecret. GET is accepted for Vercel Cron. */
+/** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */
 export const cronRoutes = new Hono<AppEnv>();
 
 cronRoutes.on(['GET', 'POST'], '/:job', async (c) => {

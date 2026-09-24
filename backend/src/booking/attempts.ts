@@ -4,10 +4,10 @@
  * (completed_at, appointment_id) or failed (error_code). A failed attempt
  * stays open so the customer can retry; completed/abandoned are final.
  */
-import type { UUID } from '../../../shared/api';
-import { AppError, notFound, ruleViolation } from '../lib/errors';
-import type { BookingRepository } from './repository';
-import type { BookingAttemptRow } from './rows';
+import type { UUID } from '../../../shared/api.ts';
+import { AppError, notFound, ruleViolation } from '../lib/errors.ts';
+import type { BookingRepository } from './repository.ts';
+import type { BookingAttemptRow } from './rows.ts';
 
 export const MAX_ATTEMPT_STEPS = 200;
 

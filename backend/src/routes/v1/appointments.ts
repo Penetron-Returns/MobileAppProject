@@ -1,12 +1,12 @@
 /** Member routes: appointment lifecycle. */
 import { Hono } from 'hono';
 
-import { checkInAppointment, setAppointmentStatus, updateAppointmentNotes, upsertClient } from '../../booking/admin';
-import { notFound } from '../../lib/errors';
-import { parseJson } from '../../lib/validation';
-import type { AppEnv } from '../../types';
-import { deps, idParam, parseOptionalJson, rpcIdempotencyKey } from './context';
-import { cancelSchema, createAppointmentSchema, rescheduleSchema, statusSchema, updateAppointmentSchema } from './schemas';
+import { checkInAppointment, setAppointmentStatus, updateAppointmentNotes, upsertClient } from '../../booking/admin.ts';
+import { notFound } from '../../lib/errors.ts';
+import { parseJson } from '../../lib/validation.ts';
+import type { AppEnv } from '../../types.ts';
+import { deps, idParam, parseOptionalJson, rpcIdempotencyKey } from './context.ts';
+import { cancelSchema, createAppointmentSchema, rescheduleSchema, statusSchema, updateAppointmentSchema } from './schemas.ts';
 
 export const appointmentRoutes = new Hono<AppEnv>();
 

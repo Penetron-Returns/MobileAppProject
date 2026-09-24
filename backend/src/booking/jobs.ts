@@ -5,9 +5,9 @@
  * independently: one failing step is logged and counted in `failed_steps`
  * without blocking the others. These queries are global by design.
  */
-import type { Container } from '../container';
-import { createLogger } from '../lib/logger';
-import { getBookingRepository } from './index';
+import type { Container } from '../container.ts';
+import { createLogger } from '../lib/logger.ts';
+import { getBookingRepository } from './index.ts';
 
 export const WEBHOOK_RETENTION_DAYS = 30;
 export const WEB_ATTEMPT_TIMEOUT_MINUTES = 120;

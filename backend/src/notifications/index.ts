@@ -1,7 +1,7 @@
 // STUB — WS-C replaces with WhatsApp confirmations/templates + Expo push.
-import type { Env } from '../env';
-import type { Db } from '../lib/db';
-import type { NotificationService } from '../ports';
+import type { Env } from '../env.ts';
+import type { Db } from '../lib/db.ts';
+import type { NotificationService } from '../ports.ts';
 
 export interface NotificationDeps {
   env: Env;

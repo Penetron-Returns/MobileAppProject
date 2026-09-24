@@ -2,8 +2,8 @@
  * Availability engine. Pure and deterministic: no I/O, no hidden clock
  * (`now` is part of the input). See docs/booking-core.md for the algorithm.
  */
-import type { ISODate, SlotDTO, UUID } from '../../../shared/api';
-import { dateInZone, dateRange, parseTimeOfDay, wallClockToEpoch, weekdayOf, addDays } from '../lib/time';
+import type { ISODate, SlotDTO, UUID } from '../../../shared/api.ts';
+import { dateInZone, dateRange, parseTimeOfDay, wallClockToEpoch, weekdayOf, addDays } from '../lib/time.ts';
 
 const MINUTE = 60_000;
 

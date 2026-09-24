@@ -1,13 +1,13 @@
-import { createApp } from '../../src/app';
-import type { BookingContainer } from '../../src/booking';
-import { createBookingServiceFromRepository } from '../../src/booking/service';
-import type { Env } from '../../src/env';
-import type { Db } from '../../src/lib/db';
-import type { Logger } from '../../src/lib/logger';
-import type { ClerkClaims } from '../../src/middleware/auth';
-import type { AppointmentChangedEvent } from '../../src/ports';
-import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers';
-import { NOW, seed, type Seed } from './fixtures';
+import { createApp } from '../../src/app.ts';
+import type { BookingContainer } from '../../src/booking/index.ts';
+import { createBookingServiceFromRepository } from '../../src/booking/service.ts';
+import type { Env } from '../../src/env.ts';
+import type { Db } from '../../src/lib/db.ts';
+import type { Logger } from '../../src/lib/logger.ts';
+import type { ClerkClaims } from '../../src/middleware/auth.ts';
+import type { AppointmentChangedEvent } from '../../src/ports.ts';
+import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
+import { NOW, seed, type Seed } from './fixtures.ts';
 
 export const silentLogger: Logger = { debug() {}, info() {}, warn() {}, error() {}, child: () => silentLogger };
 

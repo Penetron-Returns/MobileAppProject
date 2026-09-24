@@ -76,7 +76,7 @@ The app sends Clerk session tokens straight to Supabase. RLS reads the organisat
 Migration 7 schedules five jobs. Each one runs `select private.invoke_cron_job('<job>')`, which reads two Vault secrets **at run time**, then POSTs to `<api_base_url>/cron/<job>` with the header `x-cron-secret`. If either secret is missing, the job logs a warning and does nothing, so the secrets can be added after the migration.
 
 ```sql
-select vault.create_secret('https://<your-api>.vercel.app', 'api_base_url');
+select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/api', 'api_base_url');
 select vault.create_secret('<same value as CRON_SECRET in the backend env>', 'cron_secret');
 
 -- rotate:

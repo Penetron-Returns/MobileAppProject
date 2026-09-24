@@ -4,10 +4,10 @@
  * exclusion constraint on (staff_id, blocked), idempotent create, and the
  * status transitions. Ids are deterministic (counter based).
  */
-import type { UUID } from '../../../shared/api';
-import { mapDbError } from '../lib/errors';
-import { rangeBounds } from '../lib/time';
-import type { BookingRepository, BusyRow } from './repository';
+import type { UUID } from '../../../shared/api.ts';
+import { mapDbError } from '../lib/errors.ts';
+import { rangeBounds } from '../lib/time.ts';
+import type { BookingRepository, BusyRow } from './repository.ts';
 import {
   DEFAULT_BOOKING_RULES,
   type AppointmentRow,
@@ -23,7 +23,7 @@ import {
   type StaffServiceRow,
   type UserRow,
   type WebhookEventRow,
-} from './rows';
+} from './rows.ts';
 
 export interface MemoryTables {
   businesses: BusinessRow[];

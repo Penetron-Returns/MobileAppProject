@@ -1,8 +1,8 @@
-import { createBookingService } from './booking';
-import { getEnv, type Env } from './env';
-import { getDb, type Db } from './lib/db';
-import { createNotificationService } from './notifications';
-import type { BookingService, NotificationService } from './ports';
+import { createBookingService } from './booking/index.ts';
+import { getEnv, type Env } from './env.ts';
+import { getDb, type Db } from './lib/db.ts';
+import { createNotificationService } from './notifications/index.ts';
+import type { BookingService, NotificationService } from './ports.ts';
 
 /**
  * Composition root. Built once per warm function instance.

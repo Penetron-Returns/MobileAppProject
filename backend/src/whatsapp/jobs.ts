@@ -1,5 +1,5 @@
 // STUB — WS-C implements the WhatsApp/notification cron jobs.
-import type { Container } from '../container';
+import type { Container } from '../container.ts';
 
 type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
 

@@ -41,7 +41,7 @@ export function createRateLimiter({ limit, windowMs, maxKeys = 10_000 }: RateLim
   };
 }
 
-/** Client IP from the platform proxy headers (Vercel sets x-forwarded-for). */
+/** Client IP from the platform proxy headers (the Supabase Edge gateway sets x-forwarded-for). */
 export function clientIp(header: (name: string) => string | undefined): string {
   const forwarded = header('x-forwarded-for')?.split(',')[0]?.trim();
   return forwarded || header('x-real-ip')?.trim() || 'unknown';
