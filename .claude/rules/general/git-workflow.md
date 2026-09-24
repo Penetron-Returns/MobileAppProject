@@ -8,7 +8,7 @@ description: Branching, commits, pull requests and contract-change discipline (a
 
 ## Implementation
 
-1. Never push to `master`. Work on `<name>/<change>` branches and open a PR, approved by @xd-Park3rr or @JpegAndre.
+1. Never push to `master`. Work on `contributor-name/feature-name` branches in this repo (no forks) and open a PR, approved by @xd-Park3rr or @JpegAndre.
 2. Never force-push shared branches, rewrite others' history, or use `--no-verify`. The Bash hook blocks these.
 3. Never commit, amend or push unless the user asked for it in this conversation.
 4. Keep PRs focused on one feature or fix.
@@ -21,6 +21,7 @@ description: Branching, commits, pull requests and contract-change discipline (a
 
 ```bash
 # ✅ DO
+# contributor-name/feature-name
 git switch -c andre/client-notes && git push -u origin HEAD
 
 # ❌ DON'T
