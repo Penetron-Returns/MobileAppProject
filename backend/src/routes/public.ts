@@ -55,7 +55,7 @@ async function requireActiveService(repo: BookingRepository, businessId: UUID, s
 const staffFilter = (business: BusinessRow, staffId: UUID | null | undefined) =>
   bookingRules(business).allow_staff_selection ? (staffId ?? null) : null;
 
-export function createPublicRoutes(limiter: RateLimiter = createRateLimiter(PUBLIC_RATE_LIMIT)) {
+export function createPublicRoutes(limiter: RateLimiter) {
   const routes = new Hono<AppEnv>();
   routes.use('*', rateLimit(limiter));
   const repoOf = (c: Ctx) => getBookingRepository(c.get('container'));
@@ -190,4 +190,6 @@ export function createPublicRoutes(limiter: RateLimiter = createRateLimiter(PUBL
   return routes;
 }
 
-export const publicRoutes = createPublicRoutes();
+/** The mounted instance's limiter (exported so tests can reset it). */
+export const publicRateLimiter = createRateLimiter(PUBLIC_RATE_LIMIT);
+export const publicRoutes = createPublicRoutes(publicRateLimiter);
