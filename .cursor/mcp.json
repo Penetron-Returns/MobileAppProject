@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "metadev-tools": {
+      "url": "https://mcp.facebook.com/devtools"
+    },
+    "clerk": {
+      "url": "https://mcp.clerk.com/mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "stripe": {
+      "url": "https://mcp.stripe.com/"
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=${env:SUPABASE_PROJECT_REF}"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${env:SUPABASE_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
