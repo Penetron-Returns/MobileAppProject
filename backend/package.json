@@ -1,0 +1,31 @@
+{
+  "name": "booking-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic booking API + WhatsApp engine (Vercel functions, Hono)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@clerk/backend": "^3.19.0",
+    "@supabase/supabase-js": "^2.117.1",
+    "hono": "^4.13.9",
+    "libphonenumber-js": "^1.13.14",
+    "luxon": "^3.7.2",
+    "svix": "^2.5.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.5",
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
