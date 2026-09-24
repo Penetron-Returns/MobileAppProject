@@ -145,10 +145,28 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 ---
 
-## 6. Working agreements
+## 6. Behavioral guidelines
 
-- Rules in `.claude/rules/` always apply (SOLID principles, architecture, security, testing, workflow).
-  Stack-specific rules load when you touch those files.
-- Use the skills in `.claude/skills/` for UI/UX, React/RN, Expo, Supabase, Clerk, Stripe and WhatsApp work.
-- Never push to `master`. Use a branch and a PR, approved by @xd-Park3rr or @JpegAndre.
-- When unsure about a requirement, check `docs/BUILD_PLAN.md` first, then ask. Don't guess.
+1. **Think before coding.** State assumptions. If a requirement is ambiguous, check `docs/BUILD_PLAN.md`,
+   then ask. Don't pick an interpretation silently.
+2. **Read before you write.** Read the file's exports, its callers and nearby utilities before changing it.
+   Search for the existing pattern and follow it.
+3. **Source of truth.** Verify paths, table and column names, RPCs and routes against the code
+   (`shared/database.types.ts`, `shared/api.ts`), never from memory.
+4. **Checkpoint.** In multi-step work, summarise what's done, what's verified and what's left.
+5. **Fail loud.** "Done" means the checks in §5 passed. Report anything skipped or unverified.
+6. **Commits.** Never commit, push or open a PR unless asked. Never push to `master`
+   (PRs need approval from @xd-Park3rr or @JpegAndre).
+
+## 7. AI configuration
+
+| Path | Purpose |
+| --- | --- |
+| `.claude/rules/general/` | always-on: SOLID principles, architecture, security, testing, git workflow |
+| `.claude/rules/frontend/` · `backend/` · `infrastructure/` | load when matching files are touched |
+| `.claude/rules/ai-rules/` | conventions for rules, agents, skills and hooks |
+| `.claude/agents/` | `frontend`, `backend`, `frontend-reviewer`, `backend-reviewer` |
+| `.claude/skills/` | vetted third-party + project skills (`docs/skills.md`) |
+| `.claude/hooks/` + `settings.json` | block pushes to master, force-push, `--no-verify`, edits to merged migrations/generated types/.env |
+| `.mcp.json` | Meta dev tools, Clerk, shadcn, Stripe, Supabase (`docs/mcp.md`) |
+| `AGENTS.md` | mirror of this file for other AI tools (`node scripts/sync-ai-rules.mjs`) |
