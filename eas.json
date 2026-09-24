@@ -1,0 +1,42 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://dev-api.example.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dev-project.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_ME",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_ME"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://preview-api.example.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://preview-project.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_ME",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_ME"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.example.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://project.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_ME",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "REPLACE_ME"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

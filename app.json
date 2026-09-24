@@ -1,33 +1,20 @@
 {
   "expo": {
-    "name": "react-native-supabase-boilerplate-2025",
-    "slug": "react-native-supabase-boilerplate-2025",
+    "name": "Booking Admin",
+    "slug": "booking-admin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "bookingadmin",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.neighborhoodpicks.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff",
-        "intentFilters": [
-          {
-            "action": "VIEW",
-            "data": [
-              {
-                "scheme": "https",
-                "host": "localhost",
-                "pathPrefix": "/updatePassword/page"
-              }
-            ],
-            "category": ["BROWSABLE", "DEFAULT"]
-          }
-        ]
+        "backgroundColor": "#ffffff"
       },
       "package": "com.neighborhoodpicks.app"
     },
@@ -38,6 +25,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {
@@ -45,6 +33,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "@clerk/expo",
+        {
+          "appleSignIn": false
         }
       ]
     ],

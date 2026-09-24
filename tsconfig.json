@@ -3,17 +3,29 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@shared/*": [
+        "./shared/*"
+      ]
     }
   },
   "include": [
     "src/**/*",
-    ".eslintrc.js",
+    "shared/**/*",
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "eslint.config.js"
+    "eslint.config.js",
+    "jest.setup.ts",
+    "nativewind-env.d.ts"
   ],
-  "exclude": ["node_modules", "jest.config.js"]
+  "exclude": [
+    "node_modules",
+    "backend",
+    "supabase",
+    "jest.config.js"
+  ]
 }
