@@ -12,7 +12,7 @@ contract this implements and `docs/clerk-setup.md` for the Clerk dashboard side.
 | Router | `expo-router` | ~57.0.23 |
 | UI runtime | `react`, `react-dom` | 19.2.3 |
 | Native | `react-native` | 0.86.3 (New Architecture, default on SDK 57) |
-| Styling | `nativewind` | ^4.2.7 (Tailwind v3 syntax; see `tailwind.config.cjs`) |
+| Styling | `nativewind` | ^4.2.7 (Tailwind v3 syntax; see `apps/mobile/tailwind.config.cjs`) |
 | Animation | `react-native-reanimated` + `react-native-worklets` | ~4.5.1 / ~0.10.0 |
 | Auth | `@clerk/expo` | ^4.6.9 (Core 3) |
 | Server state | `@tanstack/react-query` | ^5 |
@@ -22,7 +22,7 @@ contract this implements and `docs/clerk-setup.md` for the Clerk dashboard side.
 `@clerk/clerk-expo` (Core 2) is **not** a dependency — this app only ever used `@clerk/expo`.
 `react-native-reanimated` v4 requires `react-native-worklets`; `babel-preset-expo` wires the
 `react-native-worklets/plugin` Babel plugin automatically once the package is installed (no manual
-`babel.config.cjs` entry needed — see its `plugins/expo.js`).
+`apps/mobile/babel.config.cjs` entry needed — see its `plugins/expo.js`).
 
 ## Dev builds (not Expo Go)
 
@@ -30,17 +30,18 @@ Clerk's native components (`AuthView`, `UserButton`, `UserProfileView`, used eve
 require a **development build**, not Expo Go and not a browser:
 
 ```bash
-npx expo prebuild --clean     # only needed after changing native config (app.json plugins)
+cd apps/mobile
+npx expo prebuild --clean     # only needed after changing native config (apps/mobile/app.json plugins)
 npx expo run:ios              # or: eas build --profile development --platform ios
 npx expo run:android          # or: eas build --profile development --platform android
 npx expo start --dev-client   # once a dev build is installed, this is the daily loop
 ```
 
 `npx expo start --web` runs the app in a normal browser — the `(auth)` screens have a `.web.tsx`
-sibling that renders Clerk's web components instead of the native ones (see `src/app/(auth)/`), so web
+sibling that renders Clerk's web components instead of the native ones (see `apps/mobile/src/app/(auth)/`), so web
 works without a dev client.
 
-EAS profiles (`eas.json`): `development` (dev client, internal distribution, `development` channel),
+EAS profiles (`apps/mobile/eas.json`): `development` (dev client, internal distribution, `development` channel),
 `preview` (internal distribution, `preview` channel), `production` (auto-incrementing build number,
 `production` channel). Each profile's `env` block needs real values — the committed file has
 placeholders.
@@ -48,7 +49,7 @@ placeholders.
 ## Folder conventions
 
 ```
-src/
+apps/mobile/src/
   app/                 Expo Router routes (thin — no business logic in a route file)
     _layout.tsx        ClerkProvider → QueryClientProvider → ThemeProvider → Slot/Toaster/PortalHost
     (auth)/            public: sign-in only (no sign-up — accounts are invited)
@@ -65,21 +66,21 @@ src/
   lib/                 supabase.ts, api.ts, query.ts, env.ts, theme.ts, i18n/, toast.ts, idempotency.ts
 ```
 
-`src/lib/api.ts` and `src/lib/supabase.ts` are the only two ways the app talks to the backend: reads go
+`apps/mobile/src/lib/api.ts` and `apps/mobile/src/lib/supabase.ts` are the only two ways the app talks to the backend: reads go
 through `supabase` (RLS-scoped, `accessToken` is Clerk's `getToken`), every write goes through `api`
 (bearer + a per-action `Idempotency-Key`, minted by `IdempotencyTracker` and reused on retry). Never
 call `fetch` or `supabase.rpc` for a write directly from a screen.
 
 ## Adding a react-native-reusables component
 
-`components.json` points the **shadcn CLI** and the **shadcn MCP server** (`docs/mcp.md`) at the
+`apps/mobile/components.json` points the **shadcn CLI** and the **shadcn MCP server** (`docs/mcp.md`) at the
 react-native-reusables registry:
 
 ```bash
 npx shadcn@latest add <component>       # e.g. `npx shadcn@latest add slider`
 ```
 
-or ask the shadcn MCP tool to add it. Either way it writes into `src/components/ui/`, matching this
+or ask the shadcn MCP tool to add it. Either way it writes into `apps/mobile/src/components/ui/`, matching this
 project's `style: "new-york"`, `baseColor: neutral`, alias map (`@/components`, `@/lib/utils`, …) — the
 same conventions the hand-written `ui/` components already follow (NativeWind `className` + `cn()`,
 `cva` variants, a `Platform.select({ web: ... })` split for web-only Tailwind states, and a `Portal` +
@@ -96,13 +97,13 @@ switch, tabs, text, textarea, toggle, toggle-group, tooltip.
 
 ## Tokens and theming
 
-`global.css` defines light/dark HSL channel variables (shadcn convention: `--primary`, `--background`,
+`apps/mobile/global.css` defines light/dark HSL channel variables (shadcn convention: `--primary`, `--background`,
 …) plus this project's own `--brand`, `--success`, `--warning`, `--whatsapp` (each with a `-soft` tint)
-and `--status-*` (confirmed/pending/completed/cancelled). `tailwind.config.cjs` maps them to Tailwind
-color tokens. `src/lib/theme.ts` mirrors the light/dark values as raw HSL strings for places that need a
+and `--status-*` (confirmed/pending/completed/cancelled). `apps/mobile/tailwind.config.cjs` maps them to Tailwind
+color tokens. `apps/mobile/src/lib/theme.ts` mirrors the light/dark values as raw HSL strings for places that need a
 JS color (the nav theme, `RefreshControl`, SVG strokes) and exports `NAV_THEME`, consumed by
-`src/components/ThemeProvider.tsx` (`expo-router`'s `ThemeProvider`, so headers/tab bars/status bar all
-match). `useAppColorScheme` (in `src/hooks/`) wraps NativeWind's `useColorScheme`, persists the explicit
+`apps/mobile/src/components/ThemeProvider.tsx` (`expo-router`'s `ThemeProvider`, so headers/tab bars/status bar all
+match). `useAppColorScheme` (in `apps/mobile/src/hooks/`) wraps NativeWind's `useColorScheme`, persists the explicit
 choice to `AsyncStorage`, and defaults to the system scheme otherwise. Brand colors: primary `#0B6A8F`,
 accent `#2E8FC4` (the `brand` token), page background `#F5F7FB`, white cards, 12–16px radius
 (`--radius: 0.875rem`).
@@ -128,7 +129,7 @@ when none is active yet, and renders `NoBusinessScreen` (with sign-out) when the
 ## Tooling
 
 - `npm run lint` / `npx tsc --noEmit` / `npm run test:no-watch` must stay green. All three (plus root
-  ESLint's `ignores` and root `tsconfig.json`'s `exclude`) deliberately skip `backend/` and `supabase/`
+  ESLint's `ignores` and root `tsconfig.json`'s `exclude`) deliberately skip `apps/backend/` and `supabase/`
   — those have their own toolchains (`docs/BUILD_PLAN.md` §2).
 - `npm run export:web` / `npm run export:android` (`expo export --platform …`) are the fastest way to
   catch a bundling regression without a full EAS build.

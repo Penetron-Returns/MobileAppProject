@@ -7,7 +7,7 @@ Source spec: *ITMDA3 Deliverable 3, Group S14*. This file pins the contracts tha
 | Tier | Tech | Role |
 | --- | --- | --- |
 | Client | Expo (React Native), Expo Router, NativeWind + react-native-reusables (shadcn for RN) | Owner/staff app. Reads through Supabase (RLS) and writes through the API |
-| API | Supabase Edge Functions (Deno, TypeScript, Hono): one function `api`, code in `backend/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
+| API | Supabase Edge Functions (Deno, TypeScript, Hono): one function `api`, code in `apps/backend/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
 | Data | Supabase Postgres + RLS + Realtime + Storage + pg_cron | Single source of truth |
 | Identity | Clerk (orgs = businesses, roles owner/staff) | JWTs trusted by Supabase (third-party auth) and verified by the API |
 | Channel | Meta WhatsApp Cloud API + WhatsApp Flows | Customer surface. Deterministic, with no AI and no free-text parsing |
@@ -24,28 +24,28 @@ Rules that are never broken:
 ## 2. Repository layout and ownership
 
 ```
-/                         Expo app (existing root)                     → WS-D
-  src/app/**              Expo Router routes
-  src/components/ui/**    react-native-reusables (shadcn) components
-  src/features/**         feature modules (calendar, clients, …)
-  src/lib/**              api client, supabase client, query client
-/shared                   TYPES ONLY (no runtime imports), used by app + backend
-  api.ts                  DTOs + request/response contracts          → me (scaffold); additive edits OK
-  database.types.ts       Supabase `Database` type                     → WS-A
-/supabase                 config.toml, migrations, seed, SQL tests     → WS-A
-/backend                  API source (runtime-agnostic Hono app, Node/Vitest for tests)
-/supabase/functions/api   Edge Function entry (Deno) serving backend/src/app.ts under /api
-  src/app.ts              route mounting                               → scaffold
-  src/env.ts, src/lib/**, src/middleware/**                            → scaffold
-  src/ports.ts            BookingService / NotificationService         → scaffold
-  src/booking/**          availability engine + booking service        → WS-B
-  src/routes/v1/**        admin REST (except whatsapp/conversations)   → WS-B
-  src/routes/public.ts    web-booking comparator API                   → WS-B
-  src/routes/clerk.ts     Clerk webhook                                → WS-B
-  src/whatsapp/**         Graph client, state machine, Flows, signup   → WS-C
-  src/notifications/**    confirmations, reminders, push               → WS-C
-  src/routes/whatsapp/**  webhook, flows endpoint, v1 whatsapp/inbox   → WS-C
-/docs                     this plan + per-workstream docs
+apps/mobile/                 Expo app (own package.json)                          → WS-D
+  src/app/**                 Expo Router routes
+  src/components/ui/**       react-native-reusables (shadcn) components
+  src/features/**            feature modules (calendar, clients, …)
+  src/lib/**                 api client, supabase client, query client
+apps/backend/                API source: runtime-agnostic Hono app (own package.json, Vitest)
+  src/app.ts                 route mounting                                       → scaffold
+  src/env.ts, src/lib/**, src/middleware/**                                       → scaffold
+  src/ports.ts               BookingService / NotificationService                 → scaffold
+  src/booking/**             availability engine + booking service                → WS-B
+  src/routes/v1/**           admin REST (except whatsapp/conversations)           → WS-B
+  src/routes/public.ts       web-booking comparator API                           → WS-B
+  src/routes/clerk.ts        Clerk webhook                                        → WS-B
+  src/whatsapp/**            Graph client, state machine, Flows, signup           → WS-C
+  src/notifications/**       confirmations, reminders, push                       → WS-C
+  src/routes/whatsapp/**     webhook, flows endpoint, v1 whatsapp/inbox           → WS-C
+packages/shared/             TYPES ONLY (no runtime imports), used by app + backend
+  api.ts                     DTOs + request/response contracts
+  database.types.ts          generated Supabase `Database` type                   → WS-A
+supabase/                    config.toml, migrations, seed, SQL tests (root: Supabase CLI convention) → WS-A
+  functions/api/             Edge Function entry (Deno) serving apps/backend/src/app.ts under /api
+docs/                        this plan + per-workstream docs
 ```
 
 Time conventions: the API speaks ISO-8601 with an offset for instants (`2026-09-30T09:00:00.000Z`) and `YYYY-MM-DD` for calendar dates **in the business timezone**. Weekday is `0 = Sunday … 6 = Saturday` (same as JS `getDay()` and Postgres `extract(dow)`). Money is integer cents in `businesses.currency` (default `ZAR`). Default timezone is `Africa/Johannesburg`.
@@ -130,7 +130,7 @@ All raise with SQLSTATE-coded errors that the API maps:
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
 `reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
 
-## 4. API contract (backend/, Hono on Supabase Edge Functions)
+## 4. API contract (apps/backend/, Hono on Supabase Edge Functions)
 
 Base URL: `https://<project-ref>.supabase.co/functions/v1/api` (the paths below are relative to it).
 
@@ -138,7 +138,7 @@ Envelope: success `{ "data": … }`. Error `{ "error": { "code", "message", "det
 Headers: `Authorization: Bearer <Clerk session JWT>` on `/v1/**`. `Idempotency-Key: <uuid>` is **required** on every mutating `/v1/**` and `/public/**` call. Every response carries `x-request-id`.
 Error codes: `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `INTERNAL 500`.
 
-DTO shapes live in `shared/api.ts`.
+DTO shapes live in `packages/shared/api.ts`.
 
 **WS-B, booking core**
 | Method | Path | Who | Notes |
@@ -210,7 +210,7 @@ States (the `conversations.state` check constraint must list exactly these):
 
 Screens from the mockups (§5 of the spec) plus architecture §6: Sign-in · Dashboard (monthly revenue sparkline, today's bookings by status, next appointment + Check-in, today's schedule) · Calendar (Day/Week/Month) · Booking detail (message / reschedule / cancel, status actions) · Add booking (existing/new client, service, date, time from live slots, staff/no preference, notes, WhatsApp confirmation toggle) · Clients (search, All/Recent/VIP filters, paging) · Client profile (message, call, book, contact, notes, history) · Settings (profile, dark mode, push toggle, Business details, Operating hours, Services, Staff management, WhatsApp integration) · Inbox (conversations + escalations, thread, reply, release) · Public web booking comparator `/book/[slug]` (web target, instrumented).
 
-Stack: NativeWind v4 + react-native-reusables components in `src/components/ui`, lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+Stack: NativeWind v4 + react-native-reusables components in `apps/mobile/src/components/ui`, lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `apps/mobile/src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 
 ## 7. Backend environment
 
@@ -218,7 +218,7 @@ Stack: NativeWind v4 + react-native-reusables components in `src/components/ui`,
 
 ## 8. Workstreams and sequencing
 
-1. **Scaffold** (done first): this plan, `shared/api.ts`, backend skeleton (Hono app, env, db client, errors, logger with PII redaction, request-id, Clerk auth, idempotency middleware, ports + stubs, route mount points, Vitest).
+1. **Scaffold** (done first): this plan, `packages/shared/api.ts`, backend skeleton (Hono app, env, db client, errors, logger with PII redaction, request-id, Clerk auth, idempotency middleware, ports + stubs, route mount points, Vitest).
 2. **In parallel:** WS-A (DB), WS-B (booking core API), WS-C (WhatsApp engine), WS-D (app). Each works in its own folders, writes tests, and commits on its own branch.
 3. **Integration:** merge, swap in the real `Database` types, reconcile RPC and column names, run typecheck, tests, SQL tests and lint, set up CI, update the README, open the PR.
 

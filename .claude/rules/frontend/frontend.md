@@ -1,5 +1,5 @@
 ---
-paths: src/**/*.ts,src/**/*.tsx,app.json,eas.json,babel.config.cjs,metro.config.cjs,tailwind.config.cjs,global.css
+paths: apps/mobile/src/**/*.ts,apps/mobile/src/**/*.tsx,apps/mobile/app.json,apps/mobile/eas.json,apps/mobile/babel.config.cjs,apps/mobile/metro.config.cjs,apps/mobile/tailwind.config.cjs,apps/mobile/global.css
 description: Core rules for the Expo / React Native app (structure, routing, state, platform)
 ---
 
@@ -10,18 +10,18 @@ Guidelines for the owner/staff Expo app: folder structure, routing, state owners
 ## Implementation
 
 1. Follow the folder structure:
-   - `src/app/`: Expo Router route files only. Thin: compose feature components, no data logic
-   - `src/features/<feature>/`: `hooks.ts` (queries/mutations), `components/`, pure logic (`*.ts`) with tests
-   - `src/components/ui/`: design-system primitives (react-native-reusables)
-   - `src/components/`: app-level composites (`Screen`, `Header`, `EmptyState` …)
-   - `src/lib/`: clients (`supabase`, `api`, `query`), `env`, formatters, `utils`
+   - `apps/mobile/src/app/`: Expo Router route files only. Thin: compose feature components, no data logic
+   - `apps/mobile/src/features/<feature>/`: `hooks.ts` (queries/mutations), `components/`, pure logic (`*.ts`) with tests
+   - `apps/mobile/src/components/ui/`: design-system primitives (react-native-reusables)
+   - `apps/mobile/src/components/`: app-level composites (`Screen`, `Header`, `EmptyState` …)
+   - `apps/mobile/src/lib/`: clients (`supabase`, `api`, `query`), `env`, formatters, `utils`
 2. Use default exports only in Expo Router route files. Use named exports everywhere else.
 3. Keep server state in TanStack Query only. Keep local UI state in components. Never mirror server data in React context or global stores.
 4. Put business-independent pure logic (calendar layout, slot grouping, formatting) in plain functions with unit tests, not inside components.
-5. Show times in the business timezone and money from integer cents via the shared formatters in `src/lib/`. Never format inline.
+5. Show times in the business timezone and money from integer cents via the shared formatters in `apps/mobile/src/lib/`. Never format inline.
 6. Handle loading, empty and error states on every screen (`LoadingState`, `EmptyState`, `ErrorState` with `request_id`), plus safe areas, keyboard avoidance and dark mode.
-7. Run on dev builds (`npx expo start --dev-client`). Clerk native components don't work in Expo Go. Add Expo-managed packages with `npx expo install`.
-8. Run `npm run lint && npx tsc --noEmit && npm run test:no-watch` before calling frontend work done.
+7. Run on dev builds (`cd apps/mobile && npx expo start --dev-client`). Clerk native components don't work in Expo Go. Add Expo-managed packages with `npx expo install`.
+8. Run `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch` before calling frontend work done.
 
 ## Examples
 

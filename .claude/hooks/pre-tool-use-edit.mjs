@@ -27,8 +27,8 @@ function existsOnMaster(file) {
   }
 }
 
-if (rel === 'shared/database.types.ts') {
-  block('shared/database.types.ts is generated. Change a migration and run scripts/db/gen-types.sh.');
+if (rel === 'packages/shared/database.types.ts') {
+  block('packages/shared/database.types.ts is generated. Change a migration and run scripts/db/gen-types.sh.');
 }
 if (/^supabase\/migrations\/[^/]+\.sql$/.test(rel) && existsOnMaster(rel)) {
   block(`${rel} is already merged. Migrations are append-only, so create a new migration file instead.`);

@@ -80,13 +80,13 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 
 | Layer | Technology | Notes |
 | --- | --- | --- |
-| Mobile/web app | Expo SDK 57 (dev builds), React 19, React Native 0.86 (New Architecture), Expo Router, TypeScript | `src/`. Exact versions in `package.json` |
-| UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `src/components/ui/`, tokens in `global.css` |
-| App data | TanStack Query, Supabase JS (reads + Realtime), `src/lib/api.ts` (writes) | |
+| Mobile/web app | Expo SDK 57 (dev builds), React 19, React Native 0.86 (New Architecture), Expo Router, TypeScript | `apps/mobile/src/`. Exact versions in `package.json` |
+| UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `apps/mobile/src/components/ui/`, tokens in `apps/mobile/global.css` |
+| App data | TanStack Query, Supabase JS (reads + Realtime), `apps/mobile/src/lib/api.ts` (writes) | |
 | Auth | Clerk (`@clerk/expo`), **prebuilt UI only**. Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
-| API | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon | source in `backend/`, entry in `supabase/functions/api/`, tests with Vitest + Deno smoke tests |
+| API | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon | source in `apps/backend/`, entry in `supabase/functions/api/`, tests with Vitest + Deno smoke tests |
 | Database | Supabase Postgres + RLS, Realtime, Storage, pg_cron + pg_net | `supabase/` migrations, seed, SQL tests |
-| Channel | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates | `backend/src/whatsapp/` |
+| Channel | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates | `apps/backend/src/whatsapp/` |
 | Payments | Stripe (planned) | server-side only |
 | Builds | EAS (development / preview / production channels), `supabase functions deploy api` | |
 | Tooling | ESLint, Prettier, Husky, Jest (app), Vitest (backend), GitHub Actions | |
@@ -121,15 +121,15 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 | Path | What |
 | --- | --- |
-| `src/app/` | Expo Router routes (thin) |
-| `src/features/<feature>/` | hooks, components, pure logic per feature |
-| `src/components/ui/`, `src/components/` | design-system primitives / app composites |
-| `src/lib/` | Supabase, API client, query client, env, formatters |
-| `backend/src/{routes,booking,whatsapp,notifications,middleware,lib}` | API layers |
-| `backend/src/ports.ts`, `container.ts` | module contracts, composition root |
-| `backend/whatsapp/` | Flow JSON, template definitions, key generation |
+| `apps/mobile/src/app/` | Expo Router routes (thin) |
+| `apps/mobile/src/features/<feature>/` | hooks, components, pure logic per feature |
+| `apps/mobile/src/components/ui/`, `apps/mobile/src/components/` | design-system primitives / app composites |
+| `apps/mobile/src/lib/` | Supabase, API client, query client, env, formatters |
+| `apps/backend/src/{routes,booking,whatsapp,notifications,middleware,lib}` | API layers |
+| `apps/backend/src/ports.ts`, `container.ts` | module contracts, composition root |
+| `apps/backend/whatsapp/` | Flow JSON, template definitions, key generation |
 | `supabase/{migrations,tests,seed.sql}` | schema, SQL tests, demo data |
-| `shared/` | types-only contracts (`api.ts`, generated `database.types.ts`) |
+| `packages/shared/` | types-only contracts (`api.ts`, generated `database.types.ts`) |
 | `docs/` | `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `clerk-setup`, `mcp`, `skills` |
 | `.claude/rules/`, `.claude/skills/`, `.mcp.json` | AI tooling: rules, skills, MCP servers |
 
@@ -139,12 +139,13 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 | Area | Check |
 | --- | --- |
-| App | `npm run lint && npx tsc --noEmit && npm run test:no-watch` |
-| Backend | `cd backend && npx tsc --noEmit && npx vitest run` |
+| App | `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch` |
+| Backend | `cd apps/backend && npx tsc --noEmit && npx vitest run` |
+| All (app + API + Edge) | `npm run check` from the repo root |
 | Database | `scripts/db/test.sh` (throwaway Postgres 16 → migrations → seed → SQL tests → types check) |
 | DB types | `scripts/db/gen-types.sh` after any migration change |
-| Edge | `cd backend && npm run check:edge && npm run test:edge` (Deno typecheck + smoke tests) |
-| Dev | `npx expo start --dev-client` (app) · `cd backend && npm run serve` (API, needs Supabase CLI + Docker) |
+| Edge | `cd apps/backend && npm run check:edge && npm run test:edge` (Deno typecheck + smoke tests) |
+| Dev | `cd apps/mobile && npx expo start --dev-client` (app) · `cd apps/backend && npm run serve` (API, needs Supabase CLI + Docker) |
 
 ---
 
@@ -155,7 +156,7 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 2. **Read before you write.** Read the file's exports, its callers and nearby utilities before changing it.
    Search for the existing pattern and follow it.
 3. **Source of truth.** Verify paths, table and column names, RPCs and routes against the code
-   (`shared/database.types.ts`, `shared/api.ts`), never from memory.
+   (`packages/shared/database.types.ts`, `packages/shared/api.ts`), never from memory.
 4. **Checkpoint.** In multi-step work, summarise what's done, what's verified and what's left.
 5. **Fail loud.** "Done" means the checks in §5 passed. Report anything skipped or unverified.
 6. **Commits.** Never commit, push or open a PR unless asked. Never push to `master`
@@ -166,7 +167,7 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 | Path | Purpose |
 | --- | --- |
 | `.claude/rules/general/` | always-on: SOLID principles, architecture, security, testing, git workflow |
-| `.claude/rules/frontend/` · `backend/` · `infrastructure/` | load when matching files are touched |
+| `.claude/rules/frontend/` · `apps/backend/` · `infrastructure/` | load when matching files are touched |
 | `.claude/rules/ai-rules/` | conventions for rules, agents, skills and hooks |
 | `.claude/agents/` | `frontend`, `backend`, `frontend-reviewer`, `backend-reviewer` |
 | `.claude/skills/` | vetted third-party + project skills (`docs/skills.md`) |

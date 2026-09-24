@@ -1,5 +1,5 @@
 ---
-paths: src/app/**/_layout.tsx,src/app/(auth)/**,src/lib/supabase.ts,src/lib/api.ts,src/lib/clerk*.ts
+paths: apps/mobile/src/app/**/_layout.tsx,apps/mobile/src/app/(auth)/**,apps/mobile/src/lib/supabase.ts,apps/mobile/src/lib/api.ts,apps/mobile/src/lib/clerk*.ts
 description: Rules for Clerk authentication using Clerk's prebuilt UI only, organisations and tokens
 ---
 

@@ -16,7 +16,7 @@ No secrets are committed. Remote servers authenticate with OAuth in the client. 
 | --- | --- | --- | --- |
 | `metadev-tools` | HTTP `https://mcp.facebook.com/devtools` | Meta Developer Tools: app review status, compliance, webhook config of our Meta app (WhatsApp Cloud API) | OAuth with your Meta developer account |
 | `clerk` | HTTP `https://mcp.clerk.com/mcp` | Up-to-date Clerk SDK snippets and patterns (Expo + backend) | None/OAuth per Clerk docs |
-| `shadcn` | stdio `npx shadcn@latest mcp` | Browse and install UI components. It reads `components.json`, which points at the react-native-reusables registry | None |
+| `shadcn` | stdio `npx shadcn@latest mcp` | Browse and install UI components. It reads `apps/mobile/components.json`, which points at the react-native-reusables registry | None |
 | `stripe` | HTTP `https://mcp.stripe.com/` | Payments work (not built yet). Customers, products, payment links in **test mode** | OAuth (pick the test-mode account) |
 | `supabase` *(optional)* | stdio `@supabase/mcp-server-supabase --read-only` | Inspect the schema, run read-only SQL, read logs | `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` |
 

@@ -1,5 +1,5 @@
 ---
-paths: backend/src/routes/cron.ts,backend/src/**/jobs.ts,supabase/migrations/*cron*.sql
+paths: apps/backend/src/routes/cron.ts,apps/backend/src/**/jobs.ts,supabase/migrations/*cron*.sql
 description: Rules for scheduled jobs triggered by pg_cron via pg_net
 ---
 
@@ -9,7 +9,7 @@ Scheduled work (reminders, conversation expiry, WABA health, token refresh, clea
 
 ## Implementation
 
-1. Register a job in `CRON_JOBS` in [cron.ts](/backend/src/routes/cron.ts) as `(container, now?) => Promise<Record<string, number>>` and return counts.
+1. Register a job in `CRON_JOBS` in [cron.ts](/apps/backend/src/routes/cron.ts) as `(container, now?) => Promise<Record<string, number>>` and return counts.
 2. Make jobs idempotent and safe to overlap. Claim work atomically in SQL (e.g. `claim_due_reminders`) before side effects.
 3. Bound each run (`limit`) so it finishes well within the function timeout.
 4. Inject `now` so jobs are testable, and test the claim/sent/failed transitions.

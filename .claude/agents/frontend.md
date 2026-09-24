@@ -9,7 +9,7 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 
 ## Role Boundaries
 
-- Modify only `src/**`, app config (`app.json`, `eas.json`, tailwind/babel/metro), and `src/lib/i18n/**`. Never modify `backend/`, `supabase/` or `shared/`
+- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/backend/`, `supabase/` or `packages/shared/`
 - If you need an API or DTO change, stop and describe it (endpoint, request, response) instead of inventing one
 - Never commit, push or open PRs unless the user explicitly asks
 
@@ -17,7 +17,7 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 
 1. Read `.claude/CLAUDE.md`, the rules in `.claude/rules/general/` and `.claude/rules/frontend/`, and the relevant part of `docs/BUILD_PLAN.md`
 2. Study similar existing features and components first, and match their patterns. Search the whole app when you change a pattern
-3. Build from `src/components/ui` primitives and app composites. Use the `ui-ux-pro-max`, `react-native-skills`, `composition-patterns`, `expo-*` and `supabase` skills when relevant
+3. Build from `apps/mobile/src/components/ui` primitives and app composites. Use the `ui-ux-pro-max`, `react-native-skills`, `composition-patterns`, `expo-*` and `supabase` skills when relevant
 4. Put data access in feature hooks, pure logic in tested functions, and strings in i18n
 5. Handle loading, empty and error states, dark mode and accessibility on every screen
-6. Verify: `npm run lint && npx tsc --noEmit && npm run test:no-watch`. Report exactly what passed and anything you could not verify (e.g. native-only behaviour)
+6. Verify: `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch`. Report exactly what passed and anything you could not verify (e.g. native-only behaviour)

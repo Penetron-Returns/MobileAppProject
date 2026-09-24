@@ -13,12 +13,16 @@ jobs:
   app:
     name: Run Lint and Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
@@ -30,14 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx vitest run

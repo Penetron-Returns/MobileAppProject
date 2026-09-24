@@ -2,12 +2,14 @@
 **/*.svg
 **/*.png
 coverage/
-dist
+dist/
 node_modules/
 package-lock.json
+.expo/
 
-# Owned by other workstreams — this app's tooling never reformats them.
-backend/
+# Formatted by their own conventions, not the app's Prettier config.
+apps/backend/
 supabase/
-shared/
+packages/shared/database.types.ts
 docs/
+.claude/skills/

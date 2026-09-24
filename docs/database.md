@@ -14,9 +14,9 @@ Supabase Postgres schema for the booking platform: the tables, RLS, RPCs, realti
 | `supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
 | `supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
 | `supabase/config.toml` | local CLI config with Clerk third-party auth |
-| `shared/database.types.ts` | generated `Database` type |
+| `packages/shared/database.types.ts` | generated `Database` type |
 | `scripts/db/test.sh` | runs everything against a throwaway Postgres |
-| `scripts/db/gen-types.sh` | regenerates `shared/database.types.ts` |
+| `scripts/db/gen-types.sh` | regenerates `packages/shared/database.types.ts` |
 
 ## Running the tests locally
 
@@ -32,12 +32,12 @@ The script:
 2. Applies `scripts/db/supabase-shim.sql`. The shim stands in for what Supabase provides: the roles, `auth.jwt()`, the `supabase_realtime` publication, a minimal `storage` schema, an empty `vault` schema, and Supabase's default grants, which the migrations must revoke.
 3. Applies every migration in order, then applies them all a second time to check they are idempotent, then applies `seed.sql` and every `supabase/tests/*.sql`.
 4. Races 12 concurrent sessions for one slot. Exactly one must win and the rest must get `23P01`. It then races 12 sessions with the same idempotency key, and all must get back the same row.
-5. Regenerates the types and fails if `shared/database.types.ts` is stale.
+5. Regenerates the types and fails if `packages/shared/database.types.ts` is stale.
 6. Tears the cluster down. It exits non-zero on the first failure.
 
 Override the binaries with `PG_BIN=/path/to/bin` and the port with `PG_PORT`.
 
-After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `shared/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `shared/` is types-only.
+After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `packages/shared/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `packages/shared/` is types-only.
 
 ## Applying migrations to Supabase
 
@@ -69,7 +69,7 @@ The app sends Clerk session tokens straight to Supabase. RLS reads the organisat
 2. **Supabase dashboard:** open *Authentication → Sign In / Providers → Third-Party Auth → Add provider → Clerk* and paste the domain.
 3. **Local:** `export CLERK_DOMAIN=your-app.clerk.accounts.dev` before `supabase start`. `supabase/config.toml` reads it from `[auth.third_party.clerk]`.
 4. **App:** create the Supabase client with `accessToken: async () => (await clerk.session?.getToken()) ?? null`. The user must have an **active organisation** in the session. Otherwise the token has no org claim and every query returns zero rows.
-5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `backend/src/middleware/auth.ts`).
+5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `apps/backend/src/middleware/auth.ts`).
 
 ## Vault secrets for cron
 

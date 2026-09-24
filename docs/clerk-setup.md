@@ -1,10 +1,10 @@
 # Clerk setup (WS-D)
 
-Dashboard checklist for the Clerk instance this app and `backend/` share. There are no custom auth
+Dashboard checklist for the Clerk instance this app and `apps/backend/` share. There are no custom auth
 forms anywhere in the app — every screen uses Clerk's prebuilt UI (`@clerk/expo/native` on iOS/Android,
 `@clerk/expo/web` on web). This file is the "do this in the Clerk Dashboard" companion to that code;
-the code itself is `src/app/(auth)/`, `src/app/(app)/_layout.tsx`, `src/lib/clerk-token-cache.ts` and
-`src/lib/auth-token.ts`.
+the code itself is `apps/mobile/src/app/(auth)/`, `apps/mobile/src/app/(app)/_layout.tsx`, `apps/mobile/src/lib/clerk-token-cache.ts` and
+`apps/mobile/src/lib/auth-token.ts`.
 
 ## 1. Organizations
 
@@ -41,19 +41,19 @@ Two integrations, both required, per `docs/database.md`:
 
 1. **Supabase side** — Dashboard (supabase.com) → your project → **Authentication → Third-party auth**
    → add **Clerk** as a provider. Supabase then trusts Clerk-issued JWTs directly (no shared secret,
-   no Supabase JWT template) via `accessToken()` on the client (see `src/lib/supabase.ts`).
+   no Supabase JWT template) via `accessToken()` on the client (see `apps/mobile/src/lib/supabase.ts`).
 2. **Clerk side** — Clerk Dashboard → **Integrations** → enable the **Supabase** integration. This is
    what makes Clerk issue tokens Supabase's third-party auth accepts.
 
 The mobile app never talks to Supabase Auth — `createClient<Database>(url, anon, { accessToken })`
-in `src/lib/supabase.ts` calls Clerk's `getToken()` (wired up by `AuthTokenBridge`) on every request.
+in `apps/mobile/src/lib/supabase.ts` calls Clerk's `getToken()` (wired up by `AuthTokenBridge`) on every request.
 Every table's only RLS policy for `authenticated` is a read (`SELECT ... business_id = private.current_business_id()`) —
-all writes go through `backend/` with the service-role key.
+all writes go through `apps/backend/` with the service-role key.
 
 ## 5. Webhook
 
 Dashboard → **Webhooks** → add an endpoint at `<API_BASE_URL>/webhooks/clerk` (see
-`backend/src/routes/clerk.ts`), subscribed to:
+`apps/backend/src/routes/clerk.ts`), subscribed to:
 
 - `organization.created`, `organization.updated`, `organization.deleted`
 - `user.created`, `user.updated`, `user.deleted`
@@ -65,7 +65,7 @@ with `svix`, see `docs/BUILD_PLAN.md` §7).
 ## 6. Backend JWT verification
 
 `CLERK_JWT_KEY` (backend env) is the instance's PEM public key — Dashboard → **API keys** → **Show JWT
-public key** — so `backend/` can verify session tokens networklessly (`@clerk/backend`'s
+public key** — so `apps/backend/` can verify session tokens networklessly (`@clerk/backend`'s
 `verifyToken`). `CLERK_SECRET_KEY` and `CLERK_AUTHORIZED_PARTIES` (the app's native scheme(s) and web
 origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 
@@ -74,14 +74,14 @@ origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 Dashboard → **Native applications** (`https://dashboard.clerk.com/~/native-applications`) → enable the
 Native API, then register the app:
 
-- **Android**: package name `com.neighborhoodpicks.app` (from `app.json` → `expo.android.package`).
-- **iOS**: bundle identifier `com.neighborhoodpicks.app` (from `app.json` → `expo.ios.bundleIdentifier`).
+- **Android**: package name `com.neighborhoodpicks.app` (from `apps/mobile/app.json` → `expo.android.package`).
+- **iOS**: bundle identifier `com.neighborhoodpicks.app` (from `apps/mobile/app.json` → `expo.ios.bundleIdentifier`).
   There is no separate iOS product yet, so it deliberately reuses the Android package name in
   reverse-DNS form rather than inventing an unrelated one — change both together if that ever needs to
   differ. Clerk's native SDK needs *some* bundle identifier registered even though both platforms ship
   from one Expo project.
 
-The `@clerk/expo` config plugin (`app.json` → `expo.plugins`) sets the iOS deployment target (17.0) and
+The `@clerk/expo` config plugin (`apps/mobile/app.json` → `expo.plugins`) sets the iOS deployment target (17.0) and
 Android packaging/Kotlin options the native SDKs need; run `npx expo prebuild --clean` (or an EAS build)
 after any change to it, and see `docs/mobile-app.md` for why a **development build** is required —
 `AuthView`/`UserButton`/`UserProfileView` do not run in Expo Go.
@@ -98,10 +98,10 @@ Frontend API's CORS checks both key off this list.
 | Variable | Where | Source |
 | --- | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | app (`.env.local`, EAS `env`) | Dashboard → API keys → Publishable key |
-| `CLERK_SECRET_KEY` | `backend/` | Dashboard → API keys → Secret key |
-| `CLERK_JWT_KEY` | `backend/` | Dashboard → API keys → Show JWT public key (PEM) |
-| `CLERK_AUTHORIZED_PARTIES` | `backend/` | the app's scheme(s) (`bookingadmin://`) and web origin(s), comma-separated |
-| `CLERK_WEBHOOK_SECRET` | `backend/` | the webhook endpoint's signing secret (step 5) |
+| `CLERK_SECRET_KEY` | `apps/backend/` | Dashboard → API keys → Secret key |
+| `CLERK_JWT_KEY` | `apps/backend/` | Dashboard → API keys → Show JWT public key (PEM) |
+| `CLERK_AUTHORIZED_PARTIES` | `apps/backend/` | the app's scheme(s) (`bookingadmin://`) and web origin(s), comma-separated |
+| `CLERK_WEBHOOK_SECRET` | `apps/backend/` | the webhook endpoint's signing secret (step 5) |
 
 ## Sources
 

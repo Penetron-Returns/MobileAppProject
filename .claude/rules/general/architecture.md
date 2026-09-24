@@ -12,7 +12,7 @@ These boundaries hold the system together. Breaking one requires a [BUILD_PLAN.m
 2. Treat Postgres as the single source of truth. Compute availability live and never cache it. The exclusion constraint prevents double booking, so never replace it with an application-level check.
 3. Keep backend layering one-directional: `routes/*` → services (`booking/`, `whatsapp/`, `notifications/`) → repositories → `db`. Services never import Hono.
 4. Cross modules only through ports. WhatsApp code books via `BookingService` and never writes `appointments` directly.
-5. Keep `shared/` types-only: no runtime imports. Change it additively and update both sides together.
+5. Keep `packages/shared/` types-only: no runtime imports. Change it additively and update both sides together.
 6. Keep the WhatsApp engine deterministic: no AI, no free-text interpretation. Unexpected input gets a fixed re-prompt or escalation.
 7. Make every mutation idempotent (an `Idempotency-Key` on API calls, deterministic keys for WhatsApp and web bookings) and audited (`appointment_events`, `audit_log`).
 8. Scope every service-role query by `business_id`. RLS is the last line of defence, not the first.

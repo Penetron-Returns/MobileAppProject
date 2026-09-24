@@ -1,11 +1,11 @@
 ---
-paths: backend/src/ports.ts,backend/src/container.ts,backend/src/booking/**/*.ts,backend/src/notifications/**/*.ts
+paths: apps/backend/src/ports.ts,apps/backend/src/container.ts,apps/backend/src/booking/**/*.ts,apps/backend/src/notifications/**/*.ts
 description: Rules for domain services, ports between modules and the composition root
 ---
 
 # Services And Ports
 
-Services own the business rules. Modules talk to each other only through the ports in [ports.ts](/backend/src/ports.ts), and implementations are wired in [container.ts](/backend/src/container.ts).
+Services own the business rules. Modules talk to each other only through the ports in [ports.ts](/apps/backend/src/ports.ts), and implementations are wired in [container.ts](/apps/backend/src/container.ts).
 
 ## Implementation
 

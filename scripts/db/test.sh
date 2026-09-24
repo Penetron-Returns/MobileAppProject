@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the database test-suite against a throwaway PostgreSQL cluster:
 #   shim → migrations (in order) → seed.sql → supabase/tests/*.sql
-# then checks that shared/database.types.ts matches the migrated schema.
+# then checks that packages/shared/database.types.ts matches the migrated schema.
 # Exits non-zero on the first failure; the cluster is always torn down.
 #
 # Usage: scripts/db/test.sh            (from anywhere)
@@ -64,12 +64,12 @@ passed=$((passed + 2))
 
 if [[ "${SKIP_TYPES_CHECK:-0}" != "1" ]]; then
   if command -v node >/dev/null 2>&1; then
-    echo "== checking shared/database.types.ts is up to date"
+    echo "== checking packages/shared/database.types.ts is up to date"
     tmp="$(mktemp)"
     db_psql -At -f "$DB_SCRIPTS_DIR/introspect.sql" | node "$DB_SCRIPTS_DIR/gen-types.mjs" >"$tmp"
-    if ! diff -u "$DB_REPO_ROOT/shared/database.types.ts" "$tmp" >"$tmp.diff"; then
+    if ! diff -u "$DB_REPO_ROOT/packages/shared/database.types.ts" "$tmp" >"$tmp.diff"; then
       head -60 "$tmp.diff"
-      echo "shared/database.types.ts is stale: run scripts/db/gen-types.sh"
+      echo "packages/shared/database.types.ts is stale: run scripts/db/gen-types.sh"
       rm -f "$tmp" "$tmp.diff"
       exit 1
     fi
