@@ -8,8 +8,17 @@ import prettierPlugin from 'eslint-plugin-prettier';
 
 export default [
   {
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'backend/**',
+      'supabase/**',
+      '.expo/**',
+    ],
+  },
+  {
     files: ['**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx'],
-    ignores: ['node_modules/', 'dist/'],
+    ignores: ['node_modules/', 'dist/', 'backend/**', 'supabase/**'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {

@@ -5,3 +5,9 @@ coverage/
 dist
 node_modules/
 package-lock.json
+
+# Owned by other workstreams — this app's tooling never reformats them.
+backend/
+supabase/
+shared/
+docs/
