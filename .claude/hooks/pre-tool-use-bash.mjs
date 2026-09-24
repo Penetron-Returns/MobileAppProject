@@ -30,7 +30,7 @@ const checks = [
   },
   {
     test: () => /\bgit\s+push\s*($|[;&|])/.test(cmd) && ['master', 'main'].includes(currentBranch()),
-    reason: 'You are on master. Create a branch (`git switch -c <name>/<change>`) and push that instead.',
+    reason: 'You are on master. Create a branch (`git switch -c <contributor-name>/<feature-name>`) and push that instead.',
   },
   {
     test: () => /\bgit\s+push\b[^;&|]*\s(--force(?!-with-lease)|-f)(\s|$)/.test(cmd),

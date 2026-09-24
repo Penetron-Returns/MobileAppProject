@@ -230,8 +230,12 @@ The project uses GitHub Actions for:
 
 ## 🤝 **How to Contribute**
 
-1. Fork the project.
-2. Create a new branch: `git checkout -b feature/your-feature-name`.
-3. Make your changes and commit them: `git commit -m 'Add some feature'`.
-4. Push to the branch: `git push origin feature/your-feature-name`.
-5. Submit a pull request.
+We work in branches on this repository. **Don't fork.** `master` only changes through reviewed pull requests.
+
+1. Update master: `git switch master && git pull`.
+2. Create a branch named `contributor-name/feature-name`: `git switch -c charl/login-page`.
+3. Make your changes, run the checks, and commit: `git commit -m "Add login page"`.
+4. Push the branch: `git push -u origin HEAD`.
+5. Open a pull request into `master`. It needs CI to pass and approval from @xd-Park3rr or @JpegAndre.
+
+Never push to `master` directly. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
