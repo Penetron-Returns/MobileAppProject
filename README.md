@@ -1,237 +1,179 @@
-# 🚀 **React Native Supabase Boilerplate 2025**
+# Booking Admin: WhatsApp-first booking for small businesses
 
-## Overview
+Customers book, reschedule and cancel appointments **inside WhatsApp** through structured menus, lists and forms. There's no app to install, no account and no AI guessing. Owners and staff run the business from an **Expo mobile app**: calendar, clients, services, staff hours and a WhatsApp inbox.
 
-A **React Native 0.76+** starter kit with **Expo**, **TypeScript**, and **Supabase Authentication**, designed to speed up the creation of new projects. This template comes with **ESLint**, **Prettier**, **Jest**, and **GitHub Actions**, ensuring code quality and best practices.
-
----
-
-## 🛠️ **Technologies**
-
-<p align="center">
-  <img alt="React Native" src="https://img.shields.io/badge/React_Native-61DAFB?style=for-the-badge&logo=react&logoColor=white"/>
-  <img alt="Expo" src="https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white"/>
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white"/>
-  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white"/>
-  <img alt="Jest" src="https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white"/>
-</p>
+Built by ITMDA3 group S14. The system also answers the project's research question: does a structured WhatsApp booking flow beat conventional web booking on completion time, task success and usability? A web booking page on the same engine is the comparator, and both channels record step counts and timings.
 
 ---
 
-## 📖 **Table of Contents**
+## Contents
 
-- [🚀 **React Native Supabase Boilerplate 2025**](#-react-native-supabase-boilerplate-2025)
-  - [Overview](#overview)
-  - [🛠️ **Technologies**](#️-technologies)
-  - [📖 **Table of Contents**](#-table-of-contents)
-  - [🚀 **Project Setup**](#-project-setup)
-    - [Prerequisites](#prerequisites)
-  - [▶️ **Running the Application**](#️-running-the-application)
-  - [🧪 **Running Tests**](#-running-tests)
-  - [📂 **Project Structure**](#-project-structure)
-  - [🌐 **Routes Explanation**](#-routes-explanation)
-  - [⚙️ **GitHub Actions**](#️-github-actions)
-  - [🔮 **Future Improvements**](#-future-improvements)
-  - [👤 **Author**](#-author)
-  - [📜 **License**](#-license)
-  - [🤝 **How to Contribute**](#-how-to-contribute)
+- [How it works](#how-it-works)
+- [Tech stack](#tech-stack)
+- [Repository layout](#repository-layout)
+- [Getting started](#getting-started)
+- [Running the checks](#running-the-checks)
+- [Deploying](#deploying)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
 
 ---
 
-## 🚀 **Project Setup**
+## How it works
+
+```
+Customer ──WhatsApp──▶ Meta Cloud API ──signed webhook──▶ Edge Function "api" (Hono)
+                                                           │  deterministic conversation engine
+Owner/staff ──Expo app──▶ Clerk (sign-in, orgs) ────────▶  │  booking service → database functions
+      │                                                     ▼
+      └──── reads + Realtime (row-level security) ─▶ Supabase Postgres (single source of truth)
+Web comparator /book/[slug] ──▶ api /public/** ─────────────┘
+pg_cron ──▶ api /cron/* (reminders, conversation expiry, number health, token refresh, cleanup)
+```
+
+- **Deterministic:** every WhatsApp input maps to a defined state and transition. Free text is never interpreted, and 3 invalid replies hand the chat to staff.
+- **No double bookings:** a Postgres exclusion constraint on staff and time makes overlapping bookings impossible, whichever channel they come from.
+- **Safe to retry:** every write carries an idempotency key, and webhook deliveries are de-duplicated.
+- **Private by default:** businesses are isolated with row-level security, customer data never goes to logs, and Meta tokens are encrypted at rest.
+- **The app reads, the API writes:** the app reads through Supabase and changes data only through the API, so booking rules live in one place.
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Mobile app | Expo SDK 57 (dev builds) · React 19 · React Native 0.86 · Expo Router · TypeScript |
+| UI | NativeWind · react-native-reusables (shadcn for React Native) · lucide icons |
+| App data | TanStack Query · Supabase JS (reads + Realtime) |
+| Auth | Clerk, prebuilt UI only. Organisations are businesses, with owner and staff roles |
+| API | Hono on Supabase Edge Functions (Deno) · zod · luxon |
+| Database | Supabase Postgres · row-level security · Realtime · Storage · pg_cron |
+| Customer channel | Meta WhatsApp Cloud API · WhatsApp Flows · message templates |
+| Payments | Stripe (planned) |
+| Tooling | ESLint · Prettier · Husky · Jest (app) · Vitest + Deno (API) · GitHub Actions |
+
+Exact app versions are in `package.json` and [docs/mobile-app.md](docs/mobile-app.md).
+
+## Repository layout
+
+```
+apps/
+  mobile/                 Expo app (own package.json, Jest)
+    src/app/              routes (Expo Router)
+    src/features/         hooks, components and logic per feature
+    src/components/ui/    design-system primitives (react-native-reusables)
+    src/lib/              Supabase + API clients, env, formatters
+  backend/                API source (Hono, own package.json, Vitest)
+    src/booking/          availability engine + booking service
+    src/whatsapp/         Graph API client, conversation engine, Flows, onboarding
+    src/notifications/    confirmations, reminders, push
+    src/routes/           /v1 (app), /public (web comparator), webhooks, cron
+    whatsapp/             Flow JSON, message templates, Flows key generator
+packages/
+  shared/                 types shared by app and API (api.ts, generated database.types.ts)
+supabase/                 stays at the root, where the Supabase CLI expects it
+  functions/api/          Edge Function entry (serves apps/backend/src under /api)
+  migrations/ tests/      schema, row-level security, database functions, SQL tests
+  seed.sql                demo business "Ashgrove Hair & Beauty"
+docs/                     build plan and design notes
+scripts/                  database test harness, AI-config sync
+.claude/                  AI rules, agents, skills, hooks (see .claude/CLAUDE.md)
+```
+
+## Getting started
 
 ### Prerequisites
 
-- **Node.js >= 22**
-- **npm >= 10**
-- **Expo CLI** (`npm install -g expo-cli`)
+- **Node.js 22+** and npm 10+
+- **Supabase CLI** and **Docker** (to run the database and API locally)
+- **PostgreSQL 15+ binaries** (only for `scripts/db/test.sh`)
+- A **Clerk** application with Organizations enabled, and access to the team's **Meta** app with a WhatsApp test number
+- **EAS CLI** (`npm i -g eas-cli`) for development builds. Clerk's native sign-in doesn't run in Expo Go
 
-## ▶️ **Running the Application**
-
-1. Clone this repository:
-
-   ```bash
-   git clone https://github.com/yourusername/react-native-supabase-boilerplate-2025.git
-   cd react-native-supabase-boilerplate-2025
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Setup your Supabase environment:
-
-   - Create a project on [Supabase](https://supabase.io/).
-   - At Supabase, create 'users' table and add the following columns:
-     - id (uuid)
-     - creeated_at (timestampz)
-     - name (text)
-     - last_name (text)
-     - profile_picture (text)
-     - email (text)
-     - updated_at (timestampz)
-   - Add a foreign key on users table:
-     - Schema: auth
-     - table to reference: users
-     - public.users "id" => auth.users "id"
-   - At "Authentication">Polices create a new policy:
-
-     - Name: allow all access for auth users
-     - Table: public.users
-     - Policy Command: Select "ALL" option
-     - Target Roles: auth.authenticated
-     - Script:
-
-       ```sql
-         alter policy "allow all access for auth users"
-         on "public"."users"
-         to authenticated
-         using (true);
-       ```
-
-   - At "SQL Editor" add and run a new script to create a function and trigger:
-
-     ```sql
-       -- inserts a row into public.users
-       create function public.handle_new_user()
-       returns trigger
-       language plpgsql
-       security definer set search_path = public
-       as $$
-       begin
-         insert into public.users (id, name, last_name, email, updated_at)
-         values (
-           new.id,
-           coalesce(new.raw_user_meta_data ->> 'first_name', ''),
-           coalesce(new.raw_user_meta_data ->> 'last_name', ''),
-           -- coalesce(new.raw_user_meta_data ->> 'profilePicture', ''),
-           new.email,
-           now()
-         );
-         return new;
-       end;
-       $$;
-
-       -- trigger the function every time a user is created
-       create trigger createAuthUser
-         after insert on auth.users
-         for each row execute procedure public.handle_new_user();
-
-      -- insert test.
-      -- insert into auth.users (id, email, raw_user_meta_data)
-      -- values (
-      --  gen_random_uuid(),
-      --  'jane.doe2@example.com',
-      --  '{"name": "Jane", "last_name": "Doe"}'
-      -- ); -->
-
-      -- DELETE FROM auth.users
-      -- WHERE id = 'ADD USER ID';
-      -- end test
-     ```
-
-   - Add your environment variables ('supabaseUrl', 'supabaseAnonKey') to `src\constants\supabase\index.ts`.
-
-4. Run the development server:
-
-   ```bash
-   npx expo start
-   ```
-
----
-
-## 🧪 **Running Tests**
-
-Run all tests:
+### 1. Install
 
 ```bash
-npm run test
+git clone https://github.com/Penetron-Returns/MobileAppProject.git
+cd MobileAppProject
+npm run setup            # root git tooling + apps/mobile + apps/backend dependencies
 ```
 
-Run all tests with noWatch:
+### 2. Database
 
 ```bash
-npm run test:no-watch
+supabase start                    # local Postgres, Auth, Realtime, Storage
+supabase db reset                 # applies supabase/migrations and seed.sql
 ```
 
-Run tests with coverage:
+Set up Clerk as a third-party auth provider in Supabase. See [docs/database.md](docs/database.md) and [docs/clerk-setup.md](docs/clerk-setup.md).
+
+### 3. API (Edge Function)
 
 ```bash
-npm run test:coverage
+cp apps/backend/.env.example apps/backend/.env   # fill in Clerk, Meta and secret values
+npm --prefix apps/backend run serve    # supabase functions serve api
 ```
 
----
+The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp Flows key pair with `node apps/backend/whatsapp/generate-flow-keys.mjs`. [docs/whatsapp.md](docs/whatsapp.md) covers webhooks, Flows and connecting a number.
 
-## 📂 **Project Structure**
+### 4. App
 
 ```bash
-📦react-native-boilerplate-supabase-2025
-  ├──.github/                # GitHub configurations
-  │    └── workflows         # CI/CD workflows
-  ├──.husky/                 # husky configurations. pre-commit and  pre-push hooks
-  ├──.vscode/                # VS Code configurations
-  └──src/                    # Source code
-      ├── app/               # Application: Logic and organization of pages and routes
-      │   ├── (private)/     # Private pages
-      │   │   ├── dashboard  # Dashboard page
-      │   │   ├── product    # Product page
-      │   │   └── profile    # Profile page
-      │   └── (public)/      # Public pages
-      │       └── (auth)/    # Authentication pages
-      │           ├── signin # Sign-in page
-      │           └── signup # Sign-up page
-      ├── assets/            # Static files (images, fonts)
-      │   ├── fonts          # Fonts used in the app
-      │   └── images         # Images for the app
-      ├── components/        # Reusable components
-      ├── constants/         # Constants and fixed values (e.g., supabase, theme)
-      │   ├── supabase       # Supabase configuration and integration
-      │   └── theme          # Theme definitions
-      ├── contexts/          # React contexts for state management
-      │   └── auth           # Authentication context
-      ├── hooks/             # Custom hooks
-      └── lib/               # Libraries and utilities
-          ├── i18n           # Internationalization (i18n)
-          │   └── locales    # Translation files
-          ├── supabase       # Supabase integration utilities
-          └── zod            # Zod validation utilities
+cd apps/mobile
+cp .env.example .env.local    # EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_URL/_ANON_KEY, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+npx expo run:android          # or run:ios: builds and installs a local dev build (Clerk's native UI needs one)
+                              # no local toolchain? eas build --profile development --platform android
+npx expo start --dev-client   # daily loop once the dev build is installed
+npx expo start --web          # web target (incl. /book/[slug]) needs no dev build
 ```
 
----
+Only `EXPO_PUBLIC_*` values go in the app, and none of them are secrets.
 
-## 🌐 **Routes Explanation**
+## Running the checks
 
-- **/** – Splash Screen
-- **/(public)/(auth)/signin/page** – Sign In page
-- **/(public)/(auth)/signup/page** – Sign Up page
-- **/(private)/dashboard/page** – Dashboard (authenticated users only)
-- **/(private)/profile/page** – User Profile (authenticated users only)
+Run the checks for every area you touched before opening a PR:
 
----
+| Area | Command |
+| --- | --- |
+| App | `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch` (+ `npm run export:web` / `export:android` to catch bundling regressions) |
+| API | `cd apps/backend && npx tsc --noEmit && npx vitest run` |
+| Everything (app + API + Edge) | `npm run check` from the repo root |
+| Edge runtime | `cd apps/backend && npm run check:edge && npm run test:edge` |
+| Database | `scripts/db/test.sh` (throwaway Postgres: migrations, seed, SQL tests, types check) |
+| DB types | `scripts/db/gen-types.sh` after changing a migration, then commit `packages/shared/database.types.ts` |
 
-## ⚙️ **GitHub Actions**
+## Deploying
 
-The project uses GitHub Actions for:
+| Part | How |
+| --- | --- |
+| Database | `supabase db push` (dev project first, then prod) |
+| API | `supabase functions deploy api` · secrets via `supabase secrets set --env-file apps/backend/.env` |
+| Cron | store `api_base_url` and `cron_secret` in Supabase Vault (see [docs/database.md](docs/database.md)) |
+| WhatsApp | point the Meta webhook at `https://<project-ref>.supabase.co/functions/v1/api/webhooks/whatsapp` |
+| App | EAS builds and updates on the `preview` and `production` channels |
 
-- **Linting and formatting**: Ensures code quality with ESLint and Prettier.
-- **Running tests**: Runs the Jest tests on every push and pull request.
+Dev and prod use separate Supabase projects and Clerk instances. Dev uses a Meta test number.
 
----
+## Contributing
 
-## 🔮 **Future Improvements**
+We work in branches on this repository. **Don't fork.** `master` only changes through reviewed pull requests.
 
-- Add **commit linting** for enforcing commit message conventions.
-- Implement **unit tests** for all components and pages.
-- Create a **dark mode** version of the app.
+1. Update master: `git switch master && git pull`.
+2. Create a branch named `contributor-name/feature-name`: `git switch -c charl/login-page`.
+3. Make your changes, run the checks, and commit: `git commit -m "Add login page"`.
+4. Push the branch: `git push -u origin HEAD`.
+5. Open a pull request into `master`. It needs CI to pass and approval from @xd-Park3rr or @JpegAndre.
 
----
+Never push to `master` directly. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. AI assistants follow the same rules through `.claude/` (rules, hooks and agents).
 
-## 🤝 **How to Contribute**
+## Documentation
 
-1. Fork the project.
-2. Create a new branch: `git checkout -b feature/your-feature-name`.
-3. Make your changes and commit them: `git commit -m 'Add some feature'`.
-4. Push to the branch: `git push origin feature/your-feature-name`.
-5. Submit a pull request.
+| Doc | Covers |
+| --- | --- |
+| [BUILD_PLAN.md](docs/BUILD_PLAN.md) | The binding contract: schema, database functions, API, conversation engine |
+| [database.md](docs/database.md) | Migrations, row-level security, tests, Vault secrets, cron |
+| [booking-core.md](docs/booking-core.md) | Availability engine, booking service, web comparator |
+| [whatsapp.md](docs/whatsapp.md) | Meta setup, webhooks, Flows, templates, state machine |
+| [mobile-app.md](docs/mobile-app.md) | App stack, dev builds, component library |
+| [clerk-setup.md](docs/clerk-setup.md) | Clerk dashboard checklist |
+| [mcp.md](docs/mcp.md) · [skills.md](docs/skills.md) | AI tooling: MCP servers and skills |
+| [.claude/CLAUDE.md](.claude/CLAUDE.md) | Project guide for AI assistants (spec summary, stack, rules) |

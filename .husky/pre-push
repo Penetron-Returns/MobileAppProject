@@ -1,2 +1,15 @@
-echo '🐕 Husky pre-push => test:no-watch'
-npm run test:no-watch
+# Block direct pushes to protected branches. Changes land on master via pull request only.
+# (Server-side enforcement lives in the GitHub ruleset; this catches it before it leaves your machine.)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/master|refs/heads/main)
+      echo "⛔ Direct push to ${remote_ref#refs/heads/} is not allowed."
+      echo "   Push a branch named contributor-name/feature-name and open a pull request instead:"
+      echo "   git switch -c <contributor-name>/<feature-name> && git push -u origin HEAD"
+      exit 1
+      ;;
+  esac
+done
+
+echo '🐕 Husky pre-push => app tests'
+npm --prefix apps/mobile run test:no-watch

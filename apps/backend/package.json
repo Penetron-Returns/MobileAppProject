@@ -1,0 +1,35 @@
+{
+  "name": "booking-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic booking API + WhatsApp engine (Hono on Supabase Edge Functions)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:edge": "deno check --config ../../supabase/functions/api/deno.json ../../supabase/functions/api/index.ts",
+    "test:edge": "deno test --config ../../supabase/functions/api/deno.json --allow-env --allow-net=127.0.0.1 ../../supabase/functions/api/",
+    "fix:imports": "node scripts/add-import-extensions.mjs src test",
+    "serve": "supabase functions serve api --env-file .env"
+  },
+  "dependencies": {
+    "@clerk/backend": "3.18.1",
+    "@supabase/supabase-js": "2.116.0",
+    "hono": "4.13.8",
+    "libphonenumber-js": "1.13.13",
+    "luxon": "3.7.2",
+    "svix": "2.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.5",
+    "@types/node": "^26.6.2",
+    "deno": "^2.9.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

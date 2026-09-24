@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme tokens (HSL channels, shadcn convention) derived from the mockups:
+ * deep teal-blue primary (#0B6A8F), lighter accent (#2E8FC4), page #F5F7FB,
+ * white cards with soft borders.
+ */
+@layer base {
+  :root {
+    --background: 220 43% 97%;
+    --foreground: 216 50% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 50% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 50% 12%;
+    --primary: 197 86% 30%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 60% 94%;
+    --secondary-foreground: 213 45% 30%;
+    --muted: 216 33% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 205 70% 93%;
+    --accent-foreground: 197 86% 26%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 28% 90%;
+    --input: 214 28% 86%;
+    --ring: 201 62% 47%;
+    --radius: 0.875rem;
+
+    --brand: 201 62% 47%;
+    --brand-soft: 205 70% 93%;
+    --success: 142 64% 32%;
+    --success-soft: 138 60% 93%;
+    --warning: 32 90% 44%;
+    --warning-soft: 40 95% 93%;
+    --whatsapp: 142 70% 42%;
+    --whatsapp-soft: 142 60% 92%;
+
+    --status-confirmed: 197 86% 30%;
+    --status-confirmed-soft: 203 72% 92%;
+    --status-pending: 4 70% 52%;
+    --status-pending-soft: 4 85% 95%;
+    --status-completed: 215 16% 40%;
+    --status-completed-soft: 216 20% 93%;
+    --status-cancelled: 0 72% 48%;
+    --status-cancelled-soft: 0 86% 95%;
+  }
+
+  .dark:root {
+    --background: 216 40% 7%;
+    --foreground: 210 40% 96%;
+    --card: 216 35% 11%;
+    --card-foreground: 210 40% 96%;
+    --popover: 216 35% 11%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 199 75% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 30% 18%;
+    --secondary-foreground: 210 40% 90%;
+    --muted: 216 30% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 200 45% 20%;
+    --accent-foreground: 199 80% 80%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 216 25% 20%;
+    --input: 216 25% 24%;
+    --ring: 199 75% 50%;
+
+    --brand: 199 75% 55%;
+    --brand-soft: 200 45% 20%;
+    --success: 142 55% 50%;
+    --success-soft: 142 40% 16%;
+    --warning: 38 90% 58%;
+    --warning-soft: 35 50% 16%;
+    --whatsapp: 142 65% 45%;
+    --whatsapp-soft: 142 40% 16%;
+
+    --status-confirmed: 199 80% 70%;
+    --status-confirmed-soft: 200 45% 20%;
+    --status-pending: 4 85% 70%;
+    --status-pending-soft: 4 40% 20%;
+    --status-completed: 215 20% 70%;
+    --status-completed-soft: 216 20% 20%;
+    --status-cancelled: 0 80% 70%;
+    --status-cancelled-soft: 0 40% 20%;
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "supabaseProjectRef",
+      "description": "Supabase project ref (used read-only by the MCP server)",
+      "password": false
+    },
+    {
+      "type": "promptString",
+      "id": "supabaseAccessToken",
+      "description": "Supabase personal access token (used read-only by the MCP server)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "metadev-tools": {
+      "type": "http",
+      "url": "https://mcp.facebook.com/devtools"
+    },
+    "clerk": {
+      "type": "http",
+      "url": "https://mcp.clerk.com/mcp"
+    },
+    "shadcn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["shadcn@latest", "mcp"]
+    },
+    "stripe": {
+      "type": "http",
+      "url": "https://mcp.stripe.com/"
+    },
+    "supabase": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=${input:supabaseProjectRef}"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${input:supabaseAccessToken}"
+      }
+    }
+  }
+}
