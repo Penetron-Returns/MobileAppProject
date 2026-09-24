@@ -5,25 +5,52 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  app:
     name: Run Lint and Tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run test:no-watch -- --ci --coverage
+      - run: npx expo export --platform web --output-dir /tmp/export-web
 
-      - name: Install dependencies
-        run: npm install
+  backend:
+    name: Backend and Edge Function
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npm run check:edge
+      - run: npm run test:edge
 
-      - name: Run lint-staged
-        run: npx lint-staged
-
-      - name: Run Tests with Jest
-        run: npm run test:no-watch -- --ci --coverage
+  database:
+    name: Database migrations and SQL tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run SQL test suite against a throwaway Postgres 16
+        run: PG_BIN=/usr/lib/postgresql/16/bin scripts/db/test.sh
