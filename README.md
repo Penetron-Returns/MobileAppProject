@@ -116,9 +116,11 @@ The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp
 ### 4. App
 
 ```bash
-cp .env.example .env     # EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_URL/_ANON_KEY, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
-eas build --profile development --platform android   # or ios; install it on your device or emulator
-npx expo start --dev-client
+cp .env.example .env.local    # EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SUPABASE_URL/_ANON_KEY, EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+npx expo run:android          # or run:ios: builds and installs a local dev build (Clerk's native UI needs one)
+                              # no local toolchain? eas build --profile development --platform android
+npx expo start --dev-client   # daily loop once the dev build is installed
+npx expo start --web          # web target (incl. /book/[slug]) needs no dev build
 ```
 
 Only `EXPO_PUBLIC_*` values go in the app, and none of them are secrets.
@@ -129,7 +131,7 @@ Run the checks for every area you touched before opening a PR:
 
 | Area | Command |
 | --- | --- |
-| App | `npm run lint && npx tsc --noEmit && npm run test:no-watch` |
+| App | `npm run lint && npx tsc --noEmit && npm run test:no-watch` (+ `npm run export:web` / `export:android` to catch bundling regressions) |
 | API | `cd backend && npx tsc --noEmit && npx vitest run` |
 | Edge runtime | `cd backend && npm run check:edge && npm run test:edge` |
 | Database | `scripts/db/test.sh` (throwaway Postgres: migrations, seed, SQL tests, types check) |
