@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 
+import type { Json } from '../../../shared/database.types';
 import { sha256Hex } from '../lib/crypto';
 import { AppError } from '../lib/errors';
 import type { AppEnv } from '../types';
@@ -40,7 +41,7 @@ export function supabaseIdempotencyStore(c: { get: (k: 'container') => AppEnv['V
       throw new AppError('INTERNAL', 'Idempotency reserve failed');
     },
     async complete(key, statusCode, response) {
-      await db().from('idempotency_keys').update({ status_code: statusCode, response }).eq('key', key);
+      await db().from('idempotency_keys').update({ status_code: statusCode, response: response as Json }).eq('key', key);
     },
     async release(key) {
       await db().from('idempotency_keys').delete().eq('key', key);
