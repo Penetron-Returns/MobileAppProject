@@ -79,6 +79,32 @@ describe('App screens', () => {
     expect(json).toContain('Balayage & Styling');
   });
 
+  it('renders CalendarScreen and toggles to month view, clicking a date switches to day view', () => {
+    const tree = renderScreen(<CalendarScreen />);
+    const monthButton = tree.root.findByProps({
+      accessibilityLabel: 'Month view',
+    });
+    act(() => {
+      monthButton.props.onPress();
+    });
+    let json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('October 2023');
+    expect(json).toContain('MONTH VIEW');
+
+    // Click on a day in Month view
+    const oct24Button = tree.root.findByProps({
+      accessibilityLabel: 'October 24, 2023, 3 appointments',
+    });
+    act(() => {
+      oct24Button.props.onPress();
+    });
+
+    json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('October 24, 2023');
+    expect(json).toContain('Tuesday');
+    expect(json).toContain('Haircut & Styling');
+  });
+
   it('renders BookingDetailsScreen with Coming soon', () => {
     const tree = renderScreen(<BookingDetailsScreen />);
     expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
