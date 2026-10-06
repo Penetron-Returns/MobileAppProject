@@ -20,6 +20,7 @@ jest.mock('lucide-react-native', () => {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import BookingDetailsScreen from '../bookings/[id]';
+import CalendarScreen from '../calendar';
 import ClientDetailsScreen from '../clients/[id]';
 import DashboardScreen from '../index';
 import BusinessDetailsScreen from '../settings/business-details';
@@ -50,6 +51,32 @@ describe('App screens', () => {
     expect(json).toContain('Monthly Revenue');
     expect(json).toContain("Today's Schedule");
     expect(json).toContain('Sarah Jenkins');
+  });
+
+  it('renders CalendarScreen with daily timeline and bookings', () => {
+    const tree = renderScreen(<CalendarScreen />);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Administrator');
+    expect(json).toContain('Haircut & Styling');
+    expect(json).toContain('Full Color & Blowout');
+    expect(json).toContain('Lunch Break');
+    expect(json).toContain('Day');
+  });
+
+  it('renders CalendarScreen and toggles to week view', () => {
+    const tree = renderScreen(<CalendarScreen />);
+    const weekButton = tree.root.findByProps({
+      accessibilityLabel: 'Week view',
+    });
+    act(() => {
+      weekButton.props.onPress();
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('October 23 – 29, 2023');
+    expect(json).toContain('Time');
+    expect(json).toContain('Mon');
+    expect(json).toContain('Tue');
+    expect(json).toContain('Balayage & Styling');
   });
 
   it('renders BookingDetailsScreen with Coming soon', () => {
