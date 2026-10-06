@@ -21,6 +21,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import BookingDetailsScreen from '../bookings/[id]';
 import ClientDetailsScreen from '../clients/[id]';
+import DashboardScreen from '../index';
 import BusinessDetailsScreen from '../settings/business-details';
 import OperatingHoursScreen from '../settings/operating-hours';
 import ServicesScreen from '../settings/services';
@@ -42,6 +43,15 @@ function renderScreen(ui: React.ReactElement) {
 }
 
 describe('App screens', () => {
+  it('renders DashboardScreen with stats and schedule', () => {
+    const tree = renderScreen(<DashboardScreen />);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Administrator');
+    expect(json).toContain('Monthly Revenue');
+    expect(json).toContain("Today's Schedule");
+    expect(json).toContain('Sarah Jenkins');
+  });
+
   it('renders BookingDetailsScreen with Coming soon', () => {
     const tree = renderScreen(<BookingDetailsScreen />);
     expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
