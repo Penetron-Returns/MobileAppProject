@@ -84,6 +84,70 @@ function formatWeekRange(d: Date): { title: string; subtitle: string } {
   return { title, subtitle };
 }
 
+function getMonthAppointmentCount(date: Date): number {
+  const day = date.getDay();
+  if (day === 0) return 0; // Sunday closed
+  if (day === 2) return 3; // Tuesdays (matches Oct 24)
+  if (day === 6) return 2; // Saturdays
+  return 3; // Other weekdays
+}
+
+function getMonthWeeks(currentDate: Date) {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const firstDayWeekday = firstDay.getDay();
+  // Monday start: 0 is Sun (6 leading days), 1 is Mon (0 leading days)...
+  const leadingDays = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1;
+
+  const runner = new Date(year, month, 1 - leadingDays);
+
+  const weeks: Array<
+    Array<{
+      key: string;
+      date: Date;
+      dateNumber: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      appointmentCount: number;
+    }>
+  > = [];
+
+  while (weeks.length < 6) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(runner);
+      const isCurrentMonth = cellDate.getMonth() === month;
+      const isToday =
+        cellDate.getFullYear() === currentDate.getFullYear() &&
+        cellDate.getMonth() === currentDate.getMonth() &&
+        cellDate.getDate() === currentDate.getDate();
+
+      const appointmentCount = isCurrentMonth
+        ? getMonthAppointmentCount(cellDate)
+        : 0;
+
+      week.push({
+        key: `${cellDate.getFullYear()}-${cellDate.getMonth()}-${cellDate.getDate()}`,
+        date: cellDate,
+        dateNumber: cellDate.getDate(),
+        isCurrentMonth,
+        isToday,
+        appointmentCount,
+      });
+
+      runner.setDate(runner.getDate() + 1);
+    }
+    weeks.push(week);
+    if (weeks.length >= 5 && runner.getMonth() !== month) {
+      break;
+    }
+  }
+
+  return weeks;
+}
+
 const HOURS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00'];
 
 const POSITION_CLASSES: Record<string, string> = {
@@ -308,7 +372,13 @@ export default function CalendarScreen() {
   );
 
   const goToPrev = () => {
-    if (viewMode === 'week') {
+    if (viewMode === 'month') {
+      setCurrentDate((d) => {
+        const next = new Date(d);
+        next.setMonth(next.getMonth() - 1);
+        return next;
+      });
+    } else if (viewMode === 'week') {
       setCurrentDate((d) => {
         const next = new Date(d);
         next.setDate(next.getDate() - 7);
@@ -324,7 +394,13 @@ export default function CalendarScreen() {
   };
 
   const goToNext = () => {
-    if (viewMode === 'week') {
+    if (viewMode === 'month') {
+      setCurrentDate((d) => {
+        const next = new Date(d);
+        next.setMonth(next.getMonth() + 1);
+        return next;
+      });
+    } else if (viewMode === 'week') {
       setCurrentDate((d) => {
         const next = new Date(d);
         next.setDate(next.getDate() + 7);
@@ -344,11 +420,19 @@ export default function CalendarScreen() {
     toast.info(
       viewMode === 'week'
         ? 'Viewing week of October 23, 2023'
-        : 'Viewing October 24, 2023',
+        : viewMode === 'month'
+          ? 'Viewing October 2023'
+          : 'Viewing October 24, 2023',
     );
   };
 
   const dateInfo = React.useMemo(() => {
+    if (viewMode === 'month') {
+      return {
+        title: `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`,
+        subtitle: 'MONTH VIEW',
+      };
+    }
     if (viewMode === 'week') {
       return formatWeekRange(currentDate);
     }
@@ -357,6 +441,10 @@ export default function CalendarScreen() {
       subtitle: formatWeekday(currentDate),
     };
   }, [currentDate, viewMode]);
+
+  const monthWeeks = React.useMemo(() => {
+    return getMonthWeeks(currentDate);
+  }, [currentDate]);
 
   const weekDays = React.useMemo(() => {
     const start = getStartOfWeek(currentDate);
@@ -421,7 +509,11 @@ export default function CalendarScreen() {
                 className="h-9 w-9 items-center justify-center rounded-full active:bg-accent"
                 accessibilityRole="button"
                 accessibilityLabel={
-                  viewMode === 'week' ? 'Previous week' : 'Previous day'
+                  viewMode === 'month'
+                    ? 'Previous month'
+                    : viewMode === 'week'
+                      ? 'Previous week'
+                      : 'Previous day'
                 }
                 hitSlop={8}
               >
@@ -440,7 +532,11 @@ export default function CalendarScreen() {
                 className="h-9 w-9 items-center justify-center rounded-full active:bg-accent"
                 accessibilityRole="button"
                 accessibilityLabel={
-                  viewMode === 'week' ? 'Next week' : 'Next day'
+                  viewMode === 'month'
+                    ? 'Next month'
+                    : viewMode === 'week'
+                      ? 'Next week'
+                      : 'Next day'
                 }
                 hitSlop={8}
               >
@@ -505,12 +601,24 @@ export default function CalendarScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => toast.info('Month view coming soon')}
-                className="rounded-full px-5 py-1.5 active:bg-accent/50"
+                onPress={() => setViewMode('month')}
+                className={cn(
+                  'rounded-full px-5 py-1.5',
+                  viewMode === 'month'
+                    ? 'bg-primary shadow-sm'
+                    : 'active:bg-accent/50',
+                )}
                 accessibilityRole="button"
                 accessibilityLabel="Month view"
               >
-                <Text className="text-muted-foreground text-xs font-semibold">
+                <Text
+                  className={cn(
+                    'text-xs font-semibold',
+                    viewMode === 'month'
+                      ? 'text-primary-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                >
                   Month
                 </Text>
               </Pressable>
@@ -638,7 +746,7 @@ export default function CalendarScreen() {
             </View>
           </View>
         </View>
-      ) : (
+      ) : viewMode === 'week' ? (
         /* Weekly Timeline Grid Container */
         <View className="bg-card border-border relative min-h-[720px] overflow-hidden rounded-2xl border shadow-sm">
           <View className="flex-row">
@@ -842,6 +950,106 @@ export default function CalendarScreen() {
                 </View>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      ) : (
+        /* Monthly Grid View Container */
+        <View className="bg-card border-border relative overflow-hidden rounded-2xl border shadow-sm">
+          {/* Days of Week Header Row */}
+          <View className="border-border bg-muted/20 h-11 flex-row border-b">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(
+              (dayName, idx) => (
+                <View
+                  key={dayName}
+                  className={cn(
+                    'flex-1 items-center justify-center py-2',
+                    idx < 6 && 'border-border/60 border-r',
+                  )}
+                >
+                  <Text className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
+                    {dayName}
+                  </Text>
+                </View>
+              ),
+            )}
+          </View>
+
+          {/* Weeks Grid Rows */}
+          <View className="flex-col">
+            {monthWeeks.map((week, weekIdx) => (
+              <View
+                key={weekIdx}
+                className={cn(
+                  'min-h-[68px] flex-row sm:min-h-[76px]',
+                  weekIdx < monthWeeks.length - 1 &&
+                    'border-border/60 border-b',
+                )}
+              >
+                {week.map((cell, dayIdx) => (
+                  <Pressable
+                    key={cell.key}
+                    onPress={() => {
+                      setCurrentDate(cell.date);
+                      setViewMode('day');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${formatDate(cell.date)}, ${cell.appointmentCount} appointments`}
+                    className={cn(
+                      'min-h-[68px] flex-1 justify-start gap-1 p-1.5 active:bg-accent/40 sm:min-h-[76px] sm:p-2',
+                      dayIdx < 6 && 'border-border/60 border-r',
+                      !cell.isCurrentMonth && 'bg-muted/10 opacity-40',
+                      cell.isToday && 'bg-primary/5',
+                    )}
+                  >
+                    {/* Top of Cell: Date Number Badge */}
+                    <View className="flex-row items-center justify-between">
+                      <View
+                        className={cn(
+                          'h-5 w-5 items-center justify-center rounded-full sm:h-6 sm:w-6',
+                          cell.isToday && 'bg-primary',
+                        )}
+                      >
+                        <Text
+                          className={cn(
+                            'text-[11px] sm:text-xs',
+                            cell.isToday
+                              ? 'text-primary-foreground font-bold'
+                              : cell.isCurrentMonth
+                                ? 'text-foreground font-semibold'
+                                : 'text-muted-foreground/60 font-normal',
+                          )}
+                        >
+                          {cell.dateNumber}
+                        </Text>
+                      </View>
+
+                      {cell.appointmentCount > 0 && cell.isCurrentMonth ? (
+                        <Text className="text-muted-foreground hidden text-[10px] font-medium sm:flex">
+                          {cell.appointmentCount}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    {/* Appointment Horizontal Lines directly below the date */}
+                    <View className="mt-0.5 gap-1">
+                      {Array.from({
+                        length: Math.min(cell.appointmentCount, 4),
+                      }).map((_, lineIdx) => (
+                        <View
+                          key={lineIdx}
+                          className="bg-primary h-1 w-full rounded-full sm:h-1.5"
+                        />
+                      ))}
+                      {cell.appointmentCount > 4 ? (
+                        <Text className="text-muted-foreground text-[9px] font-semibold">
+                          +{cell.appointmentCount - 4}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
           </View>
         </View>
       )}
