@@ -555,7 +555,7 @@ export default function AddBookingScreen() {
           className="bg-black/50 flex-1 items-center justify-center p-4"
         >
           <Pressable
-            onPress={(e) => e.stopPropagation()}
+            onPress={() => {}}
             className="border-border bg-card w-full max-w-sm overflow-hidden rounded-2xl border shadow-xl"
           >
             <View className="border-border flex-row items-center justify-between border-b p-4">
@@ -620,7 +620,7 @@ export default function AddBookingScreen() {
           className="bg-black/50 flex-1 items-center justify-center p-4"
         >
           <Pressable
-            onPress={(e) => e.stopPropagation()}
+            onPress={() => {}}
             className="border-border bg-card w-full max-w-sm overflow-hidden rounded-2xl border shadow-xl"
           >
             <View className="border-border flex-row items-center justify-between border-b p-4">
@@ -680,7 +680,7 @@ export default function AddBookingScreen() {
           className="bg-black/50 flex-1 items-center justify-center p-4"
         >
           <Pressable
-            onPress={(e) => e.stopPropagation()}
+            onPress={() => {}}
             className="border-border bg-card w-full max-w-sm overflow-hidden rounded-2xl border shadow-xl"
           >
             <View className="border-border flex-row items-center justify-between border-b p-4">

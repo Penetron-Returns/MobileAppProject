@@ -7,6 +7,20 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+jest.mock('@clerk/expo', () => ({
+  useClerk: () => ({ signOut: jest.fn() }),
+  useUser: () => ({
+    user: {
+      fullName: 'Admin User',
+      primaryEmailAddress: { emailAddress: 'admin@beautywellness.co' },
+      imageUrl: null,
+    },
+  }),
+  useOrganization: () => ({
+    organization: { name: 'Beauty & Wellness' },
+  }),
+}));
+
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy(
@@ -25,6 +39,7 @@ import CalendarScreen from '../calendar';
 import ClientsScreen from '../clients';
 import ClientDetailsScreen from '../clients/[id]';
 import DashboardScreen from '../index';
+import SettingsScreen from '../settings';
 import BusinessDetailsScreen from '../settings/business-details';
 import OperatingHoursScreen from '../settings/operating-hours';
 import ServicesScreen from '../settings/services';
@@ -113,10 +128,19 @@ describe('App screens', () => {
     expect(JSON.stringify(tree.toJSON())).toContain('Booking details');
   });
 
-  it('renders ClientDetailsScreen with Coming soon', () => {
+  it('renders ClientDetailsScreen with profile, contact, notes, and history', () => {
     const tree = renderScreen(<ClientDetailsScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Client details');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Client Profile');
+    expect(json).toContain('Nadia Osman');
+    expect(json).toContain('Message');
+    expect(json).toContain('Call');
+    expect(json).toContain('Book');
+    expect(json).toContain('Contact Details');
+    expect(json).toContain('Important Notes');
+    expect(json).toContain('Total Visits');
+    expect(json).toContain('Booking History');
+    expect(json).toContain('Balayage & Styling');
   });
 
   it('renders OperatingHoursScreen with Coming soon', () => {
@@ -203,5 +227,22 @@ describe('App screens', () => {
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain('Jessica Taylor');
     expect(json).toContain('Robert Johnson');
+  });
+
+  it('renders SettingsScreen with Administrator header, preferences, and business settings', () => {
+    const tree = renderScreen(<SettingsScreen />);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Administrator');
+    expect(json).toContain('Settings');
+    expect(json).toContain('Preferences');
+    expect(json).toContain('Dark Mode');
+    expect(json).toContain('Push Notifications');
+    expect(json).toContain('Business Settings');
+    expect(json).toContain('Business Details');
+    expect(json).toContain('Operating Hours');
+    expect(json).toContain('Services');
+    expect(json).toContain('Staff Management');
+    expect(json).toContain('WhatsApp API');
+    expect(json).toContain('Log Out');
   });
 });
