@@ -19,8 +19,10 @@ jest.mock('lucide-react-native', () => {
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import AddBookingScreen from '../add';
 import BookingDetailsScreen from '../bookings/[id]';
 import CalendarScreen from '../calendar';
+import ClientsScreen from '../clients';
 import ClientDetailsScreen from '../clients/[id]';
 import DashboardScreen from '../index';
 import BusinessDetailsScreen from '../settings/business-details';
@@ -139,5 +141,67 @@ describe('App screens', () => {
     const tree = renderScreen(<StaffManagementScreen />);
     expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
     expect(JSON.stringify(tree.toJSON())).toContain('Staff management');
+  });
+
+  it('renders AddBookingScreen with client toggle and fields', () => {
+    const tree = renderScreen(<AddBookingScreen />);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Administrator');
+    expect(json).toContain('Client');
+    expect(json).toContain('Existing');
+    expect(json).toContain('New Client');
+    expect(json).toContain('Service');
+    expect(json).toContain('Signature Facial');
+    expect(json).toContain('Send WhatsApp confirmation');
+    expect(json).toContain('Save Booking');
+  });
+
+  it('renders ClientsScreen with search, filters and clients list', () => {
+    const tree = renderScreen(<ClientsScreen />);
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Administrator');
+    expect(json).toContain('Clients');
+    expect(json).toContain('Manage your client relationships');
+    expect(json).toContain('Search clients by name or phone...');
+    expect(json).toContain('All Clients');
+    expect(json).toContain('Recent');
+    expect(json).toContain('VIP');
+    expect(json).toContain('Sarah Jenkins');
+    expect(json).toContain('Michael Rodriguez');
+    expect(json).toContain('David Chen');
+    expect(json).toContain('Appointment Today at 2:00 PM');
+    expect(json).toContain('Emma Lawson');
+    expect(json).toContain('Load more clients');
+  });
+
+  it('toggles VIP filter on ClientsScreen', () => {
+    const tree = renderScreen(<ClientsScreen />);
+    // Find VIP button
+    const vipButton = tree.root.findAll((node) => {
+      return (
+        node.props?.accessibilityRole === 'tab' &&
+        node.props?.children?.props?.children === 'VIP'
+      );
+    })[0];
+    act(() => {
+      vipButton.props.onPress();
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Sarah Jenkins');
+    expect(json).toContain('David Chen');
+    expect(json).not.toContain('Michael Rodriguez');
+  });
+
+  it('loads more clients when tapping Load more clients', () => {
+    const tree = renderScreen(<ClientsScreen />);
+    const loadMoreBtn = tree.root.findByProps({
+      accessibilityLabel: 'Load more clients',
+    });
+    act(() => {
+      loadMoreBtn.props.onPress();
+    });
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Jessica Taylor');
+    expect(json).toContain('Robert Johnson');
   });
 });
