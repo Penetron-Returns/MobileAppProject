@@ -248,12 +248,7 @@ export default function ClientsScreen() {
               return (
                 <Pressable
                   key={client.id}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/clients/[id]',
-                      params: { id: client.id },
-                    } as never)
-                  }
+                  onPress={() => router.push(`/clients/${client.id}` as never)}
                   accessibilityRole="button"
                   accessibilityLabel={`${client.name}, ${client.appointmentToday ?? client.lastVisit}`}
                   className={cn(
