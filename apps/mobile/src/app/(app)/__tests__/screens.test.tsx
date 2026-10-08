@@ -39,7 +39,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AddBookingScreen from '../add';
 import BookingDetailsScreen from '../bookings/[id]';
-import CalendarScreen from '../calendar';
+import CalendarScreen, { setCalendarViewMode } from '../calendar';
 import ClientsScreen from '../clients';
 import ClientDetailsScreen from '../clients/[id]';
 import DashboardScreen from '../index';
@@ -124,6 +124,39 @@ describe('App screens', () => {
     expect(json).toContain('October 24, 2023');
     expect(json).toContain('Tuesday');
     expect(json).toContain('Haircut & Styling');
+  });
+
+  it('switches CalendarScreen to daily view when setCalendarViewMode is called', () => {
+    const tree = renderScreen(<CalendarScreen />);
+    // Switch to month view first
+    const monthButton = tree.root.findByProps({
+      accessibilityLabel: 'Month view',
+    });
+    act(() => {
+      monthButton.props.onPress();
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain('MONTH VIEW');
+
+    // Trigger setCalendarViewMode('day')
+    act(() => {
+      setCalendarViewMode('day');
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('October 24, 2023');
+    expect(json).toContain('Tuesday');
+    expect(json).toContain('Haircut & Styling');
+  });
+
+  it('navigates to daily calendar when pressing View All on DashboardScreen', () => {
+    const tree = renderScreen(<DashboardScreen />);
+    const viewAllBtn = tree.root.findByProps({
+      accessibilityLabel: "View Today's Schedule in Calendar",
+    });
+    expect(viewAllBtn).toBeDefined();
+    act(() => {
+      viewAllBtn.props.onPress();
+    });
   });
 
   it('renders BookingDetailsScreen with client, schedule, service and actions', () => {

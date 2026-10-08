@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   Bell,
   ChevronLeft,
@@ -363,13 +363,45 @@ const WEEKLY_SCHEDULE: Record<
   },
 };
 
+export type CalendarViewMode = 'day' | 'week' | 'month';
+
+type CalendarListener = (_mode: CalendarViewMode) => void;
+const calendarListeners = new Set<CalendarListener>();
+
+export function setCalendarViewMode(mode: CalendarViewMode) {
+  calendarListeners.forEach((fn) => fn(mode));
+}
+
 export default function CalendarScreen() {
+  const { view, t } = useLocalSearchParams<{ view?: string; t?: string }>();
   const [currentDate, setCurrentDate] = React.useState(
     () => new Date(2023, 9, 24), // October 24, 2023 as in mockup
   );
-  const [viewMode, setViewMode] = React.useState<'day' | 'week' | 'month'>(
-    'day',
-  );
+  const [viewMode, setViewMode] = React.useState<CalendarViewMode>('day');
+
+  React.useEffect(() => {
+    const listener: CalendarListener = (mode) => {
+      setViewMode(mode);
+      if (mode === 'day') {
+        setCurrentDate(new Date(2023, 9, 24));
+      }
+    };
+    calendarListeners.add(listener);
+    return () => {
+      calendarListeners.delete(listener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (view === 'day') {
+      setViewMode('day');
+      setCurrentDate(new Date(2023, 9, 24));
+    } else if (view === 'week') {
+      setViewMode('week');
+    } else if (view === 'month') {
+      setViewMode('month');
+    }
+  }, [view, t]);
 
   const goToPrev = () => {
     if (viewMode === 'month') {
