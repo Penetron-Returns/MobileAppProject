@@ -31,6 +31,10 @@ jest.mock('lucide-react-native', () => {
   );
 });
 
+jest.mock('@/components/ConfirmDialog', () => ({
+  ConfirmDialog: () => null,
+}));
+
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AddBookingScreen from '../add';
@@ -122,10 +126,17 @@ describe('App screens', () => {
     expect(json).toContain('Haircut & Styling');
   });
 
-  it('renders BookingDetailsScreen with Coming soon', () => {
+  it('renders BookingDetailsScreen with client, schedule, service and actions', () => {
     const tree = renderScreen(<BookingDetailsScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Booking details');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Booking Detail');
+    expect(json).toContain('Confirmed');
+    expect(json).toContain('Nadia Osman');
+    expect(json).toContain('Full Balayage & Toner');
+    expect(json).toContain('Amara S.');
+    expect(json).toContain('Message');
+    expect(json).toContain('Reschedule');
+    expect(json).toContain('Cancel');
   });
 
   it('renders ClientDetailsScreen with profile, contact, notes, and history', () => {
@@ -143,28 +154,69 @@ describe('App screens', () => {
     expect(json).toContain('Balayage & Styling');
   });
 
-  it('renders OperatingHoursScreen with Coming soon', () => {
+  it('renders OperatingHoursScreen with weekly schedule and actions', () => {
     const tree = renderScreen(<OperatingHoursScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Operating hours');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Operating Hours');
+    expect(json).toContain('Set your salon');
+    expect(json).toContain('standard availability');
+    expect(json).toContain('Monday');
+    expect(json).toContain('Sunday');
+    expect(json).toContain('Open');
+    expect(json).toContain('Closed');
+    expect(json).toContain('09:00 AM');
+    expect(json).toContain('06:00 PM');
+    expect(json).toContain('Cancel');
+    expect(json).toContain('Save Changes');
   });
 
-  it('renders ServicesScreen with Coming soon', () => {
+  it('renders ServicesScreen with service catalogue and categories', () => {
     const tree = renderScreen(<ServicesScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Services');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Services');
+    expect(json).toContain('Hair');
+    expect(json).toContain("Women's Haircut");
+    expect(json).toContain("Men's Haircut");
+    expect(json).toContain('Balayage & Toner');
+    expect(json).toContain('Nails');
+    expect(json).toContain('Gel Manicure');
+    expect(json).toContain('Spa Pedicure');
+    expect(json).toContain('Add Service');
   });
 
-  it('renders BusinessDetailsScreen with Coming soon', () => {
+  it('renders BusinessDetailsScreen with business info, location, and regional settings', () => {
     const tree = renderScreen(<BusinessDetailsScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Business details');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Business Details');
+    expect(json).toContain('Business Information');
+    expect(json).toContain('Luxe Beauty Lounge');
+    expect(json).toContain('hello@luxebeauty.com');
+    expect(json).toContain('Location Details');
+    expect(json).toContain('45 Main Road, Sea Point');
+    expect(json).toContain('Cape Town');
+    expect(json).toContain('8005');
+    expect(json).toContain('Regional Settings');
+    expect(json).toContain('South African Rand (ZAR)');
+    expect(json).toContain('Save Changes');
   });
 
-  it('renders StaffManagementScreen with Coming soon', () => {
+  it('renders StaffManagementScreen with team directory and staff cards', () => {
     const tree = renderScreen(<StaffManagementScreen />);
-    expect(JSON.stringify(tree.toJSON())).toContain('Coming soon');
-    expect(JSON.stringify(tree.toJSON())).toContain('Staff management');
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Staff Management');
+    expect(json).toContain('Team Directory');
+    expect(json).toContain('Manage roles and availability');
+    expect(json).toContain('Add Staff');
+    expect(json).toContain('Emma Thompson');
+    expect(json).toContain('Senior Colorist');
+    expect(json).toContain('Marcus Chen');
+    expect(json).toContain('Master Stylist');
+    expect(json).toContain('Sarah Jenkins');
+    expect(json).toContain('Junior Stylist');
+    expect(json).toContain('Active');
+    expect(json).toContain('On Leave');
+    expect(json).toContain('Bookings');
+    expect(json).toContain('Save Changes');
   });
 
   it('renders AddBookingScreen with client toggle and fields', () => {
