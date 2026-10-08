@@ -8,11 +8,11 @@ import prettierPlugin from 'eslint-plugin-prettier';
 
 export default [
   {
-    ignores: ['node_modules/', 'dist/', '.expo/**'],
+    ignores: ['node_modules/', 'dist/', '.expo/**', 'expo-env.d.ts'],
   },
   {
     files: ['**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx'],
-    ignores: ['node_modules/', 'dist/'],
+    ignores: ['node_modules/', 'dist/', 'expo-env.d.ts'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
