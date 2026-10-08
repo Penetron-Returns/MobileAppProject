@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+
+import { setCalendarViewMode } from './calendar';
 import {
   AlertCircle,
   Bell,
@@ -169,8 +171,15 @@ export default function DashboardScreen() {
             Today's Schedule
           </Text>
           <Pressable
-            onPress={() => router.push('/calendar' as never)}
+            onPress={() => {
+              setCalendarViewMode('day');
+              router.push({
+                pathname: '/calendar',
+                params: { view: 'day', t: String(Date.now()) },
+              } as never);
+            }}
             accessibilityRole="button"
+            accessibilityLabel="View Today's Schedule in Calendar"
             hitSlop={8}
           >
             <Text className="text-primary text-xs font-bold uppercase tracking-wider">
