@@ -26,6 +26,8 @@ export const queryClient = new QueryClient({
 /** Central query keys so Realtime can invalidate precisely. */
 export const qk = {
   me: ['me'] as const,
+  business: ['business'] as const,
+  dashboardAll: ['dashboard'] as const,
   dashboard: (date: string) => ['dashboard', date] as const,
   appointments: ['appointments'] as const,
   appointmentsRange: (from: string, to: string, staffId?: string | null) =>
@@ -54,6 +56,13 @@ export const qk = {
   messages: (conversationId: string) => ['messages', conversationId] as const,
   openEscalations: ['escalations', 'open-count'] as const,
 };
+
+/** Optional callbacks feature mutation hooks accept from their callers. */
+export interface MutationCallbacks {
+  onSuccess?: () => void;
+  /** Return true to suppress the default error toast. */
+  onError?: (error: unknown) => boolean | void;
+}
 
 interface ApiMutationOptions<TVars, TData> {
   mutationFn: (vars: TVars, idempotencyKey: string) => Promise<TData>;
