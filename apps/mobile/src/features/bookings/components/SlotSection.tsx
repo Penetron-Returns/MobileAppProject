@@ -59,10 +59,10 @@ export function SlotSection({
               accessibilityState={{ selected: isSelected }}
               accessibilityLabel={d}
               className={cn(
-                'min-h-[44px] w-16 items-center rounded-xl border py-2',
+                'min-h-[44px] w-16 items-center rounded-xl border py-2 active:opacity-80',
                 isSelected
                   ? 'border-primary bg-primary'
-                  : 'border-border bg-card active:bg-accent',
+                  : 'border-border bg-card',
               )}
             >
               <Text
@@ -124,10 +124,10 @@ export function SlotSection({
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
                 className={cn(
-                  'min-h-[44px] w-[74px] items-center justify-center rounded-lg border',
+                  'min-h-[44px] w-[74px] items-center justify-center rounded-lg border active:opacity-80',
                   isSelected
                     ? 'border-primary bg-primary'
-                    : 'border-border bg-card active:bg-accent',
+                    : 'border-border bg-card',
                 )}
               >
                 <Text

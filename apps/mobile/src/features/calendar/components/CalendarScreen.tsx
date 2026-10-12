@@ -203,8 +203,8 @@ function CalendarToolbar({
             key={v}
             onPress={() => onViewChange(v)}
             className={cn(
-              'min-h-[36px] justify-center rounded-full px-5 py-1.5',
-              view === v ? 'bg-primary shadow-sm' : 'active:bg-accent/50',
+              'min-h-[36px] justify-center rounded-full px-5 py-1.5 active:opacity-80',
+              view === v && 'bg-primary',
             )}
             accessibilityRole="button"
             accessibilityState={{ selected: view === v }}

@@ -45,8 +45,8 @@ export function ClientSection({
             accessibilityRole="tab"
             accessibilityState={{ selected: mode === m }}
             className={cn(
-              'min-h-[36px] flex-1 items-center justify-center rounded-md py-2',
-              mode === m ? 'bg-card shadow-sm' : 'active:bg-accent/50',
+              'min-h-[36px] flex-1 items-center justify-center rounded-md py-2 active:opacity-80',
+              mode === m && 'bg-card',
             )}
           >
             <Text
