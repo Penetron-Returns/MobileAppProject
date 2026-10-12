@@ -61,7 +61,9 @@ apps/mobile/src/
     *.tsx              app-level composites: Screen, Header, EmptyState/ErrorState/LoadingState,
                        ListItem, StatCard, StatusBadge, SegmentedControl, FormField, SearchInput,
                        ConfirmDialog, Sheet, Toaster, ClerkUserButton (+ .web.tsx)
-  features/<feature>/  hooks, feature-local components, pure logic — empty for now (WS-D pages come later)
+  features/<feature>/  hooks.ts (TanStack Query reads via supabase, writes via api), components/,
+                       pure logic.ts + __tests__/ — appointments, bookings, business, calendar,
+                       catalog (services/staff), clients, dashboard, settings
   hooks/               useAppColorScheme (NativeWind dark mode + persistence)
   lib/                 supabase.ts, api.ts, query.ts, env.ts, theme.ts, i18n/, toast.ts, idempotency.ts
 ```
@@ -113,11 +115,17 @@ accent `#2E8FC4` (the `brand` token), page background `#F5F7FB`, white cards, 12
 | Route | Group | Notes |
 | --- | --- | --- |
 | `/sign-in` | `(auth)` | native `AuthView` (`mode="signIn"`) / web `<SignIn />`; redirects to `/` if already signed in |
-| `/` | `(app)` (tabs) | Dashboard placeholder |
-| `/calendar` | `(app)` (tabs) | Calendar placeholder |
-| `/add` | `(app)` (tabs) | Add booking placeholder |
-| `/clients` | `(app)` (tabs) | Clients placeholder |
-| `/settings` | `(app)` (tabs) | `<ClerkUserButton />` + sign-out |
+| `/` | `(app)` (tabs) | Dashboard: `dashboard_summary` RPC + today's schedule, check-in |
+| `/calendar` | `(app)` (tabs) | Day/week/month from `appointments` + `business_hours` (breaks = gaps between shifts) |
+| `/add` | `(app)` (tabs) | Add booking: client search/new client, live slots from `/v1/availability/slots`, `POST /v1/appointments`. Params `clientId`, `mode=new` |
+| `/bookings/[id]` | `(app)` | Booking detail + cancel (`/v1/appointments/:id/cancel`) |
+| `/clients` | `(app)` (tabs) | Paged client list, search, All/Recent (seen ≤ 30 days)/VIP (`tags` contains `VIP`) |
+| `/clients/[id]` | `(app)` | Client profile, notes (add via API), stats and booking history |
+| `/settings` | `(app)` (tabs) | Profile (Clerk), role (`/v1/me`), WhatsApp status (`whatsapp_accounts`), links below |
+| `/settings/business-details` · `operating-hours` · `services` · `staff-management` | `(app)` | Read via Supabase, save via the owner-only `/v1` routes (hidden for staff) |
+
+Every `(app)` screen subscribes to `appointments` Realtime once (in `(app)/_layout.tsx`), which invalidates
+the appointment, dashboard and client queries. Availability is fetched with `staleTime: 0` and never cached.
 | `/book/[slug]` | — (public) | web-booking comparator placeholder, no auth |
 | `/gallery` | `(dev)` | component gallery, redirects to `/` when not `__DEV__` |
 | `/+not-found` | — | 404 |
