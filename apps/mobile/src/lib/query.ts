@@ -57,6 +57,13 @@ export const qk = {
   openEscalations: ['escalations', 'open-count'] as const,
 };
 
+/** Optional callbacks feature mutation hooks accept from their callers. */
+export interface MutationCallbacks {
+  onSuccess?: () => void;
+  /** Return true to suppress the default error toast. */
+  onError?: (error: unknown) => boolean | void;
+}
+
 interface ApiMutationOptions<TVars, TData> {
   mutationFn: (vars: TVars, idempotencyKey: string) => Promise<TData>;
   /** Query keys to invalidate after success. */

@@ -11,43 +11,93 @@ jest.mock('@clerk/expo', () => ({
   useClerk: () => ({ signOut: jest.fn() }),
   useUser: () => ({
     user: {
-      fullName: 'Admin User',
-      primaryEmailAddress: { emailAddress: 'admin@beautywellness.co' },
+      fullName: 'Kobus Krieg',
+      primaryEmailAddress: { emailAddress: 'kobus@example.com' },
       imageUrl: null,
     },
   }),
-  useOrganization: () => ({
-    organization: { name: 'Beauty & Wellness' },
-  }),
+  useOrganization: () => ({ organization: { name: 'Ashgrove Hair & Beauty' } }),
 }));
 
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
-  return new Proxy(
-    {},
-    {
-      get: () => View,
-    },
-  );
+  return new Proxy({}, { get: () => View });
 });
 
-jest.mock('@/components/ConfirmDialog', () => ({
-  ConfirmDialog: () => null,
+jest.mock('@/components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
+
+// Reanimated (used by the sheet's animations) can't load under Jest.
+jest.mock('@/components/Sheet', () => {
+  const { View } = require('react-native');
+  const Passthrough = ({ children }: { children?: unknown }) =>
+    children ?? null;
+  return {
+    Sheet: ({ open, children }: { open: boolean; children?: unknown }) =>
+      open ? children : null,
+    SheetContent: Passthrough,
+    SheetHeader: View,
+    SheetTitle: View,
+  };
+});
+
+const mockSearchParams = jest.fn();
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useLocalSearchParams: () => mockSearchParams(),
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
 }));
 
-const mockUseBusiness = jest.fn();
-const mockUseDashboardSummary = jest.fn();
-const mockUseDaySchedule = jest.fn();
+// Mock factories run before this file's consts initialise, so they only
+// capture hoisted functions that read `mockHooks` lazily at call time.
+const mockHooks: Record<string, jest.Mock> = {};
+function mockHook(name: string) {
+  return (...args: unknown[]) => mockHooks[name](...args);
+}
+function mockMutation() {
+  return { mutate: jest.fn(), isPending: false };
+}
 
 jest.mock('@/features/business/hooks', () => ({
-  useBusiness: () => mockUseBusiness(),
+  useBusiness: mockHook('useBusiness'),
+  useBusinessDetails: mockHook('useBusinessDetails'),
+  useBusinessHours: mockHook('useBusinessHours'),
+  useWhatsAppAccount: mockHook('useWhatsAppAccount'),
+  useUpdateBusiness: mockMutation,
+  useReplaceBusinessHours: mockMutation,
+}));
+jest.mock('@/features/business/me', () => ({
+  useMe: mockHook('useMe'),
+  useCanManage: () => true,
 }));
 jest.mock('@/features/dashboard/hooks', () => ({
-  useDashboardSummary: () => mockUseDashboardSummary(),
-  useDaySchedule: () => mockUseDaySchedule(),
+  useDashboardSummary: mockHook('useDashboardSummary'),
+  useDaySchedule: mockHook('useDaySchedule'),
 }));
 jest.mock('@/features/appointments/hooks', () => ({
-  useCheckInAppointment: () => ({ mutate: jest.fn(), isPending: false }),
+  useAppointmentsBetween: mockHook('useAppointmentsBetween'),
+  useAppointment: mockHook('useAppointment'),
+  useAvailableSlots: mockHook('useAvailableSlots'),
+  useCheckInAppointment: mockMutation,
+  useCancelAppointment: mockMutation,
+  useCreateAppointment: mockMutation,
+}));
+jest.mock('@/features/clients/hooks', () => ({
+  useClientList: mockHook('useClientList'),
+  useClientSearch: mockHook('useClientSearch'),
+  useClient: mockHook('useClient'),
+  useClientNotes: mockHook('useClientNotes'),
+  useClientAppointments: mockHook('useClientAppointments'),
+  useAddClientNote: mockMutation,
+}));
+jest.mock('@/features/catalog/hooks', () => ({
+  useServices: mockHook('useServices'),
+  useStaff: mockHook('useStaff'),
+  useStaffServices: mockHook('useStaffServices'),
+  useSaveService: mockMutation,
+  useDeleteService: mockMutation,
+  useSaveStaff: mockMutation,
+  useDeleteStaff: mockMutation,
 }));
 
 function success<T>(data: T) {
@@ -60,6 +110,23 @@ function success<T>(data: T) {
     refetch: jest.fn(),
   };
 }
+function failure(error: Error) {
+  return {
+    data: undefined,
+    isPending: false,
+    isError: true,
+    isSuccess: false,
+    error,
+    refetch: jest.fn(),
+  };
+}
+
+const BUSINESS = {
+  id: 'biz-1',
+  name: 'Ashgrove',
+  timezone: 'Africa/Johannesburg',
+  currency: 'ZAR',
+};
 
 const SCHEDULE = [
   {
@@ -99,33 +166,232 @@ const SUMMARY = {
   next_appointment_id: 'appt-2',
 };
 
+const APPOINTMENTS = [
+  {
+    id: 'a-1',
+    starts_at: '2026-10-12T07:00:00.000Z',
+    ends_at: '2026-10-12T08:00:00.000Z',
+    duration_minutes: 60,
+    status: 'confirmed',
+    checked_in_at: null,
+    client: { id: 'c-1', name: 'Olivia Bennett' },
+    service: { name: 'Balayage & Toner' },
+    staff: { id: 's-1', name: 'Emma Thompson' },
+  },
+];
+
+const HOURS = [1, 2, 3, 4, 5, 6, 0].flatMap((weekday) =>
+  weekday === 0
+    ? []
+    : [
+        { weekday, opens_at: '09:00:00', closes_at: '13:00:00' },
+        { weekday, opens_at: '14:00:00', closes_at: '18:00:00' },
+      ],
+);
+
+const CLIENT_ROWS = [
+  {
+    id: 'c-1',
+    name: 'Olivia Bennett',
+    phone_e164: '+27821234567',
+    tags: ['VIP'],
+    last_seen_at: null,
+    appointments: [
+      { starts_at: '2026-09-01T08:00:00.000Z', status: 'completed' },
+    ],
+  },
+  {
+    id: 'c-2',
+    name: 'James Wilson',
+    phone_e164: '+27831112222',
+    tags: [],
+    last_seen_at: null,
+    appointments: [],
+  },
+];
+
+const CLIENT = {
+  id: 'c-1',
+  name: 'Olivia Bennett',
+  phone_e164: '+27821234567',
+  email: 'olivia@example.com',
+  tags: ['VIP'],
+  first_seen_at: '2025-09-01T08:00:00.000Z',
+  is_blocked: false,
+};
+
+const CLIENT_HISTORY = [
+  {
+    id: 'h-1',
+    starts_at: '2026-09-01T08:00:00.000Z',
+    duration_minutes: 180,
+    status: 'completed',
+    price_cents: 220000,
+    service: { name: 'Balayage & Toner' },
+    staff: { name: 'Emma Thompson' },
+  },
+  {
+    id: 'h-2',
+    starts_at: '2026-08-01T08:00:00.000Z',
+    duration_minutes: 60,
+    status: 'cancelled',
+    price_cents: 85000,
+    service: { name: "Women's Haircut" },
+    staff: { name: 'Marcus Chen' },
+  },
+];
+
+const APPOINTMENT_DETAIL = {
+  id: 'a-1',
+  client_id: 'c-1',
+  starts_at: '2026-10-13T12:00:00.000Z',
+  ends_at: '2026-10-13T15:00:00.000Z',
+  duration_minutes: 180,
+  status: 'confirmed',
+  source: 'whatsapp',
+  price_cents: 220000,
+  notes: 'Patch test done.',
+  checked_in_at: null,
+  created_at: '2026-10-01T08:00:00.000Z',
+  client: {
+    id: 'c-1',
+    name: 'Olivia Bennett',
+    phone_e164: '+27821234567',
+    tags: ['VIP'],
+  },
+  service: { name: 'Balayage & Toner', category: 'Hair' },
+  staff: { name: 'Emma Thompson', photo_url: null },
+};
+
+const SERVICES = [
+  {
+    id: 'sv-1',
+    name: "Women's Haircut",
+    description: null,
+    category: 'Hair',
+    duration_minutes: 60,
+    price_cents: 85000,
+    deposit_cents: 0,
+    is_active: true,
+    sort_order: 10,
+  },
+  {
+    id: 'sv-2',
+    name: 'Gel Manicure',
+    description: null,
+    category: 'Nails',
+    duration_minutes: 45,
+    price_cents: 35000,
+    deposit_cents: 0,
+    is_active: true,
+    sort_order: 20,
+  },
+  {
+    id: 'sv-3',
+    name: 'Retired Treatment',
+    description: null,
+    category: 'Nails',
+    duration_minutes: 30,
+    price_cents: 10000,
+    deposit_cents: 0,
+    is_active: false,
+    sort_order: 30,
+  },
+];
+
+const STAFF = [
+  {
+    id: 's-1',
+    user_id: null,
+    name: 'Emma Thompson',
+    title: 'Senior Colourist',
+    photo_url: null,
+    phone: null,
+    email: null,
+    color: null,
+    is_active: true,
+    accepts_bookings: true,
+    sort_order: 10,
+  },
+  {
+    id: 's-2',
+    user_id: null,
+    name: 'Marcus Chen',
+    title: 'Stylist',
+    photo_url: null,
+    phone: null,
+    email: null,
+    color: null,
+    is_active: false,
+    accepts_bookings: false,
+    sort_order: 20,
+  },
+];
+
 beforeEach(() => {
-  mockUseBusiness.mockReturnValue(
-    success({
-      id: 'biz-1',
-      name: 'Ashgrove',
-      timezone: 'Africa/Johannesburg',
-      currency: 'ZAR',
+  mockSearchParams.mockReturnValue({});
+  const defaults: Record<string, unknown> = {
+    useBusiness: success(BUSINESS),
+    useBusinessDetails: success({
+      ...BUSINESS,
+      email: 'hello@ashgrove.example',
+      phone: '+27215550199',
+      address: '14 Ashgrove Lane',
+      logo_url: null,
     }),
-  );
-  mockUseDashboardSummary.mockReturnValue(success(SUMMARY));
-  mockUseDaySchedule.mockReturnValue(success(SCHEDULE));
+    useBusinessHours: success(HOURS),
+    useWhatsAppAccount: success({
+      status: 'live',
+      display_phone: '+27215550199',
+      verified_name: 'Ashgrove',
+    }),
+    useMe: success({ role: 'owner' }),
+    useDashboardSummary: success(SUMMARY),
+    useDaySchedule: success(SCHEDULE),
+    useAppointmentsBetween: success(APPOINTMENTS),
+    useAppointment: success(APPOINTMENT_DETAIL),
+    useAvailableSlots: { ...success(undefined), isPending: true },
+    useClientList: {
+      ...success({ pages: [CLIENT_ROWS] }),
+      hasNextPage: true,
+      fetchNextPage: jest.fn(),
+    },
+    useClientSearch: success(CLIENT_ROWS),
+    useClient: success(CLIENT),
+    useClientNotes: success([
+      {
+        id: 'n-1',
+        body: 'Allergic to PPD.',
+        kind: 'warning',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ]),
+    useClientAppointments: success(CLIENT_HISTORY),
+    useServices: success(SERVICES),
+    useStaff: success(STAFF),
+    useStaffServices: success([{ staff_id: 's-1', service_id: 'sv-1' }]),
+  };
+  for (const [name, value] of Object.entries(defaults)) {
+    mockHooks[name] = jest.fn(() => value);
+  }
 });
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import AddBookingScreen from '../add';
-import BookingDetailsScreen from '../bookings/[id]';
-import CalendarScreen, { setCalendarViewMode } from '../calendar';
-import ClientsScreen from '../clients';
-import ClientDetailsScreen from '../clients/[id]';
-import DashboardScreen from '../index';
-import SettingsScreen from '../settings';
-import BusinessDetailsScreen from '../settings/business-details';
-import OperatingHoursScreen from '../settings/operating-hours';
-import ServicesScreen from '../settings/services';
-import StaffManagementScreen from '../settings/staff-management';
+import { setCalendarViewMode } from '@/features/calendar/navigation';
+
+import AddBookingRoute from '../add';
+import BookingDetailRoute from '../bookings/[id]';
+import CalendarRoute from '../calendar';
+import ClientsRoute from '../clients';
+import ClientProfileRoute from '../clients/[id]';
+import DashboardRoute from '../index';
+import SettingsRoute from '../settings';
+import BusinessDetailsRoute from '../settings/business-details';
+import OperatingHoursRoute from '../settings/operating-hours';
+import ServicesRoute from '../settings/services';
+import StaffManagementRoute from '../settings/staff-management';
 
 const initialMetrics = {
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
@@ -146,312 +412,198 @@ function renderScreen(ui: React.ReactElement) {
   return tree;
 }
 
-/** Serialises the rendered tree, skipping `refreshControl` (a circular React element). */
-function renderDashboardJson() {
-  return JSON.stringify(
-    renderScreen(<DashboardScreen />).toJSON(),
-    (key, value) => (key === 'refreshControl' ? undefined : value),
+/** Serialises the tree, skipping `refreshControl` (a circular React element). */
+function toJson(tree: renderer.ReactTestRenderer) {
+  return JSON.stringify(tree.toJSON(), (key, value) =>
+    key === 'refreshControl' ? undefined : value,
   );
 }
 
-describe('App screens', () => {
-  it('renders DashboardScreen stats and schedule from the database hooks', () => {
-    const json = renderDashboardJson();
+const render = (ui: React.ReactElement) => toJson(renderScreen(ui));
+
+describe('Dashboard', () => {
+  it('shows stats and the schedule from the database hooks', () => {
+    const json = render(<DashboardRoute />);
     expect(json).toContain('Administrator');
-    expect(json).toContain('Monthly Revenue');
     expect(json).toContain('R 12,450');
     expect(json).toContain('1 Confirmed');
     expect(json).toContain('1 Checked in');
-    expect(json).toContain("Today's Schedule");
     expect(json).toContain('Emma Thompson');
     expect(json).toContain('Signature Facial · 1h');
   });
 
-  it('shows the next appointment in business time on DashboardScreen', () => {
-    const json = renderDashboardJson();
+  it('shows the next appointment in business time', () => {
+    const json = render(<DashboardRoute />);
     expect(json).toContain('10:30 AM');
     expect(json).toContain('Sarah Jenkins');
     expect(json).toContain('Check In');
   });
 
   it('shows an empty schedule and no next appointment when today has no bookings', () => {
-    mockUseDashboardSummary.mockReturnValue(
+    mockHooks.useDashboardSummary.mockReturnValue(
       success({ ...SUMMARY, next_appointment_id: null }),
     );
-    mockUseDaySchedule.mockReturnValue(success([]));
-    const json = renderDashboardJson();
+    mockHooks.useDaySchedule.mockReturnValue(success([]));
+    const json = render(<DashboardRoute />);
     expect(json).toContain('No appointments today');
     expect(json).toContain('No more appointments today');
   });
 
   it('shows an error with retry when the business cannot be loaded', () => {
-    mockUseBusiness.mockReturnValue({
-      data: undefined,
-      isPending: false,
-      isError: true,
-      isSuccess: false,
-      error: new Error('boom'),
-      refetch: jest.fn(),
-    });
-    const json = renderDashboardJson();
+    mockHooks.useBusiness.mockReturnValue(failure(new Error('boom')));
+    const json = render(<DashboardRoute />);
     expect(json).toContain("Couldn't load this.");
     expect(json).toContain('Try again');
   });
+});
 
-  it('renders CalendarScreen with daily timeline and bookings', () => {
-    const tree = renderScreen(<CalendarScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Administrator');
-    expect(json).toContain('Haircut & Styling');
-    expect(json).toContain('Full Color & Blowout');
-    expect(json).toContain('Lunch Break');
-    expect(json).toContain('Day');
-  });
-
-  it('renders CalendarScreen and toggles to week view', () => {
-    const tree = renderScreen(<CalendarScreen />);
-    const weekButton = tree.root.findByProps({
-      accessibilityLabel: 'Week view',
-    });
-    act(() => {
-      weekButton.props.onPress();
-    });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('October 23 – 29, 2023');
-    expect(json).toContain('Time');
-    expect(json).toContain('Mon');
-    expect(json).toContain('Tue');
-    expect(json).toContain('Balayage & Styling');
-  });
-
-  it('renders CalendarScreen and toggles to month view, clicking a date switches to day view', () => {
-    const tree = renderScreen(<CalendarScreen />);
-    const monthButton = tree.root.findByProps({
-      accessibilityLabel: 'Month view',
-    });
-    act(() => {
-      monthButton.props.onPress();
-    });
-    let json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('October 2023');
-    expect(json).toContain('MONTH VIEW');
-
-    // Click on a day in Month view
-    const oct24Button = tree.root.findByProps({
-      accessibilityLabel: 'October 24, 2023, 3 appointments',
-    });
-    act(() => {
-      oct24Button.props.onPress();
-    });
-
-    json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('October 24, 2023');
-    expect(json).toContain('Tuesday');
-    expect(json).toContain('Haircut & Styling');
-  });
-
-  it('switches CalendarScreen to daily view when setCalendarViewMode is called', () => {
-    const tree = renderScreen(<CalendarScreen />);
-    // Switch to month view first
-    const monthButton = tree.root.findByProps({
-      accessibilityLabel: 'Month view',
-    });
-    act(() => {
-      monthButton.props.onPress();
-    });
-    expect(JSON.stringify(tree.toJSON())).toContain('MONTH VIEW');
-
-    // Trigger setCalendarViewMode('day')
-    act(() => {
-      setCalendarViewMode('day');
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('October 24, 2023');
-    expect(json).toContain('Tuesday');
-    expect(json).toContain('Haircut & Styling');
-  });
-
-  it('navigates to daily calendar when pressing View All on DashboardScreen', () => {
-    const tree = renderScreen(<DashboardScreen />);
-    const viewAllBtn = tree.root.findByProps({
-      accessibilityLabel: "View Today's Schedule in Calendar",
-    });
-    expect(viewAllBtn).toBeDefined();
-    act(() => {
-      viewAllBtn.props.onPress();
-    });
-  });
-
-  it('renders BookingDetailsScreen with client, schedule, service and actions', () => {
-    const tree = renderScreen(<BookingDetailsScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Booking Detail');
-    expect(json).toContain('Confirmed');
-    expect(json).toContain('Nadia Osman');
-    expect(json).toContain('Full Balayage & Toner');
-    expect(json).toContain('Amara S.');
-    expect(json).toContain('Message');
-    expect(json).toContain('Reschedule');
-    expect(json).toContain('Cancel');
-  });
-
-  it('renders ClientDetailsScreen with profile, contact, notes, and history', () => {
-    const tree = renderScreen(<ClientDetailsScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Client Profile');
-    expect(json).toContain('Nadia Osman');
-    expect(json).toContain('Message');
-    expect(json).toContain('Call');
-    expect(json).toContain('Book');
-    expect(json).toContain('Contact Details');
-    expect(json).toContain('Important Notes');
-    expect(json).toContain('Total Visits');
-    expect(json).toContain('Booking History');
-    expect(json).toContain('Balayage & Styling');
-  });
-
-  it('renders OperatingHoursScreen with weekly schedule and actions', () => {
-    const tree = renderScreen(<OperatingHoursScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Operating Hours');
-    expect(json).toContain('Set your salon');
-    expect(json).toContain('standard availability');
-    expect(json).toContain('Monday');
-    expect(json).toContain('Sunday');
-    expect(json).toContain('Open');
-    expect(json).toContain('Closed');
-    expect(json).toContain('09:00 AM');
-    expect(json).toContain('06:00 PM');
-    expect(json).toContain('Cancel');
-    expect(json).toContain('Save Changes');
-  });
-
-  it('renders ServicesScreen with service catalogue and categories', () => {
-    const tree = renderScreen(<ServicesScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Services');
-    expect(json).toContain('Hair');
-    expect(json).toContain("Women's Haircut");
-    expect(json).toContain("Men's Haircut");
+describe('Calendar', () => {
+  it('renders the day timeline with bookings and the lunch break from split shifts', () => {
+    const json = render(<CalendarRoute />);
     expect(json).toContain('Balayage & Toner');
-    expect(json).toContain('Nails');
-    expect(json).toContain('Gel Manicure');
-    expect(json).toContain('Spa Pedicure');
-    expect(json).toContain('Add Service');
+    expect(json).toContain('Olivia Bennett · Emma Thompson');
+    expect(json).toContain('09:00 - 10:00');
+    expect(json).toContain('Break');
   });
 
-  it('renders BusinessDetailsScreen with business info, location, and regional settings', () => {
-    const tree = renderScreen(<BusinessDetailsScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Business Details');
-    expect(json).toContain('Business Information');
-    expect(json).toContain('Luxe Beauty Lounge');
-    expect(json).toContain('hello@luxebeauty.com');
-    expect(json).toContain('Location Details');
-    expect(json).toContain('45 Main Road, Sea Point');
-    expect(json).toContain('Cape Town');
-    expect(json).toContain('8005');
-    expect(json).toContain('Regional Settings');
-    expect(json).toContain('South African Rand (ZAR)');
-    expect(json).toContain('Save Changes');
+  it('switches between week and month views and back to today via setCalendarViewMode', () => {
+    const tree = renderScreen(<CalendarRoute />);
+    act(() =>
+      tree.root
+        .findByProps({ accessibilityLabel: 'Week view' })
+        .props.onPress(),
+    );
+    expect(toJson(tree)).toContain('Week view');
+    expect(toJson(tree)).toContain('1 appt');
+    act(() =>
+      tree.root
+        .findByProps({ accessibilityLabel: 'Month view' })
+        .props.onPress(),
+    );
+    expect(toJson(tree)).toContain('Month view');
+    act(() => setCalendarViewMode('day'));
+    expect(toJson(tree)).toContain('Break');
   });
 
-  it('renders StaffManagementScreen with team directory and staff cards', () => {
-    const tree = renderScreen(<StaffManagementScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Staff Management');
-    expect(json).toContain('Team Directory');
-    expect(json).toContain('Manage roles and availability');
-    expect(json).toContain('Add Staff');
-    expect(json).toContain('Emma Thompson');
-    expect(json).toContain('Senior Colorist');
-    expect(json).toContain('Marcus Chen');
-    expect(json).toContain('Master Stylist');
-    expect(json).toContain('Sarah Jenkins');
-    expect(json).toContain('Junior Stylist');
-    expect(json).toContain('Active');
-    expect(json).toContain('On Leave');
-    expect(json).toContain('Bookings');
-    expect(json).toContain('Save Changes');
+  it('shows an error when appointments fail to load', () => {
+    mockHooks.useAppointmentsBetween.mockReturnValue(
+      failure(new Error('down')),
+    );
+    expect(render(<CalendarRoute />)).toContain("Couldn't load this.");
   });
+});
 
-  it('renders AddBookingScreen with client toggle and fields', () => {
-    const tree = renderScreen(<AddBookingScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Administrator');
-    expect(json).toContain('Client');
-    expect(json).toContain('Existing');
-    expect(json).toContain('New Client');
-    expect(json).toContain('Service');
-    expect(json).toContain('Signature Facial');
-    expect(json).toContain('Send WhatsApp confirmation');
-    expect(json).toContain('Save Booking');
-  });
-
-  it('renders ClientsScreen with search, filters and clients list', () => {
-    const tree = renderScreen(<ClientsScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Administrator');
-    expect(json).toContain('Clients');
-    expect(json).toContain('Manage your client relationships');
-    expect(json).toContain('Search clients by name or phone...');
-    expect(json).toContain('All Clients');
-    expect(json).toContain('Recent');
+describe('Clients', () => {
+  it('lists clients with VIP badges, last visit and paging', () => {
+    const json = render(<ClientsRoute />);
+    expect(json).toContain('Olivia Bennett');
+    expect(json).toContain('James Wilson');
     expect(json).toContain('VIP');
-    expect(json).toContain('Sarah Jenkins');
-    expect(json).toContain('Michael Rodriguez');
-    expect(json).toContain('David Chen');
-    expect(json).toContain('Appointment Today at 2:00 PM');
-    expect(json).toContain('Emma Lawson');
+    expect(json).toContain('No visits yet');
     expect(json).toContain('Load more clients');
   });
 
-  it('toggles VIP filter on ClientsScreen', () => {
-    const tree = renderScreen(<ClientsScreen />);
-    // Find VIP button
-    const vipButton = tree.root.findAll((node) => {
-      return (
-        node.props?.accessibilityRole === 'tab' &&
-        node.props?.children?.props?.children === 'VIP'
-      );
-    })[0];
-    act(() => {
-      vipButton.props.onPress();
+  it('shows an empty state when no clients match', () => {
+    mockHooks.useClientList.mockReturnValue({
+      ...success({ pages: [[]] }),
+      hasNextPage: false,
     });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Sarah Jenkins');
-    expect(json).toContain('David Chen');
-    expect(json).not.toContain('Michael Rodriguez');
+    expect(render(<ClientsRoute />)).toContain('No clients found');
   });
 
-  it('loads more clients when tapping Load more clients', () => {
-    const tree = renderScreen(<ClientsScreen />);
-    const loadMoreBtn = tree.root.findByProps({
-      accessibilityLabel: 'Load more clients',
-    });
-    act(() => {
-      loadMoreBtn.props.onPress();
-    });
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Jessica Taylor');
-    expect(json).toContain('Robert Johnson');
+  it('renders a client profile with contact, notes, stats and history', () => {
+    mockSearchParams.mockReturnValue({ id: 'c-1' });
+    const json = render(<ClientProfileRoute />);
+    expect(json).toContain('Olivia Bennett');
+    expect(json).toContain('+27 82 123 4567');
+    expect(json).toContain('olivia@example.com');
+    expect(json).toContain('Allergic to PPD.');
+    expect(json).toContain('R2.2k');
+    expect(json).toContain('50%');
+    expect(json).toContain("Women's Haircut");
+  });
+});
+
+describe('Booking detail', () => {
+  it('shows the client, schedule, service, staff and a cancel action', () => {
+    mockSearchParams.mockReturnValue({ id: 'a-1' });
+    const json = render(<BookingDetailRoute />);
+    expect(json).toContain('Booking Detail');
+    expect(json).toContain('Olivia Bennett');
+    expect(json).toContain('VIP client • 1 past visit');
+    expect(json).toContain('14:00 - 17:00');
+    expect(json).toContain('Balayage & Toner');
+    expect(json).toContain('R 2,200.00');
+    expect(json).toContain('Emma Thompson');
+    expect(json).toContain('Patch test done.');
+    expect(json).toContain('Cancel');
   });
 
-  it('renders SettingsScreen with Administrator header, preferences, and business settings', () => {
-    const tree = renderScreen(<SettingsScreen />);
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Administrator');
-    expect(json).toContain('Settings');
-    expect(json).toContain('Preferences');
-    expect(json).toContain('Dark Mode');
-    expect(json).toContain('Push Notifications');
-    expect(json).toContain('Business Settings');
-    expect(json).toContain('Business Details');
+  it('shows not-found for a missing booking', () => {
+    mockSearchParams.mockReturnValue({ id: 'missing' });
+    mockHooks.useAppointment.mockReturnValue(success(null));
+    expect(render(<BookingDetailRoute />)).toContain(
+      "This booking couldn't be found.",
+    );
+  });
+});
+
+describe('Add booking', () => {
+  it('renders the client, service, staff, date and confirmation sections', () => {
+    const json = render(<AddBookingRoute />);
+    expect(json).toContain('Existing');
+    expect(json).toContain('New Client');
+    expect(json).toContain('Olivia Bennett');
+    expect(json).toContain('Select a service');
+    expect(json).toContain('No preference');
+    expect(json).toContain('Choose a service to see available times.');
+    expect(json).toContain('Send WhatsApp confirmation');
+    expect(json).toContain('Save Booking');
+  });
+});
+
+describe('Settings', () => {
+  it('shows the profile, role, settings links and WhatsApp status', () => {
+    const json = render(<SettingsRoute />);
+    expect(json).toContain('Kobus Krieg');
+    expect(json).toContain('Ashgrove Hair & Beauty • Owner');
     expect(json).toContain('Operating Hours');
-    expect(json).toContain('Services');
     expect(json).toContain('Staff Management');
-    expect(json).toContain('WhatsApp API');
+    expect(json).toContain('Connected · +27 21 555 0199');
     expect(json).toContain('Log Out');
+  });
+
+  it('prefills business details from the database', () => {
+    const json = render(<BusinessDetailsRoute />);
+    expect(json).toContain('Ashgrove');
+    expect(json).toContain('hello@ashgrove.example');
+    expect(json).toContain('14 Ashgrove Lane');
+    expect(json).toContain('South African Rand (ZAR)');
+  });
+
+  it('shows split shifts per weekday and Sunday closed', () => {
+    const json = render(<OperatingHoursRoute />);
+    expect(json).toContain('Monday');
+    expect(json).toContain('09:00 AM');
+    expect(json).toContain('01:00 PM');
+    expect(json).toContain('02:00 PM');
+    expect(json).toContain('No hours set');
+  });
+
+  it('groups services by category with prices and hidden markers', () => {
+    const json = render(<ServicesRoute />);
+    expect(json).toContain('Hair');
+    expect(json).toContain('Nails');
+    expect(json).toContain("Women's Haircut");
+    expect(json).toContain('R 850.00');
+    expect(json).toContain('Hidden');
+  });
+
+  it('lists staff with titles and status', () => {
+    const json = render(<StaffManagementRoute />);
+    expect(json).toContain('Emma Thompson');
+    expect(json).toContain('Senior Colourist');
+    expect(json).toContain('Active');
+    expect(json).toContain('Inactive');
   });
 });
