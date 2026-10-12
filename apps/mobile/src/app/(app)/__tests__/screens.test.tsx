@@ -41,12 +41,28 @@ jest.mock('@/components/Sheet', () => {
 });
 
 const mockSearchParams = jest.fn();
-jest.mock('expo-router', () => ({
-  ...jest.requireActual('expo-router'),
-  useLocalSearchParams: () => mockSearchParams(),
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-}));
+const mockRouter = {
+  push: jest.fn(),
+  replace: jest.fn(),
+  back: jest.fn(),
+  setParams: jest.fn(),
+};
+// `router` is a lazy getter: the factory runs before `mockRouter` is assigned.
+jest.mock('expo-router', () =>
+  Object.defineProperty(
+    {
+      ...jest.requireActual('expo-router'),
+      useLocalSearchParams: () => mockSearchParams(),
+      useRouter: () => ({
+        push: jest.fn(),
+        replace: jest.fn(),
+        back: jest.fn(),
+      }),
+    },
+    'router',
+    { get: () => mockRouter, enumerable: true },
+  ),
+);
 
 // Mock factories run before this file's consts initialise, so they only
 // capture hoisted functions that read `mockHooks` lazily at call time.
@@ -80,7 +96,7 @@ jest.mock('@/features/appointments/hooks', () => ({
   useAvailableSlots: mockHook('useAvailableSlots'),
   useCheckInAppointment: mockMutation,
   useCancelAppointment: mockMutation,
-  useCreateAppointment: mockMutation,
+  useCreateAppointment: mockHook('useCreateAppointment'),
 }));
 jest.mock('@/features/clients/hooks', () => ({
   useClientList: mockHook('useClientList'),
@@ -370,6 +386,7 @@ beforeEach(() => {
     useServices: success(SERVICES),
     useStaff: success(STAFF),
     useStaffServices: success([{ staff_id: 's-1', service_id: 'sv-1' }]),
+    useCreateAppointment: mockMutation(),
   };
   for (const [name, value] of Object.entries(defaults)) {
     mockHooks[name] = jest.fn(() => value);
@@ -559,6 +576,32 @@ describe('Add booking', () => {
     expect(json).toContain('Choose a service to see available times.');
     expect(json).toContain('Send WhatsApp confirmation');
     expect(json).toContain('Save Booking');
+  });
+
+  it('clears the form and the client preselection after a booking is saved', () => {
+    let onSuccess: ((id: string) => void) | undefined;
+    mockHooks.useCreateAppointment.mockImplementation(
+      (opts: { onSuccess: (id: string) => void }) => {
+        onSuccess = opts.onSuccess;
+        return mockMutation();
+      },
+    );
+    const tree = renderScreen(<AddBookingRoute />);
+    const notes = () =>
+      tree.root.findAllByProps({
+        placeholder: 'Special requests, allergies or notes for the staff...',
+      })[0];
+
+    act(() => notes().props.onChangeText('Allergic to latex'));
+    expect(notes().props.value).toBe('Allergic to latex');
+
+    act(() => onSuccess?.('appt-9'));
+    expect(notes().props.value).toBe('');
+    expect(mockRouter.setParams).toHaveBeenCalledWith({
+      clientId: '',
+      mode: '',
+    });
+    expect(mockRouter.push).toHaveBeenCalledWith('/bookings/appt-9');
   });
 });
 
