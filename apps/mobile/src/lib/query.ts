@@ -26,6 +26,8 @@ export const queryClient = new QueryClient({
 /** Central query keys so Realtime can invalidate precisely. */
 export const qk = {
   me: ['me'] as const,
+  business: ['business'] as const,
+  dashboardAll: ['dashboard'] as const,
   dashboard: (date: string) => ['dashboard', date] as const,
   appointments: ['appointments'] as const,
   appointmentsRange: (from: string, to: string, staffId?: string | null) =>
