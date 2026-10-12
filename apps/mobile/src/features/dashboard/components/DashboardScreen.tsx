@@ -1,19 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Bell } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { setCalendarViewMode } from '@/app/(app)/calendar';
-import { Header } from '@/components/Header';
 import { Screen } from '@/components/Screen';
 import { ErrorState, LoadingCard, LoadingRows } from '@/components/States';
-import { Icon } from '@/components/ui/icon';
+import { TabHeader } from '@/components/TabHeader';
 import { Text } from '@/components/ui/text';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
+import { setCalendarViewMode } from '@/features/calendar/navigation';
 import { todayISO } from '@/lib/time';
-import { toast } from '@/lib/toast';
 
 import { useDashboardSummary, useDaySchedule } from '../hooks';
 import { NextAppointmentCard } from './NextAppointmentCard';
@@ -25,7 +22,7 @@ export function DashboardScreen() {
   const queryClient = useQueryClient();
   return (
     <Screen
-      header={<DashboardHeader />}
+      header={<TabHeader />}
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
       {business.isPending ? (
@@ -39,26 +36,6 @@ export function DashboardScreen() {
         <DashboardContent business={business.data} />
       )}
     </Screen>
-  );
-}
-
-function DashboardHeader() {
-  const { t } = useTranslation();
-  return (
-    <Header
-      title={t('dashboard.title')}
-      hideBack
-      right={
-        <Pressable
-          onPress={() => toast.info(t('dashboard.noNotifications'))}
-          className="relative h-11 w-11 items-center justify-center rounded-full active:bg-accent"
-          accessibilityRole="button"
-          accessibilityLabel={t('dashboard.notifications')}
-        >
-          <Icon as={Bell} size={20} className="text-foreground" />
-        </Pressable>
-      }
-    />
   );
 }
 

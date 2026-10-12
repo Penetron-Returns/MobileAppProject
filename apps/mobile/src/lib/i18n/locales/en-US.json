@@ -8,7 +8,9 @@
     "confirm": "Confirm",
     "save": "Save",
     "search": "Search",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "saveChanges": "Save Changes",
+    "saving": "Saving..."
   },
   "errors": {
     "generic": "Something went wrong.",
@@ -84,6 +86,307 @@
     "notFound": {
       "title": "This screen doesn't exist.",
       "link": "Go to Dashboard"
+    }
+  },
+  "forms": {
+    "required": "This field is required.",
+    "invalidEmail": "Enter a valid email address.",
+    "invalidPrice": "Enter a price like 250 or 250.00."
+  },
+  "calendar": {
+    "today": "Today",
+    "time": "Time",
+    "closed": "Closed",
+    "free": "Free",
+    "break": "Break",
+    "apptCount_one": "{{count}} appt",
+    "apptCount_other": "{{count}} appts",
+    "monthView": "Month view",
+    "weekView": "Week view",
+    "openDay": "Open {{date}}",
+    "monthCellLabel": "{{date}}, {{count}} appointments",
+    "blockLabel": "{{service}} with {{client}}, {{time}}",
+    "views": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "viewLabel": {
+      "day": "Day view",
+      "week": "Week view",
+      "month": "Month view"
+    },
+    "previous": {
+      "day": "Previous day",
+      "week": "Previous week",
+      "month": "Previous month"
+    },
+    "next": {
+      "day": "Next day",
+      "week": "Next week",
+      "month": "Next month"
+    }
+  },
+  "clients": {
+    "title": "Clients",
+    "subtitle": "Manage your client relationships",
+    "new": "New",
+    "addNew": "Add new client",
+    "searchPlaceholder": "Search clients by name or phone...",
+    "filters": {
+      "all": "All Clients",
+      "recent": "Recent",
+      "vip": "VIP"
+    },
+    "vip": "VIP",
+    "appointmentToday": "Appointment today at {{time}}",
+    "lastVisit": "Last visit: {{when}}",
+    "noVisits": "No visits yet",
+    "loadMore": "Load more clients",
+    "empty": {
+      "title": "No clients found",
+      "search": "No clients match \"{{query}}\". Try a different name or number.",
+      "filter": "No clients in this category yet."
+    }
+  },
+  "clientProfile": {
+    "title": "Client Profile",
+    "notFound": "This client couldn't be found.",
+    "joined": "Client since {{date}}",
+    "message": "Message",
+    "call": "Call",
+    "book": "Book",
+    "contact": "Contact Details",
+    "mobile": "Mobile",
+    "email": "Email",
+    "notes": "Important Notes",
+    "noNotes": "No notes yet.",
+    "notePlaceholder": "Add a note for the team...",
+    "addNote": "Add",
+    "stats": {
+      "visits": "Total Visits",
+      "spent": "Total Spent",
+      "avgSpend": "Avg Spend",
+      "cancellations": "Cancellations"
+    },
+    "history": "Booking History",
+    "noHistory": "No bookings yet.",
+    "loadMoreHistory": "Load More History",
+    "withStaff": "with {{name}}",
+    "status": {
+      "upcoming": "Upcoming",
+      "confirmed": "Confirmed",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no_show": "No-show"
+    }
+  },
+  "booking": {
+    "title": "Booking Detail",
+    "notFound": "This booking couldn't be found.",
+    "bookedOn": "Booked {{date}} via {{source}}",
+    "source": {
+      "whatsapp": "WhatsApp",
+      "app": "the app",
+      "web": "the web page"
+    },
+    "clientHistory": "Client History",
+    "historyNew": "New client • first visit",
+    "historyReturning_one": "Returning client • {{count}} past visit",
+    "historyReturning_other": "Returning client • {{count}} past visits",
+    "historyVip_one": "VIP client • {{count}} past visit",
+    "historyVip_other": "VIP client • {{count}} past visits",
+    "viewClient": "View client profile for {{name}}",
+    "schedule": "Schedule",
+    "service": "Service",
+    "total": "Total",
+    "staff": "Assigned Staff",
+    "notes": "Booking Notes",
+    "message": "Message",
+    "viewCalendar": "Calendar",
+    "cancel": "Cancel",
+    "cancelled": "Booking cancelled",
+    "cancelDialog": {
+      "title": "Cancel appointment?",
+      "description": "The slot becomes available again and the client is notified on WhatsApp.",
+      "confirm": "Yes, cancel booking",
+      "keep": "Keep appointment"
+    }
+  },
+  "addBooking": {
+    "client": "Client",
+    "clientMode": {
+      "existing": "Existing",
+      "new": "New Client"
+    },
+    "searchClient": "Search by name or phone...",
+    "noClientMatch": "No matching clients.",
+    "select": "Select",
+    "selectClient": "Select client {{name}}",
+    "changeClient": "Change client",
+    "newName": "Full name",
+    "newPhone": "Mobile number",
+    "service": "Service",
+    "pickService": "Select a service",
+    "staff": "Staff Member",
+    "pickStaff": "Select staff member",
+    "anyStaff": "No preference",
+    "date": "Date",
+    "time": "Time",
+    "pickServiceFirst": "Choose a service to see available times.",
+    "noSlots": "No free times on this day. Try another date.",
+    "notes": "Internal Notes",
+    "notesPlaceholder": "Special requests, allergies or notes for the staff...",
+    "whatsApp": "Send WhatsApp confirmation",
+    "whatsAppHint": "The client gets the booking details in their chat",
+    "save": "Save Booking",
+    "saving": "Saving...",
+    "created": "Booking created",
+    "slotTaken": "That time was just taken. Pick another slot.",
+    "errors": {
+      "client": "Select a client first.",
+      "newClient": "Enter the new client's name and mobile number.",
+      "service": "Select a service.",
+      "slot": "Select a time slot."
+    }
+  },
+  "settings": {
+    "preferences": "Preferences",
+    "darkMode": "Dark Mode",
+    "darkModeHint": "Toggle appearance",
+    "businessSettings": "Business Settings",
+    "integrations": "Integrations",
+    "logOut": "Log Out",
+    "roles": {
+      "owner": "Owner",
+      "staff": "Staff"
+    },
+    "items": {
+      "businessDetails": {
+        "title": "Business Details",
+        "subtitle": "Name, address, contact"
+      },
+      "operatingHours": {
+        "title": "Operating Hours",
+        "subtitle": "Opening times and breaks"
+      },
+      "services": {
+        "title": "Services",
+        "subtitle": "Menu and pricing"
+      },
+      "staff": {
+        "title": "Staff Management",
+        "subtitle": "Team members and roles"
+      }
+    },
+    "whatsapp": {
+      "title": "WhatsApp API",
+      "loading": "Checking connection...",
+      "notConnected": "Not connected yet",
+      "status": {
+        "live": "Connected · {{phone}}",
+        "pending": "Setup in progress",
+        "needs_reauth": "Needs to be reconnected",
+        "disconnected": "Disconnected",
+        "paused": "Paused"
+      }
+    }
+  },
+  "businessDetails": {
+    "title": "Business Details",
+    "timezone": "Time zone: {{tz}}",
+    "info": "Business Information",
+    "name": "Business Name",
+    "email": "Business Email",
+    "phone": "Phone Number",
+    "location": "Location Details",
+    "address": "Address",
+    "regional": "Regional Settings",
+    "currency": "Currency",
+    "saved": "Business details saved",
+    "currencies": {
+      "ZAR": "South African Rand (ZAR)",
+      "USD": "US Dollar (USD)",
+      "EUR": "Euro (EUR)",
+      "GBP": "British Pound (GBP)",
+      "BWP": "Botswana Pula (BWP)",
+      "NAD": "Namibian Dollar (NAD)",
+      "KES": "Kenyan Shilling (KES)",
+      "NGN": "Nigerian Naira (NGN)"
+    }
+  },
+  "hours": {
+    "title": "Operating Hours",
+    "intro": "Set your standard opening times. Add a second time range for split shifts such as a lunch break.",
+    "open": "Open",
+    "closed": "Closed",
+    "toggle": "Toggle {{day}} open",
+    "noHours": "No hours set",
+    "to": "to",
+    "addRange": "Add time range",
+    "removeRange": "Remove time range",
+    "saved": "Operating hours saved",
+    "pick": {
+      "opens": "{{day}} opening time",
+      "closes": "{{day}} closing time"
+    },
+    "errors": {
+      "order": "{{day}}: closing time must be after opening time.",
+      "overlap": "{{day}}: time ranges overlap."
+    }
+  },
+  "services": {
+    "title": "Services",
+    "empty": "No services yet",
+    "other": "Other",
+    "hidden": "Hidden",
+    "add": "Add Service",
+    "edit": "Edit Service",
+    "name": "Service Name",
+    "category": "Category",
+    "categoryHint": "Existing: {{list}}",
+    "duration": "Duration",
+    "price": "Price",
+    "active": "Bookable",
+    "activeHint": "Hidden services stay on past bookings but can't be booked",
+    "added": "Service added",
+    "updated": "Service updated",
+    "removed": "Service removed",
+    "delete": "Delete Service",
+    "deleteDialog": {
+      "title": "Delete service?",
+      "description": "Clients can no longer book it. A service with past bookings is hidden instead of deleted.",
+      "confirm": "Yes, delete",
+      "keep": "Keep service"
+    }
+  },
+  "staff": {
+    "screenTitle": "Staff Management",
+    "directory": "Team Directory",
+    "directoryHint": "Manage roles and availability",
+    "empty": "No staff members yet",
+    "add": "Add Staff",
+    "edit": "Edit Staff Member",
+    "name": "Full Name",
+    "title": "Role / Title",
+    "active": "Active",
+    "activeHint": "Inactive staff are hidden from the booking flow",
+    "acceptsBookings": "Accept Bookings",
+    "acceptsBookingsHint": "Clients can be booked with this staff member",
+    "services": "Services they perform",
+    "bookings": "Bookings",
+    "toggleBookings": "Toggle bookings for {{name}}",
+    "statusActive": "Active",
+    "statusInactive": "Inactive",
+    "added": "Staff member added",
+    "updated": "Staff details updated",
+    "removed": "Staff member removed",
+    "delete": "Remove Staff Member",
+    "deleteDialog": {
+      "title": "Remove staff member?",
+      "description": "They are removed from the team directory. Their existing bookings are kept.",
+      "confirm": "Yes, remove",
+      "keep": "Keep staff"
     }
   }
 }
