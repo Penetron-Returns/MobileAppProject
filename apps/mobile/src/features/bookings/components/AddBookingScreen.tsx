@@ -46,13 +46,17 @@ export function AddBookingScreen({
   initialClientId?: string;
   startWithNewClient?: boolean;
 }) {
+  // The Add tab stays mounted, so a new key after each save gives an empty form.
+  const [formKey, setFormKey] = React.useState(0);
   return (
     <BusinessGate>
       {(business) => (
         <AddBookingForm
+          key={formKey}
           business={business}
           initialClientId={initialClientId}
           startWithNewClient={startWithNewClient}
+          onSaved={() => setFormKey((k) => k + 1)}
         />
       )}
     </BusinessGate>
@@ -63,10 +67,12 @@ function AddBookingForm({
   business,
   initialClientId,
   startWithNewClient,
+  onSaved,
 }: {
   business: BusinessSummary;
   initialClientId?: string;
   startWithNewClient?: boolean;
+  onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -109,7 +115,10 @@ function AddBookingForm({
   const create = useCreateAppointment({
     onSuccess: (id) => {
       toast.success(t('addBooking.created'));
-      router.replace(`/bookings/${id}` as never);
+      // Clear the client preselection so the next booking starts blank.
+      router.setParams({ clientId: '', mode: '' });
+      onSaved();
+      router.push(`/bookings/${id}` as never);
     },
     onError: (error) => {
       if (isApiError(error) && error.code === 'SLOT_UNAVAILABLE') {

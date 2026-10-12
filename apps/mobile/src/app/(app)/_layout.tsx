@@ -61,6 +61,8 @@ export default function AppLayout() {
 
   return (
     <Tabs
+      // Detail pages are hidden tabs, so back must follow history, not jump to the first tab.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
