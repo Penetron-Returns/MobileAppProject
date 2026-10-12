@@ -195,9 +195,10 @@ function DayCard({
   return (
     <View
       className={cn(
-        'rounded-xl border p-4',
+        // Shadows set CSS variables, so they must not toggle after the first render.
+        'rounded-xl border p-4 shadow-sm',
         day.isOpen
-          ? 'bg-card border-border shadow-sm'
+          ? 'bg-card border-border'
           : 'border-border/60 bg-muted/20 border-dashed',
       )}
     >

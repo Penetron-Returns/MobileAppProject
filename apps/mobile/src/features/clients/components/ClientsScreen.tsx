@@ -88,10 +88,10 @@ function ClientsContent({ business }: { business: BusinessSummary }) {
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
               className={cn(
-                'min-h-[36px] justify-center rounded-full border px-4 py-1.5',
+                'min-h-[36px] justify-center rounded-full border px-4 py-1.5 active:opacity-80',
                 isActive
                   ? 'border-primary/20 bg-primary/10'
-                  : 'border-border bg-card active:bg-muted',
+                  : 'border-border bg-card',
               )}
             >
               <Text

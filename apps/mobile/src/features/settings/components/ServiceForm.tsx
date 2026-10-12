@@ -216,10 +216,8 @@ export function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       className={cn(
-        'min-h-[36px] justify-center rounded-lg border px-3 py-1.5',
-        selected
-          ? 'bg-primary border-primary'
-          : 'bg-muted/40 border-border active:bg-muted',
+        'min-h-[36px] justify-center rounded-lg border px-3 py-1.5 active:opacity-80',
+        selected ? 'bg-primary border-primary' : 'bg-muted/40 border-border',
       )}
     >
       <Text
