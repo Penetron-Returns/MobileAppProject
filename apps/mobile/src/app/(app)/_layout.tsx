@@ -11,6 +11,7 @@ import * as React from 'react';
 
 import { NoBusinessScreen } from '@/components/NoBusinessScreen';
 import { CenteredSpinner } from '@/components/States';
+import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 
 /**
@@ -32,17 +33,18 @@ export default function AppLayout() {
     userMemberships: { infinite: true },
   });
   const { colors } = useAppColorScheme();
+  useAppointmentsRealtime(Boolean(isSignedIn && organization));
 
   const memberships = userMemberships.data;
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
   const shouldActivateFirst = Boolean(
     authLoaded &&
-    isSignedIn &&
-    orgLoaded &&
-    listLoaded &&
-    !organization &&
-    memberships &&
-    memberships.length > 0,
+      isSignedIn &&
+      orgLoaded &&
+      listLoaded &&
+      !organization &&
+      memberships &&
+      memberships.length > 0,
   );
 
   React.useEffect(() => {

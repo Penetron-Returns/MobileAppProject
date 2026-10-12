@@ -35,6 +35,84 @@ jest.mock('@/components/ConfirmDialog', () => ({
   ConfirmDialog: () => null,
 }));
 
+const mockUseBusiness = jest.fn();
+const mockUseDashboardSummary = jest.fn();
+const mockUseDaySchedule = jest.fn();
+
+jest.mock('@/features/business/hooks', () => ({
+  useBusiness: () => mockUseBusiness(),
+}));
+jest.mock('@/features/dashboard/hooks', () => ({
+  useDashboardSummary: () => mockUseDashboardSummary(),
+  useDaySchedule: () => mockUseDaySchedule(),
+}));
+jest.mock('@/features/appointments/hooks', () => ({
+  useCheckInAppointment: () => ({ mutate: jest.fn(), isPending: false }),
+}));
+
+function success<T>(data: T) {
+  return {
+    data,
+    isPending: false,
+    isError: false,
+    isSuccess: true,
+    error: null,
+    refetch: jest.fn(),
+  };
+}
+
+const SCHEDULE = [
+  {
+    id: 'appt-1',
+    starts_at: '2026-10-12T07:00:00.000Z',
+    duration_minutes: 60,
+    status: 'completed',
+    checked_in_at: '2026-10-12T06:55:00.000Z',
+    client: { name: 'Emma Thompson', phone_e164: '+27825550100' },
+    service: { name: 'Signature Facial' },
+  },
+  {
+    id: 'appt-2',
+    starts_at: '2026-10-12T08:30:00.000Z',
+    duration_minutes: 60,
+    status: 'confirmed',
+    checked_in_at: null,
+    client: { name: 'Sarah Jenkins', phone_e164: '+27825550101' },
+    service: { name: 'Deep Tissue Massage' },
+  },
+];
+
+const SUMMARY = {
+  month_revenue_cents: 1245000,
+  revenue_by_day: [
+    { date: '2026-10-01', cents: 0 },
+    { date: '2026-10-02', cents: 85000 },
+  ],
+  today: {
+    total: 2,
+    confirmed: 1,
+    completed: 1,
+    cancelled: 0,
+    no_show: 0,
+    checked_in: 1,
+  },
+  next_appointment_id: 'appt-2',
+};
+
+beforeEach(() => {
+  mockUseBusiness.mockReturnValue(
+    success({
+      id: 'biz-1',
+      name: 'Ashgrove',
+      timezone: 'Africa/Johannesburg',
+      currency: 'ZAR',
+    }),
+  );
+  mockUseDashboardSummary.mockReturnValue(success(SUMMARY));
+  mockUseDaySchedule.mockReturnValue(success(SCHEDULE));
+});
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AddBookingScreen from '../add';
@@ -58,20 +136,66 @@ function renderScreen(ui: React.ReactElement) {
   let tree!: renderer.ReactTestRenderer;
   act(() => {
     tree = renderer.create(
-      <SafeAreaProvider initialMetrics={initialMetrics}>{ui}</SafeAreaProvider>,
+      <QueryClientProvider client={new QueryClient()}>
+        <SafeAreaProvider initialMetrics={initialMetrics}>
+          {ui}
+        </SafeAreaProvider>
+      </QueryClientProvider>,
     );
   });
   return tree;
 }
 
+/** Serialises the rendered tree, skipping `refreshControl` (a circular React element). */
+function renderDashboardJson() {
+  return JSON.stringify(
+    renderScreen(<DashboardScreen />).toJSON(),
+    (key, value) => (key === 'refreshControl' ? undefined : value),
+  );
+}
+
 describe('App screens', () => {
-  it('renders DashboardScreen with stats and schedule', () => {
-    const tree = renderScreen(<DashboardScreen />);
-    const json = JSON.stringify(tree.toJSON());
+  it('renders DashboardScreen stats and schedule from the database hooks', () => {
+    const json = renderDashboardJson();
     expect(json).toContain('Administrator');
     expect(json).toContain('Monthly Revenue');
+    expect(json).toContain('R 12,450');
+    expect(json).toContain('1 Confirmed');
+    expect(json).toContain('1 Checked in');
     expect(json).toContain("Today's Schedule");
+    expect(json).toContain('Emma Thompson');
+    expect(json).toContain('Signature Facial · 1h');
+  });
+
+  it('shows the next appointment in business time on DashboardScreen', () => {
+    const json = renderDashboardJson();
+    expect(json).toContain('10:30 AM');
     expect(json).toContain('Sarah Jenkins');
+    expect(json).toContain('Check In');
+  });
+
+  it('shows an empty schedule and no next appointment when today has no bookings', () => {
+    mockUseDashboardSummary.mockReturnValue(
+      success({ ...SUMMARY, next_appointment_id: null }),
+    );
+    mockUseDaySchedule.mockReturnValue(success([]));
+    const json = renderDashboardJson();
+    expect(json).toContain('No appointments today');
+    expect(json).toContain('No more appointments today');
+  });
+
+  it('shows an error with retry when the business cannot be loaded', () => {
+    mockUseBusiness.mockReturnValue({
+      data: undefined,
+      isPending: false,
+      isError: true,
+      isSuccess: false,
+      error: new Error('boom'),
+      refetch: jest.fn(),
+    });
+    const json = renderDashboardJson();
+    expect(json).toContain("Couldn't load this.");
+    expect(json).toContain('Try again');
   });
 
   it('renders CalendarScreen with daily timeline and bookings', () => {
