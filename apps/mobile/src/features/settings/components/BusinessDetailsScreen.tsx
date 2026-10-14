@@ -1,31 +1,34 @@
+import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Header } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { ErrorState, LoadingCard } from '@/components/States';
+import { Page } from '@/components/Page';
+import { ErrorScreen } from '@/components/states/ErrorScreen';
+import { ListSkeleton } from '@/components/states/ListSkeleton';
 import { useBusinessDetails } from '@/features/business/hooks';
 
 import { BusinessDetailsForm } from './BusinessDetailsForm';
 
 export function BusinessDetailsScreen() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const details = useBusinessDetails();
   if (details.data) return <BusinessDetailsForm initial={details.data} />;
   return (
-    <Screen
-      header={
-        <Header title={t('businessDetails.title')} fallbackHref="/settings" />
-      }
+    <Page
+      title={t('businessDetails.title')}
+      backLabel={t('tabs.settings')}
+      backFallback="/settings"
+      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
       {details.isError ? (
-        <ErrorState
+        <ErrorScreen
           error={details.error}
           onRetry={() => void details.refetch()}
         />
       ) : (
-        <LoadingCard />
+        <ListSkeleton rows={4} />
       )}
-    </Screen>
+    </Page>
   );
 }

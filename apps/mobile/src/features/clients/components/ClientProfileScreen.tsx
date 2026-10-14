@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Calendar, MessageCircle, Phone, UserX } from 'lucide-react-native';
+import { Calendar, UserX, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
@@ -15,7 +15,6 @@ import { Surface } from '@/components/Surface';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useBusiness } from '@/features/business/hooks';
-import { whatsAppChatUrl } from '@/features/dashboard/logic';
 import { useDepth } from '@/hooks/useDepth';
 import { formatPhone } from '@/lib/format';
 import { formatDateMedium, businessDate } from '@/lib/time';
@@ -126,23 +125,6 @@ function ProfileBody({
             } as never)
           }
         />
-        <Action
-          icon={MessageCircle}
-          label={t('clients.profile.whatsapp')}
-          spoken={t('clients.profile.whatsappLabel', { name: firstName })}
-          onPress={() =>
-            openUrl(
-              whatsAppChatUrl(client.phone_e164, ''),
-              t('clients.profile.whatsappFailed'),
-            )
-          }
-        />
-        <Action
-          icon={Phone}
-          label={t('clients.profile.call')}
-          spoken={t('clients.profile.callLabel', { name: firstName })}
-          onPress={() => openUrl(`tel:${client.phone_e164}`, client.phone_e164)}
-        />
       </View>
 
       <ClientHistory
@@ -202,7 +184,7 @@ function Action({
   spoken,
   onPress,
 }: {
-  icon: typeof Phone;
+  icon: LucideIcon;
   label: string;
   spoken: string;
   onPress: () => void;
