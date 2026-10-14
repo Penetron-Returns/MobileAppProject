@@ -1,11 +1,11 @@
 /** zod argument schemas for the ten tools. Unknown arguments are ignored (v1 only adds). */
 import { z } from 'zod';
 
+import { isInstant } from '../whatsapp/ids.ts';
+
 const text = z.string().min(1).max(500);
 const optionalText = z.string().max(2000).optional();
-const instant = z
-  .string()
-  .refine((v) => !Number.isNaN(Date.parse(v)) && /\d{4}-\d{2}-\d{2}T/.test(v), 'must be an ISO 8601 instant');
+const instant = z.string().refine(isInstant, 'must be an ISO 8601 instant with an explicit offset (Z or +hh:mm)');
 
 const origin = z
   .object({

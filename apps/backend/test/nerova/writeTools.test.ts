@@ -233,3 +233,30 @@ describe('appointments_cancel', () => {
     expect(h.repo.tables.appointments[0]!.status).toBe('confirmed');
   });
 });
+
+describe('appointments_create client details', () => {
+  it('never overwrites the stored name or email of an existing client', async () => {
+    const h = nerovaHarness();
+    await h.ok('appointments_create', createArgs(h));
+    await h.ok(
+      'appointments_create',
+      createArgs(h, { idempotencyKey: 'create-other', startTime: sast('11:00'), client: { name: 'Mallory', phone: '+27820000000', email: 'm@example.com' } }),
+    );
+    const client = h.repo.tables.clients.find((c) => c.phone_e164 === '+27820000000')!;
+    expect(client.name).toBe('Ada Lovelace');
+    expect(client.email).toBe('ada@example.com');
+  });
+});
+
+describe('instant arguments', () => {
+  it.each(['2026-10-20T10:00', '2026-10-20T10:00:00', '2026-10-20', '2026-10-20 10:00Z'])('rejects %s (no explicit offset)', async (value) => {
+    const h = nerovaHarness();
+    expect(code(await h.tool('appointments_create', createArgs(h, { startTime: value })))).toBe('invalid_request');
+    expect(h.repo.tables.appointments).toHaveLength(0);
+  });
+
+  it.each(['2026-10-20T10:00:00Z', '2026-10-20T10:00:00+02:00', '2026-10-20T10:00:00.000Z'])('accepts %s', async (value) => {
+    const h = nerovaHarness();
+    expect(code(await h.tool('appointments_create', createArgs(h, { startTime: value })))).not.toBe('invalid_request');
+  });
+});
