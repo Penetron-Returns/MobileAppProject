@@ -1,3 +1,4 @@
+import { usePathname } from 'expo-router';
 import * as React from 'react';
 import {
   KeyboardAvoidingView,
@@ -7,8 +8,13 @@ import {
   View,
   type ScrollViewProps,
 } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+  type Edge,
+} from 'react-native-safe-area-context';
 
+import { isTabRootPath, tabBarClearance } from '@/components/tab-bar/layout';
 import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +50,9 @@ export function Screen({
 }: ScreenProps) {
   const [refreshing, setRefreshing] = React.useState(false);
   const { colors } = useAppColorScheme();
+  // The floating tab bar overlays the bottom of the top-level tab screens.
+  const hasFloatingBar = isTabRootPath(usePathname());
+  const barClearance = tabBarClearance(useSafeAreaInsets().bottom);
 
   const handleRefresh = React.useCallback(async () => {
     if (!onRefresh) return;
@@ -70,6 +79,9 @@ export function Screen({
             ref={scrollRef}
             className="flex-1"
             contentContainerClassName={cn('px-4 pb-8 pt-4', contentClassName)}
+            contentContainerStyle={
+              hasFloatingBar ? { paddingBottom: barClearance } : undefined
+            }
             keyboardShouldPersistTaps={keyboardShouldPersistTaps}
             refreshControl={
               onRefresh ? (
@@ -90,7 +102,10 @@ export function Screen({
           <View className={cn('flex-1', contentClassName)}>{children}</View>
         )}
         {footer ? (
-          <View className="border-border bg-background border-t px-4 pb-3 pt-3">
+          <View
+            className="border-border bg-background border-t px-4 pb-3 pt-3"
+            style={hasFloatingBar ? { paddingBottom: barClearance } : undefined}
+          >
             <View className="w-full max-w-2xl self-center">{footer}</View>
           </View>
         ) : null}
