@@ -1,12 +1,11 @@
 /**
  * In-app onboarding: a signed-in owner of a Clerk organisation creates (or
  * completes) the business without waiting for the Clerk webhook. It reuses
- * the webhook's upserts (clerkSync) and the admin operations, so both paths
+ * the webhook's upserts (clerkSync) and one atomic RPC for the setup, so both paths
  * converge on the same rows and the late webhook is a merge, not a duplicate.
  */
 import type { OnboardingRequest, UUID } from '../../../../packages/shared/api.ts';
-import { AppError } from '../lib/errors.ts';
-import { createService, createStaff, replaceBusinessHours } from './admin.ts';
+import { normaliseTimeOfDay } from '../lib/time.ts';
 import { ensureMember, upsertBusiness } from './clerkSync.ts';
 import type { BookingRepository } from './repository.ts';
 import type { BusinessRow } from './rows.ts';
@@ -50,23 +49,19 @@ export async function completeOnboarding(
 
   const business = await ensureBusiness(repo, session.orgId, req.business.name);
   const knownUser = await repo.getUser(session.userId);
-  await ensureMember(
-    repo,
-    business,
-    { userId: session.userId, role: 'owner', displayName: req.owner_name?.trim() || knownUser?.display_name || 'Owner' },
-    { createStaff: true },
-  );
-  const owner = await repo.findStaffByUserId(business.id, session.userId);
-  if (!owner) throw new AppError('INTERNAL', 'Owner staff row missing after onboarding');
+  const ownerName = req.owner_name?.trim() || knownUser?.display_name || 'Owner';
+  // The owner's staff row is created inside the RPC, under the business lock, so a concurrent double submit cannot duplicate it.
+  await ensureMember(repo, business, { userId: session.userId, role: 'owner', displayName: ownerName }, { createStaff: false });
 
-  await replaceBusinessHours(repo, business.id, req.hours);
-  const staffIds = [owner.id];
-  for (const [i, member] of req.team.entries()) {
-    const row = await createStaff(repo, business.id, { name: member.name, title: member.title ?? null, sort_order: i + 1 });
-    staffIds.push(row.id);
-  }
-  for (const [i, service] of req.services.entries()) {
-    await createService(repo, business.id, { ...service, sort_order: i, staff_ids: staffIds });
-  }
+  // Hours, team, services and the completion marker commit together: a failure leaves nothing behind and a retry
+  // (or a racing duplicate) either completes the setup or finds it already done.
+  await repo.completeOnboarding({
+    businessId: business.id,
+    userId: session.userId,
+    ownerName,
+    hours: req.hours.map((h) => ({ weekday: h.weekday, opens_at: normaliseTimeOfDay(h.opens_at), closes_at: normaliseTimeOfDay(h.closes_at) })),
+    team: req.team.map((m) => ({ name: m.name, title: m.title ?? null })),
+    services: req.services,
+  });
   return business;
 }

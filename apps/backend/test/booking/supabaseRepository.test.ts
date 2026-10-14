@@ -160,3 +160,36 @@ describe('Supabase repository', () => {
     expect(res).toEqual({ row: existing, duplicate: true });
   });
 });
+
+describe('completeOnboarding', () => {
+  const input = {
+    businessId: BIZ,
+    userId: 'user_1',
+    ownerName: 'Kobus',
+    hours: [{ weekday: 1, opens_at: '09:00', closes_at: '17:00' }],
+    team: [{ name: 'Naledi', title: null }],
+    services: [{ name: 'Cut', duration_minutes: 30, price_cents: 100 }],
+  };
+
+  it('calls the single complete_onboarding RPC and reports whether it applied', async () => {
+    const { db, requests } = fakeDb(() => ({ body: true }));
+    expect(await createSupabaseRepository(db).completeOnboarding(input)).toBe(true);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]!.path).toBe('/rpc/complete_onboarding');
+    expect(requests[0]!.body).toEqual({
+      p_business_id: BIZ,
+      p_user_id: 'user_1',
+      p_owner_name: 'Kobus',
+      p_hours: input.hours,
+      p_team: input.team,
+      p_services: input.services,
+    });
+    const already = fakeDb(() => ({ body: false }));
+    expect(await createSupabaseRepository(already.db).completeOnboarding(input)).toBe(false);
+  });
+
+  it('maps a database error', async () => {
+    const { db } = fakeDb(() => ({ status: 404, body: { code: 'P0002', message: 'business not found' } }));
+    await expect(createSupabaseRepository(db).completeOnboarding(input)).rejects.toBeInstanceOf(AppError);
+  });
+});
