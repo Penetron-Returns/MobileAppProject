@@ -81,7 +81,7 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 | Layer | Technology | Notes |
 | --- | --- | --- |
 | Mobile/web app | Expo SDK 57 (dev builds), React 19, React Native 0.86 (New Architecture), Expo Router, TypeScript | `apps/mobile/src/`. Exact versions in `package.json` |
-| UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `apps/mobile/src/components/ui/`, tokens in `apps/mobile/global.css` |
+| UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | design system `packages/ui` (`@booking/ui`), CSS variables in `apps/mobile/global.css` |
 | App data | TanStack Query, Supabase JS (reads + Realtime), `apps/mobile/src/lib/api.ts` (writes) | |
 | Auth | Clerk (`@clerk/expo`), custom sign-in UI on Clerk's headless hooks (`useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used). Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
 | API | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon | source in `apps/backend/`, entry in `supabase/functions/api/`, tests with Vitest + Deno smoke tests |
@@ -123,14 +123,14 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 | --- | --- |
 | `apps/mobile/src/app/` | Expo Router routes (thin) |
 | `apps/mobile/src/features/<feature>/` | hooks, components, pure logic per feature |
-| `apps/mobile/src/components/ui/`, `apps/mobile/src/components/` | design-system primitives / app composites |
+| `packages/ui/` (`@booking/ui`), `apps/mobile/src/components/` | design system (tokens, primitives, components, patterns) / app-only pieces |
 | `apps/mobile/src/lib/` | Supabase, API client, query client, env, formatters |
 | `apps/backend/src/{routes,booking,whatsapp,notifications,middleware,lib}` | API layers |
 | `apps/backend/src/ports.ts`, `container.ts` | module contracts, composition root |
 | `apps/backend/whatsapp/` | Flow JSON, template definitions, key generation |
 | `supabase/{migrations,tests,seed.sql}` | schema, SQL tests, demo data |
 | `packages/shared/` | types-only contracts (`api.ts`, generated `database.types.ts`) |
-| `docs/` | `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `clerk-setup`, `mcp`, `skills` |
+| `docs/` | `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-system`, `clerk-setup`, `mcp`, `skills` |
 | `.claude/rules/`, `.claude/skills/`, `.mcp.json` | AI tooling: rules, skills, MCP servers |
 
 ---

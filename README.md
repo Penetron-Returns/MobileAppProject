@@ -60,7 +60,7 @@ apps/
   mobile/                 Expo app (own package.json, Jest)
     src/app/              routes (Expo Router)
     src/features/         hooks, components and logic per feature
-    src/components/ui/    design-system primitives (react-native-reusables)
+    src/components/       app-only pieces (shared UI lives in packages/ui)
     src/lib/              Supabase + API clients, env, formatters
   backend/                API source (Hono, own package.json, Vitest)
     src/booking/          availability engine + booking service
@@ -94,7 +94,7 @@ scripts/                  database test harness, AI-config sync
 ```bash
 git clone https://github.com/Penetron-Returns/MobileAppProject.git
 cd MobileAppProject
-npm run setup            # root git tooling + apps/mobile + apps/backend dependencies
+npm run setup            # npm workspaces (apps/mobile + packages/ui + git tooling) and apps/backend dependencies
 ```
 
 ### 2. Database
@@ -173,7 +173,8 @@ Never push to `master` directly. See [CONTRIBUTING.md](CONTRIBUTING.md) for the 
 | [database.md](docs/database.md) | Migrations, row-level security, tests, Vault secrets, cron |
 | [booking-core.md](docs/booking-core.md) | Availability engine, booking service, web comparator |
 | [whatsapp.md](docs/whatsapp.md) | Meta setup, webhooks, Flows, templates, state machine |
-| [mobile-app.md](docs/mobile-app.md) | App stack, dev builds, component library |
+| [mobile-app.md](docs/mobile-app.md) | App stack, dev builds, routes |
+| [design-system.md](docs/design-system.md) | `@booking/ui`: tokens, components, accessibility rules, gallery |
 | [clerk-setup.md](docs/clerk-setup.md) | Clerk dashboard checklist |
 | [mcp.md](docs/mcp.md) · [skills.md](docs/skills.md) | AI tooling: MCP servers and skills |
 | [.claude/CLAUDE.md](.claude/CLAUDE.md) | Project guide for AI assistants (spec summary, stack, rules) |

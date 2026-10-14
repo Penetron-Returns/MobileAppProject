@@ -18,6 +18,7 @@ contract this implements and `docs/clerk-setup.md` for the Clerk dashboard side.
 | Server state | `@tanstack/react-query` | ^5 |
 | Data reads | `@supabase/supabase-js` | ^2 (RLS, Realtime) |
 | Dev builds | `expo-dev-client` | ~57.0.19 |
+| Design system | `@booking/ui` (`packages/ui`, npm workspace) | see [design-system.md](design-system.md) |
 
 `@clerk/clerk-expo` (Core 2) is **not** a dependency — this app only ever used `@clerk/expo`.
 `react-native-reanimated` v4 requires `react-native-worklets`; `babel-preset-expo` wires the
@@ -53,17 +54,15 @@ apps/mobile/src/
     _layout.tsx        ClerkProvider → QueryClientProvider → ThemeProvider → Slot/Toaster/PortalHost
     (auth)/            public: welcome / email / code (custom UI on Clerk's headless hooks, `features/auth/`)
     (app)/             protected: requires sign-in + an active organisation; the tab bar
-    (dev)/gallery.tsx  every ui/ + composite component, redirects away when `__DEV__` is false
+    (dev)/gallery.tsx  every token, primitive, component and pattern of the design system, light/dark/both;
+                       redirects away when `__DEV__` is false (sections in features/gallery/)
     book/[slug].tsx     public web-booking comparator placeholder
-  components/
-    ui/                react-native-reusables primitives (shadcn for RN) — see below
-    *.tsx              app-level composites: Screen, Header, EmptyState/ErrorState/LoadingState,
-                       ListItem, StatCard, StatusBadge, SegmentedControl, FormField, SearchInput,
-                       ConfirmDialog, Sheet, Toaster, ClerkUserButton (+ .web.tsx)
+  components/          app-only pieces: AuthTokenBridge, ClerkUserButton (+ .web), ConfigErrorScreen, ThemeProvider.
+                       Every shared UI component lives in packages/ui (@booking/ui)
   features/<feature>/  hooks.ts (TanStack Query reads via supabase, writes via api), components/,
                        pure logic.ts + __tests__/ — appointments, bookings, business, calendar,
                        catalog (services/staff), clients, dashboard, inbox, settings, today
-  hooks/               useAppColorScheme (NativeWind dark mode + persistence), useDepth
+  hooks/               useDebouncedValue, useNow
   lib/                 supabase.ts, api.ts, query.ts, env.ts, theme.ts, i18n/, toast.ts, idempotency.ts
 ```
 
@@ -72,67 +71,74 @@ through `supabase` (RLS-scoped, `accessToken` is Clerk's `getToken`), every writ
 (bearer + a per-action `Idempotency-Key`, minted by `IdempotencyTracker` and reused on retry). Never
 call `fetch` or `supabase.rpc` for a write directly from a screen.
 
-## Adding a react-native-reusables component
+## Design system
+
+All shared UI lives in the `@booking/ui` workspace package (`packages/ui`): tokens, primitives, components and
+patterns, imported from one barrel. See [design-system.md](design-system.md) for the layout, the tokens, how to add a
+component, the accessibility rules and the gallery. App code imports only `@booking/ui` (ESLint blocks the old
+`@/components/...` paths and deep package imports).
+
+### Adding a react-native-reusables component
 
 `apps/mobile/components.json` points the **shadcn CLI** and the **shadcn MCP server** (`docs/mcp.md`) at the
-react-native-reusables registry:
+react-native-reusables registry, with its aliases pointing into the package:
 
 ```bash
 npx shadcn@latest add <component>       # e.g. `npx shadcn@latest add slider`
 ```
 
-or ask the shadcn MCP tool to add it. Either way it writes into `apps/mobile/src/components/ui/`, matching this
-project's `style: "new-york"`, `baseColor: neutral`, alias map (`@/components`, `@/lib/utils`, …) — the
-same conventions the hand-written `ui/` components already follow (NativeWind `className` + `cn()`,
-`cva` variants, a `Platform.select({ web: ... })` split for web-only Tailwind states, and a `Portal` +
-`FullWindowOverlay` pattern for anything that floats: dialog, popover, dropdown-menu, select, tooltip,
-hover-card, context-menu, menubar). If the CLI's network is unavailable in your environment (some
-sandboxes block it), write the component by hand following an existing one of the same shape — dialog.tsx
-for anything with an overlay, toggle.tsx for anything `cva`-variant-based — and add its `@rn-primitives/*`
-package to `package.json` if it needs one.
+or ask the shadcn MCP tool to add it. Either way it writes into `packages/ui/src/rnr/`, matching this project's
+`style: "new-york"` and `baseColor: neutral`. Generated files import through the aliases; change those to relative
+imports (the package never imports the app), export the component from `packages/ui/src/index.ts` and add it to the
+gallery's Base section. The same conventions apply as for the hand-written components (NativeWind `className` +
+`cn()`, `cva` variants, a `Platform.select({ web: ... })` split for web-only Tailwind states, and a `Portal` +
+`FullWindowOverlay` pattern for anything that floats). If the CLI's network is unavailable, write the component by
+hand following an existing one of the same shape (`dialog.tsx` for overlays, `toggle.tsx` for `cva` variants) and
+add its `@rn-primitives/*` package to `apps/mobile/package.json`.
 
-The current set covers everything in the design system brief: accordion, alert, alert-dialog,
-aspect-ratio, avatar, badge, button, card, checkbox, collapsible, context-menu, dialog, dropdown-menu,
-hover-card, icon, input, label, menubar, popover, progress, radio-group, select, separator, skeleton,
-switch, tabs, text, textarea, toggle, toggle-group, tooltip.
+The base set: accordion, alert, alert-dialog, aspect-ratio, badge, card, checkbox, collapsible, context-menu, dialog,
+dropdown-menu, hover-card, input, label, menubar, popover, progress, radio-group, select, separator, tabs, textarea,
+toggle, toggle-group, tooltip. Design-system components replaced these upstream files: `Button` (tactile primary),
+`Switch`, `Avatar`, `Text`, `Icon`, `Skeleton`.
 
 ## Tokens and theming
 
-`apps/mobile/global.css` defines light/dark HSL channel variables (shadcn convention: `--primary`, `--background`,
-…) plus this project's own `--brand`, `--success`, `--warning`, `--whatsapp` (each with a `-soft` tint)
-and `--status-*` (confirmed/pending/completed/cancelled). `apps/mobile/tailwind.config.cjs` maps them to Tailwind
-color tokens. `apps/mobile/src/lib/theme.ts` mirrors the light/dark values as raw HSL strings for places that need a
-JS color (the nav theme, `RefreshControl`, SVG strokes) and exports `NAV_THEME`, consumed by
-`apps/mobile/src/components/ThemeProvider.tsx` (`expo-router`'s `ThemeProvider`, so headers/tab bars/status bar all
-match). `useAppColorScheme` (in `apps/mobile/src/hooks/`) wraps NativeWind's `useColorScheme`, persists the explicit
-choice to `AsyncStorage`, and defaults to the system scheme otherwise. Palette (iPhone design, iOS 26 / HIG):
-tint = iOS system blue (`#007AFF`, `#0A84FF` in dark) as `--primary`/`--brand`, ground `#F7F7FA` (`#0B0C10` dark),
-true-black / white labels, secondary text at 0.72 alpha. Type scale (SOFT.md) is in `tailwind.config.cjs`
-(`text-large-title` 34/41, `text-section` 22/28, `text-title` 17/22, `text-subtitle` 15/20, `text-meta` 13/18) on the
-system font (SF on iOS).
+`apps/mobile/global.css` defines the light/dark HSL channel variables (shadcn convention: `--primary`,
+`--background`, ...) plus this project's own `--brand`, `--success`, `--warning`, `--whatsapp` (each with a `-soft`
+tint) and `--status-*`. The same table lives in `packages/ui/src/tokens/colors.ts` (a test keeps them equal) and
+`packages/ui/tailwind-preset.cjs` maps the roles, the type scale and the radii to Tailwind. `THEME` (from
+`@booking/ui`) gives raw HSL strings for places that need a JS colour (SVG strokes, `RefreshControl`); `NAV_THEME` in
+`apps/mobile/src/lib/theme.ts` builds the navigation theme from it and is consumed by
+`apps/mobile/src/components/ThemeProvider.tsx` (`expo-router`'s `ThemeProvider`, so headers/tab bars/status bar match).
+`useAppColorScheme` (`@booking/ui`) wraps NativeWind's `useColorScheme`, persists the explicit choice to
+`AsyncStorage` and defaults to the system scheme otherwise. Palette (iPhone design, iOS 26 / HIG): tint = iOS system
+blue (`#007AFF`, `#0A84FF` in dark) as `--primary`/`--brand`, ground `#F7F7FA` (`#0B0C10` dark), true-black / white
+labels, secondary text at 0.72 alpha. Type scale (SOFT.md): `text-large-title` 34/41, `text-section` 22/28,
+`text-title` 17/22, `text-subtitle` 15/20, `text-meta` 13/18 on the system font (SF on iOS).
 
 ### Depth (layered shadows and gradients)
 
 NativeWind classes can't express the design's layered `box-shadow`s and gradients, so
-`apps/mobile/src/lib/depth.ts` holds them as typed tokens (`getDepth(scheme, tint)`, light + dark, copied from the
+`packages/ui/src/tokens/depth.ts` holds them as typed tokens (`getDepth(scheme, tint)`, light + dark, copied from the
 approved `Main.dc.html` theme object): `ground`, `raised`, `hero` (one per screen), `floating`, `button`, `knob`,
-`primary` (tactile) with their `*Pressed` states, `inset`, `dome`, `engrave`, `bar`, `pill`, `badge`. They use React
-Native 0.86's CSS-style `boxShadow` (incl. `inset`) and `experimental_backgroundImage` gradients, so
-`expo-linear-gradient` is not needed; each token also carries a solid `backgroundColor` fallback. Use them through
-`useDepth()` (`src/hooks/`), `<Surface variant="raised|hero|inset|dome|engrave">` and `<Ground>`. Deviations from the
-design: domes use a linear (not radial) top highlight, and there is no backdrop blur on the tab capsule (it is 94%
-opaque in the design).
+`primary` (tactile) with their `*Pressed` states, `inset`, `dome`, `engrave`, `bar`, `pill`, `badge` and the status
+`capsule` colours. They use React Native 0.86's CSS-style `boxShadow` (incl. `inset`) and
+`experimental_backgroundImage` gradients, so `expo-linear-gradient` is not needed; each token also carries a solid
+`backgroundColor` fallback. Use them through `useDepth()`, `<Surface variant="raised|hero|inset|dome|engrave">` and
+`<Ground>`. Deviations from the design: domes use a linear (not radial) top highlight, and there is no backdrop blur
+on the tab capsule (it is 94% opaque in the design).
 
 Deliberate divergence from upstream react-native-reusables: `Button` `default` is the tactile primary and
-`secondary` the raised button (both pill-shaped, styled from `depth.ts`); `sm`/`lg` sizes are `h-9` / `h-[52px]`.
+`secondary` / `neutral` the raised buttons (all pill-shaped, styled from the depth tokens); sizes are `sm` h-9,
+`default` h-11, `lg` h-[52px], `xl` h-14. `Switch` is the design's 51x31 green pill.
 
 ### Floating tab bar
 
-`src/components/tab-bar/` replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) · Clients ·
-Settings in one capsule, plus the Inbox dome above it. `InboxDome` reads `useInboxEntry()`, the single placeholder
-for plan gating and the unread count (defaults to shown, no badge). The bar floats over content, so `Screen` adds
-bottom padding on the top-level tab screens (`isTabRootPath`); screens that opt out with
-`tabBarStyle: { display: 'none' }` (details, settings sub-pages) hide it.
+`FloatingTabBar` (`@booking/ui`) replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) ·
+Clients · Settings in one capsule, plus the Inbox dome above it. The dome is a slot: the app passes
+`<InboxEntryDome />` (`features/inbox`), which reads `useInboxEntry()`, the single place for plan gating and the
+unread count. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
+(`isTabRootPath`); screens that opt out with `tabBarStyle: { display: 'none' }` (details, settings sub-pages) hide it.
 
 ## Route map
 
@@ -152,14 +158,14 @@ bottom padding on the top-level tab screens (`isTabRootPath`); screens that opt 
 Every `(app)` screen subscribes to `appointments` Realtime once (in `(app)/_layout.tsx`), which invalidates
 the appointment, dashboard and client queries. Availability is fetched with `staleTime: 0` and never cached.
 | `/book/[slug]` | — (public) | web-booking comparator placeholder, no auth |
-| `/gallery` | `(dev)` | component gallery, redirects to `/` when not `__DEV__` |
+| `/gallery` | `(dev)` | design system gallery (tokens, primitives, components, patterns; light/dark/both), redirects to `/` when not `__DEV__` |
 | `/+not-found` | — | 404 |
 
 `(app)/_layout.tsx` gates on `useAuth()` (redirects to `/sign-in` when signed out) **and** on having an
 active `useOrganization()` — it activates the first `useOrganizationList()` membership automatically
 when none is active yet, and shows `OnboardingFlow` (`features/onboarding`) when the user has none at all or the API answers
 `NO_BUSINESS`. The flow stays mounted until "Go to Today", creating the Clerk org client-side and the business
-via `POST /v1/onboarding`. Its generic pieces live in `components/flow/`.
+via `POST /v1/onboarding`. Its generic pieces (`FlowTopBar`, `FlowFooter`, `FlowHeading`, `ChoiceCard`, `SwitchRow`) live in `@booking/ui`.
 
 ## Tooling
 
@@ -169,7 +175,12 @@ via `POST /v1/onboarding`. Its generic pieces live in `components/flow/`.
 - `npm run export:web` / `npm run export:android` (`expo export --platform …`) are the fastest way to
   catch a bundling regression without a full EAS build.
 - Tests live next to what they cover in `__tests__/` folders and use `react-test-renderer` directly
-  (no `@testing-library/react-native`, to keep the dependency graph small for a scaffold this size).
+  (no `@testing-library/react-native`, to keep the dependency graph small for a scaffold this size). The app's Jest run
+  also covers `packages/ui` (design system tests use `packages/ui/src/testing/render.tsx`); `apps/mobile/jest.setup.ts`
+  mocks Reanimated, AsyncStorage and the lucide icons, which Jest cannot load.
+- The repo is an npm workspace (`apps/mobile`, `packages/ui`): run `npm install` at the root, which hoists dependencies
+  to the root `node_modules`. `apps/backend` keeps its own install. Root scripts: `npm run check:mobile`,
+  `npm run lint -w packages/ui`, `npm run typecheck -w packages/ui`.
 - `@shared/*` resolves to `../shared/*` (see `tsconfig.json` `paths`) — Metro also honours it natively
   since Expo SDK 50 added built-in `tsconfig.json`/`jsconfig.json` path-alias support, no extra Babel
   plugin required.
