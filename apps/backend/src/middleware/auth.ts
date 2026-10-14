@@ -3,6 +3,7 @@ import type { MiddlewareHandler } from 'hono';
 
 import type { MemberRole } from '../../../../packages/shared/api.ts';
 import { AppError } from '../lib/errors.ts';
+import { normalizePem } from '../lib/pem.ts';
 import type { AppEnv } from '../types.ts';
 
 export interface ClerkClaims {
@@ -88,8 +89,9 @@ export const requireOwner: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-async function defaultVerifier(token: string): Promise<ClerkClaims> {
-  const jwtKey = process.env.CLERK_JWT_KEY;
+export async function defaultVerifier(token: string): Promise<ClerkClaims> {
+  const rawJwtKey = process.env.CLERK_JWT_KEY;
+  const jwtKey = rawJwtKey ? normalizePem(rawJwtKey) : undefined;
   const secretKey = process.env.CLERK_SECRET_KEY;
   const parties = process.env.CLERK_AUTHORIZED_PARTIES?.split(',').map((s) => s.trim()).filter(Boolean);
   const payload = await verifyToken(token, {
