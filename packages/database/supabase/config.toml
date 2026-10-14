@@ -52,7 +52,7 @@ enabled = true
 policy = "per_worker"
 deno_version = 2
 
-# The whole backend API (Hono) runs as one Edge Function: https://<ref>.supabase.co/functions/v1/api/*
+# The whole API (apps/api) (Hono) runs as one Edge Function: https://<ref>.supabase.co/functions/v1/api/*
 [functions.api]
 enabled = true
 # Meta webhooks, the Flows endpoint and pg_cron don't send a Supabase JWT. The API authenticates

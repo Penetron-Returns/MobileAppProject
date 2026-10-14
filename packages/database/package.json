@@ -1,0 +1,15 @@
+{
+  "name": "@booking/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Supabase project (migrations, SQL tests, seed, Edge Function entry) and the generated Database types.",
+  "type": "module",
+  "types": "./database.types.ts",
+  "exports": {
+    ".": "./database.types.ts"
+  },
+  "scripts": {
+    "test": "bash ../../scripts/db/test.sh",
+    "gen-types": "bash ../../scripts/db/gen-types.sh"
+  }
+}

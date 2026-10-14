@@ -3,11 +3,11 @@
 // Supabase-style `Database` type (the shape `supabase gen types typescript`
 // emits for postgrest-js v2) on stdout.
 //
-// Used by scripts/db/gen-types.sh (writes packages/shared/database.types.ts) and by
+// Used by scripts/db/gen-types.sh (writes packages/database/database.types.ts) and by
 // scripts/db/test.sh (fails when the committed file is stale). Once the
 // project is linked, `supabase gen types typescript --linked --schema public`
 // produces an equivalent file; the runtime `Constants` export it adds is
-// deliberately omitted because packages/shared/ is types-only.
+// deliberately omitted because this file is types-only.
 
 import { readFileSync } from 'node:fs';
 
@@ -186,10 +186,10 @@ const publicSchema = [
 const header = `/**
  * Supabase \`Database\` type for the \`public\` schema.
  *
- * GENERATED from supabase/migrations by scripts/db/gen-types.sh. Do not edit by
+ * GENERATED from packages/database/supabase/migrations by scripts/db/gen-types.sh. Do not edit by
  * hand: change a migration, then regenerate. scripts/db/test.sh fails when this
  * file is out of date. Format matches \`supabase gen types typescript\`
- * (postgrest-js v2), minus the runtime \`Constants\` export (packages/shared/ is types-only).
+ * (postgrest-js v2), minus the runtime \`Constants\` export (this file is types-only).
  */
 export type Json =
   | string
