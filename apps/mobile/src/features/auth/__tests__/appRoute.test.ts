@@ -13,8 +13,12 @@ const base: AppRouteInput = {
   activeOrgId: 'org_1',
   membershipOrgIds: ['org_1'],
   me: 'ok',
+  invitations: { status: 'idle', count: 0 },
+  joinDeclined: false,
   inOnboarding: false,
 };
+
+const noOrg = { activeOrgId: null, membershipOrgIds: [] } as const;
 
 const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
   [
@@ -84,6 +88,59 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
     '/me error shows the session error screen',
     { me: 'error' },
     { kind: 'session-error' },
+  ],
+  [
+    'no organisation while invitations load waits',
+    { ...noOrg, invitations: { status: 'loading', count: 0 } },
+    { kind: 'splash' },
+  ],
+  [
+    'no organisation with a pending invitation offers to join',
+    { ...noOrg, invitations: { status: 'ready', count: 1 } },
+    { kind: 'join' },
+  ],
+  [
+    'a pending session with an invitation offers to join',
+    {
+      ...noOrg,
+      sessionStatus: 'pending',
+      taskKey: 'choose-organization',
+      invitations: { status: 'ready', count: 2 },
+    },
+    { kind: 'join' },
+  ],
+  [
+    'declining the invitation goes to onboarding',
+    {
+      ...noOrg,
+      invitations: { status: 'ready', count: 1 },
+      joinDeclined: true,
+    },
+    { kind: 'onboarding' },
+  ],
+  [
+    'no invitations goes to onboarding',
+    { ...noOrg, invitations: { status: 'ready', count: 0 } },
+    { kind: 'onboarding' },
+  ],
+  [
+    'a failed invitation lookup falls through to onboarding',
+    { ...noOrg, invitations: { status: 'error', count: 0 } },
+    { kind: 'onboarding' },
+  ],
+  [
+    'a membership wins over an invitation (activate, do not join)',
+    {
+      activeOrgId: null,
+      membershipOrgIds: ['org_5'],
+      invitations: { status: 'ready', count: 1 },
+    },
+    { kind: 'activate-org', orgId: 'org_5' },
+  ],
+  [
+    'an active organisation ignores invitations',
+    { invitations: { status: 'ready', count: 3 } },
+    { kind: 'tabs' },
   ],
   ['active with org and /me ok shows tabs', {}, { kind: 'tabs' }],
 ];
