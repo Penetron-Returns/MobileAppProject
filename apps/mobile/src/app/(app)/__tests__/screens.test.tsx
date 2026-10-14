@@ -674,7 +674,7 @@ describe('Settings', () => {
     expect(json).toContain('09:00 AM');
     expect(json).toContain('01:00 PM');
     expect(json).toContain('02:00 PM');
-    expect(json).toContain('No hours set');
+    expect(json).toContain('Closed');
   });
 
   it('groups services by category with prices and hidden markers', () => {
@@ -690,7 +690,6 @@ describe('Settings', () => {
     const json = render(<StaffManagementRoute />);
     expect(json).toContain('Emma Thompson');
     expect(json).toContain('Senior Colourist');
-    expect(json).toContain('Active');
     expect(json).toContain('Inactive');
   });
 });

@@ -265,11 +265,6 @@
       "since": "Client since {{date}}",
       "book": "Book",
       "bookLabel": "Book {{name}}",
-      "whatsapp": "WhatsApp",
-      "whatsappLabel": "WhatsApp {{name}}",
-      "whatsappFailed": "Couldn't open WhatsApp.",
-      "call": "Call",
-      "callLabel": "Call {{name}}",
       "callNumber": "{{phone}}, call",
       "contact": "Contact",
       "mobile": "Mobile",
@@ -515,6 +510,30 @@
       "needsDevice": "Push notifications need a real phone.",
       "denied": "Notifications are turned off for this app in your phone settings.",
       "failed": "Couldn't turn notifications on. Try again."
+    },
+    "details": {
+      "contact": "Contact",
+      "address": "Address",
+      "regional": "Money and time",
+      "timezone": "Time zone",
+      "currencyChange": "Currency, {{value}}. Tap to change"
+    },
+    "hours": {
+      "hint": "Tap a time to change it. Switch a day off to close the shop that day."
+    },
+    "servicesList": {
+      "summary_one": "{{count}} service",
+      "summary_other": "{{count}} services",
+      "add": "Add a service",
+      "open": "{{name}}, {{meta}}"
+    },
+    "staffList": {
+      "summary_one": "{{count}} person",
+      "summary_other": "{{count}} people",
+      "add": "Add a team member",
+      "paused": "Not taking bookings",
+      "inactive": "Inactive",
+      "open": "{{name}}, {{meta}}"
     }
   },
   "businessDetails": {

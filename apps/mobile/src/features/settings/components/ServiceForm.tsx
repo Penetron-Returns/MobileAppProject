@@ -22,6 +22,7 @@ import {
   useSaveService,
   type ServiceRow,
 } from '@/features/catalog/hooks';
+import { useDepth } from '@/hooks/useDepth';
 import { centsToInput, formatDuration } from '@/lib/format';
 import { applyApiFieldErrors } from '@/lib/form-errors';
 import { toast } from '@/lib/toast';
@@ -210,24 +211,27 @@ export function Chip({
   selected: boolean;
   onPress: () => void;
 }) {
+  const depth = useDepth();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      className={cn(
-        'min-h-[36px] justify-center rounded-lg border px-3 py-1.5 active:opacity-80',
-        selected ? 'bg-primary border-primary' : 'bg-muted/40 border-border',
-      )}
+      className="min-h-11 justify-center"
     >
-      <Text
-        className={cn(
-          'text-xs font-semibold',
-          selected ? 'text-primary-foreground' : 'text-foreground',
-        )}
+      <View
+        style={[selected ? depth.primary : depth.button, { borderRadius: 20 }]}
+        className="h-10 items-center justify-center px-4"
       >
-        {label}
-      </Text>
+        <Text
+          className={cn(
+            'text-subtitle font-semibold',
+            selected && 'text-primary-foreground',
+          )}
+        >
+          {label}
+        </Text>
+      </View>
     </Pressable>
   );
 }
