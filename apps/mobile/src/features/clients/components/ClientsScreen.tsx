@@ -6,7 +6,6 @@ import {
   ErrorState,
   Group,
   ListSkeleton,
-  OfflineBanner,
   Page,
   SearchField,
   SectionTitle,
@@ -19,14 +18,12 @@ import { router } from 'expo-router';
 import { Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 
 import { describeError } from '@/lib/toast';
-import {
-  isShowingSavedCopy,
-  savedCopyLabel,
-  savedCopyTime,
-} from '@/lib/offline';
+import { isFailed, isShowingSavedCopy, loadError } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { useBusiness } from '@/features/business/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
@@ -53,7 +50,8 @@ export function ClientsScreen() {
     [list.data],
   );
   const timezone = business.data?.timezone;
-  const isOffline = isShowingSavedCopy(list);
+  const isOnline = useIsOnline();
+  const isOffline = !isOnline || isShowingSavedCopy(list);
   const { guard, sheetProps } = useOfflineGuard(isOffline, () =>
     list.refetch({ throwOnError: true }),
   );
@@ -93,26 +91,19 @@ export function ClientsScreen() {
             options={options}
             label={t('clients.filterLabel')}
           />
-          {isOffline ? (
-            <OfflineBanner
-              label={savedCopyLabel(
-                t,
-                timezone ? savedCopyTime(list.dataUpdatedAt, timezone) : null,
-              )}
-            />
-          ) : null}
-          {business.isError ? (
+          <SavedCopyBanner query={list} timezone={timezone} />
+          {isFailed(business) ? (
             <ErrorState
               variant="banner"
-              {...describeError(business.error)}
+              {...describeError(loadError(business))}
               onRetry={() => void business.refetch()}
             />
           ) : list.isPending || !timezone ? (
             <ListSkeleton />
-          ) : list.isError && clients.length === 0 ? (
+          ) : isFailed(list) && clients.length === 0 ? (
             <ErrorState
               variant="banner"
-              {...describeError(list.error)}
+              {...describeError(loadError(list))}
               onRetry={() => void list.refetch()}
               isRetrying={list.isRefetching}
             />

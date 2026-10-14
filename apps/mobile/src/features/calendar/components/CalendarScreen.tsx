@@ -3,43 +3,30 @@ import {
   Ground,
   INBOX_DOME_CLEARANCE,
   OfflineBanner,
-  SegmentedControl,
   Skeleton,
   Surface,
   tabBarClearance,
   Text,
   useAppColorScheme,
-  useDepth,
 } from '@booking/ui';
 import { useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { useBusiness } from '@/features/business/hooks';
+import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
-import {
-  WEEKDAYS,
-  formatDateLong,
-  formatWeekRange,
-  startOfWeek,
-  todayISO,
-  weekdayOf,
-  type ISODate,
-} from '@/lib/time';
-
+import { todayISO, type ISODate } from '@/lib/time';
 import { useCalendarDay, useCalendarWeek } from '../hooks';
-import { shiftAnchor, weekStrip } from '../logic';
+import { shiftAnchor } from '../logic';
 import {
   subscribeCalendarViewMode,
   type CalendarViewMode,
 } from '../navigation';
 import { DayView } from './DayView';
 import { WeekView } from './WeekView';
-
-const VIEWS: CalendarViewMode[] = ['day', 'week'];
+import { CalendarHeader, VIEWS } from './CalendarHeader';
 
 function isView(value: unknown): value is CalendarViewMode {
   return typeof value === 'string' && (VIEWS as string[]).includes(value);
@@ -56,12 +43,12 @@ export function CalendarScreen() {
       <View style={{ paddingTop: insets.top + 8 }} className="flex-1">
         {tz ? (
           <CalendarContent timezone={tz} />
-        ) : business.isError ? (
+        ) : isFailed(business) ? (
           <ErrorState
             variant="banner"
             title={t('calendar.error.title')}
             description={t('calendar.error.description')}
-            {...describeError(business.error)}
+            {...describeError(loadError(business))}
             onRetry={() => void business.refetch()}
           />
         ) : (
@@ -222,148 +209,5 @@ function WeekBody({
         ) : null}
       </View>
     </ScrollView>
-  );
-}
-
-function CalendarHeader({
-  view,
-  anchor,
-  today,
-  onViewChange,
-  onAnchor,
-  onShift,
-}: {
-  view: CalendarViewMode;
-  anchor: ISODate;
-  today: ISODate;
-  onViewChange: (view: CalendarViewMode) => void;
-  onAnchor: (date: ISODate) => void;
-  onShift: (direction: 1 | -1) => void;
-}) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  const title =
-    view === 'week'
-      ? formatWeekRange(startOfWeek(anchor))
-      : formatDateLong(anchor);
-  const caption =
-    view === 'week' ? t('calendar.weekView') : WEEKDAYS[weekdayOf(anchor)];
-  return (
-    <View className="px-5 pb-2">
-      <View className="flex-row items-end justify-between">
-        <View className="min-w-0 flex-1">
-          <Text className="text-subtitle font-semibold text-muted-foreground">
-            {caption}
-          </Text>
-          <Text
-            role="heading"
-            aria-level="1"
-            numberOfLines={1}
-            className="text-section font-bold"
-          >
-            {title}
-          </Text>
-        </View>
-        <View className="flex-row items-center">
-          {anchor !== today ? (
-            <Pressable
-              onPress={() => onAnchor(today)}
-              accessibilityRole="button"
-              accessibilityLabel={t('calendar.goToToday')}
-              className="h-11 justify-center px-3"
-            >
-              <Text style={{ color: depth.colors.tint }} className="text-title">
-                {t('calendar.today')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {([-1, 1] as const).map((dir) => (
-            <Pressable
-              key={dir}
-              onPress={() => onShift(dir)}
-              accessibilityRole="button"
-              accessibilityLabel={t(
-                `calendar.${dir === 1 ? 'next' : 'previous'}.${view}`,
-              )}
-              className="h-11 w-11 items-center justify-center"
-            >
-              {dir === -1 ? (
-                <ChevronLeft size={22} color={depth.colors.tint} />
-              ) : (
-                <ChevronRight size={22} color={depth.colors.tint} />
-              )}
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <SegmentedControl
-        className="mt-3"
-        label={t('calendar.viewSwitch')}
-        value={view}
-        onChange={onViewChange}
-        options={VIEWS.map((v) => ({
-          accessibilityLabel: t(`calendar.viewLabel.${v}`),
-          label: t(`calendar.views.${v}`),
-          value: v,
-        }))}
-      />
-
-      {view === 'day' ? (
-        <DayStrip anchor={anchor} today={today} onPick={onAnchor} />
-      ) : null}
-    </View>
-  );
-}
-
-function DayStrip({
-  anchor,
-  today,
-  onPick,
-}: {
-  anchor: ISODate;
-  today: ISODate;
-  onPick: (date: ISODate) => void;
-}) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  return (
-    <View className="mt-2 flex-row justify-between">
-      {weekStrip(anchor, today).map((d) => (
-        <Pressable
-          key={d.date}
-          onPress={() => onPick(d.date)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: d.isSelected }}
-          accessibilityLabel={t('calendar.openDay', {
-            date: formatDateLong(d.date),
-          })}
-          className="min-h-11 w-11 items-center justify-center"
-        >
-          <Text className="text-meta text-muted-foreground">
-            {WEEKDAYS[d.weekday].slice(0, 1)}
-          </Text>
-          <View
-            style={
-              d.isSelected ? { backgroundColor: depth.colors.tint } : undefined
-            }
-            className="h-8 w-8 items-center justify-center rounded-full"
-          >
-            <Text
-              style={{
-                color: d.isSelected
-                  ? '#FFFFFF'
-                  : d.isToday
-                    ? '#FF3B30'
-                    : depth.colors.label,
-              }}
-              className="text-title font-semibold"
-            >
-              {d.num}
-            </Text>
-          </View>
-        </Pressable>
-      ))}
-    </View>
   );
 }

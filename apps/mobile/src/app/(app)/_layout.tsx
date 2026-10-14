@@ -103,11 +103,7 @@ export default function AppLayout() {
     case 'unsupported-task':
       return (
         <SessionErrorScreen
-          error={
-            new Error(
-              `This account needs an extra step (${route.task}) that the app can't show. Sign out and contact support.`,
-            )
-          }
+          error={new Error(t('session.unsupportedTask', { task: route.task }))}
           onRetry={() => void session?.reload()}
           isRetrying={false}
         />

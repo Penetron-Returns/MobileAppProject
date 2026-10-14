@@ -15,7 +15,7 @@ import {
   selectType,
   servicesFor,
   setPrice,
-  summaryText,
+  summaryFacts,
   toggleDay,
   toggleService,
   type OnboardingDraft,
@@ -29,10 +29,10 @@ const named = (name = 'Ashgrove'): OnboardingDraft => ({
 describe('onboarding hours', () => {
   it('fills hours by business type with Sunday closed by default', () => {
     const rows = hoursFor(selectType(initialDraft(), 'barber'));
-    expect(rows.map((r) => r.value)).toEqual([
-      '08:00 to 18:00',
-      '08:00 to 15:00',
-      'Closed',
+    expect(rows.map((r) => [r.isOpen, r.opens, r.closes])).toEqual([
+      [true, '08:00', '18:00'],
+      [true, '08:00', '15:00'],
+      [false, '09:00', '13:00'],
     ]);
   });
 
@@ -40,12 +40,13 @@ describe('onboarding hours', () => {
     let d = toggleDay(initialDraft(), 'sunday');
     expect(hoursFor(d)[2]).toMatchObject({
       isOpen: true,
-      value: '09:00 to 13:00',
+      opens: '09:00',
+      closes: '13:00',
     });
     d = toggleDay(d, 'saturday');
     d = selectType(d, 'beauty');
     expect(hoursFor(d).map((r) => r.isOpen)).toEqual([true, false, true]);
-    expect(hoursFor(d)[0].value).toBe('09:00 to 17:00');
+    expect(hoursFor(d)[0]).toMatchObject({ opens: '09:00', closes: '17:00' });
   });
 });
 
@@ -160,13 +161,14 @@ describe('buildOnboardingRequest', () => {
   });
 });
 
-describe('summaryText', () => {
-  it('names the business type and counts services with correct plurals', () => {
-    expect(summaryText(selectType(named(), 'barber'))).toContain(
-      'Your barber shop is set up with 4 services.',
-    );
+describe('summaryFacts', () => {
+  it('reports the business type and how many services are on', () => {
+    expect(summaryFacts(selectType(named(), 'barber'))).toEqual({
+      typeId: 'barber',
+      serviceCount: 4,
+    });
     let d = named();
     for (const s of servicesFor(d).slice(1)) d = toggleService(d, s.name);
-    expect(summaryText(d)).toContain('with 1 service.');
+    expect(summaryFacts(d).serviceCount).toBe(1);
   });
 });

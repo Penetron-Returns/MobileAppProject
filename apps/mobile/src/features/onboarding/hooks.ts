@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { api } from '@/lib/api';
+import i18n from '@/lib/i18n';
 import { qk, useApiMutation } from '@/lib/query';
 
 /**
@@ -26,7 +27,7 @@ export function useCompleteOnboarding() {
         const created = await createOrganization?.({
           name: request.business.name,
         });
-        if (!created) throw new Error('Could not create the organisation.');
+        if (!created) throw new Error(i18n.t('onboarding.orgFailed'));
         orgIdRef.current = created.id;
       }
       if (organization?.id !== orgIdRef.current) {

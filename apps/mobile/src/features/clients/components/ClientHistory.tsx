@@ -12,6 +12,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
+import { isFailed } from '@/lib/offline';
 import { formatMoney } from '@/lib/format';
 import { formatDateShort, formatTime, businessDate } from '@/lib/time';
 
@@ -44,7 +45,7 @@ export function ClientHistory({
       </View>
     );
   }
-  if (history.isError) {
+  if (isFailed(history)) {
     return (
       <Pressable
         onPress={() => void history.refetch()}

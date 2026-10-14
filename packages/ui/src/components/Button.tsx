@@ -96,7 +96,7 @@ const buttonTextVariants = cva(
     variants: {
       variant: {
         default: 'text-primary-foreground',
-        destructive: 'text-white',
+        destructive: 'text-destructive-foreground',
         outline: cn(
           'group-active:text-accent-foreground',
           Platform.select({ web: 'group-hover:text-accent-foreground' }),
@@ -154,7 +154,7 @@ function Button({
   const isRaised = variant === 'secondary' || variant === 'neutral';
   const isTactile = variant == null || variant === 'default';
   const spinnerColor = isTactile
-    ? '#FFFFFF'
+    ? depth.colors.onFill
     : variant === 'neutral'
       ? depth.colors.label
       : depth.colors.tint;
@@ -190,6 +190,8 @@ function Button({
           busy: Boolean(loading),
         }}
         disabled={disabled || loading}
+        // Small buttons are 36pt tall: the slop brings the touch target to 44pt.
+        hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}
         style={(state: PressableStateCallbackType) => [
           depthStyle(state.pressed),
           typeof style === 'function' ? style(state) : style,

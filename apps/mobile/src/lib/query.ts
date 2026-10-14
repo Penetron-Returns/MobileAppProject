@@ -1,4 +1,5 @@
 import {
+  onlineManager,
   QueryClient,
   useMutation,
   useQueryClient,
@@ -8,6 +9,7 @@ import { useCallback, useRef } from 'react';
 
 import { isApiError } from './api';
 import { IdempotencyTracker } from './idempotency';
+import { offlineError } from './offline';
 import { toast } from './toast';
 
 export const queryClient = new QueryClient({
@@ -89,6 +91,9 @@ export function useApiMutation<TVars, TData = unknown>(
 
   const m = useMutation<TData, unknown, { vars: TVars; key: string }>({
     mutationFn: ({ vars, key }) => optsRef.current.mutationFn(vars, key),
+    // Offline writes are refused up front (see `mutate`), so a request that was
+    // in flight when the connection dropped fails instead of waiting forever.
+    networkMode: 'always',
     retry: (count, err) => count < 2 && isApiError(err) && err.isRetryable,
     retryDelay: (attempt) => 600 * (attempt + 1),
     onSuccess: async (data, { vars }) => {
@@ -112,13 +117,20 @@ export function useApiMutation<TVars, TData = unknown>(
   const { mutate: rawMutate, mutateAsync: rawMutateAsync } = m;
   const mutate = useCallback(
     (vars: TVars) => {
+      // Writes are never queued offline: a booking must be checked live.
+      if (!onlineManager.isOnline()) {
+        toast.error(offlineError());
+        return;
+      }
       rawMutate({ vars, key: tracker.current.keyFor(vars) });
     },
     [rawMutate],
   );
   const mutateAsync = useCallback(
-    (vars: TVars) =>
-      rawMutateAsync({ vars, key: tracker.current.keyFor(vars) }),
+    (vars: TVars) => {
+      if (!onlineManager.isOnline()) return Promise.reject(offlineError());
+      return rawMutateAsync({ vars, key: tracker.current.keyFor(vars) });
+    },
     [rawMutateAsync],
   );
 

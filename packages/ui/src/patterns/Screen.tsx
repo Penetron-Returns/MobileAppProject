@@ -2,7 +2,6 @@ import { usePathname } from 'expo-router';
 import * as React from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   RefreshControl,
   ScrollView,
   View,
@@ -17,6 +16,7 @@ import {
 import { isTabRootPath, tabBarClearance } from './tab-bar/layout';
 import { useAppColorScheme } from '../theme/useAppColorScheme';
 import { cn } from '../lib/cn';
+import { KEYBOARD_AVOIDING_BEHAVIOR } from '../lib/keyboard';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -72,7 +72,7 @@ export function Screen({
       {header}
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       >
         {scroll ? (
           <ScrollView

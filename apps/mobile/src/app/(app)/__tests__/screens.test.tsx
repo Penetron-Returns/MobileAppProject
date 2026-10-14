@@ -696,3 +696,40 @@ describe('Settings', () => {
     expect(json).toContain('Inactive');
   });
 });
+
+describe('Offline and error states', () => {
+  beforeEach(() => mockSearchParams.mockReturnValue({ id: 'a-1' }));
+
+  it('shows the error banner with the reason when a booking fails to load', () => {
+    mockHooks.useAppointment.mockReturnValue(failure(new Error('boom')));
+    const json = render(<BookingDetailRoute />);
+    expect(json).toContain('boom');
+    expect(json).toContain('Try again');
+  });
+
+  it('says the device is offline instead of loading forever on a paused first load', () => {
+    mockHooks.useAppointment.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      isSuccess: false,
+      error: null,
+      fetchStatus: 'paused',
+      dataUpdatedAt: 0,
+      refetch: jest.fn(),
+    });
+    const json = render(<BookingDetailRoute />);
+    expect(json).toContain("You're offline. Reconnect to make changes.");
+  });
+
+  it('keeps the booking and adds the saved-copy banner when a refresh is paused', () => {
+    mockHooks.useAppointment.mockReturnValue({
+      ...success(APPOINTMENT_DETAIL),
+      fetchStatus: 'paused',
+      dataUpdatedAt: Date.parse('2026-10-13T08:00:00.000Z'),
+    });
+    const json = render(<BookingDetailRoute />);
+    expect(json).toContain('Offline · showing what we had at');
+    expect(json).toContain('Olivia Bennett');
+  });
+});

@@ -55,7 +55,7 @@ export function Chip({
             isFilter
               ? undefined
               : {
-                  color: selected ? '#FFFFFF' : depth.colors.label,
+                  color: selected ? depth.colors.onFill : depth.colors.label,
                   fontVariant: ['tabular-nums'],
                 }
           }

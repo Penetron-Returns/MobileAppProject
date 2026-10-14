@@ -1,19 +1,21 @@
 import { Button, EmptyState, Screen, Text } from '@booking/ui';
 import { Link, Stack } from 'expo-router';
 import { SearchX } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation();
   return (
     <>
-      <Stack.Screen options={{ title: 'Not found' }} />
+      <Stack.Screen options={{ title: t('notFound.headerTitle') }} />
       <Screen>
         <EmptyState
           icon={SearchX}
-          title="This screen doesn't exist."
+          title={t('notFound.title')}
           action={
             <Link href="/" asChild>
               <Button>
-                <Text>Go to Dashboard</Text>
+                <Text>{t('notFound.action')}</Text>
               </Button>
             </Link>
           }

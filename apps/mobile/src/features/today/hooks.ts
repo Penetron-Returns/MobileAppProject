@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { useBusiness, useWhatsAppAccount } from '@/features/business/hooks';
+import { isFailed, loadError } from '@/lib/offline';
 import { qk } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 import { formatTime } from '@/lib/time';
@@ -96,18 +97,18 @@ export function useToday(): TodayView {
     [refetchBusiness, refetchAppointments],
   );
 
-  if (business.isError && !business.data) {
+  if (isFailed(business) && !business.data) {
     return {
       status: 'error',
-      error: business.error,
+      error: loadError(business),
       retry: () => void refetchBusiness(),
     };
   }
   if (!business.data || !date) return { status: 'loading' };
-  if (appointments.isError && appointments.data === undefined) {
+  if (isFailed(appointments) && appointments.data === undefined) {
     return {
       status: 'error',
-      error: appointments.error,
+      error: loadError(appointments),
       retry: () => void refetchAppointments(),
     };
   }

@@ -1,12 +1,17 @@
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import Animated, {
+  FadeInUp,
+  FadeOutUp,
+  ReduceMotion,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { cn } from '../lib/cn';
 import { Icon } from '../primitives/Icon';
 import { Text } from '../primitives/Text';
+import { useDepth } from '../theme/useDepth';
 import { Z_INDEX } from '../tokens/zIndex';
 import { dismissToast, useToasts, type ToastItem } from './toastStore';
 import { useDsText } from '../lib/strings';
@@ -15,13 +20,18 @@ const ICONS = { success: CheckCircle2, error: AlertCircle, info: Info };
 
 function ToastCard({ item }: { item: ToastItem }) {
   const t = useDsText();
+  const depth = useDepth();
   return (
-    <Animated.View entering={FadeInUp} exiting={FadeOutUp}>
+    <Animated.View
+      entering={FadeInUp.reduceMotion(ReduceMotion.System)}
+      exiting={FadeOutUp.reduceMotion(ReduceMotion.System)}
+    >
       <View
+        style={{ boxShadow: depth.floating.boxShadow }}
         accessibilityRole="alert"
         accessibilityLiveRegion="polite"
         className={cn(
-          'bg-card border-border flex-row items-start gap-3 rounded-xl border p-3.5 shadow-lg shadow-black/10',
+          'bg-card border-border flex-row items-start gap-3 rounded-xl border p-3.5',
           item.kind === 'error' && 'border-destructive/40',
           item.kind === 'success' && 'border-success/40',
         )}
@@ -54,7 +64,7 @@ function ToastCard({ item }: { item: ToastItem }) {
           onPress={() => dismissToast(item.id)}
           accessibilityRole="button"
           accessibilityLabel={t('common.dismiss')}
-          hitSlop={12}
+          hitSlop={14}
         >
           <Icon as={X} size={16} className="text-muted-foreground" />
         </Pressable>

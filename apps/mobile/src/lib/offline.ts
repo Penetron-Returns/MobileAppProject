@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 
+import { ApiError } from '@/lib/api';
 import { formatTime } from '@/lib/time';
 
 interface QueryStatus {
@@ -30,4 +31,42 @@ export function savedCopyLabel(t: TFunction, time: string | null): string {
   return time
     ? t('states.offline.banner', { time })
     : t('states.offline.bannerNoTime');
+}
+
+/** The error shown when the device has no connection (copy: `errors.codes.OFFLINE`). */
+export function offlineError(): ApiError {
+  return new ApiError({
+    code: 'OFFLINE',
+    message: "You're offline.",
+    status: 0,
+  });
+}
+
+export interface LoadStatus {
+  isError: boolean;
+  error: unknown;
+  isPending: boolean;
+  fetchStatus: 'fetching' | 'paused' | 'idle';
+}
+
+/**
+ * Why a screen has nothing to show, or null when it has no reason to fail.
+ * A query that is still pending but paused never loaded: the device is
+ * offline and there is no saved copy, so it reads as an offline error rather
+ * than an endless skeleton.
+ */
+export function loadError(q: LoadStatus): unknown {
+  if (q.isError) return q.error;
+  if (q.isPending && q.fetchStatus === 'paused') return offlineError();
+  return null;
+}
+
+/**
+ * True when `loadError` has something to show. As a guard it narrows like
+ * `isError` does, so the branch that follows can rely on `data`.
+ */
+export function isFailed<Q extends LoadStatus>(
+  q: Q,
+): q is Extract<Q, { isError: true }> {
+  return loadError(q) !== null;
 }

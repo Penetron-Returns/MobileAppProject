@@ -84,6 +84,10 @@ export interface DepthColors {
   badgeRing: string;
   /** Fill of the solid green "on"/done controls. */
   success: string;
+  /** Alert red: today marker, destructive text, the red badge. */
+  red: string;
+  /** Content on a tinted or red fill (the white of a selected day, a badge). */
+  onFill: string;
 }
 
 export interface DepthTokens {
@@ -135,6 +139,8 @@ const LIGHT = {
     amberFill: 'rgba(255,149,0,0.15)',
     badgeRing: '#FFFFFF',
     success: '#34C759',
+    red: '#FF3B30',
+    onFill: '#FFFFFF',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },
@@ -189,6 +195,8 @@ const DARK = {
     amberFill: 'rgba(255,149,0,0.22)',
     badgeRing: '#1C1D23',
     success: '#30D158',
+    red: '#FF453A',
+    onFill: '#FFFFFF',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },

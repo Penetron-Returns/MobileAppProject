@@ -13,6 +13,8 @@ import { Plus, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 import {
@@ -46,11 +48,11 @@ export function StaffManagementScreen() {
       .map((l) => l.service_id);
 
   let body: React.ReactNode;
-  if (staff.isError) {
+  if (isFailed(staff)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(staff.error)}
+        {...describeError(loadError(staff))}
         onRetry={() => void staff.refetch()}
       />
     );
@@ -90,6 +92,7 @@ export function StaffManagementScreen() {
       backFallback="/settings"
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
+      <SavedCopyBanner query={staff} />
       {staff.data ? (
         <Text className="mx-5 mt-1 text-title text-muted-foreground">
           {t('settings.staffList.summary', { count: staff.data.length })}

@@ -16,6 +16,7 @@ import {
   useReplaceBusinessHours,
 } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
+import { isFailed, loadError } from '@/lib/offline';
 import { formatTimeOfDay, WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
@@ -42,10 +43,10 @@ export function OperatingHoursScreen() {
       backFallback="/settings"
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
-      {hours.isError ? (
+      {isFailed(hours) ? (
         <ErrorState
           variant="banner"
-          {...describeError(hours.error)}
+          {...describeError(loadError(hours))}
           onRetry={() => void hours.refetch()}
         />
       ) : (

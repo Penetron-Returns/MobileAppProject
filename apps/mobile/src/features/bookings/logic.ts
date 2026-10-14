@@ -6,7 +6,7 @@ import type {
   SlotDTO,
 } from '@shared/api';
 
-import { addDays, businessDate, toDate, type ISODate } from '@/lib/time';
+import { addDays, toDate, type ISODate } from '@/lib/time';
 
 /** Used when the business has no `cancellation_window_minutes` rule readable. */
 export const DEFAULT_CANCELLATION_WINDOW_MINUTES = 1440;
@@ -228,10 +228,6 @@ export function dayRelation(
 ): 'today' | 'tomorrow' | 'other' {
   if (date === today) return 'today';
   return addDays(today, 1) === date ? 'tomorrow' : 'other';
-}
-
-export function startDate(startsAt: string, timezone: string): ISODate {
-  return businessDate(startsAt, timezone);
 }
 
 export const DEFAULT_HORIZON_DAYS = 60;

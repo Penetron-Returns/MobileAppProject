@@ -8,60 +8,13 @@ export const MAX_TEAM = 20;
 
 export type BusinessTypeId = 'barber' | 'salon' | 'beauty' | 'mix';
 
-export const BUSINESS_TYPES: {
-  id: BusinessTypeId;
-  title: string;
-  subtitle: string;
-  /** Lowercase noun used in the closing summary. */
-  noun: string;
-}[] = [
-  {
-    id: 'barber',
-    title: 'Barber shop',
-    subtitle: 'Fades, shaves and beard trims',
-    noun: 'barber shop',
-  },
-  {
-    id: 'salon',
-    title: 'Hair salon',
-    subtitle: 'Cuts, colour, braids and styling',
-    noun: 'hair salon',
-  },
-  {
-    id: 'beauty',
-    title: 'Beauty parlour',
-    subtitle: 'Nails, lashes, brows, facials',
-    noun: 'beauty parlour',
-  },
-  {
-    id: 'mix',
-    title: 'A mix',
-    subtitle: 'Hair plus nails or beauty',
-    noun: 'mixed business',
-  },
+/** Display copy lives in i18n (`onboarding.types.<id>`); logic only knows ids. */
+export const BUSINESS_TYPE_IDS: BusinessTypeId[] = [
+  'barber',
+  'salon',
+  'beauty',
+  'mix',
 ];
-
-export const STEP_HEADINGS: Record<
-  1 | 2 | 3 | 4,
-  { title: string; subtitle: string }
-> = {
-  1: {
-    title: 'What kind of business?',
-    subtitle: 'We set up sensible defaults. You can change everything later.',
-  },
-  2: {
-    title: 'Your name and hours',
-    subtitle: 'Clients see your name in WhatsApp. Hours are filled in for you.',
-  },
-  3: {
-    title: 'Your services',
-    subtitle: 'Switch off what you do not offer and adjust prices.',
-  },
-  4: {
-    title: 'Your team',
-    subtitle: 'Add the people who take bookings. You are already in.',
-  },
-};
 
 // ----- hours -----
 
@@ -69,19 +22,17 @@ export type DayGroupId = 'weekdays' | 'saturday' | 'sunday';
 
 export const DAY_GROUPS: {
   id: DayGroupId;
-  name: string;
   /** 0 = Sunday, matching the API. */
   weekdays: number[];
   defaultOpen: boolean;
 }[] = [
   {
     id: 'weekdays',
-    name: 'Monday to Friday',
     weekdays: [1, 2, 3, 4, 5],
     defaultOpen: true,
   },
-  { id: 'saturday', name: 'Saturday', weekdays: [6], defaultOpen: true },
-  { id: 'sunday', name: 'Sunday', weekdays: [0], defaultOpen: false },
+  { id: 'saturday', weekdays: [6], defaultOpen: true },
+  { id: 'sunday', weekdays: [0], defaultOpen: false },
 ];
 
 /** [weekday open, weekday close, Saturday open, Saturday close] per type. */
@@ -160,12 +111,9 @@ export function initialDraft(): OnboardingDraft {
 
 export interface HoursRowView {
   id: DayGroupId;
-  name: string;
   isOpen: boolean;
   opens: string;
   closes: string;
-  /** "08:30 to 17:30" or "Closed". */
-  value: string;
 }
 
 export function hoursFor(draft: OnboardingDraft): HoursRowView[] {
@@ -180,11 +128,9 @@ export function hoursFor(draft: OnboardingDraft): HoursRowView[] {
     const [opens, closes] = ranges[g.id];
     return {
       id: g.id,
-      name: g.name,
       isOpen,
       opens,
       closes,
-      value: isOpen ? `${opens} to ${closes}` : 'Closed',
     };
   });
 }
@@ -336,11 +282,13 @@ export function buildOnboardingRequest(
   };
 }
 
-/** Closing sentence on the done screen. */
-export function summaryText(draft: OnboardingDraft): string {
-  const noun =
-    BUSINESS_TYPES.find((t) => t.id === draft.typeId)?.noun ?? 'business';
-  const count = servicesFor(draft).filter((s) => s.isOn).length;
-  const services = `${count} ${count === 1 ? 'service' : 'services'}`;
-  return `Your ${noun} is set up with ${services}. Connect WhatsApp in Settings to get your first booking.`;
+/** The facts the done screen states; the sentence itself is i18n copy. */
+export function summaryFacts(draft: OnboardingDraft): {
+  typeId: BusinessTypeId;
+  serviceCount: number;
+} {
+  return {
+    typeId: draft.typeId,
+    serviceCount: servicesFor(draft).filter((s) => s.isOn).length,
+  };
 }

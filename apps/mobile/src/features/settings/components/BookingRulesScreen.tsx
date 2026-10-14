@@ -11,8 +11,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
 
+import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 
@@ -64,11 +64,11 @@ export function BookingRulesScreen() {
         {t('settings.ownerOnly')}
       </Text>
     );
-  } else if (rules.isError) {
+  } else if (isFailed(rules)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(rules.error)}
+        {...describeError(loadError(rules))}
         onRetry={() => void rules.refetch()}
       />
     );

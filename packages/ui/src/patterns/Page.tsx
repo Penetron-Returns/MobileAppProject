@@ -1,13 +1,13 @@
 import * as React from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   RefreshControl,
   ScrollView,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KEYBOARD_AVOIDING_BEHAVIOR } from '../lib/keyboard';
 import { Ground } from '../primitives/Ground';
 import { Text } from '../primitives/Text';
 import { useAppColorScheme } from '../theme/useAppColorScheme';
@@ -70,7 +70,7 @@ export function Page({
     <Ground className="flex-1">
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       >
         <ScrollView
           contentInsetAdjustmentBehavior="never"

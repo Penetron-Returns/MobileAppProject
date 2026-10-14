@@ -1,4 +1,4 @@
-import { Text, useAppColorScheme, useDepth, withAlpha } from '@booking/ui';
+import { Text, useAppColorScheme, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -8,27 +8,12 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
 import { minutesToTime, type ISODate } from '@/lib/time';
-
-import type { CalendarDayView } from '../hooks';
-import {
-  appointmentSpan,
-  columnWidth,
-  complementSpans,
-  minutesToPx,
-  nowMinute,
-  type MinuteSpan,
-} from '../logic';
-import { AppointmentBlock } from './AppointmentBlock';
-import { Hatch } from './Hatch';
+import { columnWidth, minutesToPx, nowMinute } from '../logic';
+import { Column, HourLines, type Ready } from './DayColumns';
 
 const GUTTER = 52;
 const HEADER = 56;
-const MIN_BLOCK = 36;
-const NOW_RED = '#FF3B30';
-
-type Ready = Extract<CalendarDayView, { status: 'ready' }>;
 
 /**
  * Staff columns under sticky staff names, with a time gutter that stays put
@@ -116,8 +101,8 @@ export function DayView({
                   position: 'absolute',
                   right: 6,
                   top: top(nowMin) - 9,
-                  color: '#FFFFFF',
-                  backgroundColor: NOW_RED,
+                  color: depth.colors.onFill,
+                  backgroundColor: depth.colors.red,
                   fontVariant: ['tabular-nums'],
                 }}
                 className="overflow-hidden rounded-md px-1 text-meta font-semibold"
@@ -196,7 +181,10 @@ export function DayView({
               {nowMin !== null ? (
                 <View
                   pointerEvents="none"
-                  style={{ top: top(nowMin), backgroundColor: NOW_RED }}
+                  style={{
+                    top: top(nowMin),
+                    backgroundColor: depth.colors.red,
+                  }}
                   className="absolute left-0 right-0 h-0.5"
                 />
               ) : null}
@@ -204,108 +192,6 @@ export function DayView({
           </Animated.ScrollView>
         </View>
       </ScrollView>
-    </View>
-  );
-}
-
-function HourLines({ hours, window }: { hours: number[]; window: MinuteSpan }) {
-  const depth = useDepth();
-  return (
-    <>
-      {hours.map((m) => (
-        <View
-          key={m}
-          pointerEvents="none"
-          style={{
-            top: minutesToPx(m - window.startMin),
-            backgroundColor: withAlpha(depth.colors.label, 0.07),
-          }}
-          className="absolute left-0 right-0 h-px"
-        />
-      ))}
-    </>
-  );
-}
-
-function Column({
-  width,
-  height,
-  window,
-  working,
-  appointments,
-  timezone,
-  hasDivider,
-}: {
-  width: number;
-  height: number;
-  window: MinuteSpan;
-  working: MinuteSpan[];
-  appointments: Ready['columns'][number]['appointments'];
-  timezone: string;
-  hasDivider: boolean;
-}) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  const off = complementSpans(working, window);
-  const top = (min: number) => minutesToPx(min - window.startMin);
-  return (
-    <View
-      style={{
-        width,
-        height,
-        borderLeftWidth: hasDivider ? 1 : 0,
-        borderLeftColor: withAlpha(depth.colors.label, 0.07),
-      }}
-    >
-      {off.map((span) => {
-        const spanHeight = minutesToPx(span.endMin - span.startMin);
-        return (
-          <View
-            key={span.startMin}
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: top(span.startMin),
-              width,
-              height: spanHeight,
-            }}
-          >
-            <Hatch width={width} height={spanHeight} />
-          </View>
-        );
-      })}
-      {working.length === 0 ? (
-        <Text
-          style={{ position: 'absolute', top: 12, left: 0, right: 0 }}
-          className="text-center text-meta font-semibold text-muted-foreground"
-        >
-          {t('calendar.dayOff')}
-        </Text>
-      ) : null}
-      {appointments.map((a) => {
-        const span = appointmentSpan(a, timezone);
-        return (
-          <View
-            key={a.id}
-            style={{
-              position: 'absolute',
-              left: 4,
-              right: 4,
-              top: top(span.startMin),
-            }}
-          >
-            <AppointmentBlock
-              appointment={a}
-              timezone={timezone}
-              height={Math.max(
-                minutesToPx(span.endMin - span.startMin) - 2,
-                MIN_BLOCK,
-              )}
-            />
-          </View>
-        );
-      })}
     </View>
   );
 }

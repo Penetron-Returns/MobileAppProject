@@ -1,11 +1,9 @@
 import {
   AmountInsetField,
-  Button,
   CheckPoint,
   ChoiceCard,
   FlowCaption,
   FlowHeading,
-  InsetInput,
   LabeledInsetField,
   SuccessMark,
   Surface,
@@ -18,18 +16,15 @@ import {
   LayoutGrid,
   Scissors,
   Sparkles,
-  X,
   type LucideIcon,
 } from 'lucide-react-native';
-import * as React from 'react';
-import { Pressable, View } from 'react-native';
-
+import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 import {
-  BUSINESS_TYPES,
-  canAddTeamMember,
+  BUSINESS_TYPE_IDS,
   hoursFor,
   servicesFor,
-  summaryText,
+  summaryFacts,
   type BusinessTypeId,
   type DayGroupId,
   type OnboardingDraft,
@@ -52,26 +47,27 @@ export interface StepActions {
   removeMember: (index: number) => void;
 }
 
-interface StepProps {
+export interface StepProps {
   draft: OnboardingDraft;
   actions: StepActions;
 }
 
 export function TypeStep({ draft, actions }: StepProps) {
+  const { t } = useTranslation();
   return (
     <View
       accessibilityRole="radiogroup"
-      accessibilityLabel="Business type"
+      accessibilityLabel={t('onboarding.typeLabel')}
       className="gap-3 px-5"
     >
-      {BUSINESS_TYPES.map((t) => (
+      {BUSINESS_TYPE_IDS.map((id) => (
         <ChoiceCard
-          key={t.id}
-          title={t.title}
-          subtitle={t.subtitle}
-          icon={TYPE_ICONS[t.id]}
-          selected={draft.typeId === t.id}
-          onPress={() => actions.selectType(t.id)}
+          key={id}
+          title={t(`onboarding.types.${id}.title`)}
+          subtitle={t(`onboarding.types.${id}.subtitle`)}
+          icon={TYPE_ICONS[id]}
+          selected={draft.typeId === id}
+          onPress={() => actions.selectType(id)}
         />
       ))}
     </View>
@@ -79,14 +75,15 @@ export function TypeStep({ draft, actions }: StepProps) {
 }
 
 export function HoursStep({ draft, actions }: StepProps) {
+  const { t } = useTranslation();
   return (
     <>
       <View className="mx-5">
         <LabeledInsetField
-          label="Business name"
+          label={t('onboarding.hours.nameLabel')}
           value={draft.businessName}
           onChangeText={actions.setName}
-          placeholder="Ashgrove Hair & Beauty"
+          placeholder={t('onboarding.hours.namePlaceholder')}
           autoCapitalize="words"
           autoComplete="organization"
           maxLength={120}
@@ -98,28 +95,36 @@ export function HoursStep({ draft, actions }: StepProps) {
         aria-level="2"
         className="text-section mx-5 mb-1 mt-7 font-bold"
       >
-        Opening hours
+        {t('onboarding.hours.heading')}
       </Text>
       <View className="px-5">
         {hoursFor(draft).map((h) => (
           <SwitchRow
             key={h.id}
-            title={h.name}
-            detail={h.value}
+            title={t(`onboarding.hours.days.${h.id}`)}
+            detail={
+              h.isOpen
+                ? t('onboarding.hours.range', {
+                    opens: h.opens,
+                    closes: h.closes,
+                  })
+                : t('onboarding.hours.closed')
+            }
             checked={h.isOpen}
             onCheckedChange={() => actions.toggleDay(h.id)}
-            switchLabel={`${h.name} open`}
+            switchLabel={t('onboarding.hours.dayOpen', {
+              day: t(`onboarding.hours.days.${h.id}`),
+            })}
           />
         ))}
       </View>
-      <FlowCaption>
-        Change exact times and special days later in Settings.
-      </FlowCaption>
+      <FlowCaption>{t('onboarding.hours.caption')}</FlowCaption>
     </>
   );
 }
 
 export function ServicesStep({ draft, actions }: StepProps) {
+  const { t } = useTranslation();
   return (
     <>
       <View className="px-5">
@@ -130,12 +135,12 @@ export function ServicesStep({ draft, actions }: StepProps) {
             detail={s.detail}
             checked={s.isOn}
             onCheckedChange={() => actions.toggleService(s.name)}
-            switchLabel={`Offer ${s.name}`}
+            switchLabel={t('onboarding.services.offer', { name: s.name })}
             minHeight={64}
             control={
               <AmountInsetField
                 symbol="R"
-                label={`Price for ${s.name} in rand`}
+                label={t('onboarding.services.price', { name: s.name })}
                 value={s.priceText}
                 onChangeText={(text) => actions.setPrice(s.name, text)}
               />
@@ -143,126 +148,15 @@ export function ServicesStep({ draft, actions }: StepProps) {
           />
         ))}
       </View>
-      <FlowCaption>
-        Add your own services later in Settings. Prices are in rand.
-      </FlowCaption>
+      <FlowCaption>{t('onboarding.services.caption')}</FlowCaption>
     </>
-  );
-}
-
-export function TeamStep({
-  draft,
-  actions,
-  ownerName,
-}: StepProps & { ownerName: string | null }) {
-  const depth = useDepth();
-  const [name, setName] = React.useState('');
-  const [title, setTitle] = React.useState('');
-  const canAdd = canAddTeamMember(draft.team, name);
-  const add = () => {
-    if (!canAdd) return;
-    actions.addMember(name, title);
-    setName('');
-    setTitle('');
-  };
-  return (
-    <>
-      <View className="gap-2.5 px-5">
-        <MemberRow name={ownerName?.trim() || 'You'} detail="You, the owner" />
-        {draft.team.map((m, i) => (
-          <MemberRow
-            key={`${m.name}-${i}`}
-            name={m.name}
-            detail={m.title || undefined}
-            onRemove={() => actions.removeMember(i)}
-          />
-        ))}
-      </View>
-      <View className="mt-5 gap-2.5 px-5">
-        <InsetInput
-          label="Team member name"
-          placeholder="Name"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-          maxLength={120}
-          radius={16}
-          returnKeyType="next"
-        />
-        <InsetInput
-          label="Team member role"
-          placeholder="Role (optional)"
-          value={title}
-          onChangeText={setTitle}
-          autoCapitalize="words"
-          maxLength={80}
-          radius={16}
-          returnKeyType="done"
-          onSubmitEditing={add}
-        />
-        <Button
-          variant="secondary"
-          size="lg"
-          disabled={!canAdd}
-          onPress={add}
-          accessibilityLabel="Add team member"
-        >
-          <Text style={{ color: depth.colors.tint }}>Add team member</Text>
-        </Button>
-      </View>
-      <FlowCaption>
-        Team members get their own column in the calendar. Invite them to the
-        app later in Settings.
-      </FlowCaption>
-    </>
-  );
-}
-
-function MemberRow({
-  name,
-  detail,
-  onRemove,
-}: {
-  name: string;
-  detail?: string;
-  onRemove?: () => void;
-}) {
-  const depth = useDepth();
-  return (
-    <Surface
-      variant="raised"
-      radius={20}
-      className="min-h-14 flex-row items-center gap-3 px-4 py-2"
-    >
-      <View className="min-w-0 flex-1">
-        <Text className="text-title">{name}</Text>
-        {detail ? (
-          <Text
-            style={{ color: depth.colors.secondary }}
-            className="text-subtitle"
-          >
-            {detail}
-          </Text>
-        ) : null}
-      </View>
-      {onRemove ? (
-        <Pressable
-          onPress={onRemove}
-          accessibilityRole="button"
-          accessibilityLabel={`Remove ${name}`}
-          hitSlop={8}
-          className="h-11 w-11 items-center justify-center"
-        >
-          <X size={20} strokeWidth={2.2} color={depth.colors.secondary} />
-        </Pressable>
-      ) : null}
-    </Surface>
   );
 }
 
 export function DoneStep({ draft }: { draft: OnboardingDraft }) {
+  const { t } = useTranslation();
   const depth = useDepth();
-  const services = servicesFor(draft).filter((s) => s.isOn).length;
+  const { typeId, serviceCount: services } = summaryFacts(draft);
   const open = hoursFor(draft).filter((h) => h.isOpen).length;
   return (
     <>
@@ -270,8 +164,11 @@ export function DoneStep({ draft }: { draft: OnboardingDraft }) {
         <SuccessMark />
         <View className="mt-[18px] items-center px-10">
           <FlowHeading
-            title="You are ready"
-            subtitle={summaryText(draft)}
+            title={t('onboarding.done.title')}
+            subtitle={t('onboarding.done.summary', {
+              noun: t(`onboarding.types.${typeId}.noun`),
+              services: t('onboarding.done.services', { count: services }),
+            })}
             align="center"
           />
         </View>
@@ -281,19 +178,15 @@ export function DoneStep({ draft }: { draft: OnboardingDraft }) {
           style={{ color: depth.colors.secondary }}
           className="text-subtitle"
         >
-          {draft.businessName.trim()} is set up with
+          {t('onboarding.done.setUp', { name: draft.businessName.trim() })}
         </Text>
-        <CheckPoint
-          text={`Opening hours on ${open} ${open === 1 ? 'day group' : 'day groups'}`}
-        />
-        <CheckPoint
-          text={`${services} ${services === 1 ? 'service' : 'services'}`}
-        />
+        <CheckPoint text={t('onboarding.done.hours', { count: open })} />
+        <CheckPoint text={t('onboarding.done.services', { count: services })} />
         <CheckPoint
           text={
             draft.team.length
-              ? `You and ${draft.team.length} team ${draft.team.length === 1 ? 'member' : 'members'}`
-              : 'You as the first team member'
+              ? t('onboarding.done.team', { count: draft.team.length })
+              : t('onboarding.done.teamNone')
           }
         />
       </Surface>
@@ -301,8 +194,7 @@ export function DoneStep({ draft }: { draft: OnboardingDraft }) {
         style={{ color: depth.colors.secondary }}
         className="text-subtitle mx-5 mt-3"
       >
-        Connect WhatsApp in Settings so clients can book in the chat they
-        already use. Invite your team from Settings.
+        {t('onboarding.done.whatsapp')}
       </Text>
     </>
   );

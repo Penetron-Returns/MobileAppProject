@@ -1,5 +1,6 @@
 import {
   Button,
+  KEYBOARD_AVOIDING_BEHAVIOR,
   ErrorState,
   FlowFooter,
   FlowHeading,
@@ -10,10 +11,10 @@ import {
 } from '@booking/ui';
 import { useUser } from '@clerk/expo';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   View,
 } from 'react-native';
@@ -35,7 +36,6 @@ import {
   selectType,
   setPrice,
   STEP_COUNT,
-  STEP_HEADINGS,
   toggleDay,
   toggleService,
   type OnboardingDraft,
@@ -45,10 +45,10 @@ import {
   DoneStep,
   HoursStep,
   ServicesStep,
-  TeamStep,
   TypeStep,
   type StepActions,
 } from './OnboardingSteps';
+import { TeamStep } from './TeamStep';
 
 /**
  * The first-run flow for a signed-in user with no business: type, name and
@@ -56,6 +56,7 @@ import {
  * the business at the end of the team step; `onDone` leaves for Today.
  */
 export function OnboardingFlow({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const depth = useDepth();
   const { user } = useUser();
@@ -99,14 +100,16 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
   };
 
   const isDone = step === STEP_COUNT;
-  const heading = isDone ? null : STEP_HEADINGS[step as 1 | 2 | 3 | 4];
-  const primaryLabel = isDone ? 'Go to Today' : 'Continue';
+  const stepKey = isDone ? null : (step as 1 | 2 | 3 | 4);
+  const primaryLabel = isDone
+    ? t('onboarding.goToToday')
+    : t('onboarding.continue');
 
   return (
     <Ground className="flex-1">
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -117,11 +120,11 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
           }}
         >
           <View className="w-full max-w-2xl self-center">
-            {heading ? (
+            {stepKey ? (
               <View className="px-5 pb-6 pt-2">
                 <FlowHeading
-                  title={heading.title}
-                  subtitle={heading.subtitle}
+                  title={t(`onboarding.steps.${stepKey}.title`)}
+                  subtitle={t(`onboarding.steps.${stepKey}.subtitle`)}
                 />
               </View>
             ) : null}
@@ -156,7 +159,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
       <FlowTopBar
         value={step}
         max={STEP_COUNT}
-        progressLabel="Setup progress"
+        progressLabel={t('onboarding.progress')}
         showBack={canGoBack(step) && !submit.isPending}
         onBack={() => setStep(prevStep(step))}
       />
@@ -173,7 +176,7 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
           }}
         >
           {submit.isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={depth.colors.onFill} />
           ) : (
             <Text className="text-title font-semibold">{primaryLabel}</Text>
           )}
@@ -184,10 +187,10 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
             className="mt-1.5 h-12 rounded-full"
             disabled={submit.isPending}
             onPress={() => void finish(true)}
-            accessibilityLabel="Do this later"
+            accessibilityLabel={t('onboarding.later')}
           >
             <Text style={{ color: depth.colors.tint }} className="text-title">
-              Do this later
+              {t('onboarding.later')}
             </Text>
           </Button>
         ) : null}
