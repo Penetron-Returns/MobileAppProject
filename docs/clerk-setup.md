@@ -12,8 +12,9 @@ Dashboard → **Organizations** → enable Organizations.
 
 - **Membership mode: Optional.** The app (not Clerk's hosted `choose-organization` task) decides what
   to show a member with no active organisation — `(app)/_layout.tsx` activates the first membership
-  automatically, or renders a "No business linked" screen with sign-out when the user has none. Using
-  "Membership required" would insert Clerk's own hosted org-chooser in front of that screen.
+  automatically, or starts in-app onboarding when the user has none (the app creates the organisation with
+  `createOrganization` and calls `POST /v1/onboarding`, so the Clerk webhook is not on the critical path).
+  Using "Membership required" would insert Clerk's own hosted org-chooser in front of that flow.
 - **Roles.** Dashboard → Organizations → **Roles**. Keep the two default roles and rename their intent
   to match `docs/BUILD_PLAN.md`'s `member_role` enum:
   - `org:admin` → **owner** (full access; the business's admin)

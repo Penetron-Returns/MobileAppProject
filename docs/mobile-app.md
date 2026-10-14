@@ -158,7 +158,9 @@ the appointment, dashboard and client queries. Availability is fetched with `sta
 
 `(app)/_layout.tsx` gates on `useAuth()` (redirects to `/sign-in` when signed out) **and** on having an
 active `useOrganization()` — it activates the first `useOrganizationList()` membership automatically
-when none is active yet, and renders `NoBusinessScreen` (with sign-out) when the user has none at all.
+when none is active yet, and shows `OnboardingFlow` (`features/onboarding`) when the user has none at all or the API answers
+`NO_BUSINESS`. The flow stays mounted until "Go to Today", creating the Clerk org client-side and the business
+via `POST /v1/onboarding`. Its generic pieces live in `components/flow/`.
 
 ## Tooling
 

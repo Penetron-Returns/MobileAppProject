@@ -25,22 +25,45 @@ export function orgFromClaims(claims: ClerkClaims): { orgId: string | null; role
 const businessByOrg = new Map<string, { id: string; at: number }>();
 const BUSINESS_CACHE_MS = 5 * 60_000;
 
+async function verifiedClaims(
+  authorization: string | undefined,
+  verify: (token: string) => Promise<ClerkClaims>,
+): Promise<ClerkClaims> {
+  const header = authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) throw new AppError('UNAUTHENTICATED', 'Missing bearer token');
+  try {
+    return await verify(token);
+  } catch {
+    throw new AppError('UNAUTHENTICATED', 'Invalid or expired session token');
+  }
+}
+
+/**
+ * Verifies the Clerk session JWT and requires an active organisation where
+ * the caller is the owner (org:admin), but does NOT require a business row:
+ * this is what lets a brand-new account create its business. The org id and
+ * role come only from the verified token, never from the request.
+ */
+export function requireOrgOwnerSession(
+  verify: (token: string) => Promise<ClerkClaims> = defaultVerifier,
+): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const claims = await verifiedClaims(c.req.header('authorization'), verify);
+    const { orgId, role } = orgFromClaims(claims);
+    if (!orgId) throw new AppError('NO_BUSINESS', 'No active organisation on this session');
+    if (role !== 'owner') throw new AppError('FORBIDDEN', 'Owner role required');
+    c.set('session', { userId: claims.sub, orgId });
+    await next();
+  };
+}
+
 /** Verifies the Clerk session JWT and resolves the caller's business. */
 export function requireAuth(
   verify: (token: string) => Promise<ClerkClaims> = defaultVerifier,
 ): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    const header = c.req.header('authorization') ?? '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    if (!token) throw new AppError('UNAUTHENTICATED', 'Missing bearer token');
-
-    let claims: ClerkClaims;
-    try {
-      claims = await verify(token);
-    } catch {
-      throw new AppError('UNAUTHENTICATED', 'Invalid or expired session token');
-    }
-
+    const claims = await verifiedClaims(c.req.header('authorization'), verify);
     const { orgId, role } = orgFromClaims(claims);
     if (!orgId) throw new AppError('NO_BUSINESS', 'No active organisation on this session');
 

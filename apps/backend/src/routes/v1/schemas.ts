@@ -45,7 +45,7 @@ export const updateBusinessSchema = z.object({
   booking_rules: bookingRulesPatch.optional(),
 });
 
-const hoursRow = z
+export const hoursRow = z
   .object({ weekday, opens_at: timeOfDay, closes_at: timeOfDay })
   .refine((r) => endAfterStart(r.opens_at, r.closes_at), 'closes_at must be after opens_at');
 
@@ -190,4 +190,22 @@ export const publicBookingSchema = z.object({
   name: text(120).min(1),
   phone: z.string().min(1).max(32),
   email: z.email().max(254).nullable().optional(),
+});
+
+// ---------- onboarding ----------
+
+export const onboardingSchema = z.object({
+  business: z.object({ name: text(120).min(1) }),
+  owner_name: nullableText(120),
+  hours: z.array(hoursRow).min(1).max(50),
+  services: z
+    .array(
+      z.object({
+        name: text(120).min(1),
+        duration_minutes: z.number().int().min(1).max(720),
+        price_cents: z.number().int().min(0).max(100_000_000),
+      }),
+    )
+    .max(20),
+  team: z.array(z.object({ name: text(120).min(1), title: nullableText(80) })).max(20),
 });
