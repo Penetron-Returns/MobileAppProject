@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyMetaError, createGraphClient, GraphError, type GraphErrorKind } from '../../src/whatsapp/graph.ts';
+import { classifyMetaError, createGraphClient, GraphError, type GraphErrorKind } from '@booking/app-store/whatsapp/graph.ts';
 
 type Reply = { status: number; body?: unknown } | Error;
 

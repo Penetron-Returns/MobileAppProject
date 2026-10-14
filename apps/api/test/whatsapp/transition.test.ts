@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { engineBusiness } from '../../src/whatsapp/engine/index.ts';
-import { COPY } from '../../src/whatsapp/engine/copy.ts';
-import { transition } from '../../src/whatsapp/engine/transition.ts';
+import { engineBusiness } from '@booking/app-store/whatsapp/engine/index.ts';
+import { COPY } from '@booking/app-store/whatsapp/engine/copy.ts';
+import { transition } from '@booking/app-store/whatsapp/engine/transition.ts';
 import {
   dataKey,
   STATES,
@@ -14,9 +14,9 @@ import {
   type EngineInput,
   type Snapshot,
   type Transition,
-} from '../../src/whatsapp/engine/types.ts';
-import { parseReplyId } from '../../src/whatsapp/ids.ts';
-import type { OutMessage } from '../../src/whatsapp/messages.ts';
+} from '@booking/app-store/whatsapp/engine/types.ts';
+import { parseReplyId } from '@booking/app-store/whatsapp/ids.ts';
+import type { OutMessage } from '@booking/app-store/whatsapp/messages.ts';
 import {
   appointment,
   makeWorld,
@@ -29,7 +29,7 @@ import {
   SVC_CUT,
   uuidN,
   type World,
-} from './fakes.ts';
+} from '@booking/testing/whatsapp/index.ts';
 
 const CLIENT = '00000000-0000-4000-8000-0000000c1e17';
 const CONV = '00000000-0000-4000-8000-00000000c0c0';

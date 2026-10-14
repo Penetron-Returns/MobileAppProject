@@ -2,11 +2,12 @@ import { generateKeyPairSync } from 'node:crypto';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { decryptSecret } from '../../src/lib/crypto.ts';
-import { TEMPLATE_DEFINITIONS } from '../../src/whatsapp/assets.ts';
-import { GraphError } from '../../src/whatsapp/graph.ts';
-import { mapTemplateStatus } from '../../src/whatsapp/onboarding.ts';
-import { appHarness, BIZ, NOW, PHONE_NUMBER_ID, WABA_ID } from './fakes.ts';
+import { decryptSecret } from '@booking/features/lib/crypto.ts';
+import { TEMPLATE_DEFINITIONS } from '@booking/app-store/whatsapp/assets.ts';
+import { GraphError } from '@booking/app-store/whatsapp/graph.ts';
+import { mapTemplateStatus } from '@booking/app-store/whatsapp/onboarding.ts';
+import { BIZ, NOW, PHONE_NUMBER_ID, WABA_ID } from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 let privatePem: string;
 beforeAll(() => {

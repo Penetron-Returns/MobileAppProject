@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createClerkAdmin } from '../../src/lib/clerkAdmin.ts';
-import { AppError } from '../../src/lib/errors.ts';
+import { createClerkAdmin } from '@booking/features/team/lib/clerkAdmin.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 
 interface Recorded {
   method: string;

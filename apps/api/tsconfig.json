@@ -4,7 +4,15 @@
     "paths": {
       "@booking/types": ["../../packages/types/api.ts"],
       "@booking/types/*": ["../../packages/types/*"],
-      "@booking/database": ["../../packages/database/database.types.ts"]
+      "@booking/database": ["../../packages/database/database.types.ts"],
+      "@booking/features/*": ["../../packages/features/*"],
+      "@booking/companion/*": ["../../packages/companion/*"],
+      "@booking/app-store/*": ["../../packages/app-store/*"],
+      "@booking/testing/*": ["../../packages/testing/*"],
+      "zod": ["./node_modules/zod"],
+      "luxon": ["./node_modules/@types/luxon"],
+      "libphonenumber-js": ["./node_modules/libphonenumber-js"],
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"]
     }
   },
   "include": [
@@ -12,6 +20,10 @@
     "test/**/*.ts",
     "vitest.config.ts",
     "../../packages/types/**/*.ts",
-    "../../packages/database/database.types.ts"
+    "../../packages/database/database.types.ts",
+    "../../packages/features/**/*.ts",
+    "../../packages/companion/**/*.ts",
+    "../../packages/app-store/**/*.ts",
+    "../../packages/testing/**/*.ts"
   ]
 }

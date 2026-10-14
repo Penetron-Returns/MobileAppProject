@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import bookingFlow from '../../whatsapp/flows/booking.json' with { type: 'json' };
-import rescheduleFlow from '../../whatsapp/flows/reschedule.json' with { type: 'json' };
+import bookingFlow from '@booking/app-store/whatsapp/assets/flows/booking.json' with { type: 'json' };
+import rescheduleFlow from '@booking/app-store/whatsapp/assets/flows/reschedule.json' with { type: 'json' };
 
 type Node = Record<string, unknown> & { type?: string; children?: Node[]; then?: Node[] };
 interface Screen {

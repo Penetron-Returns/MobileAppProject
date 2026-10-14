@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { sha256Hex } from '../../src/lib/crypto.ts';
-import definitions from '../../src/nerova/booking-connector.mcp-tools.json' with { type: 'json' };
+import { sha256Hex } from '@booking/features/lib/crypto.ts';
+import definitions from '@booking/companion/connector/booking-connector.mcp-tools.json' with { type: 'json' };
 import { CONNECTOR_TOKEN, ENDPOINT, nerovaHarness } from './harness.ts';
 
 const REQUIRED = [

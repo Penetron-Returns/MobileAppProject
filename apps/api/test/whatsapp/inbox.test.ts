@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { GraphError } from '../../src/whatsapp/graph.ts';
-import { appHarness, buttonMsg, inbound, NOW, sentIds, sentText, textMsg } from './fakes.ts';
+import { GraphError } from '@booking/app-store/whatsapp/graph.ts';
+import { buttonMsg, inbound, NOW, sentIds, sentText, textMsg } from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 /** A thread where the customer messaged at `NOW` and is mid-booking. */
 async function thread(opts: { account?: NonNullable<Parameters<typeof appHarness>[0]>['account'] } = {}) {

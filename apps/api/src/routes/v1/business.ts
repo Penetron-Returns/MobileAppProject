@@ -1,7 +1,8 @@
 /** /v1/me, /v1/business, /v1/business/hours, /v1/devices */
 import { Hono, type Context } from 'hono';
 
-import { getMe, registerDevice, replaceBusinessHours, updateBusiness } from '../../booking/admin.ts';
+import { getMe, replaceBusinessHours, updateBusiness } from '@booking/features/catalog/services/catalog.ts';
+import { registerDevice } from '@booking/features/team/services/devices.ts';
 import { runInBackground } from '../../lib/background.ts';
 import { parseJson } from '../../lib/validation.ts';
 import { requireOwner } from '../../middleware/auth.ts';

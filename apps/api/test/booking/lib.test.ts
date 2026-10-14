@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizePhone, tryNormalizePhone } from '../../src/lib/phone.ts';
+import { normalizePhone, tryNormalizePhone } from '@booking/features/lib/phone.ts';
 import {
   addDays,
   dateInZone,
@@ -18,7 +18,7 @@ import {
   toIsoInstant,
   wallClockToEpoch,
   weekdayOf,
-} from '../../src/lib/time.ts';
+} from '@booking/features/lib/time.ts';
 
 describe('parsePgTimestamp / toIsoInstant', () => {
   it.each([

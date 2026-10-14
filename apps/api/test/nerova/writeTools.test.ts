@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { AppError } from '../../src/lib/errors.ts';
-import type { BookingService } from '../../src/ports.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import type { BookingService } from '@booking/features/ports.ts';
 import { sast } from '../booking/fixtures.ts';
 import { nerovaHarness, type NerovaHarness } from './harness.ts';
 

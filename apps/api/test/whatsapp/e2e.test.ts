@@ -5,13 +5,27 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { createMemoryRepository, type MemoryRepository } from '../../src/booking/memoryRepository.ts';
-import { DEFAULT_BOOKING_RULES, type ServiceRow, type StaffRow } from '../../src/booking/rows.ts';
-import { createBookingServiceFromRepository } from '../../src/booking/service.ts';
-import type { AppointmentChangedEvent } from '../../src/ports.ts';
-import { handleFlowRequest } from '../../src/whatsapp/flows/handler.ts';
-import { verifyFlowToken } from '../../src/whatsapp/flows/token.ts';
-import { appHarness, BIZ, buttonMsg, CUSTOMER_PHONE, inbound, listMsg, nextWamid, nfmMsg, NOW, sentIds, sentText, silentLogger, textMsg } from './fakes.ts';
+import { createMemoryRepository, type MemoryRepository } from '@booking/testing/bookingMemoryRepository.ts';
+import { DEFAULT_BOOKING_RULES, type ServiceRow, type StaffRow } from '@booking/features/repositories/rows.ts';
+import { createBookingServiceFromRepository } from '@booking/features/bookings/services/bookingService.ts';
+import type { AppointmentChangedEvent } from '@booking/features/ports.ts';
+import { handleFlowRequest } from '@booking/app-store/whatsapp/flows/handler.ts';
+import { verifyFlowToken } from '@booking/app-store/whatsapp/flows/token.ts';
+import {
+  BIZ,
+  buttonMsg,
+  CUSTOMER_PHONE,
+  inbound,
+  listMsg,
+  nextWamid,
+  nfmMsg,
+  NOW,
+  sentIds,
+  sentText,
+  silentLogger,
+  textMsg,
+} from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 interface Salon {
   booking: MemoryRepository;

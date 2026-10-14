@@ -12,7 +12,7 @@ import {
   replaceStaffServices,
   updateService,
   updateStaff,
-} from '../../booking/admin.ts';
+} from '@booking/features/catalog/services/catalog.ts';
 import { parseJson } from '../../lib/validation.ts';
 import { requireOwner } from '../../middleware/auth.ts';
 import type { AppEnv } from '../../types.ts';

@@ -3,15 +3,16 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import type { FeatureKey, PlanKey } from '@booking/types';
-import { getMe } from '../../src/booking/admin.ts';
-import type { Db } from '../../src/lib/db.ts';
-import { AppError } from '../../src/lib/errors.ts';
-import { createEntitlementService, FEATURE_KEYS } from '../../src/plans/entitlements.ts';
-import { signFlowToken } from '../../src/whatsapp/flows/token.ts';
-import { handleFlowRequest } from '../../src/whatsapp/flows/handler.ts';
+import { getMe } from '@booking/features/catalog/services/catalog.ts';
+import type { Db } from '@booking/features/lib/db.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import { createEntitlementService, FEATURE_KEYS } from '@booking/features/plans/services/entitlements.ts';
+import { signFlowToken } from '@booking/app-store/whatsapp/flows/token.ts';
+import { handleFlowRequest } from '@booking/app-store/whatsapp/flows/handler.ts';
 import { seed } from '../booking/fixtures.ts';
-import { fakeEntitlements, PLAN_FEATURES } from '../helpers.ts';
-import { appHarness, buttonMsg, CUSTOMER_PHONE, harness, inbound, NOW, textMsg } from '../whatsapp/fakes.ts';
+import { fakeEntitlements, PLAN_FEATURES } from '@booking/testing/entitlements.ts';
+import { buttonMsg, CUSTOMER_PHONE, harness, inbound, NOW, textMsg } from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from '../whatsapp/appHarness.ts';
 
 const FEATURE_NOT_IN_PLAN = 'FEATURE_NOT_IN_PLAN';
 

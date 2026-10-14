@@ -10,7 +10,7 @@ import {
   revokeInvitation,
   type TeamCaller,
   type TeamDeps,
-} from '../../booking/team.ts';
+} from '@booking/features/team/services/team.ts';
 import { parseJson, parseParam } from '../../lib/validation.ts';
 import { requireOwner } from '../../middleware/auth.ts';
 import type { AppEnv } from '../../types.ts';

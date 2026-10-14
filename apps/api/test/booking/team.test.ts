@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { handleClerkEvent } from '../../src/booking/clerkSync.ts';
-import { AppError } from '../../src/lib/errors.ts';
+import { handleClerkEvent } from '@booking/features/team/services/clerkSync.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import { harness, type Harness } from './harness.ts';
 
 const ORG = 'org_test';

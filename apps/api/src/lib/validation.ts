@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 import type { z } from 'zod';
 
-import { AppError } from './errors.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 
 function issues(error: z.ZodError) {
   return error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));

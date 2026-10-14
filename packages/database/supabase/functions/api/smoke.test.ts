@@ -49,7 +49,7 @@ Deno.test('cron routes require the shared secret', async () => {
 });
 
 Deno.test('node:crypto AES-GCM secrets round-trip under Deno', async () => {
-  const { encryptSecret, decryptSecret } = await import('../../../../../apps/api/src/lib/crypto.ts');
+  const { encryptSecret, decryptSecret } = await import('@booking/features/lib/crypto.ts');
   const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
   assertEquals(decryptSecret(encryptSecret('EAAG-token', key), key), 'EAAG-token', 'round trip');
 });
@@ -88,7 +88,7 @@ Deno.test('flows endpoint decrypts a ping and answers with the inverted IV under
 
 // Published Flows are immutable, so the names the backend looks up must stay in step with the JSON it ships.
 Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on a complete action', async () => {
-  const { FLOW_DEFINITIONS } = await import('../../../../../apps/api/src/whatsapp/assets.ts');
+  const { FLOW_DEFINITIONS } = await import('@booking/app-store/whatsapp/assets.ts');
   assertEquals(FLOW_DEFINITIONS.booking.name, 'booking_v2', 'booking name');
   assertEquals(FLOW_DEFINITIONS.reschedule.name, 'reschedule_v2', 'reschedule name');
   for (const def of Object.values(FLOW_DEFINITIONS)) {

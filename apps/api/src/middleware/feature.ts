@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 
 import type { FeatureKey } from '@booking/types';
-import { AppError } from '../lib/errors.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import type { AppEnv } from '../types.ts';
 
 /**

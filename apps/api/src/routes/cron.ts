@@ -1,15 +1,15 @@
 import { Hono } from 'hono';
 
-import { runCleanupJob } from '../booking/jobs.ts';
+import { runCleanupJob } from '@booking/features/bookings/services/cleanupJob.ts';
 import type { Container } from '../container.ts';
-import { AppError } from '../lib/errors.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import type { AppEnv } from '../types.ts';
 import {
   runConversationExpiryJob,
   runRemindersJob,
   runTokenRefreshJob,
   runWabaHealthJob,
-} from '../whatsapp/jobs.ts';
+} from '@booking/app-store/whatsapp/jobs.ts';
 
 type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
 

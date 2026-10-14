@@ -9,10 +9,10 @@ import { Buffer } from 'node:buffer';
 
 import { Hono } from 'hono';
 
-import { getBookingRepository } from '../booking/index.ts';
-import { extractBearer, isValidConnectorToken } from '../nerova/auth.ts';
-import { handleMcpMessage } from '../nerova/mcp.ts';
-import { createNerovaConnectorService } from '../nerova/service.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { extractBearer, isValidConnectorToken } from '@booking/companion/connector/auth.ts';
+import { handleMcpMessage } from '@booking/companion/connector/mcp.ts';
+import { createNerovaConnectorService } from '@booking/companion/connector/service.ts';
 import type { AppEnv } from '../types.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;

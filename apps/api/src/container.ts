@@ -1,11 +1,12 @@
-import { createBookingService } from './booking/index.ts';
+import { createBookingService } from '@booking/features/bookings/index.ts';
 import { getEnv, type Env } from './env.ts';
-import { createClerkAdmin } from './lib/clerkAdmin.ts';
-import { getDb, type Db } from './lib/db.ts';
-import { createAccountEvents, eventSenderFromEnv } from './nerova/events.ts';
-import { createNotificationService } from './notifications/index.ts';
-import { createEntitlementService } from './plans/entitlements.ts';
-import type { AccountEventsPort, BookingService, ClerkAdmin, EntitlementService, NotificationService } from './ports.ts';
+import { createClerkAdmin } from '@booking/features/team/lib/clerkAdmin.ts';
+import type { Db } from '@booking/features/lib/db.ts';
+import { getDb } from './lib/db.ts';
+import { createAccountEvents, eventSenderFromEnv } from '@booking/companion/events/events.ts';
+import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
+import { createEntitlementService } from '@booking/features/plans/services/entitlements.ts';
+import type { AccountEventsPort, BookingService, ClerkAdmin, EntitlementService, NotificationService } from '@booking/features/ports.ts';
 
 /**
  * Composition root. Built once per warm function instance.
@@ -26,7 +27,7 @@ export interface Container {
 
 export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const notifications = createNotificationService({ env, db });
-  const booking = createBookingService({ env, db, notifications });
+  const booking = createBookingService({ db, notifications });
   const entitlements = createEntitlementService({ db });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });

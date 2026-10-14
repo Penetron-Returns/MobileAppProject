@@ -11,7 +11,7 @@ import {
   type AvailabilityInput,
   type StaffSchedule,
   type WeeklyWindow,
-} from '../../src/booking/availability.ts';
+} from '@booking/features/availability/lib/availability.ts';
 
 // Monday 2026-09-28 08:00 SAST. The target day 2026-09-30 is a Wednesday (weekday 3).
 const NOW = new Date('2026-09-28T06:00:00.000Z');

@@ -1,6 +1,6 @@
 import type { MemberRole, UUID } from '@booking/types';
 import type { Container } from './container.ts';
-import type { Logger } from './lib/logger.ts';
+import type { Logger } from '@booking/features/lib/logger.ts';
 
 export interface AuthContext {
   userId: string;
