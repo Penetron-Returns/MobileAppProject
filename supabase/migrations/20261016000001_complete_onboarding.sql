@@ -70,8 +70,8 @@ begin
   perform 1 from public.replace_business_hours(p_business_id, p_hours);
 
   for v_member in
-    select t.name, t.title, t.ord
-      from jsonb_to_recordset(p_team) with ordinality as t(name text, title text, ord int)
+    select t.elem ->> 'name' as name, t.elem ->> 'title' as title, t.ord::int as ord
+      from jsonb_array_elements(p_team) with ordinality as t(elem, ord)
      order by t.ord
   loop
     insert into public.staff (business_id, name, title, sort_order)
@@ -81,8 +81,9 @@ begin
   end loop;
 
   for v_service in
-    select x.name, x.duration_minutes, x.price_cents, x.ord
-      from jsonb_to_recordset(p_services) with ordinality as x(name text, duration_minutes int, price_cents int, ord int)
+    select x.elem ->> 'name' as name, (x.elem ->> 'duration_minutes')::int as duration_minutes,
+           (x.elem ->> 'price_cents')::int as price_cents, x.ord::int as ord
+      from jsonb_array_elements(p_services) with ordinality as x(elem, ord)
      order by x.ord
   loop
     insert into public.services (business_id, name, duration_minutes, price_cents, sort_order)
