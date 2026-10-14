@@ -5,7 +5,7 @@
  */
 import type { EntitlementsDTO, FeatureKey, UUID } from '../../../../packages/shared/api.ts';
 import type { Db } from '../lib/db.ts';
-import { mapDbError, notFound } from '../lib/errors.ts';
+import { AppError, mapDbError, notFound } from '../lib/errors.ts';
 import type { EntitlementService } from '../ports.ts';
 
 /** Every key the contract knows about; unknown keys in the table are ignored (forward compatible). */
@@ -56,4 +56,17 @@ export function createEntitlementService(deps: { db: Db }): EntitlementService {
       return features.some((f) => f.feature === feature);
     },
   };
+}
+
+/**
+ * `hasFeature` for gates: a business with no plan row (NOT_FOUND) simply has no feature. Every other failure
+ * (a transient database error) propagates so the caller's normal retry path applies instead of silently denying.
+ */
+export async function hasFeatureOrNone(entitlements: EntitlementService, businessId: UUID, feature: FeatureKey): Promise<boolean> {
+  try {
+    return await entitlements.hasFeature(businessId, feature);
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'NOT_FOUND') return false;
+    throw error;
+  }
 }
