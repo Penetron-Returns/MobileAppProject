@@ -136,44 +136,37 @@ Without Doppler, copy each `.env.example` to `apps/backend/.env` and `apps/mobil
   Repo secrets: `SUPABASE_ACCESS_TOKEN` (account access token), `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF` (dev project ref).
   Create a `develop` branch from `main` first. A `Deploy dev` run touches the shared database, so keep migrations additive.
 
-## Android package name (must change before the first EAS Android build)
+## Android package / iOS bundle id (dev placeholder)
 
-The Android package id is permanent once it is registered in a Play listing and in Clerk's Native applications, and the keystore SHA-256
-is tied to it. The current `com.neighborhoodpicks.app` is a leftover. Choose the real id (for example `si.nerova.booking`) and change, in one commit:
+The app has no name yet, so `apps/mobile/app.json` uses the **placeholder `si.nerova.booking.dev`** for both `expo.android.package` and
+`expo.ios.bundleIdentifier` (the founder owns `nerova.si`; `com.android.*` is reserved by Google and cannot be used). The URL scheme
+`bookingadmin` is unchanged (no conflict).
 
-1. `apps/mobile/app.json`: `expo.android.package` and `expo.ios.bundleIdentifier` (keep them equal unless iOS needs otherwise).
-2. `apps/mobile/android/app/build.gradle`: `namespace` (line 94) and `applicationId` (line 96).
-3. `apps/mobile/android/app/src/main/AndroidManifest.xml`: Clerk callback host `com.neighborhoodpicks.app.hosted-callback` (line 35) becomes `<new id>.hosted-callback`.
-4. Move the Kotlin package folder `apps/mobile/android/app/src/main/java/com/neighborhoodpicks/app/` to match the new id, and update the
-   `package ...` line in `MainActivity.kt` and `MainApplication.kt` (and any `R`/`BuildConfig` imports they contain).
-5. Clerk Dashboard, Native applications: register the new Android package (and iOS bundle id later). Remove the old entry.
-6. Docs: `docs/clerk-setup.md` section 7 and `docs/mobile-app.md` "Deviations" mention the old id.
-7. The app `scheme` (`bookingadmin`) is independent and can stay.
+- Internal APK installs (EAS `preview` / `development`) can change the id later: testers uninstall and reinstall, and you re-register the new
+  package and certificate fingerprint in Clerk (Native applications). Nothing else depends on it.
+- The final id **must be chosen before the first Play Store or App Store release**: it is permanent there (listing, signing and updates are
+  tied to it). Do not publish with the `.dev` placeholder.
 
-Search to confirm nothing is left: `grep -rn "neighborhoodpicks" apps docs --exclude-dir=node_modules`.
+Because native projects are generated (next section), picking the final id means editing only:
 
-## The committed `apps/mobile/android/` folder
+1. `apps/mobile/app.json`: `expo.android.package` and `expo.ios.bundleIdentifier`.
+2. Clerk Dashboard, Native applications: new Android package plus the SHA-256 of the EAS keystore (and the iOS bundle id later).
+   `CLERK_AUTHORIZED_PARTIES` holds the app scheme (`bookingadmin://`), which does not change with the id.
+3. Docs that name it: `docs/clerk-setup.md` section 7, `docs/mobile-app.md` "Deviations".
 
-When a native `android/` folder exists in the project, EAS Build uses it as is and does **not** run prebuild (config in `app.json`
-and config plugins like `@clerk/expo` are then not re-applied).
+Check: `grep -rn "si.nerova.booking" apps docs --exclude-dir=node_modules`.
 
-| | Keep the folder | Remove it and rely on prebuild (CNG) |
-| --- | --- | --- |
-| Config changes (`app.json`, plugins, SDK upgrades) | must be hand-synced into native files | applied automatically on every build |
-| Package rename | edit 4 places by hand (above) | edit `app.json` only |
-| Drift risk | high, `app.json` and native can disagree | none |
-| Custom native code | possible | needs a config plugin |
-| Repo noise | large generated diff | `android/` and `ios/` git-ignored |
+## Native projects are generated (prebuild / CNG)
 
-**Recommendation:** remove it and rely on prebuild. The app has no hand-written native code (Expo Router, Clerk plugin, SecureStore), the folder
-is generated output, and it will silently skip config-plugin changes such as Clerk's. Do the package rename in `app.json`, delete
-`apps/mobile/android/`, add `/android` and `/ios` to `apps/mobile/.gitignore`, and run `eas build`. If the folder is kept for now, do the rename
-in all places above and re-run `npx expo prebuild --clean` once to confirm it regenerates equal to what is committed. Note the committed folder also
-includes a `debug.keystore` that its release build type uses; EAS replaces signing with its own managed keystore, so this does not matter for EAS builds.
-This was not changed in this branch.
+`apps/mobile/android/` was removed from git and `/android` and `/ios` are git-ignored. EAS Build runs `expo prebuild` from `app.json` and
+config plugins (such as `@clerk/expo`) on every build, so config changes and the package id apply automatically and cannot drift from
+hand-edited native files. The app has no hand-written native code. For a local native run use `npx expo prebuild --clean` then
+`npm run android`; the generated folders stay untracked. If custom native code is ever needed, write a config plugin rather than committing the folder.
+The old committed folder also used a checked-in `debug.keystore`; local debug builds now get Expo's default debug key, so their SHA-256
+differs from the EAS one (register whichever you use in Clerk).
 
 ## Later: iOS
 
-When an Apple Developer account exists: add the real bundle id to Clerk Native applications, run `eas device:create` for internal distribution
-(ad hoc provisioning, registered devices only) or use TestFlight via `eas submit`, run `eas build -p ios --profile preview`, and set the iOS
-team id in Clerk's native app registration. The `preview` EAS environment variables are shared with iOS.
+When an Apple Developer account exists: add the final bundle id to Clerk Native applications, run `eas device:create` for internal distribution
+(ad hoc, registered devices only) or use TestFlight via `eas submit`, run `eas build -p ios --profile preview`, and add the iOS team id in
+Clerk's native app registration. The `preview` EAS environment variables are shared with iOS.
