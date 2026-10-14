@@ -31,14 +31,9 @@ export default function AppLayout() {
 
   const memberships = userMemberships.data;
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
+  const isReady = authLoaded && isSignedIn && orgLoaded && listLoaded;
   const shouldActivateFirst = Boolean(
-    authLoaded &&
-      isSignedIn &&
-      orgLoaded &&
-      listLoaded &&
-      !organization &&
-      memberships &&
-      memberships.length > 0,
+    isReady && !organization && memberships && memberships.length > 0,
   );
 
   React.useEffect(() => {
