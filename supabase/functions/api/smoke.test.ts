@@ -3,6 +3,7 @@
 Deno.env.set('SUPABASE_URL', 'http://127.0.0.1:54321');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
+Deno.env.set('WHATSAPP_VERIFY_TOKEN', 'verify-token');
 
 const { Hono } = await import('hono');
 const { createApp } = await import('../../../apps/backend/src/app.ts');
@@ -34,4 +35,15 @@ Deno.test('node:crypto AES-GCM secrets round-trip under Deno', async () => {
   const { encryptSecret, decryptSecret } = await import('../../../apps/backend/src/lib/crypto.ts');
   const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
   assertEquals(decryptSecret(encryptSecret('EAAG-token', key), key), 'EAAG-token', 'round trip');
+});
+
+Deno.test('webhook verify handshake returns the challenge under Deno', async () => {
+  // Uses WHATSAPP_VERIFY_TOKEN from env; the container reads env lazily per request.
+  const token = Deno.env.get('WHATSAPP_VERIFY_TOKEN') ?? 'verify-token';
+  const q = `hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=12345`;
+  const res = await server.request(`/api/webhooks/whatsapp?${q}`);
+  assertEquals(res.status, 200, 'status');
+  assertEquals(await res.text(), '12345', 'challenge');
+  const bad = await server.request('/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1');
+  assertEquals(bad.status, 403, 'bad token status');
 });
