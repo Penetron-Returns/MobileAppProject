@@ -1,0 +1,13 @@
+{
+  "name": "@booking/types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API DTOs and generated database types shared by the app and the API (types only, no runtime code).",
+  "type": "module",
+  "types": "./api.ts",
+  "exports": {
+    ".": "./api.ts",
+    "./api": "./api.ts",
+    "./database": "./database.types.ts"
+  }
+}

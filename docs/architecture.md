@@ -130,3 +130,66 @@ SOLID in practice:
 3. **Extraction PR:** move domain code to `packages/features`, the WhatsApp demo to `packages/app-store/whatsapp` (with the registry), and the fakes to `packages/testing`. Add the boundary lint rule.
 4. **Companion:** move the connector into `packages/companion`. The Pip work (Phase 6.3) is built there from the start, and `example-apps/companion-connector` follows.
 5. **Later:** `apps/docs` (the documentation site), extensions as they are built, and Turborepo for cached per-package tasks once there are enough packages to benefit.
+
+## Spike results (Deno / Supabase)
+
+Run 14 Oct 2026 on branch `colin/restructure` (Deno 2.9.6, Supabase CLI 2.121.0, edge-runtime image `v1.77.4`). Nothing was deployed and the local stack was not touched.
+
+### Decision
+
+Use a **`deno.json` import map** in the function folder (`<database>/supabase/functions/api/deno.json`) that maps `@booking/<pkg>` to workspace folders by relative path. For `tsc` and Vitest, mirror the same mapping in `tsconfig.json` `paths`. The entry stub imports `apps/api` by relative path.
+
+| Option | Verdict |
+| --- | --- |
+| Relative paths in the entry stub (`../../../../../apps/api/src/app.ts`) | **Use** for the stub only (works today with `../../../apps/backend/...`) |
+| `deno.json` `imports` map (`@booking/types` to `../../../../../packages/types/api.ts`, plus a `@booking/types/` prefix) | **Use** for `@booking/*` and the npm pins. Verified in `deno check`, `deno test` and the edge-runtime bundler |
+| `deno.json` `workspace` | Not chosen. Not verified with the Supabase bundler (the CLI and edge-runtime read the per-function `deno.json`). Not needed |
+| npm specifiers / `nodeModulesDir` | Not chosen. Edge runtime has no `node_modules` for workspace packages, and the folder would have to be uploaded |
+
+Today's proof (`supabase/functions/api/deno.json`):
+
+```json
+"imports": {
+  "@booking/types": "../../../packages/types/api.ts",
+  "@booking/types/": "../../../packages/types/"
+}
+```
+
+`apps/backend/src/types.ts` now has `import type { MemberRole, UUID } from '@booking/types';`. `apps/backend/tsconfig.json` has `"paths": { "@booking/types": ["../../packages/types/api.ts"], "@booking/types/*": ["../../packages/types/*"] }`. `packages/types` has a `package.json` named `@booking/types` (types only); `packages/shared/api.ts` is a one-line re-export of it. `packages/shared/database.types.ts` is still a full copy because `scripts/db/gen-types.sh` writes it.
+
+Without the import-map line, `npm run check:edge` fails with `TS2307 Import "@booking/types" not a dependency and not in import map` (negative control, seen before the change).
+
+### Verified
+
+- `cd apps/backend && npx tsc --noEmit`: clean. `npx vitest run`: 30 files, 815 tests passed.
+- `npm run check:edge` (`deno check`): passes. `npm run test:edge`: 8 passed, 0 failed.
+- **Bundle, as `functions deploy` does it:** `docker run public.ecr.aws/supabase/edge-runtime:v1.77.4 bundle --entrypoint supabase/functions/api/index.ts --output /out/api.eszip` with the repo root mounted (network on, so npm resolves). It produced a 45 MB eszip that contains `packages/types/api.ts`. Files outside `supabase/functions` bundle fine because the bundler follows the module graph from the entrypoint. The image reports: "Specifying import_map through flags is no longer supported. Please use deno.json instead." So the `deno.json` next to the entry is what counts.
+- **Simulated target layout** (scratch copy: `apps/api`, `packages/types`, `packages/shared`, `packages/database/supabase/functions/api`). `deno check` and `deno test` (8 passed) pass, and the same bundle command succeeds (45 MB eszip), with only these edits:
+  - the stub `index.ts` imports `../../../../../apps/api/src/app.ts` (5 levels up from `packages/database/supabase/functions/api`)
+  - the `deno.json` entries become `../../../../../packages/types/...`
+  - `smoke.test.ts` paths point at `apps/api`
+  - `check:edge` and `test:edge` scripts in `apps/api/package.json` point at the new path
+- **`--workdir`:** `supabase --workdir packages/database <cmd>` reads `<workdir>/supabase/config.toml` (confirmed: the CLI loaded and validated the copied `config.toml` and reported its Clerk setting). The flag is documented as "the directory containing your `supabase/` folder, used exactly as given".
+
+### Consequences for the move
+
+- **Folder shape.** `--workdir packages/database` requires a nested `supabase/` folder, so the database package is `packages/database/supabase/{config.toml,migrations,tests,seed.sql,functions/api}`. A flat `packages/database/{migrations,...}` will not work without a symlink. Put the package's own `package.json` and generated types beside the `supabase/` folder.
+- **The entry stub stays** at `packages/database/supabase/functions/api/` with `deno.json`, `deno.lock` and the smoke test. Edge Function names come from folders under `<workdir>/supabase/functions/`.
+- **`config.toml` paths** (`import_map`, `entrypoint`) stay relative to `supabase/`, so they do not change.
+- **Every relative `../../../packages/shared/...` import in `apps/backend/src` (about 30 files) must change** to `@booking/types` (or a relative path to `packages/types`). Both `tsconfig.json` `paths` and the `deno.json` map need the entry.
+- **Metro / mobile.** Mobile does not import `@booking/shared`: it uses a `tsconfig` path alias `@shared/*` to `../../packages/shared/*`, and `api.ts` has no runtime exports (all 25 importing files use types only, erased by Babel), so Metro never resolves it. The rename needs only the alias target change in `apps/mobile/tsconfig.json` (or `@booking/types` as a path or workspace link). `@booking/ui` already works as a workspace package with `watchFolders`. Add `packages/types` to `watchFolders` only if a runtime export is ever added.
+
+### Only documented or not run
+
+- **`supabase functions serve` and a real hosted deploy were not run.** The local edge-runtime container was not up and the instruction was not to disturb the stack. The evidence is the same edge-runtime image bundling the entry. `serve` mounts the repo root differently from my `-v` mount, so confirm it once during the move PR: `supabase functions serve api --workdir packages/database`.
+- **Hosted bundling with `--use-api`** (server-side, no Docker) uploads only the files the CLI finds by following imports. Not run. If a deploy complains about missing files, use `static_files` in `config.toml` for non-imported assets (the Flow JSON is imported with `with { type: 'json' }`, so it is in the graph).
+- **Metro was not started.** The claim rests on type-only imports and the existing `@booking/ui` workspace setup.
+- **Root `workspaces` entries** (`packages/types`, ...) were not added. That needs `npm install`, which would write into the shared `node_modules` used by other worktrees.
+
+### Risks for the full move
+
+1. The `deno.json` and `tsconfig` mappings drift apart. Keep one script that checks they list the same `@booking/*` names.
+2. `scripts/db/*`, the Husky/CI paths, `.claude/hooks` (protects `supabase/migrations` and `packages/shared/database.types.ts`) and `scripts/env/*` all hardcode `supabase/` and `apps/backend`. Grep for them in the move PR.
+3. `apps/backend/package.json` has its own `package-lock.json` and is not a root workspace today. The Deno pins in `deno.json` must stay in sync with it by hand.
+4. Moving `apps/backend/whatsapp/*.json` changes the `../../whatsapp/...` imports in `assets.ts`. The edge bundle needs them in the module graph.
+5. Extraction (step 3) adds `@booking/features` the same way: one more `deno.json` entry plus one `paths` entry per package, relative to the new function folder.
