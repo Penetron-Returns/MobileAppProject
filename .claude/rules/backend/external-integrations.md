@@ -1,5 +1,5 @@
 ---
-paths: apps/backend/src/whatsapp/graph*.ts,apps/backend/src/whatsapp/onboarding*.ts,apps/backend/src/routes/clerk.ts,apps/backend/src/**/stripe/**,apps/backend/src/**/*client*.ts
+paths: apps/api/src/whatsapp/graph*.ts,apps/api/src/whatsapp/onboarding*.ts,apps/api/src/routes/clerk.ts,apps/api/src/**/stripe/**,apps/api/src/**/*client*.ts
 description: Rules for clients of Meta Graph API, Clerk, Stripe and other external services
 ---
 

@@ -30,8 +30,8 @@ jobs:
         with:
           version: latest
       - name: Link dev project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase --workdir packages/database link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Apply migrations
-        run: supabase db push
+        run: supabase --workdir packages/database db push
       - name: Deploy api function
-        run: supabase functions deploy api --project-ref "$SUPABASE_PROJECT_REF"
+        run: supabase --workdir packages/database functions deploy api --project-ref "$SUPABASE_PROJECT_REF"

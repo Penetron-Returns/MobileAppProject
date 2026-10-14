@@ -8,8 +8,8 @@ package-lock.json
 .expo/
 
 # Formatted by their own conventions, not the app's Prettier config.
-apps/backend/
-supabase/
-packages/shared/database.types.ts
+apps/api/
+packages/database/supabase/
+packages/database/database.types.ts
 docs/
 .claude/skills/

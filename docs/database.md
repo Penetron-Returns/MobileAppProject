@@ -4,19 +4,19 @@ Supabase Postgres schema for the booking platform: the tables, RLS, RPCs, realti
 
 | Path | What |
 | --- | --- |
-| `supabase/migrations/20260924000001_extensions_schemas_enums.sql` | `extensions` / `private` schemas, `pgcrypto`, `btree_gist`, `citext`, all enums |
-| `supabase/migrations/20260924000002_tables.sql` | every table, check, FK and index |
-| `supabase/migrations/20260924000003_helpers_triggers.sql` | `private.current_org_id()`, `private.current_business_id()`, `updated_at` trigger, audit trigger |
-| `supabase/migrations/20260924000004_rls_grants.sql` | RLS, SELECT-only policies, table/column grants, default privileges |
-| `supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
-| `supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
-| `supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
-| `supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
-| `supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
-| `supabase/config.toml` | local CLI config with Clerk third-party auth |
-| `packages/shared/database.types.ts` | generated `Database` type |
+| `packages/database/supabase/migrations/20260924000001_extensions_schemas_enums.sql` | `extensions` / `private` schemas, `pgcrypto`, `btree_gist`, `citext`, all enums |
+| `packages/database/supabase/migrations/20260924000002_tables.sql` | every table, check, FK and index |
+| `packages/database/supabase/migrations/20260924000003_helpers_triggers.sql` | `private.current_org_id()`, `private.current_business_id()`, `updated_at` trigger, audit trigger |
+| `packages/database/supabase/migrations/20260924000004_rls_grants.sql` | RLS, SELECT-only policies, table/column grants, default privileges |
+| `packages/database/supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
+| `packages/database/supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
+| `packages/database/supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
+| `packages/database/supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
+| `packages/database/supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
+| `packages/database/supabase/config.toml` | local CLI config with Clerk third-party auth |
+| `packages/database/database.types.ts` | generated `Database` type |
 | `scripts/db/test.sh` | runs everything against a throwaway Postgres |
-| `scripts/db/gen-types.sh` | regenerates `packages/shared/database.types.ts` |
+| `scripts/db/gen-types.sh` | regenerates `packages/database/database.types.ts` |
 
 ## Running the tests locally
 
@@ -30,14 +30,14 @@ The script:
 
 1. Starts a disposable cluster on a free port with its data dir in `/tmp`. When run as root, it runs the server as the `postgres` OS user and creates that user if needed.
 2. Applies `scripts/db/supabase-shim.sql`. The shim stands in for what Supabase provides: the roles, `auth.jwt()`, the `supabase_realtime` publication, a minimal `storage` schema, an empty `vault` schema, and Supabase's default grants, which the migrations must revoke.
-3. Applies every migration in order, then applies them all a second time to check they are idempotent, then applies `seed.sql` and every `supabase/tests/*.sql`.
+3. Applies every migration in order, then applies them all a second time to check they are idempotent, then applies `seed.sql` and every `packages/database/supabase/tests/*.sql`.
 4. Races 12 concurrent sessions for one slot. Exactly one must win and the rest must get `23P01`. It then races 12 sessions with the same idempotency key, and all must get back the same row.
-5. Regenerates the types and fails if `packages/shared/database.types.ts` is stale.
+5. Regenerates the types and fails if `packages/database/database.types.ts` is stale.
 6. Tears the cluster down. It exits non-zero on the first failure.
 
 Override the binaries with `PG_BIN=/path/to/bin` and the port with `PG_PORT`.
 
-After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `packages/shared/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `packages/shared/` is types-only.
+After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `packages/database/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `packages/types/` is types-only.
 
 ## Applying migrations to Supabase
 
@@ -45,15 +45,15 @@ With the CLI:
 
 ```bash
 supabase login
-supabase link --project-ref <project-ref>
-supabase db push                 # applies supabase/migrations in order
+supabase --workdir packages/database link --project-ref <project-ref>
+supabase --workdir packages/database db push                 # applies packages/database/supabase/migrations in order
 # optional demo data (never on production):
-psql "$(supabase db url --linked)" -f supabase/seed.sql   # or paste into the SQL editor
+psql "$(supabase --workdir packages/database db url --linked)" -f packages/database/supabase/seed.sql   # or paste into the SQL editor
 ```
 
 Without the CLI, run the migration files in filename order in the dashboard SQL editor. Every migration is safe to re-run.
 
-Locally, `supabase start` followed by `supabase db reset` applies the migrations and the seed. You must set `CLERK_DOMAIN` first (see below).
+Locally, `supabase --workdir packages/database start` followed by `supabase --workdir packages/database db reset` applies the migrations and the seed. You must set `CLERK_DOMAIN` first (see below).
 
 Project settings the schema expects:
 
@@ -67,9 +67,9 @@ The app sends Clerk session tokens straight to Supabase. RLS reads the organisat
 
 1. **Clerk dashboard:** open *Integrations → Supabase* (or *Configure → Supabase*) and activate it. This adds the `role: "authenticated"` claim to session tokens. Without that claim, PostgREST treats the request as `anon`, and `anon` can read nothing. Copy the Clerk domain it shows (for example `your-app.clerk.accounts.dev`).
 2. **Supabase dashboard:** open *Authentication → Sign In / Providers → Third-Party Auth → Add provider → Clerk* and paste the domain.
-3. **Local:** `export CLERK_DOMAIN=your-app.clerk.accounts.dev` before `supabase start`. `supabase/config.toml` reads it from `[auth.third_party.clerk]`.
+3. **Local:** `export CLERK_DOMAIN=your-app.clerk.accounts.dev` before `supabase --workdir packages/database start`. `packages/database/supabase/config.toml` reads it from `[auth.third_party.clerk]`.
 4. **App:** create the Supabase client with `accessToken: async () => (await clerk.session?.getToken()) ?? null`. The user must have an **active organisation** in the session. Otherwise the token has no org claim and every query returns zero rows.
-5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `apps/backend/src/middleware/auth.ts`).
+5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `apps/api/src/middleware/auth.ts`).
 
 ## Vault secrets for cron
 
@@ -147,13 +147,13 @@ The `RULE` codes in use are:
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
 - Updates that only touch `updated_at` (or `clients.last_seen_at`) are not audited.
 
-**Nerova attribution** (migration `20261015000001_nerova_actor_source`): `appointment_source` and `actor_type` gain the label `nerova` (additive `ADD VALUE IF NOT EXISTS`). Appointments booked through the Nerova connector carry `source = nerova`, and their `appointment_events` carry `actor = nerova`. Asserted in `supabase/tests/12_nerova_actor.sql`.
+**Nerova attribution** (migration `20261015000001_nerova_actor_source`): `appointment_source` and `actor_type` gain the label `nerova` (additive `ADD VALUE IF NOT EXISTS`). Appointments booked through the Nerova connector carry `source = nerova`, and their `appointment_events` carry `actor = nerova`. Asserted in `packages/database/supabase/tests/12_nerova_actor.sql`.
 
 **Plans and entitlements** (migration `20261014000001_plan_flags`)
 - `businesses.plan` (`plan_key`, default `free`) says which plan a business is on. Only the service role writes it (future billing webhook). Clients have SELECT only and there is no API route for it.
 - `plan_features(plan, feature, monthly_limit)` is the catalogue, seeded in the migration. RLS is on, `authenticated` can SELECT it and only the service role writes. Feature keys: `whatsapp_menu`, `inbox`, `companion`, `desktop_app`, `extensions`, `assistant_bookings`. `monthly_limit` is null (uncapped) everywhere until the paid-tier caps are decided.
 - `business_features(p_business_id default null)` returns `(plan, feature, monthly_limit)` rows. It is SECURITY INVOKER, so RLS limits an `authenticated` caller to their own business.
-- Tests: `supabase/tests/11_plan_flags.sql`. Demo seed: Ashgrove is on `free`, Harbour Barbers (`10000000-0000-4000-8000-000000000002`) is a bare `growth` business.
+- Tests: `packages/database/supabase/tests/11_plan_flags.sql`. Demo seed: Ashgrove is on `free`, Harbour Barbers (`10000000-0000-4000-8000-000000000002`) is a bare `growth` business.
 
 **`dashboard_summary(p_date)`**
 - The month is the calendar month containing `p_date`, in `businesses.timezone`.

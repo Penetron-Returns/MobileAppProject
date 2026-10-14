@@ -1,6 +1,6 @@
 # Clerk setup (WS-D)
 
-Dashboard checklist for the Clerk instance this app and `apps/backend/` share. There are no custom auth
+Dashboard checklist for the Clerk instance this app and `apps/api/` share. There are no custom auth
 password forms: sign-in and sign-up are our own screens (`apps/mobile/src/features/auth/`) on Clerk's headless hooks
 (`useSignIn`, `useSignUp`, `useSSO` from `@clerk/expo`); the prebuilt `AuthView` is no longer used. Clerk still does
 all security (codes, rate limits, bot protection). Account UI uses `UserButton`/`UserProfileView`; web keeps Clerk's `<SignIn />`. This file is the "do this in the Clerk Dashboard" companion to that code;
@@ -34,7 +34,7 @@ production.
 ## 3. Session token (v2)
 
 Dashboard → **Sessions** → **Customize session token**, on the v2 (default) format. The RLS helper in
-`supabase/migrations` (`private.current_org_id()`) reads `o.id` / `o.rol` from the v2 shape
+`packages/database/supabase/migrations` (`private.current_org_id()`) reads `o.id` / `o.rol` from the v2 shape
 (`{"o": {"id": "...", "rol": "..."}}`), falling back to the v1 `org_id` claim. No custom claims need
 adding — v2 already includes the active organisation.
 
@@ -51,12 +51,12 @@ Two integrations, both required, per `docs/database.md`:
 The mobile app never talks to Supabase Auth — `createClient<Database>(url, anon, { accessToken })`
 in `apps/mobile/src/lib/supabase.ts` calls Clerk's `getToken()` (wired up by `AuthTokenBridge`) on every request.
 Every table's only RLS policy for `authenticated` is a read (`SELECT ... business_id = private.current_business_id()`) —
-all writes go through `apps/backend/` with the service-role key.
+all writes go through `apps/api/` with the service-role key.
 
 ## 5. Webhook
 
 Dashboard → **Webhooks** → add an endpoint at `<API_BASE_URL>/webhooks/clerk` (see
-`apps/backend/src/routes/clerk.ts`), subscribed to:
+`apps/api/src/routes/clerk.ts`), subscribed to:
 
 - `organization.created`, `organization.updated`, `organization.deleted`
 - `user.created`, `user.updated`, `user.deleted`
@@ -68,7 +68,7 @@ with `svix`, see `docs/BUILD_PLAN.md` §7).
 ## 6. Backend JWT verification
 
 `CLERK_JWT_KEY` (backend env) is the instance's PEM public key — Dashboard → **API keys** → **Show JWT
-public key** — so `apps/backend/` can verify session tokens networklessly (`@clerk/backend`'s
+public key** — so `apps/api/` can verify session tokens networklessly (`@clerk/backend`'s
 `verifyToken`). `CLERK_SECRET_KEY` and `CLERK_AUTHORIZED_PARTIES` (the app's native scheme(s) and web
 origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 
@@ -100,10 +100,10 @@ Frontend API's CORS checks both key off this list.
 | Variable | Where | Source |
 | --- | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | app (`.env.local`, EAS `env`) | Dashboard → API keys → Publishable key |
-| `CLERK_SECRET_KEY` | `apps/backend/` | Dashboard → API keys → Secret key |
-| `CLERK_JWT_KEY` | `apps/backend/` | Dashboard → API keys → Show JWT public key (PEM) |
-| `CLERK_AUTHORIZED_PARTIES` | `apps/backend/` | the app's scheme(s) (`bookingadmin://`; unchanged by the package id) and web origin(s), comma-separated |
-| `CLERK_WEBHOOK_SECRET` | `apps/backend/` | the webhook endpoint's signing secret (step 5) |
+| `CLERK_SECRET_KEY` | `apps/api/` | Dashboard → API keys → Secret key |
+| `CLERK_JWT_KEY` | `apps/api/` | Dashboard → API keys → Show JWT public key (PEM) |
+| `CLERK_AUTHORIZED_PARTIES` | `apps/api/` | the app's scheme(s) (`bookingadmin://`; unchanged by the package id) and web origin(s), comma-separated |
+| `CLERK_WEBHOOK_SECRET` | `apps/api/` | the webhook endpoint's signing secret (step 5) |
 
 ## Sources
 

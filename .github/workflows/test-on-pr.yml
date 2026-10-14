@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-      # npm workspaces: one install at the root covers apps/mobile and packages/ui
+      # npm workspaces: one install at the root covers apps/mobile and the packages (apps/api has its own lockfile, see the api job)
       - run: npm ci
       - run: npm run lint -w apps/mobile
       - run: npm run lint -w packages/ui
@@ -36,14 +36,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/backend
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
+          cache-dependency-path: apps/api/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx vitest run

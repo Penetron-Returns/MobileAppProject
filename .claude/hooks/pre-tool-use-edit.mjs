@@ -27,10 +27,12 @@ function existsOnMaster(file) {
   }
 }
 
-if (rel === 'packages/shared/database.types.ts') {
-  block('packages/shared/database.types.ts is generated. Change a migration and run scripts/db/gen-types.sh.');
+if (rel === 'packages/database/database.types.ts') {
+  block('packages/database/database.types.ts is generated. Change a migration and run scripts/db/gen-types.sh.');
 }
-if (/^supabase\/migrations\/[^/]+\.sql$/.test(rel) && existsOnMaster(rel)) {
+// Until the restructure lands on master, merged migrations still live under supabase/migrations/ there.
+const legacyRel = `supabase/migrations/${path.posix.basename(rel)}`;
+if (/^packages\/database\/supabase\/migrations\/[^/]+\.sql$/.test(rel) && (existsOnMaster(rel) || existsOnMaster(legacyRel))) {
   block(`${rel} is already merged. Migrations are append-only, so create a new migration file instead.`);
 }
 if (/(^|\/)\.env(\.[\w-]+)?$/.test(rel) && !rel.endsWith('.env.example')) {

@@ -9,7 +9,7 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 
 ## Role Boundaries
 
-- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/backend/`, `supabase/` or `packages/shared/`
+- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/api/`, `packages/database/` or `packages/types/`
 - If you need an API or DTO change, stop and describe it (endpoint, request, response) instead of inventing one
 - Never commit, push or open PRs unless the user explicitly asks
 

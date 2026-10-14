@@ -1,6 +1,6 @@
 # Repository architecture
 
-Status: **target structure, agreed 14 Oct 2026.** Nothing has moved yet. The migration order is at the end.
+Status: **target structure, agreed 14 Oct 2026.** Migration step 2 (the move) is done on `colin/restructure`: `apps/api`, `packages/database`, `packages/types` and `packages/config` exist. Steps 3 onwards have not started, so the "Mapping from today" table below still describes the extraction. The migration order is at the end.
 
 The layout follows [cal.diy](https://github.com/calcom/cal.diy):
 - **Apps** are thin deployables.
@@ -122,7 +122,7 @@ SOLID in practice:
 
 0. **Land the work in flight** (Team, Hours and Services screens), verify it on a device, and tell the team before the move so open branches can merge first.
 1. **Spike:** prove that Deno resolves a workspace package (for example `@booking/types`) both in `supabase functions serve` and in a hosted deploy. This is the only technical unknown.
-2. **Move PR (paths only, no behaviour change):**
+2. **Move PR (paths only, no behaviour change): DONE.**
    - `apps/backend` → `apps/api`, `supabase` → `packages/database`, `packages/shared` → `packages/types`
    - add `packages/config`
    - update CLAUDE.md, AGENTS.md, BUILD_PLAN, `.claude/rules`, the agents and the scripts
@@ -130,6 +130,16 @@ SOLID in practice:
 3. **Extraction PR:** move domain code to `packages/features`, the WhatsApp demo to `packages/app-store/whatsapp` (with the registry), and the fakes to `packages/testing`. Add the boundary lint rule.
 4. **Companion:** move the connector into `packages/companion`. The Pip work (Phase 6.3) is built there from the start, and `example-apps/companion-connector` follows.
 5. **Later:** `apps/docs` (the documentation site), extensions as they are built, and Turborepo for cached per-package tasks once there are enough packages to benefit.
+
+### Decisions made in the move PR
+
+- **Generated database types live in `packages/database/database.types.ts`** (one copy; `packages/shared` and the spike's duplicate in `packages/types` are gone). `scripts/db/gen-types.sh` writes it. Consumers import `@booking/database` (tsconfig `paths` in `apps/api` and `apps/mobile`, the `deno.json` import map for Deno). `@booking/types` holds only the API DTOs and does **not** re-export the database types, so it keeps the rule "types depends on nothing".
+- **`apps/api` is not an npm workspace member.** It keeps its own `package-lock.json` and install (`npm run setup`). The Deno import map pins exact versions that must equal `apps/api/package.json`, `typescript ^7` and `vitest ^5` would otherwise be hoisted next to the Expo toolchain's TypeScript, and the CI `backend` job (a required check) installs it standalone. Revisit when Turborepo arrives (step 5).
+- **Workspace members:** `apps/mobile`, `packages/ui`, `packages/types`, `packages/database`, `packages/config`. The api and mobile still resolve `@booking/types` and `@booking/database` through `paths` rather than `node_modules` (type-only imports, so Metro never resolves them).
+- **`packages/config` holds only presets that were already in use:** the Prettier config (root `.prettierrc.json` points at it), the API `tsconfig.node.json` (`apps/api` extends it) and the ESLint base (`apps/mobile` imports it). `apps/mobile` and `packages/ui` keep extending `expo/tsconfig.base`. `packages/ui` still imports its ESLint config from `apps/mobile`; untangling that is a later cleanup.
+- **CI job and check names are unchanged** (`Backend and Edge Function`) so branch protection keeps matching.
+- **Hooks:** the migration guard also checks the pre-move path `supabase/migrations/<file>` on `origin/master` until this PR merges, otherwise already-merged migrations would look new.
+- **Local state moves:** `apps/backend/.env` becomes `apps/api/.env` (gitignored, move it by hand) and `supabase link` state moves to `packages/database/supabase/.temp/` (re-link).
 
 ## Spike results (Deno / Supabase)
 
