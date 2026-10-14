@@ -1,0 +1,179 @@
+# Environments and the shared dev setup
+
+Three environments. Only `local` and the shared `dev` exist today.
+
+| | local | `dev` (shared, hosted) | `prod` (later) |
+| --- | --- | --- | --- |
+| Who | one developer | all friends (devs + testers) | real customers |
+| Supabase | `supabase start` (Docker) | one hosted project | separate hosted project |
+| API | `npm run dev:api` | `api` Edge Function on the dev project | same, prod project |
+| Clerk | dev instance (shared) | dev instance | separate production instance |
+| Stripe | none | test mode, keys only | live |
+| WhatsApp | none | Meta test number (optional) | real numbers |
+| App | `npm run dev:mobile` (dev client) | EAS `preview` Android APK | EAS `production` |
+| Secrets | `.env` files or Doppler `dev` | Doppler `dev` + Supabase secrets + EAS env | Doppler `prod` (to be created) |
+| Seed data | `supabase db reset` seeds the demo business | demo seed once, see step 1.5 | never |
+
+**Platform for the first iteration: Android only.** The UI is designed iOS-style but friends get an Android APK
+because there is no Apple Developer account yet. iOS comes in the "Later" section.
+
+## Where things live
+
+- **Doppler** project `booking`, config `dev`: every secret and public key for dev (source of truth for people).
+  `doppler.yaml` maps `apps/backend` and `apps/mobile` to it.
+- **Supabase Edge Function secrets**: copied from Doppler by `npm run env:push-secrets`. Supabase injects
+  `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` itself.
+- **Supabase Vault**: `api_base_url` and `cron_secret`, used by pg_cron (not environment variables).
+- **EAS environment variables** (`development`, `preview`, `production`): the four `EXPO_PUBLIC_*` values baked into app builds.
+  `apps/mobile/eas.json` only names the environment per profile; it holds no values.
+- **GitHub repo secrets**: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF` for `deploy-dev.yml`.
+- Never commit secrets or real project refs. `.env*.local`, `*.pem` and `*.jks` are git-ignored.
+
+## Stand up the shared dev environment (about 30 minutes)
+
+Run `scripts/env/*` and `npm run` commands from Git Bash on Windows.
+
+### 1. Supabase hosted project
+
+1. Create a project (name it e.g. `booking-dev`, pick a region near testers). Save the database password in Doppler as `SUPABASE_DB_PASSWORD`.
+2. Install the CLI, then `supabase login` and `supabase link --project-ref <dev-ref>`.
+3. `supabase db push` applies every migration. The cron migration is safe before the Vault secrets exist (jobs skip with a warning).
+4. Project settings (see `docs/database.md`): exposed schemas `public` only; extra search path `public, extensions`.
+5. Seed policy: the demo business (`supabase/seed.sql`, org id `org_demo_ashgrove`) is optional on dev. Prefer a real
+   business created through Clerk so org ids match. If you want demo data once:
+   `psql "$(supabase db url --linked)" -f supabase/seed.sql`. Never seed `prod`. The seed is not re-run by CI.
+6. Vault (SQL editor), once; see `docs/database.md` "Vault secrets for cron":
+   ```sql
+   select vault.create_secret('https://<dev-ref>.supabase.co/functions/v1/api', 'api_base_url');
+   select vault.create_secret('<same value as CRON_SECRET>', 'cron_secret');
+   ```
+7. Authentication, Third-Party Auth, add **Clerk** with your Clerk domain (step 2.6).
+8. Collect from Settings, API: project URL and anon key. They go to Doppler / EAS as `EXPO_PUBLIC_SUPABASE_*`.
+9. Generate secrets locally and put them in Doppler: `CRON_SECRET` and `FLOW_TOKEN_SECRET` (random strings),
+   `TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`). `API_BASE_URL` is `https://<dev-ref>.supabase.co/functions/v1/api`.
+10. After Clerk (below): `SUPABASE_PROJECT_REF=<dev-ref> npm run env:push-secrets` (add `-- --dry-run` first to list names), then
+    `supabase functions deploy api` (or run the `Deploy dev` workflow). `config.toml` already sets `verify_jwt = false`.
+11. Check: `curl https://<dev-ref>.supabase.co/functions/v1/api/health` returns `{"data":{"ok":true,...}}`.
+
+### 2. Clerk dev instance
+
+Full detail in `docs/clerk-setup.md`. Summary:
+
+1. Create an application (development instance). Enable **Organizations**, membership mode **Optional**.
+   `org:admin` = owner, `org:member` = staff.
+2. **Invite-only**: restrict sign-up so accounts exist only by invitation (clerk-setup section 2).
+3. Session token stays v2. Enable the **Supabase** integration (adds the `role: authenticated` claim) and copy the Clerk domain.
+4. Webhook: endpoint `https://<dev-ref>.supabase.co/functions/v1/api/webhooks/clerk` with the events in clerk-setup section 5.
+   Signing secret goes to `CLERK_WEBHOOK_SECRET`.
+5. Backend keys to Doppler: `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, "Show JWT public key"), `CLERK_WEBHOOK_SECRET`,
+   `CLERK_AUTHORIZED_PARTIES`. Publishable key goes to `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+   Multi-line PEMs: Doppler stores them fine, the backend accepts `\n` escapes or real newlines.
+6. Supabase third-party auth uses the Clerk domain from step 3 (Supabase step 7). Local `supabase start` needs `export CLERK_DOMAIN=...`.
+7. **Native application (Android)**: Clerk Dashboard, Native applications, enable Native API, add Android with the final package name
+   (see "Android package name" below) and the **SHA-256 certificate fingerprint of the signing key EAS uses**
+   (`eas credentials -p android`, choose the build profile, copy SHA-256; the debug and release/EAS keystores differ, so register each one you ship).
+   `CLERK_AUTHORIZED_PARTIES` should contain the app scheme (`bookingadmin://`) and any web origin (comma-separated).
+8. Allowed web origins: add `http://localhost:8081` and any Expo web preview URL.
+
+### 3. Stripe (test mode, keys only)
+
+No product code exists yet; subscriptions are planned. Just reserve the slots: in test mode copy `sk_test_...` to Doppler
+`STRIPE_SECRET_KEY`. Create the webhook endpoint later when the route exists (`STRIPE_WEBHOOK_SECRET`). Keys stay server-side only.
+
+### 4. Meta WhatsApp test number (optional)
+
+Only needed to try the Free-tier deterministic WhatsApp engine; the app, web flow and API work without it.
+Create a Meta app with a WhatsApp test number, then follow `docs/whatsapp.md`: `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`,
+Flow keys via `node apps/backend/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
+`POST /v1/whatsapp/connect` (stored encrypted, never in Doppler). Webhook callback: `<API_BASE_URL>/webhooks/whatsapp`.
+
+### 5. EAS and the Android build
+
+1. `npm i -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init` (writes the project id into `app.json`; commit it).
+2. Change the Android package name **before the first build** (see below).
+3. EAS environment variables, one set per environment (`preview` for testers, `development` for dev clients):
+   ```bash
+   cd apps/mobile
+   eas env:create --environment preview --name EXPO_PUBLIC_API_URL --value https://<dev-ref>.supabase.co/functions/v1/api --visibility plaintext
+   eas env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --value https://<dev-ref>.supabase.co --visibility plaintext
+   eas env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value <anon key> --visibility plaintext
+   eas env:create --environment preview --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value <pk_test_...> --visibility plaintext
+   eas env:create --environment preview --name EXPO_PUBLIC_ENV --value dev --visibility plaintext
+   ```
+   Repeat for `development`. These are public by design (inlined into the bundle); never put a secret in an `EXPO_PUBLIC_*` variable.
+4. Testers: `eas build -p android --profile preview`. `preview` is `distribution: internal` with `android.buildType: apk`, so EAS gives an
+   install link and QR code. Share it; testers enable "install unknown apps" on the phone. Developers: `eas build -p android --profile development`
+   gives an Android dev client APK, then `npm run dev:mobile`.
+5. First Android build lets EAS generate and store the keystore. Run `eas credentials -p android` afterwards to read the SHA-256 for Clerk (2.7).
+6. iOS device builds need an Apple Developer account. Until then iOS developers use the iOS simulator and testers can use the Expo web build
+   (`cd apps/mobile && npm run export:web`; host it anywhere and add its origin in Clerk, step 2.8).
+
+### 6. Inviting friends
+
+- **Clerk**: Dashboard, Organizations, the shared dev business org, Invite members (`org:admin` for owner-like testers, `org:member` for staff).
+  They sign in with the invited email; sign-up is closed otherwise. Their user rows appear through the Clerk webhook.
+- **Doppler** (developers only): invite to the `booking` project with access to `dev`; then each friend runs
+  `doppler login` and `doppler setup` in the repo root (picks up `doppler.yaml`), then `npm run env:check` and `npm run dev:api` / `npm run dev:mobile`.
+  Testers need only the EAS install link, never Doppler.
+- **GitHub / EAS / Supabase**: add developers who deploy as collaborators; testers need nothing.
+
+## Everyday commands
+
+| Task | Command |
+| --- | --- |
+| Check env is complete | `npm run env:check` (names only); one app: `sh scripts/env/check.sh backend --hosted` |
+| Run API locally | `npm run dev:api` (Doppler if available, else `apps/backend/.env`) |
+| Run app | `npm run dev:mobile` (Doppler if available, else `apps/mobile/.env.local`) |
+| Push secrets to hosted dev | `SUPABASE_PROJECT_REF=<ref> npm run env:push-secrets` |
+| Deploy dev | merge to `develop`, or run the `Deploy dev` workflow |
+
+Without Doppler, copy each `.env.example` to `apps/backend/.env` and `apps/mobile/.env.local` and fill them.
+
+## CI
+
+- `test-on-pr.yml` runs on pull requests to `main` and `develop`.
+- `deploy-dev.yml` (push to `develop` or manual) runs `supabase link`, `supabase db push` and `supabase functions deploy api`.
+  Repo secrets: `SUPABASE_ACCESS_TOKEN` (account access token), `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF` (dev project ref).
+  Create a `develop` branch from `main` first. A `Deploy dev` run touches the shared database, so keep migrations additive.
+
+## Android package name (must change before the first EAS Android build)
+
+The Android package id is permanent once it is registered in a Play listing and in Clerk's Native applications, and the keystore SHA-256
+is tied to it. The current `com.neighborhoodpicks.app` is a leftover. Choose the real id (for example `si.nerova.booking`) and change, in one commit:
+
+1. `apps/mobile/app.json`: `expo.android.package` and `expo.ios.bundleIdentifier` (keep them equal unless iOS needs otherwise).
+2. `apps/mobile/android/app/build.gradle`: `namespace` (line 94) and `applicationId` (line 96).
+3. `apps/mobile/android/app/src/main/AndroidManifest.xml`: Clerk callback host `com.neighborhoodpicks.app.hosted-callback` (line 35) becomes `<new id>.hosted-callback`.
+4. Move the Kotlin package folder `apps/mobile/android/app/src/main/java/com/neighborhoodpicks/app/` to match the new id, and update the
+   `package ...` line in `MainActivity.kt` and `MainApplication.kt` (and any `R`/`BuildConfig` imports they contain).
+5. Clerk Dashboard, Native applications: register the new Android package (and iOS bundle id later). Remove the old entry.
+6. Docs: `docs/clerk-setup.md` section 7 and `docs/mobile-app.md` "Deviations" mention the old id.
+7. The app `scheme` (`bookingadmin`) is independent and can stay.
+
+Search to confirm nothing is left: `grep -rn "neighborhoodpicks" apps docs --exclude-dir=node_modules`.
+
+## The committed `apps/mobile/android/` folder
+
+When a native `android/` folder exists in the project, EAS Build uses it as is and does **not** run prebuild (config in `app.json`
+and config plugins like `@clerk/expo` are then not re-applied).
+
+| | Keep the folder | Remove it and rely on prebuild (CNG) |
+| --- | --- | --- |
+| Config changes (`app.json`, plugins, SDK upgrades) | must be hand-synced into native files | applied automatically on every build |
+| Package rename | edit 4 places by hand (above) | edit `app.json` only |
+| Drift risk | high, `app.json` and native can disagree | none |
+| Custom native code | possible | needs a config plugin |
+| Repo noise | large generated diff | `android/` and `ios/` git-ignored |
+
+**Recommendation:** remove it and rely on prebuild. The app has no hand-written native code (Expo Router, Clerk plugin, SecureStore), the folder
+is generated output, and it will silently skip config-plugin changes such as Clerk's. Do the package rename in `app.json`, delete
+`apps/mobile/android/`, add `/android` and `/ios` to `apps/mobile/.gitignore`, and run `eas build`. If the folder is kept for now, do the rename
+in all places above and re-run `npx expo prebuild --clean` once to confirm it regenerates equal to what is committed. Note the committed folder also
+includes a `debug.keystore` that its release build type uses; EAS replaces signing with its own managed keystore, so this does not matter for EAS builds.
+This was not changed in this branch.
+
+## Later: iOS
+
+When an Apple Developer account exists: add the real bundle id to Clerk Native applications, run `eas device:create` for internal distribution
+(ad hoc provisioning, registered devices only) or use TestFlight via `eas submit`, run `eas build -p ios --profile preview`, and set the iOS
+team id in Clerk's native app registration. The `preview` EAS environment variables are shared with iOS.
