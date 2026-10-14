@@ -172,6 +172,9 @@ The `RULE` codes in use are:
 - `replace_staff_availability` takes `[{weekday, start_time, end_time}]`. An empty array means the staff member inherits business hours.
 - Both return the resulting rows. They apply the replace as a diff, so unchanged rows keep their ids and their audit history.
 
+**Onboarding**
+- `complete_onboarding(p_business_id, p_user_id, p_owner_name, p_hours, p_team, p_services)` runs the whole first-run setup in one transaction under a row lock on the business and writes `businesses.onboarded_at` last. It returns `true` when applied and `false` when already onboarded, so a retry or a concurrent duplicate is a no-op. `p_team` is `[{name, title?}]`, `p_services` is `[{name, duration_minutes, price_cents}]`. Existing businesses with hours or services were backfilled as onboarded. `service_role` only.
+
 **Storage**
 - Upload to `logos/<business_id>/...` and `staff-photos/<business_id>/...` with the member's token.
 - Both buckets are public-read through the public URL.
