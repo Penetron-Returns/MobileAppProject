@@ -2,7 +2,7 @@ import * as React from 'react';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { getDepth } from '../../tokens/depth';
-import { host, render, textOf } from '../../testing/render';
+import { act, host, render, textOf } from '../../testing/render';
 import { Divider } from '../Divider';
 import { Ground } from '../Ground';
 import { Pressable } from '../Pressable';
@@ -93,7 +93,9 @@ describe('Divider', () => {
     const tree = render(<Divider inset={inset} />);
     expect(JSON.stringify(tree.toJSON())).toBeTruthy();
     const surface = tree.root.findByType(Surface);
-    expect(surface.props.style).toEqual({ left: inset });
+    expect(surface.props.style).toEqual({ left: inset, height: 2 });
+    // Two solid 1px lines: the shadow over the highlight.
+    expect(surface.props.children).toHaveLength(2);
   });
 });
 
@@ -105,10 +107,14 @@ describe('Pressable', () => {
     const tree = render(
       <Pressable accessibilityRole="button" feedback={feedback} testID="p" />,
     );
-    // The style function our wrapper hands to React Native's Pressable.
-    const style = tree.root.find((n) => typeof n.props.style === 'function')
-      .props.style as (state: { pressed: boolean }) => unknown;
-    return flat(style({ pressed }));
+    const press = tree.root.find(
+      (n) => typeof n.type !== 'string' && n.props.onPressIn !== undefined,
+    );
+    if (pressed) act(() => press.props.onPressIn({}));
+    const node = tree.root.find(
+      (n) => n.props.testID === 'p' && typeof n.props.style === 'object',
+    );
+    return flat(node.props.style);
   }
 
   it('dims while pressed', () => {

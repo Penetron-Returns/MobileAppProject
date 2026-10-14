@@ -188,8 +188,13 @@ export interface DepthTokens {
   dome: SurfaceStyle;
   /** The floating Inbox dome (stronger lift than `dome`). */
   domeFloat: SurfaceStyle;
-  /** Engraved 2px divider. */
+  /**
+   * Engraved 2px divider: a 1px shadow line (engraveLine) over a 1px highlight line (engraveLight). Two solid
+   * lines, not a hard-stop gradient (a 2px gradient did not render on Android).
+   */
   engrave: SurfaceStyle;
+  engraveLine: string;
+  engraveLight: string;
   /** Tab bar capsule. */
   bar: SurfaceStyle;
   /** Selected tab pill. */
@@ -254,8 +259,7 @@ const LIGHT = {
     float:
       'inset 0 1px 0 rgba(255,255,255,0.95), 0 0 0 0.5px rgba(16,24,40,0.08), 0 8px 20px -4px rgba(16,24,40,0.20), 0 18px 36px -14px rgba(16,24,40,0.28)',
   },
-  engrave:
-    'linear-gradient(180deg, rgba(16,24,40,0.07) 0, rgba(16,24,40,0.07) 1px, rgba(255,255,255,1) 1px, rgba(255,255,255,1) 2px)',
+  engrave: { line: 'rgba(16,24,40,0.07)', light: 'rgba(255,255,255,1)' },
   bar: { top: 'rgba(240,241,246,0.94)', bottom: 'rgba(231,233,239,0.94)' },
   pill: {
     top: '#FFFFFF',
@@ -334,8 +338,7 @@ const DARK = {
     float:
       'inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 0.5px rgba(255,255,255,0.08), 0 8px 20px -4px rgba(0,0,0,0.6), 0 18px 36px -14px rgba(0,0,0,0.7)',
   },
-  engrave:
-    'linear-gradient(180deg, rgba(0,0,0,0.55) 0, rgba(0,0,0,0.55) 1px, rgba(255,255,255,0.05) 1px, rgba(255,255,255,0.05) 2px)',
+  engrave: { line: 'rgba(0,0,0,0.55)', light: 'rgba(255,255,255,0.05)' },
   bar: { top: 'rgba(38,39,46,0.94)', bottom: 'rgba(26,27,32,0.94)' },
   pill: {
     top: '#3A3B44',
@@ -479,10 +482,9 @@ export function getDepth(
       experimental_backgroundImage: domeLight(s.dome.highlight),
       boxShadow: s.dome.float,
     },
-    engrave: {
-      backgroundColor: 'transparent',
-      experimental_backgroundImage: s.engrave,
-    },
+    engrave: { backgroundColor: 'transparent' },
+    engraveLine: s.engrave.line,
+    engraveLight: s.engrave.light,
     bar: {
       backgroundColor: s.bar.top,
       experimental_backgroundImage: vertical(s.bar.top, s.bar.bottom),

@@ -40,7 +40,10 @@ function AlertDialogOverlay({
         {...props}
         asChild={Platform.OS !== 'web'}
       >
+        {/* accessible={false}: an accessible Pressable backdrop groups the dialog into one
+            screen-reader node and, on Android, swallows taps meant for its buttons. */}
         <NativeOnlyAnimatedView
+          accessible={false}
           entering={FadeIn.duration(200)
             .delay(50)
             .reduceMotion(ReduceMotion.System)}

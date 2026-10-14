@@ -17,12 +17,13 @@ import {
   useStaffServices,
   type StaffRow,
 } from '@/features/catalog/hooks';
+import { useBusinessHours } from '@/features/business/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError, toast } from '@/lib/toast';
 
 import { useAvailabilityRules, useTeam } from '../hooks';
 import { buildTeam } from '../logic';
-import { toWorkingWeek } from '../schedule';
+import { resolveWorkingWeek } from '../schedule';
 import { PersonDetail } from './PersonDetail';
 import { StaffForm } from './StaffForm';
 import { TeamList } from './TeamList';
@@ -40,6 +41,7 @@ export function TeamScreen() {
   const services = useServices();
   const links = useStaffServices();
   const rules = useAvailabilityRules();
+  const businessHours = useBusinessHours();
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<StaffRow | 'new' | null>(null);
   const [deleting, setDeleting] = React.useState<StaffRow | null>(null);
@@ -77,8 +79,9 @@ export function TeamScreen() {
     body = (
       <PersonDetail
         person={selected}
-        week={toWorkingWeek(
+        {...resolveWorkingWeek(
           (rules.data ?? []).filter((r) => r.staff_id === id),
+          businessHours.data ?? [],
         )}
         serviceCount={id ? serviceIdsFor(id).length : 0}
         onEdit={() => id && setEditing(staffRow(id))}

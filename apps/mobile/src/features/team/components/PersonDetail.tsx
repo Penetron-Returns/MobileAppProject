@@ -28,6 +28,7 @@ import { ScheduleSection } from './ScheduleSection';
 export function PersonDetail({
   person,
   week,
+  inherited,
   serviceCount,
   onEdit,
   onGone,
@@ -35,6 +36,8 @@ export function PersonDetail({
   person: TeamPerson;
   /** Weekly hours of the person (Monday first); empty when not loaded or none set. */
   week: WorkingDay[];
+  /** True when the week is the business hours (the person has no hours of their own). */
+  inherited: boolean;
   serviceCount: number;
   onEdit: () => void;
   /** The person left the team (or the invite was revoked): back to the list. */
@@ -45,7 +48,12 @@ export function PersonDetail({
   const [inviting, setInviting] = React.useState(false);
   const [sentTo, setSentTo] = React.useState<string | null>(null);
   const to = t('team.to');
-  const summary = workingDaysSummary(week, to) ?? t('team.workingDays.none');
+  const daysText = workingDaysSummary(week, to);
+  const summary = !daysText
+    ? t('team.workingDays.none')
+    : inherited
+      ? t('team.workingDays.inherited', { days: daysText })
+      : daysText;
   const lines = week.map((day) => ({
     left: weekdayName(day.weekday),
     right: dayHours(day, to) ?? t('team.off'),
