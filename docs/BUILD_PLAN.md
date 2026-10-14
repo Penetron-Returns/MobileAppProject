@@ -7,7 +7,7 @@ Source spec: *ITMDA3 Deliverable 3, Group S14*. This file pins the contracts tha
 | Tier | Tech | Role |
 | --- | --- | --- |
 | Client | Expo (React Native), Expo Router, NativeWind + react-native-reusables (shadcn for RN) | Owner/staff app. Reads through Supabase (RLS) and writes through the API |
-| API | Supabase Edge Functions (Deno, TypeScript, Hono): one function `api`, code in `apps/backend/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
+| API | Supabase Edge Functions (Deno, TypeScript, Hono): one function `api`, code in `apps/api/` | All writes, booking rules, availability, WhatsApp engine. The only holder of Meta tokens |
 | Data | Supabase Postgres + RLS + Realtime + Storage + pg_cron | Single source of truth |
 | Identity | Clerk (orgs = businesses, roles owner/staff) | JWTs trusted by Supabase (third-party auth) and verified by the API |
 | Channel | Meta WhatsApp Cloud API + WhatsApp Flows | Customer surface. Deterministic, with no AI and no free-text parsing |
@@ -29,7 +29,7 @@ apps/mobile/                 Expo app (own package.json)                        
   packages/ui/**             design system `@booking/ui` (tokens, primitives, components, patterns; RNR base)
   src/features/**            feature modules (calendar, clients, …)
   src/lib/**                 api client, supabase client, query client
-apps/backend/                API source: runtime-agnostic Hono app (own package.json, Vitest)
+apps/api/                API source: runtime-agnostic Hono app (own package.json, Vitest)
   src/app.ts                 route mounting                                       → scaffold
   src/env.ts, src/lib/**, src/middleware/**                                       → scaffold
   src/ports.ts               BookingService / NotificationService                 → scaffold
@@ -40,11 +40,13 @@ apps/backend/                API source: runtime-agnostic Hono app (own package.
   src/whatsapp/**            Graph client, state machine, Flows, signup           → WS-C
   src/notifications/**       confirmations, reminders, push                       → WS-C
   src/routes/whatsapp/**     webhook, flows endpoint, v1 whatsapp/inbox           → WS-C
-packages/shared/             TYPES ONLY (no runtime imports), used by app + backend
+packages/types/             TYPES ONLY (no runtime imports), used by app + API (@booking/types)
   api.ts                     DTOs + request/response contracts
+packages/database/          Supabase project (@booking/database)
   database.types.ts          generated Supabase `Database` type                   → WS-A
-supabase/                    config.toml, migrations, seed, SQL tests (root: Supabase CLI convention) → WS-A
-  functions/api/             Edge Function entry (Deno) serving apps/backend/src/app.ts under /api
+  supabase/                  config.toml, migrations, seed, SQL tests (CLI runs with --workdir packages/database) → WS-A
+    functions/api/           Edge Function entry (Deno) serving apps/api/src/app.ts under /api
+packages/config/            shared tooling presets (@booking/config): prettier, API tsconfig, eslint base
 docs/                        this plan + per-workstream docs
 ```
 
@@ -135,7 +137,7 @@ All raise with SQLSTATE-coded errors that the API maps:
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
 `reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
 
-## 4. API contract (apps/backend/, Hono on Supabase Edge Functions)
+## 4. API contract (apps/api/, Hono on Supabase Edge Functions)
 
 Base URL: `https://<project-ref>.supabase.co/functions/v1/api` (the paths below are relative to it).
 
@@ -143,7 +145,7 @@ Envelope: success `{ "data": … }`. Error `{ "error": { "code", "message", "det
 Headers: `Authorization: Bearer <Clerk session JWT>` on `/v1/**`. `Idempotency-Key: <uuid>` is **required** on every mutating `/v1/**` and `/public/**` call. Every response carries `x-request-id`.
 Error codes: `FEATURE_NOT_IN_PLAN 403` (with `details.feature`), `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `INTERNAL 500`.
 
-DTO shapes live in `packages/shared/api.ts`.
+DTO shapes live in `packages/types/api.ts`.
 
 **WS-B, booking core**
 | Method | Path | Who | Notes |
@@ -220,7 +222,7 @@ Code gates on a **feature key**, never on a plan name. `plan_features` (migratio
 Enforcement:
 - `requireFeature(feature)` (`middleware/feature.ts`) runs after `requireAuth` and throws `AppError('FEATURE_NOT_IN_PLAN')` → **403** `{ error: { code: 'FEATURE_NOT_IN_PLAN', details: { feature } } }`. It applies to every `/v1/whatsapp/**` route (status, embedded-signup, connect, sync, pause, resume, disconnect, test-message) with `whatsapp_menu`, and to `/v1/conversations/**` and `/v1/escalations/**` (staff reply, release, resolve) with `inbox`. The check is about the plan, so staff and owners are treated alike.
 - `POST /webhooks/whatsapp`: an inbound *message* for an account whose business lacks `whatsapp_menu` is acknowledged (200), recorded in `webhook_events` with note `feature_not_in_plan`, logged, and **not processed**: no client, conversation or message rows and no reply. `POST /flows/whatsapp` answers 427 (flow closed) for such a business. Status, template and account events are unaffected.
-- Shared types: `PlanKey`, `FeatureKey`, `FeatureEntitlementDTO`, `EntitlementsDTO` in `packages/shared/api.ts`; `MeDTO` gains `plan` and `features` (additive).
+- Shared types: `PlanKey`, `FeatureKey`, `FeatureEntitlementDTO`, `EntitlementsDTO` in `packages/types/api.ts`; `MeDTO` gains `plan` and `features` (additive).
 - App: `features/plans` exposes `useEntitlements()` (reads `/v1/me`; fails closed while loading or on error) and `<Gate feature="…">`. The app hides UI, the API enforces.
 - Not gated on purpose: cron jobs (a business without a WhatsApp account has nothing to send) and notification fan-out, which already skip businesses without a live account. Revisit when Nerova's channel is wired in.
 
@@ -254,7 +256,7 @@ Lets Nerova's AI companion (Pip) read and act on the bookings of **paid-plan bus
 | POST | `/connector/nerova/mcp` | `Authorization: Bearer <connector token>` (SHA-256 hash in `NEROVA_CONNECTOR_TOKEN_HASHES`) | JSON-RPC: `initialize`, `notifications/*`, `ping`, `tools/list`, `tools/call` |
 
 - Not under `/v1`: no Clerk, no CORS, no `Idempotency-Key` header. Browser `Origin` requests get 403; other methods 405. A missing, wrong or unconfigured token is HTTP **401** (`application/problem+json`, `code: unauthorized`).
-- Tools (published verbatim from `apps/backend/src/nerova/booking-connector.mcp-tools.json`, read-only annotations on the seven read tools): `accounts_list`, `accounts_get`, `services_list`, `staff_list`, `availability_search`, `appointments_get`, `appointments_list`, `appointments_create`, `appointments_reschedule`, `appointments_cancel`.
+- Tools (published verbatim from `apps/api/src/nerova/booking-connector.mcp-tools.json`, read-only annotations on the seven read tools): `accounts_list`, `accounts_get`, `services_list`, `staff_list`, `availability_search`, `appointments_get`, `appointments_list`, `appointments_create`, `appointments_reschedule`, `appointments_cancel`.
 - **Account = business** (`accountId` = `businesses.id`, also its single location). Only businesses with `companion` are listed or readable: Free, unknown and malformed ids are `not_found`. Entitlements are read live on every call.
 - Results are `structuredContent` (+ the same JSON as a `text` item). Failures are tool results with `isError: true` and `structuredContent.code` ∈ `invalid_request | unauthorized | not_found | conflict | rate_limited | provider_unavailable`. Mapping: `VALIDATION_FAILED→invalid_request`, `NOT_FOUND/NO_BUSINESS→not_found`, `SLOT_UNAVAILABLE/RULE_VIOLATION/IDEMPOTENCY_KEY_REUSED→conflict`, everything unexpected → `provider_unavailable` (no internals leaked).
 - Writes go through `BookingService` (`source: 'nerova'`, actor `{ type: 'nerova', id: 'nerova' | 'nerova:<conversationId>' }`, `notifyCustomer: false`), so the exclusion constraint, `appointment_events` and the idempotent `create_appointment` apply. The idempotency key is `nerova:<accountId>:<idempotencyKey>`; a replay returns the first appointment. When Nerova's `origin.channel` is present (a customer-facing conversation) reschedule/cancel are held to `cancellation_window_minutes` (`enforceCancellationWindow`).
@@ -267,7 +269,7 @@ Lets Nerova's AI companion (Pip) read and act on the bookings of **paid-plan bus
 
 ## 8. Workstreams and sequencing
 
-1. **Scaffold** (done first): this plan, `packages/shared/api.ts`, backend skeleton (Hono app, env, db client, errors, logger with PII redaction, request-id, Clerk auth, idempotency middleware, ports + stubs, route mount points, Vitest).
+1. **Scaffold** (done first): this plan, `packages/types/api.ts`, backend skeleton (Hono app, env, db client, errors, logger with PII redaction, request-id, Clerk auth, idempotency middleware, ports + stubs, route mount points, Vitest).
 2. **In parallel:** WS-A (DB), WS-B (booking core API), WS-C (WhatsApp engine), WS-D (app). Each works in its own folders, writes tests, and commits on its own branch.
 3. **Integration:** merge, swap in the real `Database` types, reconcile RPC and column names, run typecheck, tests, SQL tests and lint, set up CI, update the README, open the PR.
 

@@ -6,7 +6,7 @@ Contract summary lives in [BUILD_PLAN.md](BUILD_PLAN.md) (section "Nerova Bookin
 
 ## Why MCP and not the REST "Custom connector"
 
-Nerova recommends MCP, and the Edge runtime serves it cleanly. Streamable HTTP lets a server answer each JSON-RPC `POST` with a plain JSON body and no session, which is exactly what a stateless Edge Function is good at. So there is no SDK dependency and no long-lived connection: `routes/nerova.ts` authenticates, `nerova/mcp.ts` (about 100 lines, pure) speaks JSON-RPC, and the Hono app is unchanged otherwise. It is proven under Deno (`supabase/functions/api/smoke.test.ts`). The REST contract has the same behaviour but needs a manifest, capability negotiation and header plumbing for no gain.
+Nerova recommends MCP, and the Edge runtime serves it cleanly. Streamable HTTP lets a server answer each JSON-RPC `POST` with a plain JSON body and no session, which is exactly what a stateless Edge Function is good at. So there is no SDK dependency and no long-lived connection: `routes/nerova.ts` authenticates, `nerova/mcp.ts` (about 100 lines, pure) speaks JSON-RPC, and the Hono app is unchanged otherwise. It is proven under Deno (`packages/database/supabase/functions/api/smoke.test.ts`). The REST contract has the same behaviour but needs a manifest, capability negotiation and header plumbing for no gain.
 
 ## Architecture
 
@@ -25,16 +25,16 @@ Rules kept: the connector layer never writes a table (writes go through `Booking
 
 | File | Role |
 | --- | --- |
-| `apps/backend/src/routes/nerova.ts` | HTTP transport, bearer check, body limit, logging (tool name and result code only) |
-| `apps/backend/src/nerova/mcp.ts` | JSON-RPC handler: `initialize`, `ping`, `tools/list`, `tools/call`; tool failures become `isError` results |
-| `apps/backend/src/nerova/booking-connector.mcp-tools.json` | The published tool definitions, verbatim from Nerova. `tools/list` returns exactly this; a test pins it |
-| `apps/backend/src/nerova/tools.ts` | Registry joining each definition to its zod argument schema and handler |
-| `apps/backend/src/nerova/args.ts` | zod v4 argument schemas (unknown arguments are ignored, as v1 only adds) |
-| `apps/backend/src/nerova/service.ts` | The tools' behaviour |
-| `apps/backend/src/nerova/mappers.ts` | Internal rows to wire shapes (status, opening hours, money) |
-| `apps/backend/src/nerova/errors.ts` | `ConnectorError` and the `AppError` to connector code mapping |
-| `apps/backend/src/nerova/auth.ts` | Hashed bearer token check |
-| `apps/backend/src/nerova/events.ts` | Signed account events (Standard Webhooks) behind `AccountEventSender` |
+| `apps/api/src/routes/nerova.ts` | HTTP transport, bearer check, body limit, logging (tool name and result code only) |
+| `apps/api/src/nerova/mcp.ts` | JSON-RPC handler: `initialize`, `ping`, `tools/list`, `tools/call`; tool failures become `isError` results |
+| `apps/api/src/nerova/booking-connector.mcp-tools.json` | The published tool definitions, verbatim from Nerova. `tools/list` returns exactly this; a test pins it |
+| `apps/api/src/nerova/tools.ts` | Registry joining each definition to its zod argument schema and handler |
+| `apps/api/src/nerova/args.ts` | zod v4 argument schemas (unknown arguments are ignored, as v1 only adds) |
+| `apps/api/src/nerova/service.ts` | The tools' behaviour |
+| `apps/api/src/nerova/mappers.ts` | Internal rows to wire shapes (status, opening hours, money) |
+| `apps/api/src/nerova/errors.ts` | `ConnectorError` and the `AppError` to connector code mapping |
+| `apps/api/src/nerova/auth.ts` | Hashed bearer token check |
+| `apps/api/src/nerova/events.ts` | Signed account events (Standard Webhooks) behind `AccountEventSender` |
 
 ## Tools to services
 
@@ -114,13 +114,13 @@ Appointment changes made in our app are not events: Nerova reads appointments li
 | `NEROVA_EVENTS_URL` | The connection's `events.url` |
 | `NEROVA_EVENTS_SIGNING_SECRET` | The connection's `events.signingSecret` (`whsec_...`) |
 
-All are in `apps/backend/.env.example` with comments.
+All are in `apps/api/.env.example` with comments.
 
 ## Register it in Nerova's Test environment
 
 Do this against Nerova **Test**, never Production, and only after the migration and the function are deployed to the matching Supabase project.
 
-1. Deploy: `supabase db push` (migration `20261015000001`), then `supabase functions deploy api`.
+1. Deploy: `supabase --workdir packages/database db push` (migration `20261015000001`), then `supabase --workdir packages/database functions deploy api`.
 2. Generate a token and hash (above); `supabase secrets set NEROVA_CONNECTOR_TOKEN_HASHES=<hash>`.
 3. Make sure at least one test business is on a paid plan (`update public.businesses set plan = 'starter' where ...`), has a service, a qualified staff member, hours and an open slot in the next 14 days. Nerova's run certifies against the **first listed account**.
 4. Self-check (below) against the deployed URL: `https://<project-ref>.supabase.co/functions/v1/api/connector/nerova/mcp`.
@@ -129,10 +129,10 @@ Do this against Nerova **Test**, never Production, and only after the migration 
 
 ## Checking it
 
-- `cd apps/backend && npx tsc --noEmit && npx vitest run` covers every tool through `createApp` with fakes (`test/nerova/`): happy paths, validation errors, auth failures, not found, conflicts, idempotent replay, Free-plan businesses hidden, event signing.
+- `cd apps/api && npx tsc --noEmit && npx vitest run` covers every tool through `createApp` with fakes (`test/nerova/`): happy paths, validation errors, auth failures, not found, conflicts, idempotent replay, Free-plan businesses hidden, event signing.
 - `npm run check:edge && npm run test:edge` proves the connector boots and lists its tools under Deno.
-- `scripts/db/test.sh` includes `supabase/tests/12_nerova_actor.sql` (the `nerova` source and actor).
-- **`@nerova/connector-check`:** the docs describe version `0.3.0-preview.1` (MCP is its default mode, `--rest` checks a Custom connector), but only `0.1.0-preview.1` (an older merchant-based REST checker with no MCP mode) is published on npm. Until the MCP-capable release ships, use our mirror of its documented checks: `node apps/backend/scripts/nerova-selfcheck.mjs <mcp-url> --credential <token> [--account-id <id>] --write` (handshake, ten tools and schemas, bearer enforcement, accounts, availability, create with read-back, idempotent replay, conflict, reschedule, cancel, error codes). When `@nerova/connector-check` with MCP support is available, run `npx @nerova/connector-check <mcp-url> --credential "$TOKEN" --write` too. Use a test account with `--write`.
+- `scripts/db/test.sh` includes `packages/database/supabase/tests/12_nerova_actor.sql` (the `nerova` source and actor).
+- **`@nerova/connector-check`:** the docs describe version `0.3.0-preview.1` (MCP is its default mode, `--rest` checks a Custom connector), but only `0.1.0-preview.1` (an older merchant-based REST checker with no MCP mode) is published on npm. Until the MCP-capable release ships, use our mirror of its documented checks: `node apps/api/scripts/nerova-selfcheck.mjs <mcp-url> --credential <token> [--account-id <id>] --write` (handshake, ten tools and schemas, bearer enforcement, accounts, availability, create with read-back, idempotent replay, conflict, reschedule, cancel, error codes). When `@nerova/connector-check` with MCP support is available, run `npx @nerova/connector-check <mcp-url> --credential "$TOKEN" --write` too. Use a test account with `--write`.
 
 ## Known gaps and decisions
 

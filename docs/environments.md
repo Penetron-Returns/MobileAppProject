@@ -5,14 +5,14 @@ Three environments. Only `local` and the shared `dev` exist today.
 | | local | `dev` (shared, hosted) | `prod` (later) |
 | --- | --- | --- | --- |
 | Who | one developer | all friends (devs + testers) | real customers |
-| Supabase | `supabase start` (Docker) | one hosted project | separate hosted project |
+| Supabase | `supabase --workdir packages/database start` (Docker) | one hosted project | separate hosted project |
 | API | `npm run dev:api` | `api` Edge Function on the dev project | same, prod project |
 | Clerk | dev instance (shared) | dev instance | separate production instance |
 | Stripe | none | test mode, keys only | live |
 | WhatsApp | none | Meta test number (optional) | real numbers |
 | App | `npm run dev:mobile` (dev client) | EAS `preview` Android APK | EAS `production` |
 | Secrets | `.env` files or Doppler `dev` | Doppler `dev` + Supabase secrets + EAS env | Doppler `prod` (to be created) |
-| Seed data | `supabase db reset` seeds the demo business | demo seed once, see step 1.5 | never |
+| Seed data | `supabase --workdir packages/database db reset` seeds the demo business | demo seed once, see step 1.5 | never |
 
 **Platform for the first iteration: Android only.** The UI is designed iOS-style but friends get an Android APK
 because there is no Apple Developer account yet. iOS comes in the "Later" section.
@@ -20,7 +20,7 @@ because there is no Apple Developer account yet. iOS comes in the "Later" sectio
 ## Where things live
 
 - **Doppler** project `booking`, config `dev`: every secret and public key for dev (source of truth for people).
-  `doppler.yaml` maps `apps/backend` and `apps/mobile` to it.
+  `doppler.yaml` maps `apps/api` and `apps/mobile` to it.
 - **Supabase Edge Function secrets**: copied from Doppler by `npm run env:push-secrets`. Supabase injects
   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` itself.
 - **Supabase Vault**: `api_base_url` and `cron_secret`, used by pg_cron (not environment variables).
@@ -36,12 +36,12 @@ Run `scripts/env/*` and `npm run` commands from Git Bash on Windows.
 ### 1. Supabase hosted project
 
 1. Create a project (name it e.g. `booking-dev`, pick a region near testers). Save the database password in Doppler as `SUPABASE_DB_PASSWORD`.
-2. Install the CLI, then `supabase login` and `supabase link --project-ref <dev-ref>`.
-3. `supabase db push` applies every migration. The cron migration is safe before the Vault secrets exist (jobs skip with a warning).
+2. Install the CLI, then `supabase login` and `supabase --workdir packages/database link --project-ref <dev-ref>`.
+3. `supabase --workdir packages/database db push` applies every migration. The cron migration is safe before the Vault secrets exist (jobs skip with a warning).
 4. Project settings (see `docs/database.md`): exposed schemas `public` only; extra search path `public, extensions`.
-5. Seed policy: the demo business (`supabase/seed.sql`, org id `org_demo_ashgrove`) is optional on dev. Prefer a real
+5. Seed policy: the demo business (`packages/database/supabase/seed.sql`, org id `org_demo_ashgrove`) is optional on dev. Prefer a real
    business created through Clerk so org ids match. If you want demo data once:
-   `psql "$(supabase db url --linked)" -f supabase/seed.sql`. Never seed `prod`. The seed is not re-run by CI.
+   `psql "$(supabase --workdir packages/database db url --linked)" -f packages/database/supabase/seed.sql`. Never seed `prod`. The seed is not re-run by CI.
 6. Vault (SQL editor), once; see `docs/database.md` "Vault secrets for cron":
    ```sql
    select vault.create_secret('https://<dev-ref>.supabase.co/functions/v1/api', 'api_base_url');
@@ -52,7 +52,7 @@ Run `scripts/env/*` and `npm run` commands from Git Bash on Windows.
 9. Generate secrets locally and put them in Doppler: `CRON_SECRET` and `FLOW_TOKEN_SECRET` (random strings),
    `TOKEN_ENCRYPTION_KEY` (`openssl rand -base64 32`). `API_BASE_URL` is `https://<dev-ref>.supabase.co/functions/v1/api`.
 10. After Clerk (below): `SUPABASE_PROJECT_REF=<dev-ref> npm run env:push-secrets` (add `-- --dry-run` first to list names), then
-    `supabase functions deploy api` (or run the `Deploy dev` workflow). `config.toml` already sets `verify_jwt = false`.
+    `supabase --workdir packages/database functions deploy api` (or run the `Deploy dev` workflow). `config.toml` already sets `verify_jwt = false`.
 11. Check: `curl https://<dev-ref>.supabase.co/functions/v1/api/health` returns `{"data":{"ok":true,...}}`.
 
 ### 2. Clerk dev instance
@@ -68,7 +68,7 @@ Full detail in `docs/clerk-setup.md`. Summary:
 5. Backend keys to Doppler: `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, "Show JWT public key"), `CLERK_WEBHOOK_SECRET`,
    `CLERK_AUTHORIZED_PARTIES`. Publishable key goes to `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
    Multi-line PEMs: Doppler stores them fine, the backend accepts `\n` escapes or real newlines.
-6. Supabase third-party auth uses the Clerk domain from step 3 (Supabase step 7). Local `supabase start` needs `export CLERK_DOMAIN=...`.
+6. Supabase third-party auth uses the Clerk domain from step 3 (Supabase step 7). Local `supabase --workdir packages/database start` needs `export CLERK_DOMAIN=...`.
 7. **Native application (Android)**: Clerk Dashboard, Native applications, enable Native API, add Android with the final package name
    (see "Android package name" below) and the **SHA-256 certificate fingerprint of the signing key EAS uses**
    (`eas credentials -p android`, choose the build profile, copy SHA-256; the debug and release/EAS keystores differ, so register each one you ship).
@@ -84,7 +84,7 @@ No product code exists yet; subscriptions are planned. Just reserve the slots: i
 
 Only needed to try the Free-tier deterministic WhatsApp engine; the app, web flow and API work without it.
 Create a Meta app with a WhatsApp test number, then follow `docs/whatsapp.md`: `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`,
-Flow keys via `node apps/backend/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
+Flow keys via `node apps/api/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
 `POST /v1/whatsapp/connect` (stored encrypted, never in Doppler). Webhook callback: `<API_BASE_URL>/webhooks/whatsapp`.
 
 ### 5. EAS and the Android build
@@ -122,17 +122,17 @@ Flow keys via `node apps/backend/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REG
 | Task | Command |
 | --- | --- |
 | Check env is complete | `npm run env:check` (names only); one app: `sh scripts/env/check.sh backend --hosted` |
-| Run API locally | `npm run dev:api` (Doppler if available, else `apps/backend/.env`) |
+| Run API locally | `npm run dev:api` (Doppler if available, else `apps/api/.env`) |
 | Run app | `npm run dev:mobile` (Doppler if available, else `apps/mobile/.env.local`) |
 | Push secrets to hosted dev | `SUPABASE_PROJECT_REF=<ref> npm run env:push-secrets` |
 | Deploy dev | merge to `develop`, or run the `Deploy dev` workflow |
 
-Without Doppler, copy each `.env.example` to `apps/backend/.env` and `apps/mobile/.env.local` and fill them.
+Without Doppler, copy each `.env.example` to `apps/api/.env` and `apps/mobile/.env.local` and fill them.
 
 ## CI
 
 - `test-on-pr.yml` runs on pull requests to `main` and `develop`.
-- `deploy-dev.yml` (push to `develop` or manual) runs `supabase link`, `supabase db push` and `supabase functions deploy api`.
+- `deploy-dev.yml` (push to `develop` or manual) runs `supabase --workdir packages/database link`, `supabase --workdir packages/database db push` and `supabase --workdir packages/database functions deploy api`.
   Repo secrets: `SUPABASE_ACCESS_TOKEN` (account access token), `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF` (dev project ref).
   Create a `develop` branch from `main` first. A `Deploy dev` run touches the shared database, so keep migrations additive.
 

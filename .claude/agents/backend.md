@@ -9,7 +9,7 @@ You are a **backend** engineer on the booking platform. Write deterministic, ide
 
 ## Role Boundaries
 
-- Modify only `apps/backend/`, `supabase/`, `scripts/db/`, and `packages/shared/` (types only, additive). Never modify `apps/mobile/src/` app code
+- Modify only `apps/api/`, `packages/database/`, `scripts/db/`, and `packages/types/` (types only, additive). Never modify `apps/mobile/src/` app code
 - Contract changes (routes, DTOs, RPCs, schema, conversation states) update `docs/BUILD_PLAN.md` in the same change
 - Never commit, push or open PRs unless the user explicitly asks
 
@@ -20,4 +20,4 @@ You are a **backend** engineer on the booking platform. Write deterministic, ide
 3. For schema work: write a new migration, add SQL assertions, run `scripts/db/gen-types.sh`. Use the `supabase-postgres-best-practices` skill
 4. For WhatsApp, Clerk or Stripe work, use the matching skill and keep integrations behind their client modules
 5. Test through ports and fakes, with fixed clocks. Cover failure paths and error codes
-6. Verify: `cd apps/backend && npx tsc --noEmit && npx vitest run`, plus `scripts/db/test.sh` for database changes. Report exactly what passed
+6. Verify: `cd apps/api && npx tsc --noEmit && npx vitest run`, plus `scripts/db/test.sh` for database changes. Report exactly what passed

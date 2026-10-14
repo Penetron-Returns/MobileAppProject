@@ -1,9 +1,9 @@
 # Booking core (WS-B)
 
-This workstream covers the availability engine, the BookingService (`apps/backend/src/ports.ts`), the `/v1` admin REST API, the public web-booking comparator, the Clerk webhook and the cleanup job. Everything lives in `apps/backend/`.
+This workstream covers the availability engine, the BookingService (`apps/api/src/ports.ts`), the `/v1` admin REST API, the public web-booking comparator, the Clerk webhook and the cleanup job. Everything lives in `apps/api/`.
 
 ```
-apps/backend/src/booking/
+apps/api/src/booking/
   availability.ts      pure engine (no I/O, injected `now`)
   service.ts           BookingService over a repository
   repository.ts        BookingRepository interface + Supabase implementation
@@ -15,17 +15,17 @@ apps/backend/src/booking/
   rateLimit.ts         best-effort per-IP limiter for /public POSTs
   jobs.ts              runCleanupJob
   index.ts             createBookingService, getBookingRepository
-apps/backend/src/routes/v1/**       /v1 routes + zod v4 schemas
-apps/backend/src/routes/public.ts   /public comparator
-apps/backend/src/routes/clerk.ts    /webhooks/clerk
-apps/backend/src/lib/time.ts        tstzrange + timestamptz parsing, wall-clock helpers (luxon)
-apps/backend/src/lib/phone.ts       E.164 normalisation (libphonenumber-js, default region ZA)
+apps/api/src/routes/v1/**       /v1 routes + zod v4 schemas
+apps/api/src/routes/public.ts   /public comparator
+apps/api/src/routes/clerk.ts    /webhooks/clerk
+apps/api/src/lib/time.ts        tstzrange + timestamptz parsing, wall-clock helpers (luxon)
+apps/api/src/lib/phone.ts       E.164 normalisation (libphonenumber-js, default region ZA)
 test/booking/**        tests
 ```
 
 ## Setup
 
-To install and check the backend: `cd apps/backend && npm ci && npx tsc --noEmit && npx vitest run`. No new dependencies were added. The code uses hono, @supabase/supabase-js, svix, zod v4, luxon and libphonenumber-js. The only environment variable it adds to the scaffold's set is `CLERK_WEBHOOK_SECRET`, which the Clerk webhook requires.
+To install and check the backend: `cd apps/api && npm ci && npx tsc --noEmit && npx vitest run`. No new dependencies were added. The code uses hono, @supabase/supabase-js, svix, zod v4, luxon and libphonenumber-js. The only environment variable it adds to the scaffold's set is `CLERK_WEBHOOK_SECRET`, which the Clerk webhook requires.
 
 ## Availability algorithm
 
@@ -164,7 +164,7 @@ Delete ordering doesn't rely on FK cascade rules the plan leaves unspecified:
 ## Deviations from BUILD_PLAN
 
 1. **Container extension (additive, WS-B files only).** `getBookingRepository(container)` uses `container.bookingRepository` when it is present, and otherwise a Supabase repository over `container.db` (cached per client). Tests attach the in-memory fake this way. The integrator may add `bookingRepository?: BookingRepository` to `Container`.
-2. **Response shapes that the plan leaves unspecified** (candidates to add to `packages/shared/api.ts`):
+2. **Response shapes that the plan leaves unspecified** (candidates to add to `packages/types/api.ts`):
    - `PUT /v1/business/hours` returns `{ hours: BusinessHoursRow[] }`.
    - `PUT /v1/staff/:id/services` returns `{ staff_id, service_ids }`.
    - `PUT /v1/staff/:id/availability` returns `{ staff_id, rules }`.

@@ -1,27 +1,30 @@
 {
   "name": "booking-platform",
   "private": true,
-  "description": "WhatsApp-first booking platform: Expo app (apps/mobile), Hono API (apps/backend), Supabase (supabase/)",
+  "description": "WhatsApp-first booking platform: Expo app (apps/mobile), Hono API (apps/api), Supabase (packages/database)",
   "engines": {
     "node": ">=22",
     "npm": ">=10"
   },
   "workspaces": [
     "apps/mobile",
-    "packages/ui"
+    "packages/ui",
+    "packages/types",
+    "packages/database",
+    "packages/config"
   ],
   "scripts": {
     "prepare": "husky",
-    "setup": "npm install && npm --prefix apps/backend install",
+    "setup": "npm install && npm --prefix apps/api install",
     "mobile": "npm run start -w apps/mobile",
     "dev:api": "sh scripts/env/run.sh api",
     "dev:mobile": "sh scripts/env/run.sh mobile",
     "env:check": "sh scripts/env/check.sh all",
     "env:push-secrets": "sh scripts/env/push-secrets.sh",
     "check:mobile": "npm run lint -w apps/mobile && npm run typecheck -w apps/mobile && npm run test:no-watch -w apps/mobile && npm run lint -w packages/ui && npm run typecheck -w packages/ui",
-    "check:backend": "npm --prefix apps/backend run typecheck && npm --prefix apps/backend test && npm --prefix apps/backend run check:edge && npm --prefix apps/backend run test:edge",
+    "check:api": "npm --prefix apps/api run typecheck && npm --prefix apps/api test && npm --prefix apps/api run check:edge && npm --prefix apps/api run test:edge",
     "check:db": "scripts/db/test.sh",
-    "check": "npm run check:mobile && npm run check:backend",
+    "check": "npm run check:mobile && npm run check:api",
     "format": "prettier --write ."
   },
   "devDependencies": {

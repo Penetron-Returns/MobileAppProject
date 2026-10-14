@@ -1,5 +1,5 @@
 ---
-paths: apps/backend/src/whatsapp/**/*.ts,apps/backend/src/routes/whatsapp/**/*.ts,apps/backend/whatsapp/**
+paths: apps/api/src/whatsapp/**/*.ts,apps/api/src/routes/whatsapp/**/*.ts,apps/api/whatsapp/**
 description: Rules for the deterministic WhatsApp conversation engine, Flows, windows and templates
 ---
 

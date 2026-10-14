@@ -174,7 +174,7 @@ via `POST /v1/onboarding`. Its generic pieces (`FlowTopBar`, `FlowFooter`, `Flow
 ## Tooling
 
 - `npm run lint` / `npx tsc --noEmit` / `npm run test:no-watch` must stay green. All three (plus root
-  ESLint's `ignores` and root `tsconfig.json`'s `exclude`) deliberately skip `apps/backend/` and `supabase/`
+  ESLint's `ignores` and root `tsconfig.json`'s `exclude`) deliberately skip `apps/api/` and `packages/database/supabase/`
   — those have their own toolchains (`docs/BUILD_PLAN.md` §2).
 - `npm run export:web` / `npm run export:android` (`expo export --platform …`) are the fastest way to
   catch a bundling regression without a full EAS build.
@@ -182,10 +182,10 @@ via `POST /v1/onboarding`. Its generic pieces (`FlowTopBar`, `FlowFooter`, `Flow
   (no `@testing-library/react-native`, to keep the dependency graph small for a scaffold this size). The app's Jest run
   also covers `packages/ui` (design system tests use `packages/ui/src/testing/render.tsx`); `apps/mobile/jest.setup.ts`
   mocks Reanimated, AsyncStorage and the lucide icons, which Jest cannot load.
-- The repo is an npm workspace (`apps/mobile`, `packages/ui`): run `npm install` at the root, which hoists dependencies
-  to the root `node_modules`. `apps/backend` keeps its own install. Root scripts: `npm run check:mobile`,
+- The repo is an npm workspace (`apps/mobile` and the `packages/*` libraries): run `npm install` at the root, which hoists dependencies
+  to the root `node_modules`. `apps/api` keeps its own install. Root scripts: `npm run check:mobile`,
   `npm run lint -w packages/ui`, `npm run typecheck -w packages/ui`.
-- `@shared/*` resolves to `../shared/*` (see `tsconfig.json` `paths`) — Metro also honours it natively
+- `@booking/types` and `@booking/database` resolve to `packages/types/api.ts` and `packages/database/database.types.ts` (see `tsconfig.json` `paths`). They are type-only imports, erased by Babel, so Metro never resolves them. Path aliases are honoured natively
   since Expo SDK 50 added built-in `tsconfig.json`/`jsconfig.json` path-alias support, no extra Babel
   plugin required.
 

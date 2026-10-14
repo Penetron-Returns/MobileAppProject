@@ -16,7 +16,7 @@ interactive colour. Android is first on device, so check every change there too.
 | Concern | Where |
 | --- | --- |
 | Package | `packages/ui` (`@booking/ui`, private, source only: `main` is `src/index.ts`, no build step) |
-| Install | npm workspaces at the repo root (`apps/mobile`, `packages/ui`); `npm install` at the root links it. `packages/shared` stays types-only and is **not** a workspace |
+| Install | npm workspaces at the repo root (`apps/mobile`, `packages/ui`); `npm install` at the root links it. `packages/types/` stays types-only and is **not** a workspace |
 | Metro | `apps/mobile/metro.config.cjs` watches `packages/ui` and resolves from the hoisted root `node_modules` |
 | Babel/NativeWind | the app's `babel.config.cjs` compiles the package; `tailwind.config.cjs` scans `packages/ui/src/**` and loads `packages/ui/tailwind-preset.cjs` (colour roles, type scale, radii) |
 | CSS variables | `apps/mobile/global.css` declares the HSL variables; a test keeps it equal to `tokens/colors.ts` |

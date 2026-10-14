@@ -36,7 +36,7 @@ VS Code prompts for the Supabase values via `inputs`. Cursor reads them from you
 ## Safety rules
 
 - **Stripe:** connect the **test-mode** account only. If you use a key instead of OAuth, create a *restricted* key with the minimum permissions. Never use a live secret key with an agent.
-- **Supabase:** always point it at the **dev** project. It's `--read-only`; all writes go through migrations in `supabase/migrations`.
+- **Supabase:** always point it at the **dev** project. It's `--read-only`; all writes go through migrations in `packages/database/supabase/migrations`.
 - **Meta:** the Developer Tools MCP can change one app setting. Review any write it proposes before approving it.
 - Never paste tokens into `.mcp.json`. Use environment variables.
 

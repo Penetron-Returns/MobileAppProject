@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 # Report which environment variables are missing for an app. Prints NAMES only, never values.
 #
-#   sh scripts/env/check.sh [mobile|backend|all] [--hosted]
+#   sh scripts/env/check.sh [mobile|api|all] [--hosted]
 #
 # Sources, in order: the current environment, Doppler (if installed and configured), then
-# apps/mobile/.env.local or apps/backend/.env. --hosted skips SUPABASE_* because Supabase injects
+# apps/mobile/.env.local or apps/api/.env. --hosted skips SUPABASE_* because Supabase injects
 # them into Edge Functions. Exit code 1 when a required variable is missing.
 # Windows: run from Git Bash (`sh scripts/env/check.sh`).
 set -eu
@@ -14,9 +14,9 @@ TARGET="all"
 HOSTED=0
 for arg in "$@"; do
   case "$arg" in
-    mobile|backend|all) TARGET="$arg" ;;
+    mobile|api|all) TARGET="$arg" ;;
     --hosted) HOSTED=1 ;;
-    *) echo "usage: check.sh [mobile|backend|all] [--hosted]" >&2; exit 2 ;;
+    *) echo "usage: check.sh [mobile|api|all] [--hosted]" >&2; exit 2 ;;
   esac
 done
 
@@ -74,8 +74,8 @@ if [ "$TARGET" = mobile ] || [ "$TARGET" = all ]; then
   echo "== mobile =="; collect apps/mobile .env.local
   report required "$MOBILE_REQUIRED" 1
 fi
-if [ "$TARGET" = backend ] || [ "$TARGET" = all ]; then
-  echo "== backend =="; collect apps/backend .env
+if [ "$TARGET" = api ] || [ "$TARGET" = all ]; then
+  echo "== api =="; collect apps/api .env
   report required "$BACKEND_REQUIRED" 1
   [ "$HOSTED" = 1 ] || report "local run" "$BACKEND_LOCAL_ONLY" 1
   report feature "$BACKEND_OPTIONAL" 0

@@ -41,7 +41,7 @@ const checks = [
     reason: '--no-verify skips the repo hooks. Fix the failing check instead.',
   },
   {
-    test: () => /\bsupabase\s+db\s+reset\b[^;&|]*--linked/.test(cmd),
+    test: () => /\bsupabase\b[^;&|]*\bdb\s+reset\b[^;&|]*--linked/.test(cmd),
     reason: '`supabase db reset --linked` wipes a hosted database. Reset only the local stack.',
   },
 ];

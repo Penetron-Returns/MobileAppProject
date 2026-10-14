@@ -3,13 +3,13 @@
 This workstream is the customer-facing channel. It covers the Meta Graph client, the signed webhook, the deterministic conversation engine, WhatsApp Flows, onboarding (`/v1/whatsapp`), the staff inbox, notifications (confirmations, reminders, Expo push) and the WhatsApp cron jobs. The contract is `docs/BUILD_PLAN.md` §4–§5. The deviations are listed at the end.
 
 ```
-apps/backend/src/whatsapp/
+apps/api/src/whatsapp/
   graph.ts            Graph API client: retry/backoff, typed Meta error kinds
   messages.ts         message builders (WhatsApp limits) → Cloud API payloads
   ids.ts              reply-id grammar (parse/format)
   format.ts           dates, times, money in the business timezone (ICU-independent)
   signature.ts        X-Hub-Signature-256 (HMAC-SHA256 over the raw body)
-  repo.ts             persistence port (types derived from packages/shared/database.types.ts)
+  repo.ts             persistence port (types derived from packages/database/database.types.ts)
   supabaseRepo.ts     Supabase implementation of the port
   deps.ts             dependency bundle (repo, Graph factory, push, clock, ids)
   outbound.ts         the one send path: store → send → stamp; escalate()
@@ -20,10 +20,10 @@ apps/backend/src/whatsapp/
   inbox.ts            staff reply, release, resolve escalation
   jobs.ts             reminders, conversation-expiry, waba-health, token-refresh
   assets.ts           bundled Flow JSON + templates (JSON imports)
-apps/backend/src/notifications/   NotificationService (index.ts), customer copy, Expo push
-apps/backend/src/routes/whatsapp/ webhook.ts, flows.ts, v1.ts (/v1/whatsapp), inbox.ts (/v1), schemas.ts
-apps/backend/whatsapp/            flows/booking.json, flows/reschedule.json, templates.json, generate-flow-keys.mjs
-apps/backend/test/whatsapp/       fakes + table-driven and end-to-end tests
+apps/api/src/notifications/   NotificationService (index.ts), customer copy, Expo push
+apps/api/src/routes/whatsapp/ webhook.ts, flows.ts, v1.ts (/v1/whatsapp), inbox.ts (/v1), schemas.ts
+apps/api/whatsapp/            flows/booking.json, flows/reschedule.json, templates.json, generate-flow-keys.mjs
+apps/api/test/whatsapp/       fakes + table-driven and end-to-end tests
 ```
 
 No new dependencies were added. The code only uses Web-standard APIs, `node:crypto` / `node:buffer`, hono, zod and luxon, so it runs unchanged on Node (Vitest) and on Supabase Edge Functions (Deno). Bundled JSON is loaded with `import … with { type: 'json' }`.
@@ -56,7 +56,7 @@ Without `WHATSAPP_FLOW_PRIVATE_KEY`, `FLOW_TOKEN_SECRET` or `API_BASE_URL`, Flow
 ### 2. Flows keys
 
 ```bash
-node apps/backend/whatsapp/generate-flow-keys.mjs [passphrase]
+node apps/api/whatsapp/generate-flow-keys.mjs [passphrase]
 ```
 
 This prints `WHATSAPP_FLOW_PRIVATE_KEY` as one line with `\n` escapes (the backend accepts escaped or real newlines), plus the public key. You don't need to upload the public key by hand: `connect` and `sync` call `POST /{phone-number-id}/whatsapp_business_encryption` with it. Set `FLOW_TOKEN_SECRET` to a random string.
@@ -113,7 +113,7 @@ The other endpoints (all owner-only, except `GET` which any member can call):
 
 ### Templates
 
-`apps/backend/whatsapp/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
+`apps/api/whatsapp/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
 
 | Template | Quick replies (payloads) |
 | --- | --- |
@@ -270,7 +270,7 @@ For each inbound message (`engine/index.ts`):
 
 ```bash
 # 1. Keys. Put the private key in WHATSAPP_FLOW_PRIVATE_KEY (and the passphrase, if any), and set FLOW_TOKEN_SECRET + API_BASE_URL.
-node apps/backend/whatsapp/generate-flow-keys.mjs [passphrase]
+node apps/api/whatsapp/generate-flow-keys.mjs [passphrase]
 
 # 2. Upload the public key (the PEM printed above, saved as public_key.pem) to the phone number.
 curl -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/whatsapp_business_encryption" \
@@ -280,11 +280,11 @@ curl -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/whatsapp_busine
 curl -X POST "https://graph.facebook.com/v23.0/<WABA_ID>/flows" -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -F name=booking_v2 -F 'categories=["APPOINTMENT_BOOKING"]' \
   -F endpoint_uri="<API_BASE_URL>/flows/whatsapp" \
-  -F flow_json=@apps/backend/whatsapp/flows/booking.json -F publish=false
+  -F flow_json=@apps/api/whatsapp/flows/booking.json -F publish=false
 
 # 4. (Re)upload the JSON to a draft. Fix any validation_errors in the response first.
 curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/assets" -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -F name=flow.json -F asset_type=FLOW_JSON -F file=@apps/backend/whatsapp/flows/booking.json
+  -F name=flow.json -F asset_type=FLOW_JSON -F file=@apps/api/whatsapp/flows/booking.json
 
 # 5. Publish. A published Flow is immutable: to change the JSON, create booking_v3 and re-point flow_ids.
 curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/publish" -H "Authorization: Bearer <ACCESS_TOKEN>"
@@ -396,7 +396,7 @@ BookingService methods used: `getBusiness`, `listServices`, `listBookableStaff`,
 
 ## Testing
 
-`cd apps/backend && npx tsc --noEmit && npx vitest run`. The WhatsApp suites live in `test/whatsapp/`:
+`cd apps/api && npx tsc --noEmit && npx vitest run`. The WhatsApp suites live in `test/whatsapp/`:
 
 - the transition table: every state × every input kind, paging, strikes, the window and flows
 - the reply-id grammar
@@ -421,7 +421,7 @@ BookingService methods used: `getBusiness`, `listServices`, `listBookableStaff`,
 7. **Optional setup steps.** Flows and templates don't block going live. Their failures are recorded in `last_error`.
 8. **Flows `endpoint_uri`** comes from `API_BASE_URL`, not from the request origin, because the API runs behind the Supabase Functions prefix.
 9. **Opt-in.** `clients.whatsapp_opt_in = false` stops proactive messages (confirmations, reminders). Replies to the customer's own messages are still sent.
-10. **Response shapes not in `packages/shared/api.ts`:**
+10. **Response shapes not in `packages/types/api.ts`:**
     - `POST /v1/whatsapp/test-message` returns `{wa_message_id}`.
     - The inbox shapes are listed above.
     - Every other `/v1/whatsapp` endpoint returns `WhatsAppChannelDTO`.
