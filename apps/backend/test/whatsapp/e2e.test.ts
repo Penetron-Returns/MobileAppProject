@@ -253,33 +253,64 @@ describe('e2e: manage bookings', () => {
 });
 
 describe('e2e: Flow path', () => {
-  it('books through the Flow and confirms in chat once', async () => {
-    const { h, s, send } = setup({ account: { flow_ids: { booking: 'flow-1', reschedule: 'flow-2' } } });
-    await send(buttonMsg('menu:book'));
-    const flowMsg = h.graph.sent.at(-1)!.payload as any;
+  async function openFlow() {
+    const ctx = setup({ account: { flow_ids: { booking: 'flow-1', reschedule: 'flow-2' } } });
+    await ctx.send(buttonMsg('menu:book'));
+    const flowMsg = ctx.h.graph.sent.at(-1)!.payload as any;
     expect(flowMsg.interactive.type).toBe('flow');
     const token = flowMsg.interactive.action.parameters.flow_token as string;
+    return { ...ctx, token };
+  }
+  const T = '2026-09-30T07:00:00.000Z';
+
+  it('walks the Flow, books on the nfm_reply and confirms in chat once', async () => {
+    const { h, s, send, token } = await openFlow();
     const check = verifyFlowToken(h.deps.env.FLOW_TOKEN_SECRET!, token, NOW);
     expect(check.ok && check.claims).toMatchObject({ conversationId: h.repo.db.conversations[0]!.id, attemptId: h.repo.db.attempts[0]!.id });
     expect(h.repo.db.conversations[0]!.state).toBe('flow_booking');
 
-    const ask = (screen: string, data: Record<string, unknown>) =>
+    const ask = (data: Record<string, unknown>, screen = 'DATETIME') =>
       handleFlowRequest(h.deps, { version: '3.0', action: 'data_exchange', flow_token: token, screen, data });
     await handleFlowRequest(h.deps, { version: '3.0', action: 'INIT', flow_token: token });
-    const sel = { service_id: s.cut.id, staff_id: 'any', date: '2026-09-30', slot: 'slot:2026-09-30T07:00:00.000Z|any' };
-    const slotScreen = (await ask('DATE', sel)) as any;
-    expect(slotScreen.body.data.slots[0].id).toBe(sel.slot);
-    const done = (await ask('SUMMARY', { ...sel, name: 'Thandi', email: '' })) as any;
-    const params = done.body.data.extension_message_response.params;
-    expect(s.booking.tables.appointments).toHaveLength(1);
-    expect(s.booking.tables.appointments[0]!.idempotency_key).toBe(`wa-flow:${token}:${sel.slot}`);
+    await ask({ trigger: 'service_selected', service: s.cut.id }, 'SERVICE');
+    const day = (await ask({ trigger: 'date_selected', service: s.cut.id, date: '2026-09-30' })) as any;
+    expect(day.body.data.time[0].id).toBe(T);
+    const summary = (await ask({ trigger: 'continue', service_slug: s.cut.id, time: [T] })) as any;
+    expect(summary.body.screen).toBe('SUMMARY');
+    expect(s.booking.tables.appointments).toHaveLength(0); // nothing written by the endpoint
 
-    // Meta sends the nfm_reply; a second (different wamid) completion must not double-confirm.
-    await send(nfmMsg(params));
-    await send(nfmMsg(params, nextWamid()));
+    // Meta sends the nfm_reply with the complete payload (+ flow_token). A redelivery with another wamid must not double-book.
+    const complete = { ...summary.body.data, flow_token: token };
+    await send(nfmMsg(complete));
+    await send(nfmMsg(complete, nextWamid()));
+    expect(s.booking.tables.appointments).toHaveLength(1);
+    expect(s.booking.tables.appointments[0]!.idempotency_key).toBe(`wa-flow:${token}:${T}`);
     const confirmations = h.graph.sent.filter((m) => JSON.stringify(m.payload).includes("You're booked!"));
     expect(confirmations).toHaveLength(1);
     expect(h.repo.db.conversations[0]!.state).toBe('idle');
     expect(h.repo.db.attempts[0]!.outcome).toBe('completed');
+    expect(sentText(h.graph)).toContain('That booking session has ended');
+  });
+
+  it('offers a fresh start when the time is taken between SUMMARY and the booking', async () => {
+    const { h, s, send, token } = await openFlow();
+    for (const [i, staff] of [s.thandi, s.sipho].entries()) {
+      const other = await s.booking.upsertClientByPhone(BIZ, `+2782000000${i}`, null);
+      await h.deps.booking.createAppointment({
+        businessId: BIZ, clientId: other.id, serviceId: s.cut.id, staffId: staff.id, startsAt: T,
+        source: 'staff', idempotencyKey: `other-${i}`, actor: { type: 'system', id: null }, notifyCustomer: false,
+      } as never);
+    }
+    await send(nfmMsg({ service_slug: s.cut.id, start_time_iso: T, duration_minutes: 60, timezone: 'Africa/Johannesburg', flow_token: token }));
+    expect(s.booking.tables.appointments).toHaveLength(2);
+    expect(sentText(h.graph)).toContain('that time was just taken');
+    expect(h.repo.db.conversations[0]!.state).toBe('menu');
+    expect(h.repo.db.attempts[0]!.outcome).toBe('failed');
+  });
+
+  it('ignores a completion whose token belongs to another conversation', async () => {
+    const { s, send } = await openFlow();
+    await send(nfmMsg({ service_slug: s.cut.id, start_time_iso: T, flow_token: 'v1.forged' }));
+    expect(s.booking.tables.appointments).toHaveLength(0);
   });
 });

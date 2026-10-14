@@ -48,6 +48,21 @@ export function money(cents: number, currency: string): string {
   return symbol ? `${symbol}${amount}` : `${currency.toUpperCase()} ${amount}`;
 }
 
+const WEEKDAYS_LONG = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+/** "Tuesday, 30 Sep 2026" for a business-timezone calendar date. */
+export function fullDate(date: string, tz: string): string {
+  const dt = DateTime.fromISO(date, { zone: tz });
+  return `${WEEKDAYS_LONG[dt.weekday - 1]}, ${dt.day} ${MONTHS[dt.month - 1]} ${dt.year}`;
+}
+
+/** Compact price for a Flow list's trailing text ("R 450", "R 450.50"), at most 20 characters. */
+export function priceLabel(cents: number, currency: string): string {
+  const amount = cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
+  const code = currency.toUpperCase();
+  return `${CURRENCY_SYMBOLS[code] ?? code} ${amount}`.slice(0, 20);
+}
+
 /** "24 hours", "90 minutes" */
 export function durationWords(minutes: number): string {
   if (minutes % 60 === 0) {

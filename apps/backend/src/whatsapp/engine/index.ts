@@ -8,6 +8,7 @@ import type { BusinessDTO } from '../../../../../packages/shared/api.ts';
 import type { WaDeps } from '../deps.ts';
 import { accountGraph } from '../deps.ts';
 import { verifyFlowToken } from '../flows/token.ts';
+import { isInstant, isUuid } from '../ids.ts';
 import { escalate, type OutboundTarget } from '../outbound.ts';
 import type { ConversationPatch, ConversationRow, MessageType, WaAccountRow } from '../repo.ts';
 import { executeActions } from './executor.ts';
@@ -144,7 +145,16 @@ function normaliseInput(deps: WaDeps, raw: RawInput, conversationId: string): En
     flow: claims?.kind ?? 'booking',
     attemptId: claims?.attemptId ?? null,
     appointmentId,
+    booking: bookingPayload(response),
+    flowToken: valid && typeof response.flow_token === 'string' ? response.flow_token : null,
   };
+}
+
+/** The booking Flow's `complete` payload (`service_slug` carries the service id). Anything malformed is dropped. */
+function bookingPayload(response: Record<string, unknown>): { serviceId: string; startsAt: string } | null {
+  const { service_slug: serviceId, start_time_iso: startsAt } = response;
+  if (typeof serviceId !== 'string' || !isUuid(serviceId) || typeof startsAt !== 'string' || !isInstant(startsAt)) return null;
+  return { serviceId: serviceId.toLowerCase(), startsAt: new Date(startsAt).toISOString() };
 }
 
 const CAS_ATTEMPTS = 3;

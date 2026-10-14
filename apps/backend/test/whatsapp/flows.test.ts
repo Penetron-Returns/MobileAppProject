@@ -6,7 +6,7 @@ import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, invertIv, lo
 import { FLOW_COPY, handleFlowRequest, type FlowRequest } from '../../src/whatsapp/flows/handler.ts';
 import { signFlowToken, verifyFlowToken } from '../../src/whatsapp/flows/token.ts';
 import { signMetaBody } from '../../src/whatsapp/signature.ts';
-import { appHarness, appointment, CUSTOMER_PHONE, harness, NOW, STAFF_ALEX, STAFF_SAM, SVC_COLOUR, SVC_CUT, type Harness } from './fakes.ts';
+import { appHarness, appointment, CUSTOMER_PHONE, harness, NOW, STAFF_SAM, SVC_COLOUR, SVC_CUT, type Harness } from './fakes.ts';
 
 const CONV = '00000000-0000-4000-8000-00000000c0c0';
 const ATTEMPT = '00000000-0000-4000-8000-0000000a7777';
@@ -137,10 +137,13 @@ async function setup(opts: { rules?: Partial<Harness['world']['business']['booki
 
 const dataOf = (r: Awaited<ReturnType<typeof handleFlowRequest>>) => (r.status === 200 ? (r.body as { screen?: string; data: Record<string, any> }) : null);
 
+const T0 = '2026-09-29T07:00:00.000Z';
+const T1 = '2026-09-29T08:00:00.000Z';
+
 describe('flows: booking data exchange', () => {
   it('answers ping without a token', async () => {
     const h = harness();
-    expect(await handleFlowRequest(h.deps, { action: 'ping', version: '3.0' })).toEqual({ status: 200, body: { data: { status: 'active' } } });
+    expect(await handleFlowRequest(h.deps, { action: 'ping', version: '3.0' })).toEqual({ status: 200, body: { version: '3.0', data: { status: 'active' } } });
   });
 
   it('returns 427 for missing, forged or expired tokens', async () => {
@@ -151,119 +154,151 @@ describe('flows: booking data exchange', () => {
     expect((await handleFlowRequest(h.deps, { action: 'INIT', flow_token: token })).status).toBe(427);
   });
 
-  it('walks SERVICE → STAFF → DATE → SLOT → DETAILS → SUMMARY → SUCCESS', async () => {
-    const { h, ask, token, client } = await setup();
-
-    const init = dataOf(await ask({ action: 'INIT' }))!;
-    expect(init.screen).toBe('SERVICE');
-    expect(init.data.services.map((s: { id: string }) => s.id)).toEqual([SVC_CUT, SVC_COLOUR]);
-
-    const staff = dataOf(await ask({ action: 'data_exchange', screen: 'SERVICE', data: { service_id: SVC_CUT } }))!;
-    expect(staff.screen).toBe('STAFF');
-    expect(staff.data.staff.map((s: { id: string }) => s.id)).toEqual(['any', STAFF_SAM, STAFF_ALEX]);
-
-    const date = dataOf(await ask({ action: 'data_exchange', screen: 'STAFF', data: { service_id: SVC_CUT, staff_id: STAFF_SAM } }))!;
-    expect(date).toMatchObject({ screen: 'DATE', data: { min_date: '2026-09-29', max_date: '2026-10-01', unavailable_dates: [] } });
-
-    const slot = dataOf(await ask({ action: 'data_exchange', screen: 'DATE', data: { service_id: SVC_CUT, staff_id: STAFF_SAM, date: '2026-09-29' } }))!;
-    expect(slot.screen).toBe('SLOT');
-    expect(slot.data.slots.map((s: { title: string }) => s.title)).toEqual(['09:00', '10:00']);
-    const slotId = slot.data.slots[0].id as string;
-    expect(slotId).toBe(`slot:2026-09-29T07:00:00.000Z|${STAFF_SAM}`);
-
-    const sel = { service_id: SVC_CUT, staff_id: STAFF_SAM, date: '2026-09-29', slot: slotId };
-    const details = dataOf(await ask({ action: 'data_exchange', screen: 'SLOT', data: sel }))!;
-    expect(details).toMatchObject({ screen: 'DETAILS', data: { name: '', email: '' } });
-
-    const summary = dataOf(await ask({ action: 'data_exchange', screen: 'DETAILS', data: { ...sel, name: 'Thandi', email: '' } }))!;
-    expect(summary.screen).toBe('SUMMARY');
-    expect(summary.data.summary).toContain('Service: Haircut');
-    expect(summary.data.summary).toContain('With: Sam');
-
-    const done = dataOf(await ask({ action: 'data_exchange', screen: 'SUMMARY', data: { ...sel, name: 'Thandi', email: 'thandi@example.com' } }))!;
-    expect(done.screen).toBe('SUCCESS');
-    const params = done.data.extension_message_response.params;
-    expect(params).toMatchObject({ flow_token: token, flow: 'booking' });
-
-    const created = h.world.calls.filter((c) => c.method === 'createAppointment');
-    expect(created).toHaveLength(1);
-    expect(created[0]!.args).toMatchObject({
-      staffId: STAFF_SAM,
-      startsAt: '2026-09-29T07:00:00.000Z',
-      source: 'whatsapp',
-      idempotencyKey: `wa-flow:${token}:${slotId}`,
-      actor: { type: 'customer', id: client.id },
-      notifyCustomer: false,
-    });
-    expect(params.appointment_id).toBe(h.world.appointments[0]!.id);
-    expect(h.repo.db.clients[0]).toMatchObject({ name: 'Thandi', email: 'thandi@example.com' });
-    const attempt = h.repo.db.attempts[0]!;
-    expect(attempt.outcome).toBe('completed');
-    expect(attempt.steps.map((s) => s.step)).toEqual(['flow:SERVICE', 'flow:STAFF', 'flow:DATE', 'flow:SLOT', 'flow:DETAILS', 'flow:SUMMARY', 'flow:SUCCESS']);
-
-    // Meta retries the SUMMARY request: same appointment, no second booking.
-    const again = dataOf(await ask({ action: 'data_exchange', screen: 'SUMMARY', data: { ...sel, name: 'Thandi', email: '' } }))!;
-    expect(again.data.extension_message_response.params.appointment_id).toBe(params.appointment_id);
-    expect(h.world.appointments).toHaveLength(1);
-  });
-
-  it('skips STAFF when one person does the service', async () => {
+  it('INIT serves the SERVICE list with duration and price', async () => {
     const { ask } = await setup();
-    const r = dataOf(await ask({ action: 'data_exchange', screen: 'SERVICE', data: { service_id: SVC_COLOUR } }))!;
-    expect(r).toMatchObject({ screen: 'DATE', data: { service_id: SVC_COLOUR, staff_id: 'any' } });
+    const r = dataOf(await ask({ action: 'INIT' }))!;
+    expect(r.screen).toBe('SERVICE');
+    expect(r.data.service).toEqual([
+      { id: SVC_CUT, title: 'Haircut', description: '60 min', metadata: 'R 250' },
+      { id: SVC_COLOUR, title: 'Colour', description: '90 min' },
+    ]);
   });
 
-  it('lists gaps between open dates as unavailable', async () => {
-    const { h, ask } = await setup();
-    h.world.days = ['2026-09-29', '2026-10-02'];
-    const r = dataOf(await ask({ action: 'data_exchange', screen: 'STAFF', data: { service_id: SVC_CUT, staff_id: 'any' } }))!;
-    expect(r.data).toMatchObject({ min_date: '2026-09-29', max_date: '2026-10-02', unavailable_dates: ['2026-09-30', '2026-10-01'] });
+  it('service_selected opens DATETIME with the grid hidden and the booking window', async () => {
+    const { ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'SERVICE', data: { trigger: 'service_selected', service: SVC_CUT } }))!;
+    expect(r.screen).toBe('DATETIME');
+    expect(r.data).toEqual({
+      service_slug: SVC_CUT,
+      selected_service_label: 'Haircut',
+      min_date: '2026-09-28',
+      max_date: '2026-11-27',
+      show_times: false,
+      no_times: false,
+      selected_date_label: '',
+      time: [],
+      duration_minutes: 60,
+      timezone: 'Africa/Johannesburg',
+    });
   });
 
-  it('keeps the customer on SLOT with a refreshed list when the slot is gone', async () => {
-    const { h, ask } = await setup();
-    const sel = { service_id: SVC_CUT, staff_id: 'any', date: '2026-09-29', slot: 'slot:2026-09-29T07:00:00.000Z|any' };
-    h.world.slots['2026-09-29'] = h.world.slots['2026-09-29']!.slice(1);
-    const r = dataOf(await ask({ action: 'data_exchange', screen: 'SLOT', data: sel }))!;
-    expect(r).toMatchObject({ screen: 'SLOT', data: { error_message: FLOW_COPY.slotTaken } });
-    expect(r.data.slots).toHaveLength(1);
-  });
-
-  it('reports SLOT_UNAVAILABLE on SUMMARY and leaves the attempt open', async () => {
-    const { h, ask } = await setup();
-    h.world.taken.add('2026-09-29T07:00:00.000Z');
-    const sel = { service_id: SVC_CUT, staff_id: 'any', date: '2026-09-29', slot: 'slot:2026-09-29T07:00:00.000Z|any', name: 'T' };
-    const r = dataOf(await ask({ action: 'data_exchange', screen: 'SUMMARY', data: sel }))!;
-    expect(r).toEqual({ screen: 'SUMMARY', data: { error_message: FLOW_COPY.slotTakenBack } });
-    expect(h.repo.db.attempts[0]!.outcome).toBe('in_progress');
+  it('date_selected reveals the chips for that day, one per start time', async () => {
+    const { ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'date_selected', service: SVC_CUT, date: '2026-09-29' } }))!;
+    expect(r.data).toMatchObject({ show_times: true, no_times: false, selected_date_label: 'Tuesday, 29 Sep 2026' });
+    expect(r.data.time).toEqual([
+      { id: T0, title: '09:00' },
+      { id: T1, title: '10:00' },
+    ]);
   });
 
   it.each([
-    ['unknown service', 'SERVICE', { service_id: '00000000-0000-4000-8000-000000000999' }, 'SERVICE'],
-    ['staff not qualified', 'STAFF', { service_id: SVC_COLOUR, staff_id: STAFF_ALEX }, 'STAFF'],
-    ['slot for another staff member', 'SUMMARY', { service_id: SVC_CUT, staff_id: STAFF_SAM, date: '2026-09-29', slot: 'slot:2026-09-29T07:00:00.000Z|any', name: 'T' }, 'SUMMARY'],
-    ['slot on another date', 'SUMMARY', { service_id: SVC_CUT, staff_id: 'any', date: '2026-09-30', slot: 'slot:2026-09-29T07:00:00.000Z|any', name: 'T' }, 'SUMMARY'],
-    ['missing name', 'SUMMARY', { service_id: SVC_CUT, staff_id: 'any', date: '2026-09-29', slot: 'slot:2026-09-29T07:00:00.000Z|any', name: ' ' }, 'SUMMARY'],
-    ['bad email', 'DETAILS', { service_id: SVC_CUT, staff_id: 'any', date: '2026-09-29', slot: 'slot:2026-09-29T07:00:00.000Z|any', name: 'T', email: 'nope' }, 'DETAILS'],
-    ['malformed fields', 'DATE', { service_id: SVC_CUT, date: '2026-02-31' }, 'DATE'],
-  ])('rejects %s and stays on the screen', async (_label, screen, data, expected) => {
+    ['a day with no slots', '2026-10-02', true],
+    ['a past date', '2026-09-20', true],
+    ['a date beyond the horizon', '2027-01-01', true],
+    ['a cleared date', '', false],
+  ])('date_selected for %s hides the grid', async (_l, date, noTimes) => {
+    const { ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'date_selected', service: SVC_CUT, date } }))!;
+    expect(r.data).toMatchObject({ show_times: false, no_times: noTimes, time: [] });
+  });
+
+  it('caps the chips at the 20 Meta renders', async () => {
     const { h, ask } = await setup();
-    const r = dataOf(await ask({ action: 'data_exchange', screen, data }))!;
-    expect(r.screen).toBe(expected);
-    expect(r.data.error_message).toBeTruthy();
+    h.world.slots['2026-09-29'] = Array.from({ length: 30 }, (_, i) => ({
+      starts_at: new Date(Date.parse(T0) + i * 900_000).toISOString(),
+      ends_at: T0,
+      staff_ids: [STAFF_SAM],
+    }));
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'date_selected', service: SVC_CUT, date: '2026-09-29' } }))!;
+    expect(r.data.time).toHaveLength(20);
+  });
+
+  it('continue re-validates the slot and builds the markdown SUMMARY without booking', async () => {
+    const { h, ask } = await setup();
+    const r = dataOf(
+      await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'continue', service_slug: SVC_CUT, time: [T0], duration_minutes: 60, timezone: 'x' } }),
+    )!;
+    expect(r.screen).toBe('SUMMARY');
+    expect(r.data).toEqual({
+      summary_text: '**Haircut**\n\nTuesday, 29 Sep 2026 at **09:00**\n\n_60 min_',
+      service_slug: SVC_CUT,
+      start_time_iso: T0,
+      duration_minutes: 60,
+      timezone: 'Africa/Johannesburg',
+    });
+    // The engine books on the nfm_reply, never this endpoint.
+    expect(h.world.calls.filter((c) => c.method === 'createAppointment')).toHaveLength(0);
+  });
+
+  it('continue accepts the time as a plain string too', async () => {
+    const { ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'continue', service_slug: SVC_CUT, time: T1 } }))!;
+    expect(r.screen).toBe('SUMMARY');
+  });
+
+  it('continue keeps the customer on DATETIME with fresh chips when the time was taken', async () => {
+    const { h, ask } = await setup();
+    h.world.slots['2026-09-29'] = h.world.slots['2026-09-29']!.slice(1);
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'continue', service_slug: SVC_CUT, time: [T0] } }))!;
+    expect(r.screen).toBe('DATETIME');
+    expect(r.data).toMatchObject({ show_times: true, selected_date_label: FLOW_COPY.timeTaken });
+    expect(r.data.time).toEqual([{ id: T1, title: '10:00' }]);
+  });
+
+  it('continue with no times left shows the no-times banner', async () => {
+    const { h, ask } = await setup();
+    h.world.slots['2026-09-29'] = [];
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'continue', service_slug: SVC_CUT, time: [T0] } }))!;
+    expect(r.data).toMatchObject({ show_times: false, no_times: true, time: [] });
+  });
+
+  it.each([
+    ['unknown service on service_selected', { trigger: 'service_selected', service: '00000000-0000-4000-8000-000000000999' }],
+    ['non-uuid service', { trigger: 'service_selected', service: 'haircut' }],
+    ['unknown service on date_selected', { trigger: 'date_selected', service: '00000000-0000-4000-8000-000000000998', date: '2026-09-29' }],
+    ['unknown trigger', { trigger: 'nope' }],
+    ['no trigger', {}],
+    ['malformed fields', { trigger: 'continue', service_slug: 42 }],
+    ['continue without a service', { trigger: 'continue', time: [T0] }],
+  ])('restarts at SERVICE for %s', async (_l, data) => {
+    const { h, ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data }))!;
+    expect(r.screen).toBe('SERVICE');
     expect(h.world.appointments).toHaveLength(0);
+  });
+
+  it.each([
+    ['no time chosen', { trigger: 'continue', service_slug: SVC_CUT }],
+    ['a malformed time', { trigger: 'continue', service_slug: SVC_CUT, time: ['tomorrow'] }],
+  ])('continue with %s re-renders DATETIME for the same service', async (_l, data) => {
+    const { ask } = await setup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data }))!;
+    expect(r).toMatchObject({ screen: 'DATETIME', data: { service_slug: SVC_CUT, show_times: false } });
+  });
+
+  it('BACK re-renders DATETIME fresh, or SERVICE without state', async () => {
+    const { ask } = await setup();
+    expect(dataOf(await ask({ action: 'BACK', screen: 'DATETIME', data: { service_slug: SVC_CUT } }))).toMatchObject({
+      screen: 'DATETIME',
+      data: { show_times: false, time: [] },
+    });
+    expect(dataOf(await ask({ action: 'BACK', screen: 'DATETIME', data: {} }))!.screen).toBe('SERVICE');
+  });
+
+  it('records each screen as an attempt step and answers with the data API version', async () => {
+    const { h, ask } = await setup();
+    const r = await ask({ action: 'INIT' });
+    expect(r.status === 200 && r.body.version).toBe('3.0');
+    await ask({ action: 'data_exchange', screen: 'SERVICE', data: { trigger: 'service_selected', service: SVC_CUT } });
+    expect(h.repo.db.attempts[0]!.steps.map((s) => s.step)).toEqual(['flow:SERVICE', 'flow:DATETIME']);
   });
 
   it('acknowledges client error notifications and escalates flow_error', async () => {
     const { h, ask } = await setup();
-    const r = await ask({ action: 'data_exchange', screen: 'SLOT', data: { error: 'INVALID_SCREEN', error_message: 'x' } });
-    expect(r).toEqual({ status: 200, body: { data: { acknowledged: true } } });
+    const r = await ask({ action: 'data_exchange', screen: 'DATETIME', data: { error: 'INVALID_SCREEN', error_message: 'x' } });
+    expect(r).toEqual({ status: 200, body: { version: '3.0', data: { acknowledged: true } } });
     expect(h.repo.db.escalations).toMatchObject([{ reason: 'flow_error' }]);
-  });
-
-  it('restarts at SERVICE on BACK', async () => {
-    const { ask } = await setup();
-    expect(dataOf(await ask({ action: 'BACK', screen: 'DATE' }))!.screen).toBe('SERVICE');
   });
 });
 
@@ -324,7 +359,7 @@ describe('flows: HTTP endpoint', () => {
     const { request, aesKey, iv } = encryptRequest({ action: 'ping', version: '3.0' });
     const r = await post(JSON.stringify(request));
     expect(r.status).toBe(200);
-    expect(decryptResponse(r.text, aesKey, iv)).toEqual({ data: { status: 'active' } });
+    expect(decryptResponse(r.text, aesKey, iv)).toEqual({ version: '3.0', data: { status: 'active' } });
   });
 
   it('answers 421 when the body cannot be decrypted', async () => {

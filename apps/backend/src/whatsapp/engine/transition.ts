@@ -271,6 +271,7 @@ function onAppointment(id: Extract<ReplyId, { t: 'appt' }>, snap: Snapshot, ctx:
 }
 
 function onFlowCompleted(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow_completed' }>, ctx: EngineCtx): Out | null {
+  if (input.valid && input.flow === 'booking' && input.booking && input.flowToken) return onFlowBooking(snap, input, ctx);
   if (!input.valid || !input.appointmentId) return null;
   const appt = need(ctx, { kind: 'appointment', id: input.appointmentId });
   if (!appt || appt.client_id !== ctx.clientId) return null;
@@ -287,6 +288,31 @@ function onFlowCompleted(snap: Snapshot, input: Extract<EngineInput, { kind: 'fl
   return current
     ? { state: 'idle', context: {}, actions }
     : { state: snap.state, context: snap.context, actions, invalid: snap.invalidInputCount };
+}
+
+/**
+ * The booking Flow's SUMMARY `complete`: book through the port, re-validated
+ * live. Only the open attempt can book; a stale completion changes nothing.
+ */
+function onFlowBooking(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow_completed' }>, ctx: EngineCtx): Out {
+  const { booking, attemptId, flowToken } = input;
+  if (!booking || !flowToken) return unchanged(snap);
+  if (snap.state !== 'flow_booking' || !attemptId || snap.context.attemptId !== attemptId) {
+    return { state: snap.state, context: snap.context, actions: [send(text(COPY.flowStale))], invalid: snap.invalidInputCount };
+  }
+  return {
+    state: 'flow_booking',
+    context: { ...snap.context, busySince: ctx.now.toISOString() },
+    actions: [
+      {
+        type: 'create_booking',
+        serviceId: booking.serviceId,
+        staffId: null,
+        startsAt: booking.startsAt,
+        idempotencyKey: `wa-flow:${flowToken}:${booking.startsAt}`,
+      },
+    ],
+  };
 }
 
 function onBlocked(snap: Snapshot, ctx: EngineCtx): Out {
@@ -344,6 +370,12 @@ function onBookingResult(snap: Snapshot, input: Extract<EngineInput, { kind: 'bo
     return enterSlots(input.op === 'create' ? 'book' : 'resched', { ...c, startsAt: undefined, slotStaffId: undefined, page: 0 }, ctx, COPY.slotTaken);
   }
   if (input.code === 'CANCELLATION_WINDOW' && input.op !== 'create') return escalateWindow(ctx);
+  if (input.code === 'SLOT_UNAVAILABLE' && input.op === 'create' && snap.state === 'flow_booking') {
+    // The Flow's time vanished between its SUMMARY and the booking: close the attempt, offer a fresh start.
+    const menu = showMenu(ctx, COPY.slotTakenFlow);
+    const finish: Action[] = c.attemptId ? [{ type: 'attempt_finish', attemptId: c.attemptId, outcome: 'failed', errorCode: 'SLOT_UNAVAILABLE' }] : [];
+    return { ...menu, actions: [...finish, ...menu.actions] };
+  }
 
   const actions: Action[] = [];
   if (c.attemptId) {

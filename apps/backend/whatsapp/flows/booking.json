@@ -1,223 +1,151 @@
 {
-  "version": "7.1",
+  "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "SERVICE": ["STAFF", "DATE"],
-    "STAFF": ["DATE"],
-    "DATE": ["SLOT"],
-    "SLOT": ["DETAILS"],
-    "DETAILS": ["SUMMARY"],
+    "SERVICE": ["DATETIME"],
+    "DATETIME": ["SUMMARY"],
     "SUMMARY": []
   },
   "screens": [
     {
       "id": "SERVICE",
-      "title": "Book an appointment",
+      "title": "Choose a service",
       "data": {
-        "services": {
+        "service": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "id": { "type": "string" },
               "title": { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "metadata": { "type": "string" }
             }
           },
-          "__example__": [{ "id": "00000000-0000-4000-8000-000000000001", "title": "Haircut", "description": "60 min · R 250,00" }]
+          "__example__": [{ "id": "00000000-0000-4000-8000-000000000001", "title": "Haircut", "description": "60 min", "metadata": "R 250" }]
         }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextSubheading", "text": "Which service would you like?" },
           {
-            "type": "Dropdown",
-            "name": "service_id",
-            "label": "Service",
-            "required": true,
-            "data-source": "${data.services}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": { "service_id": "${form.service_id}" }
-            }
+            "type": "Form",
+            "name": "service_form",
+            "children": [
+              { "type": "TextCaption", "text": "Step 1 of 3" },
+              {
+                "type": "RadioButtonsGroup",
+                "name": "service",
+                "label": "Select a service",
+                "data-source": "${data.service}",
+                "required": true
+              },
+              {
+                "type": "Footer",
+                "label": "Continue",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "service_selected",
+                    "service": "${form.service}"
+                  }
+                }
+              }
+            ]
           }
         ]
       }
     },
     {
-      "id": "STAFF",
-      "title": "Choose who",
+      "id": "DATETIME",
+      "title": "Pick date & time",
+      "refresh_on_back": true,
       "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff": {
+        "service_slug": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "selected_service_label": { "type": "string", "__example__": "Haircut" },
+        "min_date": { "type": "string", "__example__": "2026-01-15" },
+        "max_date": { "type": "string", "__example__": "2026-02-15" },
+        "show_times": { "type": "boolean", "__example__": false },
+        "no_times": { "type": "boolean", "__example__": false },
+        "selected_date_label": { "type": "string", "__example__": "Tuesday, 23 Jun 2026" },
+        "time": {
           "type": "array",
           "items": {
             "type": "object",
-            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
-          },
-          "__example__": [
-            { "id": "any", "title": "No preference" },
-            { "id": "00000000-0000-4000-8000-000000000002", "title": "Sam" }
-          ]
-        }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          { "type": "TextSubheading", "text": "Who would you like to see?" },
-          {
-            "type": "Dropdown",
-            "name": "staff_id",
-            "label": "Staff member",
-            "required": true,
-            "data-source": "${data.staff}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": { "service_id": "${data.service_id}", "staff_id": "${form.staff_id}" }
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
             }
-          }
-        ]
-      }
-    },
-    {
-      "id": "DATE",
-      "title": "Choose a date",
-      "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "any" },
-        "min_date": { "type": "string", "__example__": "2026-09-29" },
-        "max_date": { "type": "string", "__example__": "2026-11-27" },
-        "unavailable_dates": {
-          "type": "array",
-          "items": { "type": "string" },
-          "__example__": ["2026-10-04"]
-        }
+          },
+          "__example__": [{ "id": "2026-06-23T07:00:00.000Z", "title": "09:00" }]
+        },
+        "duration_minutes": { "type": "number", "__example__": 30 },
+        "timezone": { "type": "string", "__example__": "Africa/Johannesburg" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextSubheading", "text": "Which day suits you?" },
           {
-            "type": "DatePicker",
-            "name": "date",
-            "label": "Date",
-            "required": true,
-            "min-date": "${data.min_date}",
-            "max-date": "${data.max_date}",
-            "unavailable-dates": "${data.unavailable_dates}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${form.date}"
+            "type": "Form",
+            "name": "datetime_form",
+            "children": [
+              { "type": "TextCaption", "text": "Step 2 of 3" },
+              { "type": "TextSubheading", "text": "${data.selected_service_label}" },
+              {
+                "type": "CalendarPicker",
+                "name": "appointment_date",
+                "label": "Appointment date",
+                "mode": "single",
+                "min-date": "${data.min_date}",
+                "max-date": "${data.max_date}",
+                "required": true,
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "date_selected",
+                    "service": "${data.service_slug}",
+                    "date": "${form.appointment_date}"
+                  }
+                }
+              },
+              {
+                "type": "If",
+                "condition": "${data.show_times}",
+                "then": [
+                  { "type": "TextSubheading", "text": "${data.selected_date_label}" },
+                  {
+                    "type": "ChipsSelector",
+                    "name": "appointment_time",
+                    "label": "Available times",
+                    "description": "Pick a time that suits you",
+                    "data-source": "${data.time}",
+                    "max-selected-items": 1,
+                    "required": true
+                  }
+                ]
+              },
+              {
+                "type": "If",
+                "condition": "${data.no_times}",
+                "then": [
+                  { "type": "TextBody", "text": "No times available for that date. Please choose another." }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Review booking",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "continue",
+                    "service_slug": "${data.service_slug}",
+                    "time": "${form.appointment_time}",
+                    "duration_minutes": "${data.duration_minutes}",
+                    "timezone": "${data.timezone}"
+                  }
+                }
               }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "SLOT",
-      "title": "Choose a time",
-      "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "any" },
-        "date": { "type": "string", "__example__": "2026-09-29" },
-        "date_label": { "type": "string", "__example__": "Tue 29 Sep" },
-        "slots": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
-          },
-          "__example__": [{ "id": "slot:2026-09-29T07:00:00.000Z|any", "title": "09:00" }]
-        }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          { "type": "TextSubheading", "text": "${data.date_label}" },
-          {
-            "type": "Dropdown",
-            "name": "slot",
-            "label": "Time",
-            "required": true,
-            "data-source": "${data.slots}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${data.date}",
-                "slot": "${form.slot}"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "DETAILS",
-      "title": "Your details",
-      "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "any" },
-        "date": { "type": "string", "__example__": "2026-09-29" },
-        "slot": { "type": "string", "__example__": "slot:2026-09-29T07:00:00.000Z|any" },
-        "name": { "type": "string", "__example__": "Nadia" },
-        "email": { "type": "string", "__example__": "" }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          {
-            "type": "TextInput",
-            "name": "name",
-            "label": "Your name",
-            "input-type": "text",
-            "required": true,
-            "init-value": "${data.name}"
-          },
-          {
-            "type": "TextInput",
-            "name": "email",
-            "label": "Email (optional)",
-            "input-type": "email",
-            "required": false,
-            "init-value": "${data.email}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${data.date}",
-                "slot": "${data.slot}",
-                "name": "${form.name}",
-                "email": "${form.email}"
-              }
-            }
+            ]
           }
         ]
       }
@@ -228,33 +156,36 @@
       "terminal": true,
       "success": true,
       "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "any" },
-        "date": { "type": "string", "__example__": "2026-09-29" },
-        "slot": { "type": "string", "__example__": "slot:2026-09-29T07:00:00.000Z|any" },
-        "name": { "type": "string", "__example__": "Nadia" },
-        "email": { "type": "string", "__example__": "" },
-        "summary": { "type": "string", "__example__": "Service: Haircut\nDate: Tue 29 Sep 2026\nTime: 09:00" }
+        "summary_text": { "type": "string", "__example__": "**Haircut**\n\nTuesday, 23 Jun 2026 at **09:00**\n\n_30 min_" },
+        "service_slug": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
+        "start_time_iso": { "type": "string", "__example__": "2026-01-15T10:30:00Z" },
+        "duration_minutes": { "type": "number", "__example__": 30 },
+        "timezone": { "type": "string", "__example__": "Africa/Johannesburg" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextSubheading", "text": "Please check your booking" },
-          { "type": "TextBody", "text": "${data.summary}" },
           {
-            "type": "Footer",
-            "label": "Confirm booking",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${data.date}",
-                "slot": "${data.slot}",
-                "name": "${data.name}",
-                "email": "${data.email}"
+            "type": "Form",
+            "name": "summary_form",
+            "children": [
+              { "type": "TextCaption", "text": "Step 3 of 3" },
+              { "type": "TextHeading", "text": "Booking summary" },
+              { "type": "TextBody", "text": "${data.summary_text}", "markdown": true },
+              {
+                "type": "Footer",
+                "label": "Confirm booking",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "service_slug": "${data.service_slug}",
+                    "start_time_iso": "${data.start_time_iso}",
+                    "duration_minutes": "${data.duration_minutes}",
+                    "timezone": "${data.timezone}"
+                  }
+                }
               }
-            }
+            ]
           }
         ]
       }

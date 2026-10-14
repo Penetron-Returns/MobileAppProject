@@ -3,65 +3,28 @@
  *
  * The endpoint is stateless: every screen's data carries the selections made
  * so far and the footer sends them back. Every step is re-validated against
- * live availability through BookingService, and the booking itself is only
- * written on SUMMARY confirm.
+ * live availability through BookingService.
  *
- * Booking:    SERVICE → STAFF (skipped when not needed) → DATE → SLOT → DETAILS → SUMMARY → SUCCESS
- * Reschedule: DATE → SLOT → SUMMARY → SUCCESS
+ * Booking:    SERVICE → DATETIME → SUMMARY (`complete`; the engine books on the nfm_reply), see bookingFlow.ts
+ * Reschedule: DATE → SLOT → SUMMARY → SUCCESS (the move happens here on SUMMARY confirm)
  */
 import { z } from 'zod';
 
-import type { AppointmentDTO, BusinessDTO } from '../../../../../packages/shared/api.ts';
+import type { AppointmentDTO } from '../../../../../packages/shared/api.ts';
 import type { WaDeps } from '../deps.ts';
 import { mapBookingError } from '../engine/executor.ts';
-import { addDays, dateOf, money, shortDate, summaryLines, timeOf, todayIn } from '../format.ts';
+import { addDays, dateOf, shortDate, summaryLines, timeOf, todayIn } from '../format.ts';
 import { isCalendarDate, isUuid, parseReplyId, rid } from '../ids.ts';
 import { escalate } from '../outbound.ts';
-import type { ClientRow, ConversationRow } from '../repo.ts';
-import { verifyFlowToken, type FlowTokenClaims } from './token.ts';
+import { bookingFlow } from './bookingFlow.ts';
+import { FLOW_COPY, FLOW_DATA_VERSION, screen, stay, type FlowRequest, type FlowResult, type Session } from './session.ts';
+import { verifyFlowToken } from './token.ts';
 
-export interface FlowRequest {
-  version?: string;
-  action?: string;
-  screen?: string;
-  data?: Record<string, unknown>;
-  flow_token?: string;
-}
-
-export type FlowResult = { status: 200; body: Record<string, unknown> } | { status: 427 };
-
-export const FLOW_COPY = {
-  noDates: 'Sorry, there are no open dates for this right now.',
-  noSlots: 'Sorry, there are no times left on that day. Please pick another date.',
-  slotTaken: 'Sorry, that slot was just taken. Please pick another time.',
-  slotTakenBack: 'Sorry, that slot was just taken. Please go back and pick another time.',
-  noSlotsBack: 'Sorry, there are no times left on that day. Please go back and pick another date.',
-  invalid: 'Please check your selection and try again.',
-  invalidDetails: 'Please enter your name and a valid email address (or leave email empty).',
-  failed: "Sorry, we couldn't complete that. Please try again.",
-  window: "Sorry, this booking can't be changed online this close to the start time.",
-  anyStaff: 'No preference',
-} as const;
-
-interface Session {
-  deps: WaDeps;
-  token: string;
-  claims: FlowTokenClaims;
-  conv: ConversationRow;
-  client: ClientRow;
-  business: BusinessDTO;
-  now: Date;
-}
-
-const screen = (name: string, data: Record<string, unknown>): FlowResult => ({ status: 200, body: { screen: name, data } });
-/**
- * Flow routing is forward-only, so every error keeps the customer on the
- * screen they submitted, with an `error_message`.
- */
-const stay = (name: string | undefined, error: string): FlowResult => screen(name ?? 'SERVICE', { error_message: error });
+export { FLOW_COPY } from './session.ts';
+export type { FlowRequest, FlowResult } from './session.ts';
 
 export async function handleFlowRequest(deps: WaDeps, req: FlowRequest): Promise<FlowResult> {
-  if (req.action === 'ping') return { status: 200, body: { data: { status: 'active' } } };
+  if (req.action === 'ping') return { status: 200, body: { version: FLOW_DATA_VERSION, data: { status: 'active' } } };
 
   const now = deps.now();
   const secret = deps.env.FLOW_TOKEN_SECRET;
@@ -76,7 +39,7 @@ export async function handleFlowRequest(deps: WaDeps, req: FlowRequest): Promise
       }
     }
     deps.logger.warn('wa_flow_client_error', { error_code: String((req.data as { error?: unknown }).error ?? '') });
-    return { status: 200, body: { data: { acknowledged: true } } };
+    return { status: 200, body: { version: FLOW_DATA_VERSION, data: { acknowledged: true } } };
   }
 
   if (!check?.ok) return { status: 427 };
@@ -96,134 +59,14 @@ export async function handleFlowRequest(deps: WaDeps, req: FlowRequest): Promise
   return result;
 }
 
-// ---------------------------------------------------------------- booking flow
+// ---------------------------------------------------------------- selection
 
 const Sel = z.object({
   service_id: z.string().refine(isUuid).optional(),
   staff_id: z.string().refine((v) => v === 'any' || isUuid(v)).optional(),
   date: z.string().refine(isCalendarDate).optional(),
   slot: z.string().optional(),
-  name: z.string().trim().max(100).optional(),
-  email: z.string().trim().max(200).optional(),
 });
-type Selection = z.infer<typeof Sel>;
-
-async function bookingFlow(s: Session, req: FlowRequest): Promise<FlowResult> {
-  if (req.action === 'INIT' || req.action === 'BACK') return serviceScreen(s);
-  if (req.action !== 'data_exchange') return stay(req.screen, FLOW_COPY.invalid);
-  const parsed = Sel.safeParse(req.data ?? {});
-  if (!parsed.success) return stay(req.screen, FLOW_COPY.invalid);
-  const sel = parsed.data;
-
-  const services = await s.deps.booking.listServices(s.business.id, { activeOnly: true });
-  const service = services.find((x) => x.id === sel.service_id);
-  if (!service) return req.screen === 'SERVICE' ? serviceScreen(s, FLOW_COPY.invalid) : stay(req.screen, FLOW_COPY.invalid);
-
-  switch (req.screen) {
-    case 'SERVICE': {
-      const staff = await s.deps.booking.listBookableStaff(s.business.id, service.id);
-      if (s.business.booking_rules.allow_staff_selection && staff.length > 1) {
-        return screen('STAFF', {
-          service_id: service.id,
-          staff: [{ id: 'any', title: FLOW_COPY.anyStaff }, ...staff.map((x) => ({ id: x.id, title: x.name.slice(0, 30) }))],
-        });
-      }
-      return dateScreen(s, { service_id: service.id, staff_id: 'any' });
-    }
-    case 'STAFF':
-    case 'DATE':
-    case 'SLOT':
-    case 'DETAILS':
-    case 'SUMMARY': {
-      const staffId = sel.staff_id ?? 'any';
-      if (staffId !== 'any') {
-        const staff = await s.deps.booking.listBookableStaff(s.business.id, service.id);
-        if (!staff.some((x) => x.id === staffId)) return stay(req.screen, FLOW_COPY.invalid);
-      }
-      const carry = { service_id: service.id, staff_id: staffId };
-      if (req.screen === 'STAFF') return dateScreen(s, carry);
-      if (!sel.date) return req.screen === 'DATE' ? dateScreen(s, carry, FLOW_COPY.invalid) : stay(req.screen, FLOW_COPY.invalid);
-      if (req.screen === 'DATE') return slotScreen(s, 'DATE', { ...carry, date: sel.date });
-
-      if (req.screen === 'SUMMARY') {
-        // The booking service re-validates live and replays by idempotency key,
-        // so a retried SUMMARY returns the same appointment instead of "taken".
-        const chosen = slotFromId(sel.slot, staffId, sel.date, s.business.timezone);
-        const details = validDetails(sel);
-        if (!chosen || !details) return stay('SUMMARY', FLOW_COPY.invalid);
-        return createBooking(s, service.id, chosen, sel.slot!, details);
-      }
-
-      const slot = await validSlot(s, service.id, staffId, sel.date, sel.slot);
-      if (!slot) {
-        return req.screen === 'SLOT'
-          ? slotScreen(s, 'SLOT', { ...carry, date: sel.date }, FLOW_COPY.slotTaken)
-          : stay(req.screen, FLOW_COPY.slotTakenBack);
-      }
-      const withSlot = { ...carry, date: sel.date, slot: sel.slot! };
-      if (req.screen === 'SLOT') {
-        return screen('DETAILS', { ...withSlot, name: s.client.name ?? '', email: s.client.email ?? '' });
-      }
-
-      const details = validDetails(sel);
-      if (!details) return stay('DETAILS', FLOW_COPY.invalidDetails);
-      const staffName = staffId === 'any' ? null : (await s.deps.booking.listBookableStaff(s.business.id, service.id)).find((x) => x.id === staffId)?.name ?? null;
-      const summary = summaryLines(
-        {
-          service: service.name,
-          startsAt: slot.startsAt,
-          staff: staffName ?? FLOW_COPY.anyStaff,
-          price: service.price_cents > 0 ? money(service.price_cents, s.business.currency) : null,
-        },
-        s.business.timezone,
-      );
-      return screen('SUMMARY', { ...withSlot, name: details.name, email: details.email ?? '', summary });
-    }
-    default:
-      return stay(req.screen, FLOW_COPY.invalid);
-  }
-}
-
-async function createBooking(
-  s: Session,
-  serviceId: string,
-  slot: { startsAt: string; staffId: string | null },
-  slotId: string,
-  details: { name: string; email: string | null },
-): Promise<FlowResult> {
-  const attemptId = s.claims.attemptId;
-  try {
-    const appt = await s.deps.booking.createAppointment({
-      businessId: s.business.id,
-      clientId: s.client.id,
-      serviceId,
-      staffId: slot.staffId,
-      startsAt: slot.startsAt,
-      source: 'whatsapp',
-      idempotencyKey: `wa-flow:${s.token}:${slotId}`,
-      actor: { type: 'customer', id: s.client.id },
-      notifyCustomer: false,
-      now: s.now,
-    });
-    await s.deps.repo
-      .updateClientDetails(s.business.id, s.client.id, {
-        ...(!s.client.name ? { name: details.name } : {}),
-        ...(!s.client.email && details.email ? { email: details.email } : {}),
-      })
-      .catch(() => undefined);
-    if (attemptId) {
-      await s.deps.repo.finishAttempt(attemptId, 'completed', { appointmentId: appt.id, at: s.now.toISOString() }).catch(() => undefined);
-    }
-    return success(s, 'booking', appt);
-  } catch (err) {
-    const mapped = mapBookingError(err);
-    s.deps.logger.warn('wa_flow_booking_failed', { detail: mapped.detail });
-    if (attemptId && mapped.code !== 'SLOT_UNAVAILABLE') {
-      await s.deps.repo.appendAttemptStep(attemptId, `flow:error:${mapped.detail}`.slice(0, 64), s.now.toISOString()).catch(() => undefined);
-    }
-    return stay('SUMMARY', mapped.code === 'SLOT_UNAVAILABLE' ? FLOW_COPY.slotTakenBack : FLOW_COPY.failed);
-  }
-}
 
 // ---------------------------------------------------------------- reschedule flow
 
@@ -286,18 +129,6 @@ async function rescheduleFlow(s: Session, req: FlowRequest): Promise<FlowResult>
 }
 
 // ---------------------------------------------------------------- shared screens
-
-async function serviceScreen(s: Session, error?: string): Promise<FlowResult> {
-  const services = await s.deps.booking.listServices(s.business.id, { activeOnly: true });
-  return screen('SERVICE', {
-    services: services.map((x) => ({
-      id: x.id,
-      title: x.name.slice(0, 30),
-      description: [`${x.duration_minutes} min`, x.price_cents > 0 ? money(x.price_cents, s.business.currency) : null].filter(Boolean).join(' · '),
-    })),
-    ...(error ? { error_message: error } : {}),
-  });
-}
 
 async function dateScreen(s: Session, carry: { service_id: string; staff_id: string }, error?: string): Promise<FlowResult> {
   const name = 'DATE';
@@ -371,14 +202,6 @@ function slotFromId(slotId: string | undefined, staffSel: string, date: string, 
   const staffId = staffSel === 'any' ? null : staffSel;
   if (parsed.staffId !== staffId || dateOf(parsed.startsAt, tz) !== date) return null;
   return { startsAt: new Date(parsed.startsAt).toISOString(), staffId };
-}
-
-function validDetails(sel: Selection): { name: string; email: string | null } | null {
-  const name = (sel.name ?? '').trim();
-  if (name.length < 1) return null;
-  const email = (sel.email ?? '').trim();
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
-  return { name, email: email || null };
 }
 
 function success(s: Session, flow: 'booking' | 'reschedule', appt: AppointmentDTO): FlowResult {
