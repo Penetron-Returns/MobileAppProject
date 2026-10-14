@@ -11,6 +11,21 @@ Status as of 14 Oct 2026.
 
 Each phase ends with its checks green (`.claude/CLAUDE.md` §5) and an emulator walkthrough with screenshots.
 
+> **Scope change (14 Oct, founder):** the Free / deterministic WhatsApp tier is a **showcase demo only**, run on the
+> single test number of the "Booking App Dev" Meta app. There will be no Meta publishing, no App Review, no Embedded Signup and no
+> per-salon numbers. The Meta/WhatsApp code will be deleted after the ITMDA3 launch. **The real product is the paid AI
+> tiers** (Nerova provides AI and the whole WhatsApp setup). So in Phase 2 below, only what the demo needs stays (2.1
+> done; 2.2–2.4 only if the showcase requires them), and a new Phase 6 (AI tiers) becomes the main track after Phase 1.
+
+## Phase 6: AI tiers (the real product)
+| # | Task | Done when |
+| - | ---- | --------- |
+| 6.1 | Implement Nerova's **Booking connector** contract (REST, version 2026-10-12) on our backend: the 9 required operations, with auth, idempotency and tests | Nerova's `connections_verify` certifies it against a test account |
+| 6.2 | Connection + provisioning in Nerova's **Test** environment for a paid-plan business | `get_companion_setup` reports `nextStep: none` |
+| 6.3 | Pip in the app: server-side widget session endpoint + the owner chat surface per the AI designs (Companion sheet, approvals, report, goals) | The owner chats with Pip on the emulator and an approval moves a real booking |
+| 6.4 | Stripe subscriptions for Starter / Growth / Pro (web checkout), webhook → `businesses.plan` | A test checkout switches a business to the AI tier |
+| 6.5 | AI-tier gating: no Inbox, no deterministic WhatsApp engine, Pip everywhere it's designed | A paid business sees the AI app, a Free business the demo |
+
 ## Phase 1: make every v1 screen correct on a real device
 | # | Task | Done when |
 | - | ---- | --------- |
