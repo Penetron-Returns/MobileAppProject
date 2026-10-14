@@ -1,18 +1,12 @@
 import { useAuth, useOrganization, useOrganizationList } from '@clerk/expo';
 import { Redirect, Tabs } from 'expo-router';
-import {
-  CalendarDays,
-  LayoutDashboard,
-  PlusCircle,
-  Settings as SettingsIcon,
-  Users,
-} from 'lucide-react-native';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { NoBusinessScreen } from '@/components/NoBusinessScreen';
 import { CenteredSpinner } from '@/components/States';
+import { FloatingTabBar } from '@/components/tab-bar/FloatingTabBar';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
-import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 
 /**
  * Protected group: requires a signed-in user AND an active Clerk
@@ -32,19 +26,19 @@ export default function AppLayout() {
   } = useOrganizationList({
     userMemberships: { infinite: true },
   });
-  const { colors } = useAppColorScheme();
+  const { t } = useTranslation();
   useAppointmentsRealtime(Boolean(isSignedIn && organization));
 
   const memberships = userMemberships.data;
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
   const shouldActivateFirst = Boolean(
     authLoaded &&
-      isSignedIn &&
-      orgLoaded &&
-      listLoaded &&
-      !organization &&
-      memberships &&
-      memberships.length > 0,
+    isSignedIn &&
+    orgLoaded &&
+    listLoaded &&
+    !organization &&
+    memberships &&
+    memberships.length > 0,
   );
 
   React.useEffect(() => {
@@ -63,59 +57,16 @@ export default function AppLayout() {
     <Tabs
       // Detail pages are hidden tabs, so back must follow history, not jump to the first tab.
       backBehavior="history"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-        },
-      }}
+      // The floating capsule draws itself (icons, labels and the centre "+").
+      tabBar={(props) => <FloatingTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <LayoutDashboard color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => (
-            <CalendarDays color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="add"
-        options={{
-          title: 'Add',
-          tabBarIcon: ({ color, size }) => (
-            <PlusCircle color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="clients"
-        options={{
-          title: 'Clients',
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <SettingsIcon color={color} size={size} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />
+      <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
+      <Tabs.Screen name="add" options={{ title: t('tabs.add') }} />
+      <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
+      <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
+      <Tabs.Screen name="inbox" options={{ href: null }} />
       <Tabs.Screen
         name="bookings/[id]"
         options={{

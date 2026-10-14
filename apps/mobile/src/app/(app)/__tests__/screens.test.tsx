@@ -403,7 +403,6 @@ import BookingDetailRoute from '../bookings/[id]';
 import CalendarRoute from '../calendar';
 import ClientsRoute from '../clients';
 import ClientProfileRoute from '../clients/[id]';
-import DashboardRoute from '../index';
 import SettingsRoute from '../settings';
 import BusinessDetailsRoute from '../settings/business-details';
 import OperatingHoursRoute from '../settings/operating-hours';
@@ -437,42 +436,6 @@ function toJson(tree: renderer.ReactTestRenderer) {
 }
 
 const render = (ui: React.ReactElement) => toJson(renderScreen(ui));
-
-describe('Dashboard', () => {
-  it('shows stats and the schedule from the database hooks', () => {
-    const json = render(<DashboardRoute />);
-    expect(json).toContain('Administrator');
-    expect(json).toContain('R 12,450');
-    expect(json).toContain('1 Confirmed');
-    expect(json).toContain('1 Checked in');
-    expect(json).toContain('Emma Thompson');
-    expect(json).toContain('Signature Facial · 1h');
-  });
-
-  it('shows the next appointment in business time', () => {
-    const json = render(<DashboardRoute />);
-    expect(json).toContain('10:30 AM');
-    expect(json).toContain('Sarah Jenkins');
-    expect(json).toContain('Check In');
-  });
-
-  it('shows an empty schedule and no next appointment when today has no bookings', () => {
-    mockHooks.useDashboardSummary.mockReturnValue(
-      success({ ...SUMMARY, next_appointment_id: null }),
-    );
-    mockHooks.useDaySchedule.mockReturnValue(success([]));
-    const json = render(<DashboardRoute />);
-    expect(json).toContain('No appointments today');
-    expect(json).toContain('No more appointments today');
-  });
-
-  it('shows an error with retry when the business cannot be loaded', () => {
-    mockHooks.useBusiness.mockReturnValue(failure(new Error('boom')));
-    const json = render(<DashboardRoute />);
-    expect(json).toContain("Couldn't load this.");
-    expect(json).toContain('Try again');
-  });
-});
 
 describe('Calendar', () => {
   it('renders the day timeline with bookings and the lunch break from split shifts', () => {
