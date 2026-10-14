@@ -29,6 +29,7 @@ import { z } from 'zod';
 import { toast } from '@/lib/toast';
 
 import { Row, Section, Specimen } from './Specimen';
+import { SettingsKitGallery } from './SettingsKitGallery';
 
 const BUTTON_VARIANTS = [
   'default',
@@ -267,6 +268,8 @@ export function ControlsGallery() {
       <Section title="TintLink">
         <TintLink label="Add a service" icon={Plus} onPress={() => {}} />
       </Section>
+
+      <SettingsKitGallery />
     </>
   );
 }

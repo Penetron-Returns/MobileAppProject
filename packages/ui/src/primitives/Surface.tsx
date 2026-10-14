@@ -5,7 +5,19 @@ import { useDepth } from '../theme/useDepth';
 import { RADII } from '../tokens/radii';
 
 export type SurfaceVariant =
-  'raised' | 'hero' | 'floating' | 'inset' | 'dome' | 'knob' | 'engrave';
+  | 'raised'
+  | 'hero'
+  | 'floating'
+  | 'inset'
+  | 'dome'
+  | 'domeRing'
+  | 'domeTint'
+  | 'knob'
+  | 'engrave'
+  | 'wheel'
+  | 'wheelSelection'
+  | 'wheelTop'
+  | 'wheelBottom';
 
 const RADIUS: Record<SurfaceVariant, number | undefined> = {
   raised: RADII.raised,
@@ -13,8 +25,14 @@ const RADIUS: Record<SurfaceVariant, number | undefined> = {
   floating: RADII.floating,
   inset: RADII.inset,
   dome: undefined,
+  domeRing: undefined,
+  domeTint: undefined,
   knob: undefined,
   engrave: undefined,
+  wheel: undefined,
+  wheelSelection: undefined,
+  wheelTop: undefined,
+  wheelBottom: undefined,
 };
 
 export interface SurfaceProps extends ViewProps {

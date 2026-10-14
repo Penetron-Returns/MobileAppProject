@@ -1,4 +1,4 @@
-import { TextClassContext } from '../primitives/Text';
+import { TextClassContext, TextStyleContext } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 import { cn } from '../lib/cn';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -131,6 +131,12 @@ const buttonTextVariants = cva(
 );
 
 const PRESSED_NUDGE = { transform: [{ translateY: 1 }] } as const;
+/** The primary button's label sits on a 1px soft shadow (the boards' text-shadow). */
+const PRIMARY_LABEL = {
+  textShadowColor: 'rgba(0,0,0,0.12)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 0,
+} as const;
 
 type ButtonProps = Omit<React.ComponentProps<typeof Pressable>, 'children'> &
   React.RefAttributes<typeof Pressable> &
@@ -177,30 +183,32 @@ function Button({
   };
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
-      <Pressable
-        className={cn(
-          disabled && !loading && 'opacity-50',
-          buttonVariants({ variant, size }),
-          className,
-        )}
-        role="button"
-        accessibilityRole="button"
-        accessibilityState={{
-          disabled: Boolean(disabled || loading),
-          busy: Boolean(loading),
-        }}
-        disabled={disabled || loading}
-        // Small buttons are 36pt tall: the slop brings the touch target to 44pt.
-        hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}
-        style={(state: PressableStateCallbackType) => [
-          depthStyle(state.pressed),
-          typeof style === 'function' ? style(state) : style,
-        ]}
-        {...props}
-      >
-        {loading ? <ActivityIndicator color={spinnerColor} /> : null}
-        {children}
-      </Pressable>
+      <TextStyleContext.Provider value={isTactile ? PRIMARY_LABEL : undefined}>
+        <Pressable
+          className={cn(
+            disabled && !loading && 'opacity-50',
+            buttonVariants({ variant, size }),
+            className,
+          )}
+          role="button"
+          accessibilityRole="button"
+          accessibilityState={{
+            disabled: Boolean(disabled || loading),
+            busy: Boolean(loading),
+          }}
+          disabled={disabled || loading}
+          // Small buttons are 36pt tall: the slop brings the touch target to 44pt.
+          hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}
+          style={(state: PressableStateCallbackType) => [
+            depthStyle(state.pressed),
+            typeof style === 'function' ? style(state) : style,
+          ]}
+          {...props}
+        >
+          {loading ? <ActivityIndicator color={spinnerColor} /> : null}
+          {children}
+        </Pressable>
+      </TextStyleContext.Provider>
     </TextClassContext.Provider>
   );
 }

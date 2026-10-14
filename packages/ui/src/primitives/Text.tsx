@@ -2,7 +2,12 @@ import { cn } from '../lib/cn';
 import { Slot } from '@rn-primitives/slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
-import { Platform, Text as RNText, type Role } from 'react-native';
+import {
+  Platform,
+  Text as RNText,
+  type Role,
+  type TextStyle,
+} from 'react-native';
 
 const textVariants = cva(
   cn(
@@ -76,6 +81,8 @@ const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
 };
 
 const TextClassContext = React.createContext<string | undefined>(undefined);
+/** Style every `Text` below inherits (the primary button's soft label shadow). */
+const TextStyleContext = React.createContext<TextStyle | undefined>(undefined);
 
 function Text({
   className,
@@ -88,6 +95,7 @@ function Text({
     asChild?: boolean;
   }) {
   const textClass = React.useContext(TextClassContext);
+  const inheritedStyle = React.useContext(TextStyleContext);
   const Component = asChild ? Slot : RNText;
   return (
     <Component
@@ -95,8 +103,9 @@ function Text({
       role={variant ? ROLE[variant] : undefined}
       aria-level={variant ? ARIA_LEVEL[variant] : undefined}
       {...props}
+      style={inheritedStyle ? [inheritedStyle, props.style] : props.style}
     />
   );
 }
 
-export { Text, TextClassContext };
+export { Text, TextClassContext, TextStyleContext };

@@ -1,8 +1,12 @@
 import {
+  compactMoney,
+  durationLabel,
   existingCategories,
+  firstName,
   groupByCategory,
   joinMeta,
   staffStatus,
+  stepValue,
 } from '../lists';
 
 describe('groupByCategory', () => {
@@ -65,4 +69,55 @@ describe('staffStatus', () => {
   ] as const)('maps %j to %s', (member, expected) => {
     expect(staffStatus(member)).toBe(expected);
   });
+});
+
+describe('compactMoney', () => {
+  it.each([
+    [35000, 'ZAR', 'R350'],
+    [128000, 'ZAR', 'R1,280'],
+    [35050, 'ZAR', 'R350.50'],
+    [0, 'ZAR', 'R0'],
+    [9000, 'USD', '$90'],
+  ])('writes %i %s as %s', (cents, currency, expected) => {
+    expect(compactMoney(cents, currency)).toBe(expected);
+  });
+});
+
+describe('durationLabel', () => {
+  const t = (key: string, v?: Record<string, unknown>) =>
+    `${key}:${JSON.stringify(v)}`;
+  it.each([
+    [45, 'services.minutes:{"value":45}'],
+    [60, 'services.hoursOnly:{"hours":1}'],
+    [75, 'services.hoursAndMinutes:{"hours":1,"minutes":15}'],
+    [240, 'services.hoursOnly:{"hours":4}'],
+  ])('labels %i minutes', (minutes, expected) => {
+    expect(durationLabel(minutes, t)).toBe(expected);
+  });
+});
+
+describe('firstName', () => {
+  it.each([
+    ['Thandi Mokoena', 'Thandi'],
+    ['  Ruan  van Wyk', 'Ruan'],
+    ['Aisha', 'Aisha'],
+  ])('takes the first name of %s', (name, expected) => {
+    expect(firstName(name)).toBe(expected);
+  });
+});
+
+describe('stepValue', () => {
+  it.each([
+    [60, 1, 15, 15, 480, 75],
+    [60, -1, 15, 15, 480, 45],
+    [15, -1, 15, 15, 480, 15],
+    [480, 1, 15, 15, 480, 480],
+    [10, 1, 5, 0, 60, 15],
+    [0, -1, 5, 0, 60, 0],
+  ] as const)(
+    'steps %i by %i (step %i) within %i..%i to %i',
+    (value, dir, step, min, max, expected) => {
+      expect(stepValue(value, dir, step, min, max)).toBe(expected);
+    },
+  );
 });
