@@ -117,14 +117,42 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings/staff"
+        name="settings/staff-management"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
-        name="settings/staff-management"
+        name="inbox/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/booking-rules"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/whatsapp"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/whatsapp-detail"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/notifications"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },

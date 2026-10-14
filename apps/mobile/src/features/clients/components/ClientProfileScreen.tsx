@@ -1,240 +1,236 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import {
-  Calendar,
-  Mail,
-  MessageCircle,
-  Phone,
-  Smartphone,
-  UserX,
-} from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Calendar, MessageCircle, Phone, UserX } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
-import { Header } from '@/components/Header';
-import { PersonAvatar } from '@/components/PersonAvatar';
-import { Screen } from '@/components/Screen';
-import { EmptyState, ErrorState, LoadingCard } from '@/components/States';
-import { Icon } from '@/components/ui/icon';
+import { Capsule } from '@/components/Capsule';
+import { Group, GroupRow, SectionTitle } from '@/components/Group';
+import { InitialsDome } from '@/components/InitialsDome';
+import { Page } from '@/components/Page';
+import { ErrorScreen } from '@/components/states/ErrorScreen';
+import { ListSkeleton } from '@/components/states/ListSkeleton';
+import { Surface } from '@/components/Surface';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
-import { BusinessGate } from '@/features/business/components/BusinessGate';
-import type { BusinessSummary } from '@/features/business/hooks';
+import { useBusiness } from '@/features/business/hooks';
 import { whatsAppChatUrl } from '@/features/dashboard/logic';
+import { useDepth } from '@/hooks/useDepth';
 import { formatPhone } from '@/lib/format';
-import { businessDate, formatDateMedium } from '@/lib/time';
+import { formatDateMedium, businessDate } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { useClient, type ClientProfile } from '../hooks';
+import { useClient, useUpdateClient, type ClientProfile } from '../hooks';
+import { VIP_TAG } from '../logic';
 import { ClientHistory } from './ClientHistory';
 import { ClientNotesCard } from './ClientNotesCard';
-
-export function ClientProfileScreen({ clientId }: { clientId: string }) {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  return (
-    <Screen
-      header={
-        <Header title={t('clientProfile.title')} fallbackHref="/clients" />
-      }
-      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
-    >
-      <BusinessGate>
-        {(business) => (
-          <ProfileContent clientId={clientId} business={business} />
-        )}
-      </BusinessGate>
-    </Screen>
-  );
-}
-
-function ProfileContent({
-  clientId,
-  business,
-}: {
-  clientId: string;
-  business: BusinessSummary;
-}) {
-  const { t } = useTranslation();
-  const client = useClient(clientId);
-  if (client.isPending) return <LoadingCard />;
-  if (client.isError) {
-    return (
-      <ErrorState error={client.error} onRetry={() => void client.refetch()} />
-    );
-  }
-  if (!client.data) {
-    return <EmptyState icon={UserX} title={t('clientProfile.notFound')} />;
-  }
-  return (
-    <View className="mx-auto w-full max-w-lg gap-6 pb-8 sm:max-w-2xl md:max-w-4xl">
-      <ProfileCard client={client.data} timezone={business.timezone} />
-      <ContactCard client={client.data} />
-      <ClientNotesCard clientId={clientId} />
-      <ClientHistory
-        clientId={clientId}
-        timezone={business.timezone}
-        currency={business.currency}
-      />
-    </View>
-  );
-}
 
 function openUrl(url: string, fallback: string) {
   Linking.openURL(url).catch(() => toast.info(fallback));
 }
 
-function ProfileCard({
+/** Client profile: contact, up next, history, notes. */
+export function ClientProfileScreen({ clientId }: { clientId: string }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const business = useBusiness();
+  const client = useClient(clientId);
+
+  let body: React.ReactNode;
+  if (client.isError || business.isError) {
+    body = (
+      <ErrorScreen
+        error={client.error ?? business.error}
+        onRetry={() => {
+          void client.refetch();
+          void business.refetch();
+        }}
+      />
+    );
+  } else if (client.isPending || !business.data) {
+    body = <ListSkeleton rows={3} />;
+  } else if (!client.data) {
+    body = (
+      <View className="items-center px-10 pt-16">
+        <UserX size={30} strokeWidth={1.8} />
+        <Text className="mt-3 text-center text-section font-bold">
+          {t('clients.profile.notFound')}
+        </Text>
+      </View>
+    );
+  } else {
+    body = (
+      <ProfileBody
+        client={client.data}
+        timezone={business.data.timezone}
+        currency={business.data.currency}
+      />
+    );
+  }
+
+  return (
+    <Page
+      title={
+        client.data
+          ? (client.data.name ?? formatPhone(client.data.phone_e164))
+          : ' '
+      }
+      backLabel={t('clients.title')}
+      backFallback="/clients"
+      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
+    >
+      {body}
+    </Page>
+  );
+}
+
+function ProfileBody({
   client,
   timezone,
+  currency,
 }: {
   client: ClientProfile;
   timezone: string;
+  currency: string;
 }) {
   const { t } = useTranslation();
-  const router = useRouter();
   const name = client.name ?? formatPhone(client.phone_e164);
+  const firstName = name.split(' ')[0];
   const joined = formatDateMedium(businessDate(client.first_seen_at, timezone));
+  const update = useUpdateClient(client.id);
+
   return (
-    <View className="bg-card border-border relative overflow-hidden rounded-2xl border p-6 shadow-sm">
-      <View className="bg-primary/10 pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full" />
-      <View className="relative z-10 items-center gap-4 sm:flex-row sm:items-start">
-        <PersonAvatar name={name} size="xl" />
-        <View className="flex-1 items-center sm:items-start">
-          <Text className="text-foreground text-center text-2xl font-bold tracking-tight sm:text-left">
-            {name}
+    <>
+      <View className="mx-5 mt-2 flex-row items-center gap-3">
+        <InitialsDome name={name} size="xl" />
+        <View className="min-w-0 flex-1 gap-1">
+          <Text className="text-subtitle text-muted-foreground">
+            {t('clients.profile.since', { date: joined })}
           </Text>
-          <Text className="text-muted-foreground mt-0.5 text-sm">
-            {t('clientProfile.joined', { date: joined })}
-          </Text>
-          <View className="mt-4 flex-row flex-wrap justify-center gap-2.5 sm:justify-start">
-            <ActionButton
-              icon={MessageCircle}
-              label={t('clientProfile.message')}
-              variant="whatsapp"
-              onPress={() =>
-                openUrl(
-                  whatsAppChatUrl(client.phone_e164, ''),
-                  t('dashboard.openingWhatsApp', { name }),
-                )
-              }
-            />
-            <ActionButton
-              icon={Phone}
-              label={t('clientProfile.call')}
-              variant="primary"
-              onPress={() =>
-                openUrl(`tel:${client.phone_e164}`, client.phone_e164)
-              }
-            />
-            <ActionButton
-              icon={Calendar}
-              label={t('clientProfile.book')}
-              variant="outline"
-              onPress={() =>
-                router.push({
-                  pathname: '/add',
-                  params: { clientId: client.id },
-                } as never)
-              }
-            />
-          </View>
+          {client.tags.includes(VIP_TAG) ? (
+            <Capsule label={t('clients.vip')} className="self-start" />
+          ) : null}
         </View>
       </View>
-    </View>
-  );
-}
 
-const ACTION_STYLES = {
-  whatsapp: { box: 'bg-whatsapp', text: 'text-white' },
-  primary: { box: 'bg-primary', text: 'text-primary-foreground' },
-  outline: { box: 'bg-card border-border border', text: 'text-foreground' },
-} as const;
-
-function ActionButton({
-  icon,
-  label,
-  variant,
-  onPress,
-}: {
-  icon: typeof Phone;
-  label: string;
-  variant: keyof typeof ACTION_STYLES;
-  onPress: () => void;
-}) {
-  const s = ACTION_STYLES[variant];
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      className={`${s.box} min-h-[44px] flex-row items-center gap-2 rounded-xl px-4 py-2.5 shadow-sm active:opacity-90`}
-    >
-      <Icon as={icon} size={18} className={s.text} />
-      <Text className={`${s.text} text-sm font-semibold`}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function ContactCard({ client }: { client: ClientProfile }) {
-  const { t } = useTranslation();
-  return (
-    <View className="bg-card border-border rounded-2xl border p-5 shadow-sm">
-      <View className="mb-4 flex-row items-center gap-2">
-        <Icon as={Smartphone} size={20} className="text-primary" />
-        <Text className="text-foreground text-lg font-bold">
-          {t('clientProfile.contact')}
-        </Text>
-      </View>
-      <View className="gap-3">
-        <ContactRow
-          icon={Smartphone}
-          label={t('clientProfile.mobile')}
-          value={formatPhone(client.phone_e164)}
+      <View className="mx-5 mt-5 flex-row gap-3">
+        <Action
+          icon={Calendar}
+          label={t('clients.profile.book')}
+          spoken={t('clients.profile.bookLabel', { name: firstName })}
+          onPress={() =>
+            router.push({
+              pathname: '/add',
+              params: { clientId: client.id },
+            } as never)
+          }
+        />
+        <Action
+          icon={MessageCircle}
+          label={t('clients.profile.whatsapp')}
+          spoken={t('clients.profile.whatsappLabel', { name: firstName })}
+          onPress={() =>
+            openUrl(
+              whatsAppChatUrl(client.phone_e164, ''),
+              t('clients.profile.whatsappFailed'),
+            )
+          }
+        />
+        <Action
+          icon={Phone}
+          label={t('clients.profile.call')}
+          spoken={t('clients.profile.callLabel', { name: firstName })}
           onPress={() => openUrl(`tel:${client.phone_e164}`, client.phone_e164)}
         />
+      </View>
+
+      <ClientHistory
+        clientId={client.id}
+        timezone={timezone}
+        currency={currency}
+      />
+      <ClientNotesCard clientId={client.id} firstName={firstName} />
+
+      <SectionTitle>{t('clients.profile.contact')}</SectionTitle>
+      <Group>
+        <GroupRow
+          title={formatPhone(client.phone_e164)}
+          subtitle={t('clients.profile.mobile')}
+          onPress={() => openUrl(`tel:${client.phone_e164}`, client.phone_e164)}
+          accessibilityLabel={t('clients.profile.callNumber', {
+            phone: formatPhone(client.phone_e164),
+          })}
+        />
         {client.email ? (
-          <ContactRow
-            icon={Mail}
-            label={t('clientProfile.email')}
-            value={client.email}
+          <GroupRow
+            showSeparator
+            title={client.email}
+            subtitle={t('clients.profile.email')}
             onPress={() =>
               openUrl(`mailto:${client.email}`, client.email ?? '')
             }
           />
         ) : null}
-      </View>
-    </View>
+        <GroupRow
+          showSeparator
+          title={t('clients.profile.optIn')}
+          subtitle={
+            client.whatsapp_opt_in
+              ? t('clients.profile.optedIn')
+              : t('clients.profile.optedOut')
+          }
+          trailing={
+            <Switch
+              checked={client.whatsapp_opt_in}
+              disabled={update.isPending}
+              onCheckedChange={(checked) =>
+                update.mutate({ whatsapp_opt_in: checked })
+              }
+              accessibilityLabel={t('clients.profile.optIn')}
+            />
+          }
+        />
+      </Group>
+    </>
   );
 }
 
-function ContactRow({
-  icon,
+function Action({
+  icon: Glyph,
   label,
-  value,
+  spoken,
   onPress,
 }: {
-  icon: typeof Mail;
+  icon: typeof Phone;
   label: string;
-  value: string;
+  spoken: string;
   onPress: () => void;
 }) {
+  const depth = useDepth();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}`}
-      className="active:bg-muted/50 flex-row items-center gap-3 rounded-xl p-2"
+      accessibilityLabel={spoken}
+      className="min-h-12 flex-1"
     >
-      <View className="bg-muted h-10 w-10 items-center justify-center rounded-full">
-        <Icon as={icon} size={18} className="text-foreground" />
-      </View>
-      <View className="flex-1">
-        <Text className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
-          {label}
-        </Text>
-        <Text className="text-foreground text-base font-medium">{value}</Text>
-      </View>
+      {({ pressed }) => (
+        <Surface
+          variant="raised"
+          radius={24}
+          style={pressed ? depth.buttonPressed : undefined}
+          className="h-12 flex-row items-center justify-center gap-2"
+        >
+          <Glyph size={20} strokeWidth={1.8} color={depth.colors.tint} />
+          <Text
+            style={{ color: depth.colors.tint }}
+            className="text-title font-semibold"
+          >
+            {label}
+          </Text>
+        </Surface>
+      )}
     </Pressable>
   );
 }

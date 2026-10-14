@@ -1,4 +1,4 @@
-import type { CreateClientNoteRequest } from '@shared/api';
+import type { CreateClientNoteRequest, UpdateClientRequest } from '@shared/api';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
@@ -8,30 +8,64 @@ import { supabase, unwrap } from '@/lib/supabase';
 import {
   clientSearchFilter,
   RECENT_DAYS,
-  VIP_TAG,
+  REGULAR_WINDOW_DAYS,
+  regularClientIds,
   type ClientFilter,
 } from './logic';
 
 export const CLIENT_PAGE_SIZE = 20;
 /** Recent appointments embedded per row, enough to find today's and the last visit. */
-const EMBEDDED_APPOINTMENTS = 10;
+const EMBEDDED_APPOINTMENTS = 12;
+/** Upper bound on completed-visit rows read to find the regulars. */
+const REGULAR_SCAN_LIMIT = 5000;
+
+const LIST_SELECT =
+  'id, name, phone_e164, tags, last_seen_at, appointments(starts_at, status)';
+
+function listQuery() {
+  return supabase
+    .from('clients')
+    .select(LIST_SELECT)
+    .order('starts_at', { referencedTable: 'appointments', ascending: false })
+    .limit(EMBEDDED_APPOINTMENTS, { referencedTable: 'appointments' });
+}
+
+/** Ids of clients with enough recent completed visits, from one window scan. */
+async function fetchRegularIds(now: Date): Promise<string[]> {
+  const since = new Date(now.getTime() - REGULAR_WINDOW_DAYS * 86_400_000);
+  const rows = unwrap(
+    await supabase
+      .from('appointments')
+      .select('client_id, starts_at')
+      .eq('status', 'completed')
+      .gte('starts_at', since.toISOString())
+      .lte('starts_at', now.toISOString())
+      .limit(REGULAR_SCAN_LIMIT),
+  );
+  return regularClientIds(rows, now);
+}
+
+async function fetchRegulars(search: string) {
+  const ids = await fetchRegularIds(new Date());
+  if (ids.length === 0) return [];
+  let query = listQuery().in('id', ids);
+  const or = clientSearchFilter(search);
+  if (or) query = query.or(or);
+  const rows = unwrap(await query.order('name', { nullsFirst: false }));
+  // Most visits first, as ranked by regularClientIds.
+  return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+}
 
 async function fetchClientPage(
   filter: ClientFilter,
   search: string,
   page: number,
 ) {
-  let query = supabase
-    .from('clients')
-    .select(
-      'id, name, phone_e164, tags, last_seen_at, appointments(starts_at, status)',
-    )
-    .order('starts_at', { referencedTable: 'appointments', ascending: false })
-    .limit(EMBEDDED_APPOINTMENTS, { referencedTable: 'appointments' });
-
+  // Regulars are a single ranked page (capped), not a paged scan.
+  if (filter === 'regulars') return page === 0 ? fetchRegulars(search) : [];
+  let query = listQuery();
   const or = clientSearchFilter(search);
   if (or) query = query.or(or);
-  if (filter === 'vip') query = query.contains('tags', [VIP_TAG]);
   if (filter === 'recent') {
     const since = new Date(Date.now() - RECENT_DAYS * 86_400_000);
     query = query
@@ -57,7 +91,9 @@ export function useClientList(filter: ClientFilter, search: string) {
     queryFn: ({ pageParam }) => fetchClientPage(filter, search, pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) =>
-      lastPage.length === CLIENT_PAGE_SIZE ? pages.length : undefined,
+      filter !== 'regulars' && lastPage.length === CLIENT_PAGE_SIZE
+        ? pages.length
+        : undefined,
   });
 }
 
@@ -88,7 +124,9 @@ export function useClientSearch(search: string) {
 async function fetchClient(id: string) {
   const res = await supabase
     .from('clients')
-    .select('id, name, phone_e164, email, tags, first_seen_at, is_blocked')
+    .select(
+      'id, name, phone_e164, email, tags, first_seen_at, is_blocked, whatsapp_opt_in',
+    )
     .eq('id', id)
     .maybeSingle();
   return unwrap<NonNullable<typeof res.data> | null>(res);
@@ -154,5 +192,20 @@ export function useAddClientNote(clientId: string) {
   return useApiMutation<CreateClientNoteRequest>({
     mutationFn: (body, key) => api.addClientNote(clientId, body, key),
     invalidate: [qk.clientNotes(clientId)],
+  });
+}
+
+export function useDeleteClientNote(clientId: string) {
+  return useApiMutation<string>({
+    mutationFn: (noteId, key) => api.deleteClientNote(clientId, noteId, key),
+    invalidate: [qk.clientNotes(clientId)],
+  });
+}
+
+/** Opt a client in or out of WhatsApp messages. */
+export function useUpdateClient(clientId: string) {
+  return useApiMutation<UpdateClientRequest>({
+    mutationFn: (body, key) => api.updateClient(clientId, body, key),
+    invalidate: [qk.client(clientId), qk.clients],
   });
 }

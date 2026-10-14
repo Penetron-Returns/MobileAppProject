@@ -1,93 +1,107 @@
 import { useRouter } from 'expo-router';
-import { AlertCircle, ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { PersonAvatar } from '@/components/PersonAvatar';
-import { Icon } from '@/components/ui/icon';
+import { Capsule } from '@/components/Capsule';
+import { InitialsDome } from '@/components/InitialsDome';
+import { Surface } from '@/components/Surface';
 import { Text } from '@/components/ui/text';
+import { useDepth } from '@/hooks/useDepth';
 import { formatPhone } from '@/lib/format';
 import { formatRelativeDate, formatTime, todayISO } from '@/lib/time';
-import { cn } from '@/lib/utils';
 
 import type { ClientListItem } from '../hooks';
-import { summariseVisits, VIP_TAG } from '../logic';
+import { isRegular, noShowCount, summariseVisits, VIP_TAG } from '../logic';
 
+const NO_SHOWS_WORTH_SHOWING = 2;
+
+/** One client in the list: dome avatar, name, last visit, quiet labels. */
 export function ClientRow({
   client,
   timezone,
-  isLast,
+  showSeparator,
+  now,
 }: {
   client: ClientListItem;
   timezone: string;
-  isLast: boolean;
+  showSeparator: boolean;
+  now: Date;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const depth = useDepth();
   const name = client.name ?? formatPhone(client.phone_e164);
   const { todayAt, lastVisitDate } = summariseVisits(
     client.appointments,
-    new Date(),
+    now,
     timezone,
   );
   const isVip = client.tags.includes(VIP_TAG);
+  const regular = isRegular(client.appointments, now);
+  const noShows = noShowCount(client.appointments);
+  const showNoShows = noShows >= NO_SHOWS_WORTH_SHOWING;
   const subtitle = todayAt
     ? t('clients.appointmentToday', {
-        time: formatTime(todayAt, timezone, true),
+        time: formatTime(todayAt, timezone),
       })
     : lastVisitDate
       ? t('clients.lastVisit', {
-          when: formatRelativeDate(lastVisitDate, todayISO(timezone)),
+          when: formatRelativeDate(lastVisitDate, todayISO(timezone, now)),
         })
       : t('clients.noVisits');
+  const spoken = [
+    name,
+    subtitle,
+    isVip ? t('clients.vip') : null,
+    regular ? t('clients.regular') : null,
+    showNoShows ? t('clients.noShows', { count: noShows }) : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Pressable
       onPress={() => router.push(`/clients/${client.id}` as never)}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${subtitle}`}
-      className={cn(
-        'relative flex-row items-center p-4 active:bg-muted/50',
-        !isLast && 'border-border border-b',
-      )}
+      accessibilityLabel={spoken}
+      className="min-h-[60px] flex-row items-center gap-3 px-4 py-1.5 active:bg-muted"
     >
-      {todayAt ? (
-        <View className="bg-primary absolute bottom-0 left-0 top-0 w-1" />
+      {showSeparator ? (
+        <Surface
+          variant="engrave"
+          className="absolute left-[72px] right-0 top-0 h-0.5"
+        />
       ) : null}
-      <View className={cn(todayAt && 'pl-1.5')}>
-        <PersonAvatar name={name} />
+      <InitialsDome name={name} />
+      <View className="min-w-0 flex-1">
+        <Text numberOfLines={1} className="text-title">
+          {name}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={todayAt ? { color: depth.colors.tint } : undefined}
+          className="text-subtitle text-muted-foreground"
+        >
+          {subtitle}
+        </Text>
       </View>
-      <View className="ml-3.5 flex-1">
-        <View className="flex-row items-center gap-2">
-          <Text
-            numberOfLines={1}
-            className="text-foreground shrink text-base font-semibold"
-          >
-            {name}
-          </Text>
-          {isVip ? (
-            <View className="bg-primary/10 rounded-full px-2 py-0.5">
-              <Text className="text-primary text-[10px] font-bold uppercase">
-                {t('clients.vip')}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-        {todayAt ? (
-          <View className="mt-0.5 flex-row items-center gap-1.5">
-            <Icon as={AlertCircle} size={14} className="text-status-pending" />
-            <Text className="text-status-pending text-xs font-semibold">
-              {subtitle}
-            </Text>
-          </View>
-        ) : (
-          <Text className="text-muted-foreground mt-0.5 text-xs">
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      <Icon as={ChevronRight} size={20} className="text-muted-foreground/60" />
+      {showNoShows ? (
+        <Text
+          style={{ color: depth.colors.amber }}
+          className="text-meta font-semibold"
+        >
+          {t('clients.noShows', { count: noShows })}
+        </Text>
+      ) : null}
+      {isVip ? <Capsule label={t('clients.vip')} /> : null}
+      {regular ? <Capsule label={t('clients.regular')} /> : null}
+      <ChevronRight
+        size={16}
+        strokeWidth={2.8}
+        color={depth.colors.secondary}
+      />
     </Pressable>
   );
 }
