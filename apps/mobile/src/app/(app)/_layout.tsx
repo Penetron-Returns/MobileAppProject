@@ -33,12 +33,12 @@ export default function AppLayout() {
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
   const shouldActivateFirst = Boolean(
     authLoaded &&
-    isSignedIn &&
-    orgLoaded &&
-    listLoaded &&
-    !organization &&
-    memberships &&
-    memberships.length > 0,
+      isSignedIn &&
+      orgLoaded &&
+      listLoaded &&
+      !organization &&
+      memberships &&
+      memberships.length > 0,
   );
 
   React.useEffect(() => {
@@ -103,14 +103,42 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings/staff"
+        name="settings/staff-management"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
-        name="settings/staff-management"
+        name="inbox/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/booking-rules"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/whatsapp"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/whatsapp-detail"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/notifications"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },
