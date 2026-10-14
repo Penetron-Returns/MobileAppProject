@@ -77,12 +77,15 @@ export type EngineInput =
       /** Attempt id from the token (booking flows) */
       attemptId: string | null;
       appointmentId: string | null;
-      /**
-       * Booking Flow `complete` payload (SUMMARY): the engine books it. Absent
-       * for a reschedule Flow, which is already written when it completes.
-       */
+      /** Booking Flow `complete` payload (SUMMARY): the engine books it. */
       booking?: { serviceId: string; startsAt: string } | null;
-      /** The verified flow token, used in the booking idempotency key */
+      /**
+       * Reschedule Flow `complete` payload (SUMMARY): the engine moves the
+       * token's appointment. Absent for a legacy reschedule_v1 completion,
+       * which is already written when it completes.
+       */
+      reschedule?: { startsAt: string } | null;
+      /** The verified flow token */
       flowToken?: string | null;
     }
   | { kind: 'booking_result'; op: BookingOp; ok: true; appointment: AppointmentDTO }
