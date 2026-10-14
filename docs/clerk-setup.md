@@ -1,8 +1,9 @@
 # Clerk setup (WS-D)
 
 Dashboard checklist for the Clerk instance this app and `apps/backend/` share. There are no custom auth
-forms anywhere in the app — every screen uses Clerk's prebuilt UI (`@clerk/expo/native` on iOS/Android,
-`@clerk/expo/web` on web). This file is the "do this in the Clerk Dashboard" companion to that code;
+password forms: sign-in and sign-up are our own screens (`apps/mobile/src/features/auth/`) on Clerk's headless hooks
+(`useSignIn`, `useSignUp`, `useSSO` from `@clerk/expo`); the prebuilt `AuthView` is no longer used. Clerk still does
+all security (codes, rate limits, bot protection). Account UI uses `UserButton`/`UserProfileView`; web keeps Clerk's `<SignIn />`. This file is the "do this in the Clerk Dashboard" companion to that code;
 the code itself is `apps/mobile/src/app/(auth)/`, `apps/mobile/src/app/(app)/_layout.tsx`, `apps/mobile/src/lib/clerk-token-cache.ts` and
 `apps/mobile/src/lib/auth-token.ts`.
 
@@ -24,9 +25,10 @@ Dashboard → **Organizations** → enable Organizations.
 
 ## 2. Sign-up mode
 
-Dashboard → **User & authentication**. Sign-up is `public` on the dev instance, and the app's `AuthView`
-is rendered with `mode="signInOrUp"` (web `<SignIn />` links to sign-up), so users can create their own
-account. Staff can still be invited from inside a Clerk organisation. Review the sign-up mode before
+Dashboard → **User & authentication**. Sign-up is `public` on the dev instance, and the app's email screen
+tries sign-in and falls back to sign-up when Clerk reports `form_identifier_not_found`, so users can create their own
+account. **The email-code flow requires Password to be optional** (Dashboard → User & authentication → Email, phone, username → Password: turn
+off, or at least not required); a required password leaves every new sign-up stuck in `missing_requirements`. Staff can still be invited from inside a Clerk organisation. Review the sign-up mode before
 production.
 
 ## 3. Session token (v2)
@@ -70,7 +72,7 @@ public key** — so `apps/backend/` can verify session tokens networklessly (`@c
 `verifyToken`). `CLERK_SECRET_KEY` and `CLERK_AUTHORIZED_PARTIES` (the app's native scheme(s) and web
 origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 
-## 7. Native applications (required for `AuthView` / `UserButton`)
+## 7. Native applications (required for native Clerk views and Google sign-in)
 
 Dashboard → **Native applications** (`https://dashboard.clerk.com/~/native-applications`) → enable the
 Native API, then register the app:
@@ -84,7 +86,7 @@ Native API, then register the app:
 The `@clerk/expo` config plugin (`apps/mobile/app.json` → `expo.plugins`) sets the iOS deployment target (17.0) and
 Android packaging/Kotlin options the native SDKs need; run `npx expo prebuild --clean` (or an EAS build)
 after any change to it, and see `docs/mobile-app.md` for why a **development build** is required —
-`AuthView`/`UserButton`/`UserProfileView` do not run in Expo Go.
+`UserButton`/`UserProfileView` do not run in Expo Go (the custom sign-in screens do).
 
 ## 8. Allowed web origins
 

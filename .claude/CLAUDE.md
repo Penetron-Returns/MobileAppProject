@@ -81,7 +81,7 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 | Mobile/web app | Expo SDK 57 (dev builds), React 19, React Native 0.86 (New Architecture), Expo Router, TypeScript | `apps/mobile/src/`. Exact versions in `package.json` |
 | UI | NativeWind + react-native-reusables (shadcn for RN), lucide icons | `apps/mobile/src/components/ui/`, tokens in `apps/mobile/global.css` |
 | App data | TanStack Query, Supabase JS (reads + Realtime), `apps/mobile/src/lib/api.ts` (writes) | |
-| Auth | Clerk (`@clerk/expo`), **prebuilt UI only**. Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
+| Auth | Clerk (`@clerk/expo`), custom sign-in UI on Clerk's headless hooks (`useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used). Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API |
 | API | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon | source in `apps/backend/`, entry in `supabase/functions/api/`, tests with Vitest + Deno smoke tests |
 | Database | Supabase Postgres + RLS, Realtime, Storage, pg_cron + pg_net | `supabase/` migrations, seed, SQL tests |
 | Channel | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates | `apps/backend/src/whatsapp/` |

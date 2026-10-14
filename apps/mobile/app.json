@@ -40,7 +40,8 @@
         {
           "appleSignIn": false
         }
-      ]
+      ],
+      "./plugins/with-dev-menu-no-fab.js"
     ],
     "experiments": {
       "typedRoutes": true
