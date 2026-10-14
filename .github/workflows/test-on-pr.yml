@@ -27,6 +27,9 @@ jobs:
       - run: npm run lint -w packages/ui
       - run: npm run typecheck -w apps/mobile
       - run: npm run typecheck -w packages/ui
+      # Boundary rules from docs/architecture.md and the @booking/* import map drift check
+      - run: npm run check:boundaries
+      - run: npm run check:imports
       - run: npm run test:no-watch -w apps/mobile -- --ci --coverage
       - run: npx expo export --platform web --output-dir /tmp/export-web
         working-directory: apps/mobile
