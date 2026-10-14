@@ -1,94 +1,94 @@
 {
-  "version": "7.1",
+  "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "DATE": ["SLOT"],
-    "SLOT": ["SUMMARY"],
+    "DATETIME": ["SUMMARY"],
     "SUMMARY": []
   },
   "screens": [
     {
-      "id": "DATE",
-      "title": "Pick a new date",
+      "id": "DATETIME",
+      "title": "Pick date & time",
+      "refresh_on_back": true,
       "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000002" },
-        "min_date": { "type": "string", "__example__": "2026-09-29" },
-        "max_date": { "type": "string", "__example__": "2026-11-27" },
-        "unavailable_dates": {
-          "type": "array",
-          "items": { "type": "string" },
-          "__example__": ["2026-10-04"]
-        }
-      },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
-          { "type": "TextSubheading", "text": "Which day suits you?" },
-          {
-            "type": "DatePicker",
-            "name": "date",
-            "label": "Date",
-            "required": true,
-            "min-date": "${data.min_date}",
-            "max-date": "${data.max_date}",
-            "unavailable-dates": "${data.unavailable_dates}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${form.date}"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "SLOT",
-      "title": "Pick a new time",
-      "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000002" },
-        "date": { "type": "string", "__example__": "2026-09-29" },
-        "date_label": { "type": "string", "__example__": "Tue 29 Sep" },
-        "slots": {
+        "selected_service_label": { "type": "string", "__example__": "Haircut" },
+        "min_date": { "type": "string", "__example__": "2026-01-15" },
+        "max_date": { "type": "string", "__example__": "2026-02-15" },
+        "show_times": { "type": "boolean", "__example__": false },
+        "no_times": { "type": "boolean", "__example__": false },
+        "selected_date_label": { "type": "string", "__example__": "Tuesday, 23 Jun 2026" },
+        "time": {
           "type": "array",
           "items": {
             "type": "object",
-            "properties": { "id": { "type": "string" }, "title": { "type": "string" } }
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
           },
-          "__example__": [{ "id": "slot:2026-09-29T07:00:00.000Z|00000000-0000-4000-8000-000000000002", "title": "09:00" }]
+          "__example__": [{ "id": "2026-06-23T07:00:00.000Z", "title": "09:00" }]
         }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextSubheading", "text": "${data.date_label}" },
           {
-            "type": "Dropdown",
-            "name": "slot",
-            "label": "Time",
-            "required": true,
-            "data-source": "${data.slots}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${data.date}",
-                "slot": "${form.slot}"
+            "type": "Form",
+            "name": "datetime_form",
+            "children": [
+              { "type": "TextCaption", "text": "Step 1 of 2" },
+              { "type": "TextSubheading", "text": "${data.selected_service_label}" },
+              {
+                "type": "CalendarPicker",
+                "name": "appointment_date",
+                "label": "New date",
+                "mode": "single",
+                "min-date": "${data.min_date}",
+                "max-date": "${data.max_date}",
+                "required": true,
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "date_selected",
+                    "date": "${form.appointment_date}"
+                  }
+                }
+              },
+              {
+                "type": "If",
+                "condition": "${data.show_times}",
+                "then": [
+                  { "type": "TextSubheading", "text": "${data.selected_date_label}" },
+                  {
+                    "type": "ChipsSelector",
+                    "name": "appointment_time",
+                    "label": "Available times",
+                    "description": "Pick a time that suits you",
+                    "data-source": "${data.time}",
+                    "max-selected-items": 1,
+                    "required": true
+                  }
+                ]
+              },
+              {
+                "type": "If",
+                "condition": "${data.no_times}",
+                "then": [
+                  { "type": "TextBody", "text": "No times available for that date. Please choose another." }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Review new time",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "trigger": "continue",
+                    "time": "${form.appointment_time}"
+                  }
+                }
               }
-            }
+            ]
           }
         ]
       }
@@ -99,29 +99,34 @@
       "terminal": true,
       "success": true,
       "data": {
-        "service_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000001" },
-        "staff_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000002" },
-        "date": { "type": "string", "__example__": "2026-09-29" },
-        "slot": { "type": "string", "__example__": "slot:2026-09-29T07:00:00.000Z|00000000-0000-4000-8000-000000000002" },
-        "summary": { "type": "string", "__example__": "Service: Haircut\nDate: Tue 29 Sep 2026\nTime: 09:00" }
+        "summary_text": { "type": "string", "__example__": "**Haircut**\n\nTuesday, 23 Jun 2026 at **09:00**\n\n_Now Monday, 22 Jun 2026 at 10:00_" },
+        "appointment_id": { "type": "string", "__example__": "00000000-0000-4000-8000-000000000002" },
+        "start_time_iso": { "type": "string", "__example__": "2026-06-23T07:00:00.000Z" },
+        "timezone": { "type": "string", "__example__": "Africa/Johannesburg" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
-          { "type": "TextSubheading", "text": "Please check your new time" },
-          { "type": "TextBody", "text": "${data.summary}" },
           {
-            "type": "Footer",
-            "label": "Confirm",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "service_id": "${data.service_id}",
-                "staff_id": "${data.staff_id}",
-                "date": "${data.date}",
-                "slot": "${data.slot}"
+            "type": "Form",
+            "name": "summary_form",
+            "children": [
+              { "type": "TextCaption", "text": "Step 2 of 2" },
+              { "type": "TextHeading", "text": "New time" },
+              { "type": "TextBody", "text": "${data.summary_text}", "markdown": true },
+              {
+                "type": "Footer",
+                "label": "Confirm new time",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "appointment_id": "${data.appointment_id}",
+                    "start_time_iso": "${data.start_time_iso}",
+                    "timezone": "${data.timezone}"
+                  }
+                }
               }
-            }
+            ]
           }
         ]
       }

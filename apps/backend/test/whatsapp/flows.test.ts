@@ -311,35 +311,79 @@ describe('flows: reschedule data exchange', () => {
     const ask = (req: FlowRequest) => handleFlowRequest(s.h.deps, { version: '3.0', flow_token: token, ...req });
     return { ...s, appt, token, ask };
   }
+  const N = '2026-09-30T07:00:00.000Z';
 
-  it('walks DATE → SLOT → SUMMARY → SUCCESS with the same staff member', async () => {
-    const { h, ask, appt } = await rescheduleSetup();
-    const date = dataOf(await ask({ action: 'INIT' }))!;
-    expect(date).toMatchObject({ screen: 'DATE', data: { service_id: SVC_CUT, staff_id: STAFF_SAM } });
-    const sel = { service_id: SVC_CUT, staff_id: STAFF_SAM, date: '2026-09-30' };
-    const slots = dataOf(await ask({ action: 'data_exchange', screen: 'DATE', data: sel }))!;
-    const slotId = slots.data.slots[0].id as string;
-    const summary = dataOf(await ask({ action: 'data_exchange', screen: 'SLOT', data: { ...sel, slot: slotId } }))!;
-    expect(summary.screen).toBe('SUMMARY');
-    const done = dataOf(await ask({ action: 'data_exchange', screen: 'SUMMARY', data: { ...sel, slot: slotId } }))!;
-    expect(done.data.extension_message_response.params).toMatchObject({ flow: 'reschedule', appointment_id: appt.id });
-    expect(h.world.appointments[0]!.starts_at).toBe('2026-09-30T07:00:00.000Z');
-    // Retried SUMMARY after success answers the same, without a second call.
-    await ask({ action: 'data_exchange', screen: 'SUMMARY', data: { ...sel, slot: slotId } });
-    expect(h.world.calls.filter((c) => c.method === 'rescheduleAppointment')).toHaveLength(1);
+  it('INIT opens DATETIME for the appointment service with the grid hidden', async () => {
+    const { ask } = await rescheduleSetup();
+    const r = dataOf(await ask({ action: 'INIT' }))!;
+    expect(r.screen).toBe('DATETIME');
+    expect(r.data).toEqual({
+      selected_service_label: 'Haircut',
+      min_date: '2026-09-28',
+      max_date: '2026-11-27',
+      show_times: false,
+      no_times: false,
+      selected_date_label: '',
+      time: [],
+    });
   });
 
-  it('reports the cancellation window instead of moving', async () => {
-    const { ask } = await rescheduleSetup('2026-09-28T20:00:00.000Z');
-    const r = dataOf(
-      await ask({ action: 'data_exchange', screen: 'SUMMARY', data: { service_id: SVC_CUT, staff_id: STAFF_SAM, date: '2026-09-30', slot: `slot:2026-09-30T07:00:00.000Z|${STAFF_SAM}` } }),
-    )!;
-    expect(r.data.error_message).toBe(FLOW_COPY.window);
-  });
-
-  it('closes the flow (427) for a cancelled appointment', async () => {
+  it('date_selected shows the chips for that day, from the appointment staff member', async () => {
     const { h, ask } = await rescheduleSetup();
-    h.world.appointments[0]!.status = 'cancelled';
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'date_selected', date: '2026-09-30' } }))!;
+    expect(r.data).toMatchObject({ show_times: true, no_times: false, selected_date_label: 'Wednesday, 30 Sep 2026' });
+    expect(r.data.time[0]).toEqual({ id: N, title: '09:00' });
+    const query = h.world.calls.find((c) => c.method === 'listAvailableSlots')!.args as { staffId: string; serviceId: string };
+    expect(query).toMatchObject({ staffId: STAFF_SAM, serviceId: SVC_CUT });
+  });
+
+  it('date_selected for a day with no slots shows the no-times banner', async () => {
+    const { ask } = await rescheduleSetup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'date_selected', date: '2026-10-02' } }))!;
+    expect(r.data).toMatchObject({ show_times: false, no_times: true, time: [] });
+  });
+
+  it.each([
+    ['an array (ChipsSelector)', [N]],
+    ['a plain string', N],
+  ])('continue builds the markdown SUMMARY from %s without moving anything', async (_l, time) => {
+    const { h, ask, appt } = await rescheduleSetup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'continue', time } }))!;
+    expect(r.screen).toBe('SUMMARY');
+    expect(r.data).toEqual({
+      summary_text: '**Haircut**\n\nWednesday, 30 Sep 2026 at **09:00**\n\n_Now Monday, 5 Oct 2026 at 09:00_',
+      appointment_id: appt.id,
+      start_time_iso: N,
+      timezone: 'Africa/Johannesburg',
+    });
+    expect(h.world.calls.filter((c) => c.method === 'rescheduleAppointment')).toEqual([]);
+    expect(h.world.appointments[0]!.starts_at).toBe('2026-10-05T07:00:00.000Z');
+  });
+
+  it.each([
+    ['a taken time', { trigger: 'continue', time: ['2026-09-30T06:00:00.000Z'] }, true],
+    ['no time chosen', { trigger: 'continue' }, false],
+    ['a malformed time', { trigger: 'continue', time: ['soon'] }, false],
+  ])('continue with %s stays on DATETIME', async (_l, data, hasNotice) => {
+    const { ask } = await rescheduleSetup();
+    const r = dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data }))!;
+    expect(r.screen).toBe('DATETIME');
+    if (hasNotice) expect(r.data.selected_date_label).toBe(FLOW_COPY.timeTaken);
+  });
+
+  it('BACK and unknown triggers re-render DATETIME fresh', async () => {
+    const { ask } = await rescheduleSetup();
+    expect(dataOf(await ask({ action: 'BACK', screen: 'SUMMARY' }))!.screen).toBe('DATETIME');
+    expect(dataOf(await ask({ action: 'data_exchange', screen: 'DATETIME', data: { trigger: 'nope' } }))!.screen).toBe('DATETIME');
+  });
+
+  it.each([
+    ['a cancelled appointment', (a: ReturnType<typeof appointment>) => void (a.status = 'cancelled')],
+    ['a past appointment', (a: ReturnType<typeof appointment>) => void (a.starts_at = '2026-09-27T07:00:00.000Z')],
+    ['another customer', (a: ReturnType<typeof appointment>) => void (a.client_id = '00000000-0000-4000-8000-0000000000ff')],
+  ])('closes the flow (427) for %s', async (_l, mutate) => {
+    const { h, ask } = await rescheduleSetup();
+    mutate(h.world.appointments[0]!);
     expect((await ask({ action: 'INIT' })).status).toBe(427);
   });
 });
