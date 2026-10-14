@@ -46,7 +46,7 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 | `accounts_get` | yes | same | `displayName` = name, `timeZone`, `currency`, one location, `openingHours` (weekly `HH:mm` ranges from `business_hours`; business-wide `availability_overrides` for the next 180 days as exceptions; a closing time of `24:00` is sent as `23:59`) |
 | `services_list` | yes | `BookingService.listServices({ activeOnly })` | `price` = `{ amountCents, currency }`, optional `category` and `description` |
 | `staff_list` | yes | `BookingRepository.listStaff` / `listStaffServices` | Active staff that accept bookings, with the active services each performs |
-| `availability_search` | yes | `BookingService.listAvailableSlots` per business day in the window | One entry per (slot, free staff member), inside `[start, end)`, window at most 31 days; unknown service or staff is `not_found` |
+| `availability_search` | yes | `BookingService.listAvailableSlots` per business day in the window | One entry per (slot, free staff member), inside `[start, end)`, window at most 31 days, days are computed 4 at a time; unknown service or staff is `not_found` |
 | `appointments_get` | yes | `BookingService.getAppointment` | Reflects writes immediately; status `confirmed/cancelled/completed/no_show` becomes `Scheduled/Cancelled/Completed/NoShow` |
 | `appointments_list` | yes | `BookingService.listAppointments` (new) + lookups for names | Window at most 31 days, filters `staffId`, `clientId`, `clientPhone` (normalised to E.164), `status`; keyset cursor on `(starts_at, id)`; includes `serviceName`, `staffName`, `clientName`, `clientPhone` |
 | `appointments_create` | no | `BookingService.createAppointment` | See below |
@@ -59,7 +59,10 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 - **Client:** `client.externalClientId` (must exist in the account) or `client.phone` (E.164 or a local number; created or reused through `upsertClient`). A phone is required because clients are keyed by phone. A client without either is `invalid_request`.
 - **Audit:** the booking has `source = nerova`; `appointment_events` get `actor = nerova` and `actor_id = nerova` or `nerova:<conversationId>`. The audit migration is `20261015000001_nerova_actor_source.sql`.
 - **No customer messages from us:** `notifyCustomer: false`. Pip talks to the customer itself, and paid plans do not include our WhatsApp menu. Owners still get the push notification for Pip's changes (same as customer-made ones).
-- **Cancellation window:** when `origin.channel` is present (a customer conversation) reschedule and cancel are held to `cancellation_window_minutes`; calls without it (the owner directing Pip) are not.
+- **Cancellation window:** reschedule and cancel are held to `cancellation_window_minutes` **by default**. Only an `origin.channel` of `owner` or `owner_chat` (the owner directing Pip) skips it. This is an assumption about Nerova's origin values: a missing or unrecognised origin is treated as a customer, so a bug or an old client can never bypass the owner's rule. Tell us if Nerova uses another owner channel name.
+- **Instants:** every `startTime`, `newStartTime`, `start`, `end`, `from` and `to` must carry an explicit offset (`Z` or `+hh:mm`); a local time without one is `invalid_request`.
+- **Existing clients:** `appointments_create` with a phone only fills blank name and email of an existing client; it never overwrites what the owner stored.
+- **Same-key races:** a create that loses the slot to a concurrent call with the same `idempotencyKey` returns that booking instead of `conflict`.
 - **Notes:** `notes` and `reason` are merged into the appointment notes (`Reason: ...`). `subject`, `intakeResponses` and `externalLocationId` are accepted and ignored (single location, no subjects or intake forms yet).
 
 ### Errors
@@ -95,9 +98,9 @@ OAuth (`authMethod: oauth`) is not implemented; bearer is the documented default
 
 Nerova can be told when an account changed instead of waiting for its daily reconcile. `nerova/events.ts` signs `{ id: "evt_...", type, createdAt, data: { id } }` with Standard Webhooks (`webhook-id`, `webhook-timestamp` in Unix seconds, `webhook-signature: v1,<base64 HMAC-SHA256 of "<id>.<timestamp>.<body>">`, key = base64-decoded part after `whsec_`) and POSTs it to `events.url`.
 
-- Sent as `account.updated` after `PATCH /v1/business` and `PUT /v1/business/hours` succeed. `account.created` and `account.removed` are available on `AccountEventsPort` for the plan-change webhook (task 6.4) to call when a business gains or loses `companion`.
+- **Only `account.updated` is emitted today**, after `PATCH /v1/business` and `PUT /v1/business/hours` succeed. `account.created` and `account.removed` exist on `AccountEventsPort` but nothing calls them yet: there is no plan-change route (a new business starts on Free, so it is never entitled at onboarding), and the plan-change webhook (task 6.4) will call them when a business gains or loses `companion`. Until then Nerova learns about those changes from its daily reconcile.
 - `created` and `updated` are only sent for businesses entitled to `companion` (a Free business is never announced); `removed` is always sent.
-- Best effort, one attempt, 5 s timeout, never throws or fails the owner's request. Nerova reconciles daily.
+- Best effort, one attempt, 5 s timeout. Delivery runs in the background (`EdgeRuntime.waitUntil` on Supabase, a caught promise elsewhere), so a slow or failing Nerova never delays or fails the owner's request. Nerova reconciles daily.
 - **Disabled unless** `NEROVA_EVENTS_ENABLED=true` and `NEROVA_EVENTS_URL` (https, or loopback for tests) and `NEROVA_EVENTS_SIGNING_SECRET` (`whsec_...`) are set. Nothing is sent to Production by default.
 
 Appointment changes made in our app are not events: Nerova reads appointments live through `appointments_list` and `appointments_get`.

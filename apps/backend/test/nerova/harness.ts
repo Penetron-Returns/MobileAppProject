@@ -4,7 +4,7 @@ import { createBookingServiceFromRepository } from '../../src/booking/service.ts
 import { sha256Hex } from '../../src/lib/crypto.ts';
 import { notFound } from '../../src/lib/errors.ts';
 import type { Env } from '../../src/env.ts';
-import type { AccountEventsPort, AppointmentChangedEvent, EntitlementService } from '../../src/ports.ts';
+import type { AccountEventsPort, AppointmentChangedEvent, BookingService, EntitlementService } from '../../src/ports.ts';
 import type { FeatureKey, PlanKey } from '../../../../packages/shared/api.ts';
 import { silentLogger } from '../booking/harness.ts';
 import { NOW, seed, type Seed } from '../booking/fixtures.ts';
@@ -56,7 +56,7 @@ export interface NerovaHarness extends Seed {
   ok(name: string, args: Record<string, unknown>): Promise<any>;
 }
 
-export function nerovaHarness(opts: { env?: Partial<Env> } = {}): NerovaHarness {
+export function nerovaHarness(opts: { env?: Partial<Env>; wrapBooking?: (booking: BookingService) => BookingService } = {}): NerovaHarness {
   const s = seed();
   const free = { ...s.business, id: s.repo.nextId(), clerk_org_id: 'org_free', slug: 'free-salon', name: 'Free Salon' };
   s.repo.tables.businesses.push(free);
@@ -67,12 +67,13 @@ export function nerovaHarness(opts: { env?: Partial<Env> } = {}): NerovaHarness 
 
   const changes: AppointmentChangedEvent[] = [];
   const accountEvents: { businessId: string; type: string }[] = [];
-  const booking = createBookingServiceFromRepository({
+  const realBooking = createBookingServiceFromRepository({
     repository: s.repo,
     notifications: { appointmentChanged: async (e) => void changes.push(e) },
     logger: silentLogger,
     clock: () => NOW,
   });
+  const booking = opts.wrapBooking ? opts.wrapBooking(realBooking) : realBooking;
   const nerovaEvents: AccountEventsPort = { accountChanged: async (businessId, type) => void accountEvents.push({ businessId, type }) };
   const container: BookingContainer = {
     ...testContainer({

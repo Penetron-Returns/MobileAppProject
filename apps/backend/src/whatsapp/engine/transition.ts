@@ -310,7 +310,7 @@ function onFlowBooking(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow
         serviceId: booking.serviceId,
         staffId: null,
         startsAt: booking.startsAt,
-        idempotencyKey: `wa-flow:${flowToken}:${booking.startsAt}`,
+        idempotencyKey: `wa-flow:${attemptId}:${booking.startsAt}`,
       },
     ],
   };

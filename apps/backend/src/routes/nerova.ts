@@ -5,6 +5,8 @@
  * /v1 on purpose: no Clerk, no CORS (server-to-server), and idempotency is the
  * tool's own `idempotencyKey` rather than a header.
  */
+import { Buffer } from 'node:buffer';
+
 import { Hono } from 'hono';
 
 import { getBookingRepository } from '../booking/index.ts';
@@ -27,6 +29,27 @@ const rpcFailure = (status: number, code: number, message: string) =>
     headers: { 'content-type': 'application/json' },
   });
 
+/** Reads the body as UTF-8 but stops as soon as it exceeds `limit` bytes; null means too large. */
+async function readTextCapped(request: Request, limit: number): Promise<string | null> {
+  const declared = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > limit) return null;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 export const nerovaRoutes = new Hono<AppEnv>();
 
 nerovaRoutes.all('/mcp', async (c) => {
@@ -47,8 +70,8 @@ nerovaRoutes.all('/mcp', async (c) => {
     return res;
   }
 
-  const text = await c.req.text();
-  if (text.length > MAX_BODY_BYTES) return problem(413, 'Payload Too Large', 'invalid_request', 'Request body is too large.');
+  const text = await readTextCapped(c.req.raw, MAX_BODY_BYTES);
+  if (text === null) return problem(413, 'Payload Too Large', 'invalid_request', 'Request body is too large.');
   let message: unknown;
   try {
     message = JSON.parse(text);
