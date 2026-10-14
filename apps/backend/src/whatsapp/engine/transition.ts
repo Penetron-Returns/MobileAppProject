@@ -272,6 +272,7 @@ function onAppointment(id: Extract<ReplyId, { t: 'appt' }>, snap: Snapshot, ctx:
 
 function onFlowCompleted(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow_completed' }>, ctx: EngineCtx): Out | null {
   if (input.valid && input.flow === 'booking' && input.booking && input.flowToken) return onFlowBooking(snap, input, ctx);
+  if (input.valid && input.flow === 'reschedule' && input.reschedule && input.appointmentId && input.flowToken) return onFlowReschedule(snap, input, ctx);
   if (!input.valid || !input.appointmentId) return null;
   const appt = need(ctx, { kind: 'appointment', id: input.appointmentId });
   if (!appt || appt.client_id !== ctx.clientId) return null;
@@ -312,6 +313,30 @@ function onFlowBooking(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow
         idempotencyKey: `wa-flow:${flowToken}:${booking.startsAt}`,
       },
     ],
+  };
+}
+
+/**
+ * The reschedule Flow's SUMMARY `complete`: move the token's appointment
+ * through the port, re-validated live (availability, lead time, cancellation
+ * window). Only the open Flow can move it, and a target equal to the current
+ * start is a retry of a move that already happened, so it only re-confirms.
+ */
+function onFlowReschedule(snap: Snapshot, input: Extract<EngineInput, { kind: 'flow_completed' }>, ctx: EngineCtx): Out {
+  const { reschedule, appointmentId } = input;
+  if (!reschedule || !appointmentId) return unchanged(snap);
+  if (snap.state !== 'flow_reschedule' || snap.context.appointmentId !== appointmentId) {
+    return { state: snap.state, context: snap.context, actions: [send(text(COPY.flowReschedStale))], invalid: snap.invalidInputCount };
+  }
+  const appt = need(ctx, { kind: 'appointment', id: appointmentId });
+  if (appt && appt.client_id === ctx.clientId && appt.status === 'confirmed' && Date.parse(appt.starts_at) === Date.parse(reschedule.startsAt)) {
+    return { state: 'idle', context: {}, actions: [confirmationAction('rescheduled', appt, ctx)] };
+  }
+  if (!isManageable(appt, ctx)) return showMenu(ctx, COPY.apptUnavailable);
+  return {
+    state: 'flow_reschedule',
+    context: { ...snap.context, busySince: ctx.now.toISOString() },
+    actions: [{ type: 'reschedule_booking', appointmentId: appt.id, startsAt: reschedule.startsAt, staffId: appt.staff_id }],
   };
 }
 
@@ -370,6 +395,10 @@ function onBookingResult(snap: Snapshot, input: Extract<EngineInput, { kind: 'bo
     return enterSlots(input.op === 'create' ? 'book' : 'resched', { ...c, startsAt: undefined, slotStaffId: undefined, page: 0 }, ctx, COPY.slotTaken);
   }
   if (input.code === 'CANCELLATION_WINDOW' && input.op !== 'create') return escalateWindow(ctx);
+  if (input.code === 'SLOT_UNAVAILABLE' && input.op === 'reschedule' && snap.state === 'flow_reschedule') {
+    // The Flow's time vanished between its SUMMARY and the move: keep the booking, reopen the Flow.
+    return enter('flow_reschedule', c, ctx, COPY.slotTakenReschedFlow);
+  }
   if (input.code === 'SLOT_UNAVAILABLE' && input.op === 'create' && snap.state === 'flow_booking') {
     // The Flow's time vanished between its SUMMARY and the booking: close the attempt, offer a fresh start.
     const menu = showMenu(ctx, COPY.slotTakenFlow);

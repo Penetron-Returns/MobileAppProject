@@ -138,7 +138,9 @@ function normaliseInput(deps: WaDeps, raw: RawInput, conversationId: string): En
   const check = secret ? verifyFlowToken(secret, response.flow_token, deps.now(), { allowExpired: true }) : null;
   const claims = check?.ok ? check.claims : null;
   const valid = !!claims && claims.conversationId === conversationId;
-  const appointmentId = typeof response.appointment_id === 'string' ? response.appointment_id : null;
+  // A reschedule Flow is bound to its appointment by the signed token, never by the payload.
+  const payloadAppointment = typeof response.appointment_id === 'string' ? response.appointment_id : null;
+  const appointmentId = claims?.kind === 'reschedule' ? claims.appointmentId : payloadAppointment;
   return {
     kind: 'flow_completed',
     valid,
@@ -146,6 +148,7 @@ function normaliseInput(deps: WaDeps, raw: RawInput, conversationId: string): En
     attemptId: claims?.attemptId ?? null,
     appointmentId,
     booking: bookingPayload(response),
+    reschedule: reschedulePayload(response),
     flowToken: valid && typeof response.flow_token === 'string' ? response.flow_token : null,
   };
 }
@@ -155,6 +158,12 @@ function bookingPayload(response: Record<string, unknown>): { serviceId: string;
   const { service_slug: serviceId, start_time_iso: startsAt } = response;
   if (typeof serviceId !== 'string' || !isUuid(serviceId) || typeof startsAt !== 'string' || !isInstant(startsAt)) return null;
   return { serviceId: serviceId.toLowerCase(), startsAt: new Date(startsAt).toISOString() };
+}
+
+/** The reschedule Flow's `complete` payload (`start_time_iso`). Anything malformed is dropped. */
+function reschedulePayload(response: Record<string, unknown>): { startsAt: string } | null {
+  const startsAt = response.start_time_iso;
+  return typeof startsAt === 'string' && isInstant(startsAt) ? { startsAt: new Date(startsAt).toISOString() } : null;
 }
 
 const CAS_ATTEMPTS = 3;

@@ -600,6 +600,110 @@ describe('transition: flows, blocked clients', () => {
     expect(bodyOf(sends(t)[0])).toContain(COPY.slotTakenFlow);
   });
 
+  describe('reschedule Flow completion', () => {
+    const NEW_START = '2026-09-30T07:00:00.000Z';
+    const reschedWorld = (over: Partial<ReturnType<typeof appointment>> = {}) => {
+      const world = makeWorld();
+      world.appointments.push(appointment({ id: APPT, client_id: CLIENT, starts_at: '2026-10-05T07:00:00.000Z', ...over }));
+      return world;
+    };
+    const resched = (over: Partial<Extract<EngineInput, { kind: 'flow_completed' }>> = {}): EngineInput => ({
+      kind: 'flow_completed',
+      valid: true,
+      flow: 'reschedule',
+      attemptId: null,
+      appointmentId: APPT,
+      reschedule: { startsAt: NEW_START },
+      flowToken: 'v1.token',
+      ...over,
+    });
+    const open = { state: 'flow_reschedule' as const, context: { appointmentId: APPT } };
+
+    it('moves the appointment through the port, keeping its staff member', () => {
+      const t = run(reschedWorld(), open, resched());
+      expect(t.state).toBe('flow_reschedule');
+      expect(t.context.busySince).toBe(NOW.toISOString());
+      expect(only(t, 'reschedule_booking')).toEqual([{ type: 'reschedule_booking', appointmentId: APPT, startsAt: NEW_START, staffId: STAFF_SAM }]);
+    });
+
+    it('only re-confirms when the appointment is already at the chosen time (a retry)', () => {
+      const t = run(reschedWorld({ starts_at: NEW_START }), open, resched());
+      expect(t.state).toBe('idle');
+      expect(only(t, 'reschedule_booking')).toEqual([]);
+      expect(only(t, 'send')[0]!.dedupeKey).toBe(`confirm:${APPT}:rescheduled:${NEW_START}`);
+    });
+
+    it.each([
+      ['a conversation that moved on', { state: 'menu' as const, context: {} }],
+      ['an escalated conversation', { state: 'escalated' as const, context: { ackSent: true } }],
+      ['another appointment', { state: 'flow_reschedule' as const, context: { appointmentId: uuidN(9) } }],
+      ['an open booking Flow', { state: 'flow_booking' as const, context: { attemptId: ATTEMPT } }],
+    ])('does not move anything for a stale completion into %s', (_l, snap) => {
+      const t = run(reschedWorld(), snap, resched());
+      expect(only(t, 'reschedule_booking')).toEqual([]);
+      expect(t.state).toBe(snap.state);
+      expect(bodyOf(sends(t)[0])).toBe(COPY.flowReschedStale);
+    });
+
+    it.each([
+      ['an invalid token', resched({ valid: false, flowToken: null })],
+      ['a missing payload', resched({ reschedule: null })],
+    ])('never moves anything for %s', (_l, input) => {
+      const t = run(reschedWorld(), open, input);
+      expect(only(t, 'reschedule_booking')).toEqual([]);
+    });
+
+    it.each([
+      ['cancelled', { status: 'cancelled' as const }],
+      ['already past', { starts_at: '2026-09-27T07:00:00.000Z' }],
+      ['another customer', { client_id: uuidN(5) }],
+    ])('shows the menu when the appointment is %s', (_l, over) => {
+      const t = run(reschedWorld(over), open, resched());
+      expect(t.state).toBe('menu');
+      expect(only(t, 'reschedule_booking')).toEqual([]);
+      expect(bodyOf(sends(t)[0])).toContain(COPY.apptUnavailable);
+    });
+
+    it('confirms and goes idle when the move succeeds', () => {
+      const moved = appointment({ id: APPT, client_id: CLIENT, starts_at: NEW_START });
+      const t = run(reschedWorld(), { ...open, context: { ...open.context, busySince: NOW.toISOString() } }, { kind: 'booking_result', op: 'reschedule', ok: true, appointment: moved });
+      expect(t.state).toBe('idle');
+      expect(only(t, 'send')[0]).toMatchObject({ dedupeKey: `confirm:${APPT}:rescheduled:${NEW_START}`, confirmation: { kind: 'rescheduled' } });
+    });
+
+    it('keeps the booking and reopens the Flow when the new time is taken', () => {
+      const t = run(reschedWorld(), { ...open, context: { ...open.context, busySince: NOW.toISOString() } }, {
+        kind: 'booking_result',
+        op: 'reschedule',
+        ok: false,
+        code: 'SLOT_UNAVAILABLE',
+      }, { flows: { booking: false, reschedule: true } });
+      expect(t.state).toBe('flow_reschedule');
+      expect(t.context).toEqual({ appointmentId: APPT });
+      expect(sends(t)[0]).toMatchObject({ kind: 'flow', flow: 'reschedule', subject: `rs-${APPT}` });
+      expect(bodyOf(sends(t)[0])).toContain(COPY.slotTakenReschedFlow);
+    });
+
+    it('escalates when the cancellation window closed before the move', () => {
+      const t = run(reschedWorld(), open, { kind: 'booking_result', op: 'reschedule', ok: false, code: 'CANCELLATION_WINDOW' });
+      expect(t.state).toBe('escalated');
+      expect(only(t, 'escalate')).toEqual([{ type: 'escalate', reason: 'cancellation_window' }]);
+    });
+
+    it('shows the menu with a fixed message on any other failure', () => {
+      const t = run(reschedWorld(), open, { kind: 'booking_result', op: 'reschedule', ok: false, code: 'ERROR', detail: 'INTERNAL' });
+      expect(t.state).toBe('menu');
+      expect(bodyOf(sends(t)[0])).toContain(COPY.bookingFailed);
+    });
+
+    it('still confirms a legacy reschedule_v1 completion (no payload, already written)', () => {
+      const t = run(reschedWorld({ starts_at: NEW_START }), open, resched({ reschedule: null, flowToken: null }));
+      expect(t.state).toBe('idle');
+      expect(only(t, 'reschedule_booking')).toEqual([]);
+      expect(only(t, 'send')).toHaveLength(1);
+    });
+  });
+
   it('sends blocked clients one fixed notice per 24h and nothing else', () => {
     const t = run(makeWorld(), { state: 'idle' }, btn('menu:book'), { clientBlocked: true });
     expect(sends(t).map(bodyOf)).toEqual([COPY.blocked]);

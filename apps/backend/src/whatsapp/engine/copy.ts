@@ -15,6 +15,8 @@ export const COPY = {
   slotTakenFlow: 'Sorry, that time was just taken. Tap Book to choose another time.',
   flowReschedBody: 'Tap below to pick a new date and time.',
   flowReschedCta: 'Pick a new time',
+  flowReschedStale: 'That reschedule session has ended, so nothing was changed. Tap My bookings to start again.',
+  slotTakenReschedFlow: 'Sorry, that time was just taken. Your booking has not changed.',
 
   chooseService: 'Which service would you like to book?',
   chooseServiceButton: 'Choose service',

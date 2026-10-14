@@ -126,12 +126,17 @@ async function findService(s: Session, id: string | null | undefined): Promise<S
 }
 
 /** Live bookable start times on a date (any staff member), inside the booking window only. */
-async function timesFor(s: Session, svc: ServiceDTO, date: string): Promise<{ id: string; title: string }[]> {
+export async function timesFor(
+  s: Session,
+  svc: Pick<ServiceDTO, 'id'>,
+  date: string,
+  staffId: string | null = null,
+): Promise<{ id: string; title: string }[]> {
   if (!isCalendarDate(date)) return [];
   const tz = s.business.timezone;
   const min = todayIn(tz, s.now);
   if (date < min || date > addDays(min, s.business.booking_rules.booking_horizon_days, tz)) return [];
-  const { slots } = await s.deps.booking.listAvailableSlots({ businessId: s.business.id, serviceId: svc.id, staffId: null, date, now: s.now });
+  const { slots } = await s.deps.booking.listAvailableSlots({ businessId: s.business.id, serviceId: svc.id, staffId, date, now: s.now });
   const seen = new Set<string>();
   const chips: { id: string; title: string }[] = [];
   for (const slot of slots) {
