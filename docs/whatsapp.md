@@ -15,7 +15,7 @@ apps/backend/src/whatsapp/
   outbound.ts         the one send path: store → send → stamp; escalate()
   engine/             types, copy, render, transition (pure), run, executor, index (pipeline)
   webhook/            events.ts (zod → typed events + dedupe keys), process.ts
-  flows/              crypto.ts, token.ts, handler.ts (dispatch, reschedule), bookingFlow.ts, session.ts
+  flows/              crypto.ts, token.ts, handler.ts (dispatch), bookingFlow.ts, rescheduleFlow.ts, session.ts
   onboarding.ts       connect / Embedded Signup / sync / pause / resume / disconnect / test
   inbox.ts            staff reply, release, resolve escalation
   jobs.ts             reminders, conversation-expiry, waba-health, token-refresh
@@ -96,7 +96,7 @@ Every step is idempotent, so `POST /v1/whatsapp/sync` resumes after a failure.
 | `phone` | `GET /{phone-number-id}` (display number, name, quality, limit, status) | yes |
 | `register` | `POST /{phone-number-id}/register` with the PIN, only when the status is not `CONNECTED` | yes |
 | `flow_key` | `POST /{phone-number-id}/whatsapp_business_encryption` | no |
-| `flows` | `GET /{waba}/flows`, then create-and-publish `booking_v2` / `reschedule_v1` with `endpoint_uri`. A draft is updated and published, and a published one is reused | no |
+| `flows` | `GET /{waba}/flows`, then create-and-publish `booking_v2` / `reschedule_v2` with `endpoint_uri`. A draft is updated and published, and a published one is reused | no |
 | `templates` | `GET /{waba}/message_templates`, then create the four utility templates that are missing and upsert `message_templates` | no |
 
 - **Required steps:** a failure stores `last_error = "<step>: <kind> (<code>): <message>"`, sets `needs_reauth` for error 190, and answers `502 UPSTREAM_META_ERROR` with `details.step`.
@@ -154,7 +154,7 @@ stateDiagram-v2
     reschedule_select_date --> reschedule_select_slot: day
     reschedule_select_slot --> reschedule_confirm: slot
     reschedule_confirm --> idle: cfm:yes → moved
-    flow_reschedule --> idle: nfm_reply (moved)
+    flow_reschedule --> idle: nfm_reply → reschedule_booking (moved)
     cancel_confirm --> idle: cfm:yes → cancelled
     menu --> escalated: 3rd invalid input
     escalated --> menu: staff release
@@ -208,7 +208,7 @@ For each inbound message (`engine/index.ts`):
 - **Idempotency keys** for `BookingService`:
   - `wa:<wamid>` for list-path creates.
   - `wa-flow:<flow token>:<start instant>` for Flow bookings (created by the engine on the nfm_reply).
-  - Reschedule and cancel are idempotent by state.
+  - Reschedule (including the reschedule Flow's nfm_reply) and cancel have no key and are idempotent by state: moving to the current start, or cancelling a cancelled booking, changes nothing.
 - **Outbound messages** are all stored in `messages` (`queued` → `sent` with the wamid, or `failed` with `{kind, code}`).
   - Booking confirmations carry a dedupe key (`confirm:<id>:created`, `confirm:<id>:rescheduled:<starts_at>`, `confirm:<id>:cancelled`). The engine, the Flow completion and `NotificationService` therefore never confirm the same change twice.
   - A confirmation that goes out also writes a `confirmation_sent` appointment event.
@@ -240,7 +240,7 @@ For each inbound message (`engine/index.ts`):
   - `INIT` / `BACK` → first screen.
   - `data_exchange` → the next screen.
 - **Flow token:** `v1.<conversationId>.<subject>.<expiry>.<hmac>`.
-  - `subject` is the booking attempt id, or `rs-<appointmentId>` for a reschedule Flow.
+  - `subject` is the booking attempt id, or `rs-<appointmentId>` for a reschedule Flow (the token, not the payload, binds the Flow to its appointment).
   - `expiry` is unix seconds (24h).
   - `hmac` is HMAC-SHA256 with `FLOW_TOKEN_SECRET` over the first four parts.
 - **Booking Flow** (`booking.json`, Flow JSON `7.3`, `data_api_version` `3.0`, ported from the production Flow): SERVICE → DATETIME → SUMMARY (terminal, `complete`). Code: `src/whatsapp/flows/bookingFlow.ts`.
@@ -253,8 +253,15 @@ For each inbound message (`engine/index.ts`):
   - DATETIME has `refresh_on_back`, so `BACK` re-renders it fresh (grid hidden). `BACK` without state restarts at SERVICE.
   - **Booking happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` with the payload plus `flow_token`. The engine verifies the token and conversation, then books through `BookingService` (`create_booking`, key `wa-flow:<flow token>:<start instant>`, source `whatsapp`, staff = any). A time taken in between closes the attempt as `failed` (`SLOT_UNAVAILABLE`) and shows the menu with a fixed message. A completion for an attempt that is no longer open books nothing and sends "That booking session has ended…".
   - Staff selection and intake fields (name, email) are not in this Flow. The customer is the client row created from the WhatsApp number.
-- **Reschedule Flow** (`reschedule.json`, unchanged): DATE → SLOT → SUMMARY → SUCCESS, with the same staff member. The move happens on SUMMARY confirm. Errors keep the customer on the submitted screen with `error_message`.
-- **Reschedule SUCCESS:** the response carries `extension_message_response.params = {flow_token, appointment_id, flow}`. Meta then sends an `nfm_reply`. The engine verifies the token and the conversation, loads the appointment, closes the attempt and sends the in-chat confirmation. The dedupe key keeps that confirmation to one per change.
+- **Reschedule Flow** (`reschedule.json`, name `reschedule_v2`, Flow JSON `7.3`, same components and copy style as the booking Flow): DATETIME → SUMMARY (terminal, `complete`). Code: `src/whatsapp/flows/rescheduleFlow.ts`. The first version (`reschedule_v1`: DATE → SLOT → SUMMARY with a `data_exchange` terminal screen) was rejected by Meta and is no longer looked up.
+  - The service and staff member are always the appointment's own, read from the token's appointment (never from the payload). A cancelled, past or foreign appointment answers 427, which closes the Flow.
+  - Exchanges are routed by the payload `trigger`:
+    - `INIT` / `BACK` / unknown → DATETIME with the grid hidden (`selected_service_label`, `min_date`, `max_date`).
+    - `date_selected` `{date}` → DATETIME with that day's chips for the appointment's staff member (at most 20), or `no_times`.
+    - `continue` `{time}` → the slot is re-validated live, then SUMMARY (`summary_text` markdown, `appointment_id`, `start_time_iso`, `timezone`). If the time was just taken, DATETIME is re-rendered with fresh chips and the heading reads "Sorry, that time was just taken…".
+  - **The move happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` (`appointment_id`, `start_time_iso`, `timezone`, `flow_token`). The engine verifies the token and conversation and requires the conversation to be in `flow_reschedule` for that appointment, then moves it through `BookingService.rescheduleAppointment` (customer actor, same staff member, so availability, lead time and the cancellation window are enforced). `rescheduleAppointment` has no idempotency key, so retries are idempotent by state: a completion for an appointment already at the chosen time only re-sends the confirmation, and a redelivered `nfm_reply` finds the conversation `idle`.
+  - Outcomes: success sends the "moved" confirmation (dedupe key `confirm:<id>:rescheduled:<starts_at>`) and goes `idle`. `SLOT_UNAVAILABLE` keeps the booking unchanged and re-sends the Flow with "Sorry, that time was just taken. Your booking has not changed." `CANCELLATION_WINDOW` escalates to staff. A completion for a closed or different Flow changes nothing and sends "That reschedule session has ended…". A cancelled or past appointment shows the menu. A legacy `reschedule_v1` completion (no `start_time_iso`; already written) is only confirmed.
+- **Cancel** is not a Flow. It stays on the deterministic path: My bookings → `appt:cancel:<id>` → Yes/No buttons → `cancel_booking`.
 - **Responses** echo `version: "3.0"`, including `ping`.
 
 ### Creating, uploading and publishing the Flows by hand
@@ -283,13 +290,13 @@ curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/assets" -H "Authorizati
 curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/publish" -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-Repeat 3-5 for `reschedule_v1` with `reschedule.json`. Then store the ids on the account (SQL, or run `POST /v1/whatsapp/sync`, which finds the Flows by name):
+Repeat 3-5 for `reschedule_v2` with `reschedule.json`. Then store the ids on the account (SQL, or run `POST /v1/whatsapp/sync`, which finds the Flows by name):
 
 ```sql
 update public.whatsapp_accounts set flow_ids = '{"booking":"<BOOKING_FLOW_ID>","reschedule":"<RESCHEDULE_FLOW_ID>"}' where business_id = '<BUSINESS_ID>';
 ```
 
-With no `flow_ids.booking` (or without the key, secret or URL), Book uses the interactive-list path. The booking Flow is named `booking_v2`: an existing published `booking_v1` (the old 7-screen Flow) is no longer reused, and `sync` creates `booking_v2` and replaces `flow_ids.booking`.
+With no `flow_ids.booking` (or without the key, secret or URL), Book uses the interactive-list path. The booking Flow is named `booking_v2` and the reschedule Flow `reschedule_v2`: an existing published `booking_v1` or `reschedule_v1` is no longer reused, and `sync` creates the v2 Flow and replaces the matching `flow_ids` entry.
 
 ## Plan gating
 
@@ -396,7 +403,7 @@ BookingService methods used: `getBusiness`, `listServices`, `listBookableStaff`,
 - builders and limits
 - the Graph client's retry and error mapping
 - webhooks: signature, dedupe, redelivery, unlinked and paused numbers, statuses, templates
-- Flows: a crypto round-trip with a generated RSA key pair, token tampering, every booking trigger (table-driven), the engine booking on the nfm_reply, `booking.json` shape (`flowDefinition.test.ts`), and HTTP 421/427/432
+- Flows: a crypto round-trip with a generated RSA key pair, token tampering, every booking and reschedule trigger (table-driven), the engine booking or moving on the nfm_reply (slot taken, stale session, retry), `booking.json` and `reschedule.json` shape (`flowDefinition.test.ts`), and HTTP 421/427/432
 - onboarding with a fake Graph client
 - the inbox
 - notifications

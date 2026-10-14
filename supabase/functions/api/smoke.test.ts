@@ -79,3 +79,17 @@ Deno.test('flows endpoint decrypts a ping and answers with the inverted IV under
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv.map((b) => ~b & 0xff) }, aesKey, sealed);
   assertEquals(new TextDecoder().decode(plain), JSON.stringify({ version: '3.0', data: { status: 'active' } }), 'response');
 });
+
+// Published Flows are immutable, so the names the backend looks up must stay in step with the JSON it ships.
+Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on a complete action', async () => {
+  const { FLOW_DEFINITIONS } = await import('../../../apps/backend/src/whatsapp/assets.ts');
+  assertEquals(FLOW_DEFINITIONS.booking.name, 'booking_v2', 'booking name');
+  assertEquals(FLOW_DEFINITIONS.reschedule.name, 'reschedule_v2', 'reschedule name');
+  for (const def of Object.values(FLOW_DEFINITIONS)) {
+    const terminal = (def.json.screens as { terminal?: boolean; layout: unknown }[]).filter((s) => s.terminal);
+    assertEquals(terminal.length, 1, `${def.name} terminal screens`);
+    const layout = JSON.stringify(terminal[0]!.layout);
+    assertEquals(layout.includes('"name":"complete"'), true, `${def.name} terminal uses complete`);
+    assertEquals(layout.includes('data_exchange'), false, `${def.name} terminal has no data_exchange`);
+  }
+});

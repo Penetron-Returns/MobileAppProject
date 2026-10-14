@@ -201,23 +201,24 @@ describe('e2e: list booking path', () => {
   });
 });
 
-describe('e2e: manage bookings', () => {
-  async function booked(startsAt: string) {
-    const ctx = setup();
-    const client = await ctx.h.repo.upsertClientByPhone(BIZ, CUSTOMER_PHONE, null);
-    const appt = await ctx.h.deps.booking.createAppointment({
-      businessId: BIZ,
-      clientId: client.id,
-      serviceId: ctx.s.cut.id,
-      staffId: ctx.s.sipho.id,
-      startsAt,
-      source: 'app',
-      idempotencyKey: 'app:seed',
-      actor: { type: 'staff', id: 'user_staff' },
-    });
-    return { ...ctx, appt };
-  }
+async function booked(startsAt: string, account: Parameters<typeof setup>[0] = {}) {
+  const ctx = setup(account);
+  const client = await ctx.h.repo.upsertClientByPhone(BIZ, CUSTOMER_PHONE, null);
+  const appt = await ctx.h.deps.booking.createAppointment({
+    businessId: BIZ,
+    clientId: client.id,
+    serviceId: ctx.s.cut.id,
+    staffId: ctx.s.sipho.id,
+    startsAt,
+    source: 'app',
+    idempotencyKey: 'app:seed',
+    actor: { type: 'staff', id: 'user_staff' },
+  });
+  return { ...ctx, appt };
+}
 
+
+describe('e2e: manage bookings', () => {
   it('cancels through My bookings with a confirmation', async () => {
     const { h, s, send, appt } = await booked('2026-10-01T09:00:00.000Z');
     await send(buttonMsg('menu:bookings'));
@@ -312,5 +313,71 @@ describe('e2e: Flow path', () => {
     const { s, send } = await openFlow();
     await send(nfmMsg({ service_slug: s.cut.id, start_time_iso: T, flow_token: 'v1.forged' }));
     expect(s.booking.tables.appointments).toHaveLength(0);
+  });
+});
+
+describe('e2e: reschedule Flow path', () => {
+  const OLD = '2026-10-05T09:00:00.000Z';
+  const NEW = '2026-09-30T07:00:00.000Z'; // Wed 09:00 Johannesburg
+
+  async function openFlow() {
+    const ctx = await booked(OLD, { account: { flow_ids: { booking: 'flow-1', reschedule: 'flow-2' } } });
+    await ctx.send(buttonMsg(`appt:resched:${ctx.appt.id}`));
+    const flowMsg = ctx.h.graph.sent.at(-1)!.payload as any;
+    expect(flowMsg.interactive.type).toBe('flow');
+    expect(flowMsg.interactive.action.parameters.flow_id).toBe('flow-2');
+    const token = flowMsg.interactive.action.parameters.flow_token as string;
+    const ask = (data: Record<string, unknown>) =>
+      handleFlowRequest(ctx.h.deps, { version: '3.0', action: 'data_exchange', flow_token: token, screen: 'DATETIME', data });
+    return { ...ctx, token, ask };
+  }
+
+  async function summaryFor(ask: (d: Record<string, unknown>) => ReturnType<typeof handleFlowRequest>) {
+    const day = (await ask({ trigger: 'date_selected', date: '2026-09-30' })) as any;
+    expect(day.body.data.time.map((t: { id: string }) => t.id)).toContain(NEW);
+    return ((await ask({ trigger: 'continue', time: [NEW] })) as any).body;
+  }
+
+  it('walks the Flow, moves the appointment on the nfm_reply and confirms in chat once', async () => {
+    const { h, s, send, appt, token, ask } = await openFlow();
+    expect(h.repo.db.conversations[0]!.state).toBe('flow_reschedule');
+    const summary = await summaryFor(ask);
+    expect(summary.screen).toBe('SUMMARY');
+    expect(s.booking.tables.appointments[0]!.slot).toContain(OLD); // nothing written by the endpoint
+
+    // Meta sends the nfm_reply with the complete payload (+ flow_token). A redelivery with another wamid must not move it twice.
+    const complete = { ...summary.data, flow_token: token };
+    await send(nfmMsg(complete));
+    await send(nfmMsg(complete, nextWamid()));
+    expect(s.booking.tables.appointments).toHaveLength(1);
+    expect(s.booking.tables.appointments[0]).toMatchObject({ id: appt.id, staff_id: s.sipho.id, status: 'confirmed' });
+    expect(s.booking.tables.appointments[0]!.slot).toContain(NEW);
+    expect(s.events.filter((e) => e.kind === 'rescheduled')).toHaveLength(1);
+    const confirmations = h.graph.sent.filter((m) => JSON.stringify(m.payload).includes('Your booking has been moved'));
+    expect(confirmations).toHaveLength(1);
+    expect(h.repo.db.conversations[0]!.state).toBe('idle');
+    expect(sentText(h.graph)).toContain('That reschedule session has ended');
+  });
+
+  it('keeps the booking and reopens the Flow when the new time is taken between SUMMARY and the move', async () => {
+    const { h, s, send, appt, token, ask } = await openFlow();
+    const summary = await summaryFor(ask);
+    const other = await s.booking.upsertClientByPhone(BIZ, '+27820000001', null);
+    await h.deps.booking.createAppointment({
+      businessId: BIZ, clientId: other.id, serviceId: s.cut.id, staffId: s.sipho.id, startsAt: NEW,
+      source: 'staff', idempotencyKey: 'other-1', actor: { type: 'staff', id: 'user_staff' }, notifyCustomer: false,
+    } as never);
+    await send(nfmMsg({ ...summary.data, flow_token: token }));
+    const mine = s.booking.tables.appointments.find((a) => a.id === appt.id)!;
+    expect(mine.slot).toContain(OLD);
+    expect(h.repo.db.conversations[0]!.state).toBe('flow_reschedule');
+    expect(JSON.stringify(h.graph.sent.at(-1)!.payload)).toContain('that time was just taken');
+    expect((h.graph.sent.at(-1)!.payload as any).interactive.type).toBe('flow');
+  });
+
+  it('ignores a completion whose token belongs to another conversation', async () => {
+    const { s, send, appt } = await openFlow();
+    await send(nfmMsg({ appointment_id: appt.id, start_time_iso: NEW, flow_token: 'v1.forged' }));
+    expect(s.booking.tables.appointments[0]!.slot).toContain(OLD);
   });
 });

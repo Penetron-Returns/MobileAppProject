@@ -17,16 +17,8 @@ export type FlowResult = { status: 200; body: Record<string, unknown> } | { stat
 /** Data API version the Flows declare (`data_api_version`) and every response echoes. */
 export const FLOW_DATA_VERSION = '3.0';
 
+/** Shown in place of the date heading when the chosen time vanished (the Flows have no error slot). */
 export const FLOW_COPY = {
-  noDates: 'Sorry, there are no open dates for this right now.',
-  noSlots: 'Sorry, there are no times left on that day. Please pick another date.',
-  slotTaken: 'Sorry, that slot was just taken. Please pick another time.',
-  slotTakenBack: 'Sorry, that slot was just taken. Please go back and pick another time.',
-  noSlotsBack: 'Sorry, there are no times left on that day. Please go back and pick another date.',
-  invalid: 'Please check your selection and try again.',
-  failed: "Sorry, we couldn't complete that. Please try again.",
-  window: "Sorry, this booking can't be changed online this close to the start time.",
-  /** Booking flow: shown in place of the date heading when the chosen time vanished. */
   timeTaken: 'Sorry, that time was just taken. Please pick another time.',
 } as const;
 
@@ -45,8 +37,3 @@ export const screen = (name: string, data: Record<string, unknown>): FlowResult 
   body: { version: FLOW_DATA_VERSION, screen: name, data },
 });
 
-/**
- * Flow routing is forward-only, so every error keeps the customer on the
- * screen they submitted, with an `error_message`.
- */
-export const stay = (name: string | undefined, error: string): FlowResult => screen(name ?? 'SERVICE', { error_message: error });
