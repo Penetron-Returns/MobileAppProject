@@ -1,13 +1,10 @@
+import { Chip, Input, Surface, SwitchRow, Text, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Input } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
 import { useAvailableSlots } from '@/features/appointments/hooks';
 import type { StaffRow } from '@/features/catalog/hooks';
-import { useDepth } from '@/hooks/useDepth';
 import {
   businessDate,
   formatDateShort,
@@ -16,9 +13,7 @@ import {
 } from '@/lib/time';
 
 import { closestSlots } from '../logic';
-import { Chip } from './Chip';
 import { SlotPicker, type PickedSlot } from './SlotPicker';
-import { ToggleRow } from './ToggleRow';
 
 export interface WhenState {
   staffId: string | null;
@@ -110,10 +105,11 @@ export function WhenStep({
         />
       </View>
 
-      <ToggleRow
-        label={t('newBooking.sendConfirmation', { name: firstName })}
+      <SwitchRow
+        variant="card"
+        title={t('newBooking.sendConfirmation', { name: firstName })}
         checked={state.sendWhatsApp}
-        onChange={(sendWhatsApp) => onChange({ sendWhatsApp })}
+        onCheckedChange={(sendWhatsApp) => onChange({ sendWhatsApp })}
       />
       <View className="gap-1.5">
         <Text className="text-subtitle font-semibold text-muted-foreground">
@@ -170,27 +166,14 @@ function SlotTakenCard({
           : t('newBooking.taken.none')}
       </Text>
       {options.map((slot) => (
-        <Pressable
+        <Chip
           key={slot.starts_at}
+          label={formatTime(slot.starts_at, timezone)}
+          selected={selected === slot.starts_at}
           onPress={() =>
             onPick({ startsAt: slot.starts_at, staffIds: slot.staff_ids })
           }
-          accessibilityRole="button"
-          accessibilityState={{ selected: selected === slot.starts_at }}
-          style={selected === slot.starts_at ? depth.primary : depth.button}
-          className="min-h-12 justify-center rounded-full px-5"
-        >
-          <Text
-            style={{
-              color:
-                selected === slot.starts_at ? '#FFFFFF' : depth.colors.label,
-              fontVariant: ['tabular-nums'],
-            }}
-            className="text-title font-semibold"
-          >
-            {formatTime(slot.starts_at, timezone)}
-          </Text>
-        </Pressable>
+        />
       ))}
     </Surface>
   );

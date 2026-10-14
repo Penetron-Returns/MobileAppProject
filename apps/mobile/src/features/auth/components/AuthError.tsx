@@ -1,7 +1,6 @@
+import { Text } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-
-import { Text } from '@/components/ui/text';
 
 import type { AuthErrorKey } from '../errors';
 

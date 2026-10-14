@@ -1,3 +1,4 @@
+import { Group, GroupRow, Page, Switch, Text } from '@booking/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -6,10 +7,6 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
 
-import { Group, GroupRow } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import { toast } from '@/lib/toast';
 
 import { useRegisterDevice } from '../hooks';

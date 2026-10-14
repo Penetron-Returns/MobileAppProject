@@ -1,14 +1,11 @@
+import { Button, Text, useDepth } from '@booking/ui';
 import { Mail } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
-
 import { AppMark } from './AppMark';
-import { AuthButton } from './AuthButton';
 import { AuthError } from './AuthError';
 import type { AuthErrorKey } from '../errors';
 
@@ -63,26 +60,31 @@ export function WelcomeStep({
         style={{ paddingBottom: insets.bottom + 34 }}
       >
         <AuthError errorKey={errorKey} />
-        <AuthButton
-          label={t('auth.welcome.google')}
+        <Button
+          variant="neutral"
+          size="xl"
           onPress={onGoogle}
-          isDisabled={isBusy}
-          icon={
-            <Text
-              className="w-5 text-center font-bold"
-              style={{ color: '#4285F4', fontSize: 19, lineHeight: 22 }}
-            >
-              G
-            </Text>
-          }
-        />
-        <AuthButton
-          label={t('auth.welcome.email')}
+          disabled={isBusy}
+          accessibilityLabel={t('auth.welcome.google')}
+        >
+          <Text
+            className="w-5 text-center font-bold"
+            style={{ color: '#4285F4', fontSize: 19, lineHeight: 22 }}
+          >
+            G
+          </Text>
+          <Text>{t('auth.welcome.google')}</Text>
+        </Button>
+        <Button
+          variant="secondary"
+          size="xl"
           onPress={onEmail}
-          tone="tint"
-          isDisabled={isBusy}
-          icon={<Mail size={20} strokeWidth={1.8} color={depth.colors.tint} />}
-        />
+          disabled={isBusy}
+          accessibilityLabel={t('auth.welcome.email')}
+        >
+          <Mail size={20} strokeWidth={1.8} color={depth.colors.tint} />
+          <Text>{t('auth.welcome.email')}</Text>
+        </Button>
         <Text
           style={{ color: depth.colors.secondary }}
           className="mx-3 mt-1.5 text-center text-meta"

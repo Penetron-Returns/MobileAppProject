@@ -1,22 +1,26 @@
+import {
+  Button,
+  ConfirmDialog,
+  ErrorState,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  Page,
+  SectionTitle,
+  Switch,
+  Text,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import { useBusinessDetails } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
 import { Gate } from '@/features/plans/components/Gate';
 import { formatPhone } from '@/lib/format';
-import { toast } from '@/lib/toast';
+import { toast, describeError } from '@/lib/toast';
 
 import {
   useSendTestMessage,
@@ -44,8 +48,9 @@ function WhatsAppSettingsBody() {
   let body: React.ReactNode;
   if (channel.isError) {
     body = (
-      <ErrorScreen
-        error={channel.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(channel.error)}
         onRetry={() => void channel.refetch()}
       />
     );
@@ -130,8 +135,9 @@ function WhatsAppDetailBody() {
   let body: React.ReactNode;
   if (channel.isError) {
     body = (
-      <ErrorScreen
-        error={channel.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(channel.error)}
         onRetry={() => void channel.refetch()}
       />
     );

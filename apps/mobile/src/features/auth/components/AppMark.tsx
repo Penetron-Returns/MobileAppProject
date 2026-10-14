@@ -1,9 +1,7 @@
+import { useDepth, withAlpha } from '@booking/ui';
 import * as React from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-
-import { useDepth } from '@/hooks/useDepth';
-import { withAlpha } from '@/lib/depth';
 
 const DOME_HIGHLIGHT = {
   light: 'rgba(255,255,255,0.65)',

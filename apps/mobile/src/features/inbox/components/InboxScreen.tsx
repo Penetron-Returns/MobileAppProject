@@ -1,20 +1,27 @@
+import {
+  Chips,
+  EmptyState,
+  ErrorState,
+  Group,
+  ListSkeleton,
+  OfflineBanner,
+  Page,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Chips } from '@/components/Chips';
-import { Group } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { Surface } from '@/components/Surface';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { OfflineBanner } from '@/components/states/OfflineBanner';
-import { isShowingSavedCopy, savedCopyTime } from '@/components/states/offline';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
+import {
+  isShowingSavedCopy,
+  savedCopyLabel,
+  savedCopyTime,
+} from '@/lib/offline';
 import { useBusiness } from '@/features/business/hooks';
-import { useDepth } from '@/hooks/useDepth';
 
 import { useInboxRealtime, useInboxThreads } from '../hooks';
 import { filterThreads, needsReply, type InboxView } from '../logic';
@@ -44,8 +51,9 @@ export function InboxScreen() {
   let body: React.ReactNode;
   if (threads.isError && !threads.data) {
     body = (
-      <ErrorScreen
-        error={threads.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(threads.error)}
         onRetry={() => void threads.refetch()}
         isRetrying={threads.isRefetching}
       />
@@ -54,29 +62,12 @@ export function InboxScreen() {
     body = <ListSkeleton />;
   } else if (all.length === 0) {
     body = (
-      <View className="items-center px-10 pt-24">
-        <Surface
-          variant="dome"
-          radius={32}
-          className="h-16 w-16 items-center justify-center"
-        >
-          <CheckCircle2
-            size={30}
-            strokeWidth={1.8}
-            color={depth.colors.secondary}
-          />
-        </Surface>
-        <Text
-          role="heading"
-          aria-level="2"
-          className="mt-4 text-center text-section font-bold"
-        >
-          {t('inbox.empty.title')}
-        </Text>
-        <Text className="mt-1.5 text-center text-title text-muted-foreground">
-          {t('inbox.empty.description')}
-        </Text>
-      </View>
+      <EmptyState
+        variant="screen"
+        icon={CheckCircle2}
+        title={t('inbox.empty.title')}
+        description={t('inbox.empty.description')}
+      />
     );
   } else {
     body = (
@@ -128,9 +119,10 @@ export function InboxScreen() {
     >
       {isOffline ? (
         <OfflineBanner
-          lastUpdated={
-            timezone ? savedCopyTime(threads.dataUpdatedAt, timezone) : null
-          }
+          label={savedCopyLabel(
+            t,
+            timezone ? savedCopyTime(threads.dataUpdatedAt, timezone) : null,
+          )}
         />
       ) : null}
       {body}

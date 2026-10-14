@@ -1,14 +1,19 @@
+import {
+  Avatar,
+  Group,
+  GroupField,
+  GroupRow,
+  OptionSheet,
+  Page,
+  SaveFooter,
+  SectionTitle,
+} from '@booking/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { InitialsDome } from '@/components/InitialsDome';
-import { OptionSheet } from '@/components/OptionSheet';
-import { Page } from '@/components/Page';
-import { PersonAvatar } from '@/components/PersonAvatar';
 import {
   useUpdateBusiness,
   type BusinessDetails,
@@ -22,8 +27,6 @@ import {
   toUpdateBusinessRequest,
   type BusinessDetailsValues,
 } from '../schemas';
-import { GroupField } from './GroupField';
-import { SaveFooter } from './SaveFooter';
 
 const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'BWP', 'NAD', 'KES', 'NGN'];
 const API_FIELDS = {
@@ -80,15 +83,7 @@ export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
       }
     >
       <View className="items-center gap-2 pt-4">
-        {initial.logo_url ? (
-          <PersonAvatar
-            name={initial.name}
-            imageUrl={initial.logo_url}
-            size="xl"
-          />
-        ) : (
-          <InitialsDome name={initial.name} size="xl" />
-        )}
+        <Avatar name={initial.name} imageUrl={initial.logo_url} size="xl" />
       </View>
 
       <SectionTitle>{t('settings.details.contact')}</SectionTitle>

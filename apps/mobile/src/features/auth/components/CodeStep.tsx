@@ -1,13 +1,10 @@
+import { Button, Surface, Text, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, TextInput, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 import { useNow } from '@/hooks/useNow';
 
-import { AuthButton } from './AuthButton';
 import { AuthError } from './AuthError';
 import { StepFrame } from './StepFrame';
 import type { AuthErrorKey } from '../errors';
@@ -117,13 +114,17 @@ export function CodeStep({
           {t('auth.code.resent')}
         </Text>
       ) : null}
-      <AuthButton
-        label={isBusy ? t('auth.code.verifying') : t('auth.code.verify')}
-        tone="primary"
+      <Button
+        size="xl"
         onPress={() => onVerify(code)}
-        isBusy={isBusy}
-        isDisabled={!isCodeComplete(code)}
-      />
+        loading={isBusy}
+        disabled={!isCodeComplete(code)}
+        accessibilityLabel={
+          isBusy ? t('auth.code.verifying') : t('auth.code.verify')
+        }
+      >
+        <Text>{isBusy ? t('auth.code.verifying') : t('auth.code.verify')}</Text>
+      </Button>
       <View className="items-center gap-1">
         <Pressable
           onPress={onResend}

@@ -1,17 +1,19 @@
+import {
+  Input,
+  SearchField,
+  Skeleton,
+  Surface,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { SearchInput } from '@/components/SearchInput';
-import { Surface } from '@/components/Surface';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import type { ServiceRow } from '@/features/catalog/hooks';
 import { useClientSearch, type ClientOption } from '@/features/clients/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useDepth } from '@/hooks/useDepth';
 import { formatDuration, formatMoney, formatPhone } from '@/lib/format';
 
 export interface ClientChoice {
@@ -98,7 +100,7 @@ export function ClientStep({
         <Text role="heading" aria-level="2" className="text-section font-bold">
           {t('newBooking.who')}
         </Text>
-        <SearchInput
+        <SearchField
           value={query}
           onChangeText={setQuery}
           placeholder={t('newBooking.searchPlaceholder')}

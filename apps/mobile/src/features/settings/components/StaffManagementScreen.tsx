@@ -1,14 +1,19 @@
+import {
+  EmptyState,
+  ErrorState,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  Page,
+  Text,
+  TintLink,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Group } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { EmptyState } from '@/components/States';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 import {
   useServices,
@@ -18,9 +23,7 @@ import {
 } from '@/features/catalog/hooks';
 
 import { joinMeta, staffStatus, type StaffStatus } from '../lists';
-import { PersonRow } from './PersonRow';
 import { StaffForm } from './StaffForm';
-import { TintLink } from './TintLink';
 
 const STATUS_KEY: Record<StaffStatus, string | null> = {
   active: null,
@@ -45,7 +48,11 @@ export function StaffManagementScreen() {
   let body: React.ReactNode;
   if (staff.isError) {
     body = (
-      <ErrorScreen error={staff.error} onRetry={() => void staff.refetch()} />
+      <ErrorState
+        variant="banner"
+        {...describeError(staff.error)}
+        onRetry={() => void staff.refetch()}
+      />
     );
   } else if (staff.isPending) {
     body = <ListSkeleton rows={3} />;
@@ -58,10 +65,11 @@ export function StaffManagementScreen() {
           const statusKey = STATUS_KEY[staffStatus(member)];
           const subtitle = joinMeta(member.title, statusKey && t(statusKey));
           return (
-            <PersonRow
+            <GroupRow
               key={member.id}
               showSeparator={i > 0}
-              name={member.name}
+              avatarName={member.name}
+              title={member.name}
               subtitle={subtitle}
               accessibilityLabel={t('settings.staffList.open', {
                 name: member.name,

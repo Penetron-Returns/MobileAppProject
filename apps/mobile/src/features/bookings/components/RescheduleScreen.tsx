@@ -1,14 +1,21 @@
+import {
+  Button,
+  DoneCard,
+  EmptyState,
+  ErrorState,
+  goBack,
+  LoadingCard,
+  Screen,
+  StackHeader,
+  SwitchRow,
+  Text,
+} from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { CalendarX } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Header, goBack } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { EmptyState, ErrorState, LoadingCard } from '@/components/States';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
 import {
   useAppointment,
   useBookingRules,
@@ -25,12 +32,10 @@ import {
   todayISO,
   type ISODate,
 } from '@/lib/time';
-import { toast } from '@/lib/toast';
+import { toast, describeError } from '@/lib/toast';
 
 import { bookingHorizonDays, canChange, toRescheduleRequest } from '../logic';
-import { DoneCard } from './DoneCard';
 import { SlotPicker, type PickedSlot } from './SlotPicker';
-import { ToggleRow } from './ToggleRow';
 
 /** Move a booking to another live slot; the current time is shown, never offered. */
 export function RescheduleScreen({ appointmentId }: { appointmentId: string }) {
@@ -47,7 +52,7 @@ export function RescheduleScreen({ appointmentId }: { appointmentId: string }) {
   return (
     <Screen
       header={
-        <Header
+        <StackHeader
           title={t('reschedule.title')}
           close
           fallbackHref={`/bookings/${appointmentId}`}
@@ -56,7 +61,8 @@ export function RescheduleScreen({ appointmentId }: { appointmentId: string }) {
     >
       {failed ? (
         <ErrorState
-          error={failed.error}
+          variant="banner"
+          {...describeError(failed.error)}
           onRetry={() => void failed.refetch()}
         />
       ) : !business.data || appointment.isPending ? (
@@ -169,10 +175,11 @@ function RescheduleForm({
         selected={picked?.startsAt ?? null}
         onSelect={setPicked}
       />
-      <ToggleRow
-        label={t('reschedule.tell', { name })}
+      <SwitchRow
+        variant="card"
+        title={t('reschedule.tell', { name })}
         checked={notify}
-        onChange={setNotify}
+        onCheckedChange={setNotify}
       />
       <Button
         size="lg"

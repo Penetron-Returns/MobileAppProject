@@ -1,38 +1,21 @@
+import {
+  Button,
+  ErrorState,
+  IconDome,
+  Skeleton,
+  Surface,
+  Text,
+} from '@booking/ui';
 import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
-import {
-  CalendarDays,
-  CheckCircle2,
-  CloudOff,
-  TriangleAlert,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { CalendarDays, CheckCircle2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
-import { isApiError } from '@/lib/api';
-import { useDepth } from '@/hooks/useDepth';
-import { errorMessage } from '@/lib/toast';
+import { describeError } from '@/lib/toast';
 
 import { useBookingLink } from '../hooks';
-
-function Dome({ icon: IconGlyph }: { icon: LucideIcon }) {
-  const depth = useDepth();
-  return (
-    <Surface
-      variant="dome"
-      radius={26}
-      className="h-[52px] w-[52px] items-center justify-center"
-    >
-      <IconGlyph size={26} strokeWidth={1.8} color={depth.colors.secondary} />
-    </Surface>
-  );
-}
 
 /** Placeholder shaped like the hero card and the list while the first load runs. */
 export function TodaySkeleton() {
@@ -72,35 +55,14 @@ export function TodayError({
   onRetry: () => void;
 }) {
   const { t } = useTranslation();
-  const requestId = isApiError(error) ? error.requestId : null;
   return (
-    <Surface
-      variant="raised"
-      accessibilityRole="alert"
-      className="mx-5 mt-5 items-center px-5 py-8"
-    >
-      <Dome icon={TriangleAlert} />
-      <Text className="mt-3.5 text-center text-section font-bold">
-        {t('today.error.title')}
-      </Text>
-      <Text className="mt-1 text-center text-title text-muted-foreground">
-        {t('today.error.description')}
-      </Text>
-      <Text className="mt-1 text-center text-meta text-muted-foreground">
-        {errorMessage(error)}
-      </Text>
-      {requestId ? (
-        <Text
-          selectable
-          className="text-center text-meta text-muted-foreground"
-        >
-          {t('errors.requestId', { id: requestId })}
-        </Text>
-      ) : null}
-      <Button size="lg" className="mt-5 self-stretch" onPress={onRetry}>
-        <Text className="text-title">{t('common.retry')}</Text>
-      </Button>
-    </Surface>
+    <ErrorState
+      variant="banner"
+      title={t('today.error.title')}
+      description={t('today.error.description')}
+      {...describeError(error)}
+      onRetry={onRetry}
+    />
   );
 }
 
@@ -118,7 +80,7 @@ export function TodayEmpty() {
 
   return (
     <Surface variant="hero" className="mx-5 mt-5 px-5 pb-5 pt-6">
-      <Dome icon={CalendarDays} />
+      <IconDome icon={CalendarDays} />
       <Text
         role="heading"
         aria-level="2"
@@ -171,7 +133,7 @@ export function TodayAllDone() {
   const { t } = useTranslation();
   return (
     <Surface variant="hero" className="mx-5 mt-5 px-5 py-6">
-      <Dome icon={CheckCircle2} />
+      <IconDome icon={CheckCircle2} />
       <Text className="mt-3.5 text-section font-bold">
         {t('today.allDone.title')}
       </Text>
@@ -179,28 +141,5 @@ export function TodayAllDone() {
         {t('today.allDone.description')}
       </Text>
     </Surface>
-  );
-}
-
-/** Quiet banner shown while the screen is on saved data. */
-export function OfflineBanner({ lastUpdated }: { lastUpdated: string | null }) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  return (
-    <View
-      accessibilityRole="alert"
-      style={{ backgroundColor: depth.colors.amberFill }}
-      className="mx-5 mt-4 flex-row items-center gap-2 rounded-2xl px-3.5 py-2.5"
-    >
-      <CloudOff size={18} strokeWidth={1.8} color={depth.colors.amber} />
-      <Text
-        style={{ color: depth.colors.amber }}
-        className="flex-1 text-subtitle font-semibold"
-      >
-        {lastUpdated
-          ? t('today.offline', { time: lastUpdated })
-          : t('today.offlineNoTime')}
-      </Text>
-    </View>
   );
 }

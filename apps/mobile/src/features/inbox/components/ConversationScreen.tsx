@@ -1,3 +1,14 @@
+import {
+  Button,
+  cn,
+  ErrorState,
+  goBack,
+  Ground,
+  InsetInput,
+  Skeleton,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { router } from 'expo-router';
 import { ChevronDown, ChevronLeft, Send } from 'lucide-react-native';
 import * as React from 'react';
@@ -11,16 +22,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Ground } from '@/components/Ground';
-import { InsetInput } from '@/components/InsetInput';
-import { goBack } from '@/components/StackHeader';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
+import { describeError } from '@/lib/toast';
 import { formatPhone } from '@/lib/format';
-import { cn } from '@/lib/utils';
 
 import {
   useConversation,
@@ -81,8 +84,9 @@ export function ConversationScreen({
   let body: React.ReactNode;
   if ((head.isError && !head.data) || (messages.isError && !messages.data)) {
     body = (
-      <ErrorScreen
-        error={head.error ?? messages.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(head.error ?? messages.error)}
         onRetry={() => {
           void head.refetch();
           void messages.refetch();
