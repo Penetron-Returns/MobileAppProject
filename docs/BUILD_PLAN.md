@@ -26,7 +26,7 @@ Rules that are never broken:
 ```
 apps/mobile/                 Expo app (own package.json)                          → WS-D
   src/app/**                 Expo Router routes
-  src/components/ui/**       react-native-reusables (shadcn) components
+  packages/ui/**             design system `@booking/ui` (tokens, primitives, components, patterns; RNR base)
   src/features/**            feature modules (calendar, clients, …)
   src/lib/**                 api client, supabase client, query client
 apps/backend/                API source: runtime-agnostic Hono app (own package.json, Vitest)
@@ -234,7 +234,7 @@ States (the `conversations.state` check constraint must list exactly these):
 
 Screens from the mockups (§5 of the spec) plus architecture §6: Sign-in · Dashboard (monthly revenue sparkline, today's bookings by status, next appointment + Check-in, today's schedule) · Calendar (Day/Week/Month) · Booking detail (message / reschedule / cancel, status actions) · Add booking (existing/new client, service, date, time from live slots, staff/no preference, notes, WhatsApp confirmation toggle) · Clients (search, All/Recent/VIP filters, paging) · Client profile (message, call, book, contact, notes, history) · Settings (profile, dark mode, push toggle, Business details, Operating hours, Services, Staff management, WhatsApp integration) · Inbox (conversations + escalations, thread, reply, release) · Public web booking comparator `/book/[slug]` (web target, instrumented).
 
-Stack: NativeWind v4 + react-native-reusables components in `apps/mobile/src/components/ui`, lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `apps/mobile/src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
+Stack: NativeWind v4 + react-native-reusables components inside the `@booking/ui` design system (`packages/ui`), lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `apps/mobile/src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 
 ## 7. Backend environment
 

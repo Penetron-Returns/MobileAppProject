@@ -48,7 +48,7 @@ WhatsAppSettings + WhatsAppDetail, NotificationSettings.
 | Reports | `dashboard_summary` RPC exists | Not a v1 screen. Keep the RPC. |
 
 ## Design-to-code rules for v1
-- Depth tokens come from `apps/mobile/src/lib/depth.ts`; never hand-roll shadows.
+- Depth tokens come from `packages/ui/src/tokens/depth.ts` (`@booking/ui`); never hand-roll shadows.
 - Android is the first test device. Check each screen on an Android build, not just the iOS artboards.
 - **Accessibility:**
   - Every pressable has an accessible label.
