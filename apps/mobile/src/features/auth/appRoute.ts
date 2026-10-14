@@ -9,6 +9,12 @@ export type SessionStatus = 'active' | 'pending';
 export type SessionTaskKey =
   'choose-organization' | 'reset-password' | 'setup-mfa';
 export type MeStatus = 'idle' | 'loading' | 'ok' | 'no_business' | 'error';
+/** Pending organisation invitations of the signed-in user. */
+export interface InvitationsInput {
+  /** `idle` = not asked (the user already has an organisation). */
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  count: number;
+}
 
 export interface AppRouteInput {
   authLoaded: boolean;
@@ -22,6 +28,10 @@ export interface AppRouteInput {
   activeOrgId: string | null;
   membershipOrgIds: readonly string[];
   me: MeStatus;
+  /** Pending invitations, asked only while the user has no organisation. */
+  invitations: InvitationsInput;
+  /** The person chose "Create my own business instead" on the join screen. */
+  joinDeclined: boolean;
   /** Onboarding stays mounted once started, until the user finishes it. */
   inOnboarding: boolean;
 }
@@ -30,6 +40,7 @@ export type AppRoute =
   | { kind: 'splash' }
   | { kind: 'signed-out' }
   | { kind: 'activate-org'; orgId: string }
+  | { kind: 'join' }
   | { kind: 'onboarding' }
   | { kind: 'unsupported-task'; task: SessionTaskKey }
   | { kind: 'session-error' }
@@ -49,6 +60,17 @@ export function resolveAppRoute(input: AppRouteInput): AppRoute {
   if (!input.activeOrgId) {
     const first = input.membershipOrgIds[0];
     if (first) return { kind: 'activate-org', orgId: first };
+    // Someone invited to a business joins it before creating their own. A
+    // failed lookup falls through to onboarding: it needs an explicit action,
+    // and blocking here would strand a user who has no invitation.
+    if (input.invitations.status === 'loading') return { kind: 'splash' };
+    if (
+      input.invitations.status === 'ready' &&
+      input.invitations.count > 0 &&
+      !input.joinDeclined
+    ) {
+      return { kind: 'join' };
+    }
     return { kind: 'onboarding' };
   }
 

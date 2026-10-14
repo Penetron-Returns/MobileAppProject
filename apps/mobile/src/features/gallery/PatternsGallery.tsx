@@ -10,11 +10,14 @@ import {
   FlowHeading,
   FlowTopBar,
   FloatingTabBar,
+  FormSheet,
+  GlassPage,
   Ground,
   InboxDome,
   ListSkeleton,
   LoadingCard,
   OfflineBanner,
+  Presenter,
   SaveFooter,
   StackHeader,
   Text,
@@ -57,6 +60,7 @@ function Stage({
 /** Page chrome, flows, states and the tab bar. */
 export function PatternsGallery() {
   const [retrying, setRetrying] = React.useState(false);
+  const [sheetOpen, setSheetOpen] = React.useState(false);
   const guard = useOfflineGuard(true, () =>
     Promise.reject(new Error('offline')),
   );
@@ -80,10 +84,47 @@ export function PatternsGallery() {
             <BackPill label="Today" onPress={() => {}} />
           </View>
         </Specimen>
+        <Specimen label="BackPill variant=glass">
+          <BackPill variant="glass" label="Settings" onPress={() => {}} />
+        </Specimen>
         <Specimen label="SaveFooter">
           <SaveFooter label="Save changes" onPress={() => {}} />
           <SaveFooter label="Save changes" disabled onPress={() => {}} />
         </Specimen>
+      </Section>
+
+      <Section
+        title="Glass page, form sheet and presenter"
+        note="Settings sub-screens: GlassPage; the editor: FormSheet inside a Presenter"
+      >
+        <Stage height={260}>
+          <GlassPage title="Team" backLabel="Settings" onBack={() => {}}>
+            <Text className="mx-5 text-subtitle text-muted-foreground">
+              4 people can take bookings
+            </Text>
+          </GlassPage>
+        </Stage>
+        <Stage height={200}>
+          <Presenter active={sheetOpen}>
+            <Ground className="flex-1 items-center justify-center">
+              <Button size="sm" onPress={() => setSheetOpen(true)}>
+                <Text>Open the sheet</Text>
+              </Button>
+            </Ground>
+          </Presenter>
+        </Stage>
+        <FormSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          title="Edit service"
+          footer={
+            <Button size="lg" onPress={() => setSheetOpen(false)}>
+              <Text>Save</Text>
+            </Button>
+          }
+        >
+          <Text className="text-title">Sheet body</Text>
+        </FormSheet>
       </Section>
 
       <Section

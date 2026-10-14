@@ -1,11 +1,12 @@
 import {
-  Capsule,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
+  GlassPage,
   Group,
   GroupRow,
   ListSkeleton,
-  Page,
+  Presenter,
   SectionTitle,
   Text,
   TintLink,
@@ -18,13 +19,25 @@ import { View } from 'react-native';
 
 import { isFailed, loadError } from '@/lib/offline';
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
-import { describeError } from '@/lib/toast';
+import { describeError, toast } from '@/lib/toast';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
+import { useBusiness } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
-import { useServices, type ServiceRow } from '@/features/catalog/hooks';
-import { formatDuration, formatMoney } from '@/lib/format';
+import {
+  useDeleteService,
+  useServices,
+  useStaff,
+  useStaffServices,
+  type ServiceRow,
+} from '@/features/catalog/hooks';
 
-import { existingCategories, groupByCategory, joinMeta } from '../lists';
+import {
+  compactMoney,
+  durationLabel,
+  existingCategories,
+  groupByCategory,
+  joinMeta,
+} from '../lists';
 import { ServiceForm } from './ServiceForm';
 
 export function ServicesScreen() {
@@ -32,7 +45,21 @@ export function ServicesScreen() {
   const queryClient = useQueryClient();
   const canManage = useCanManage();
   const services = useServices();
+  const staff = useStaff();
+  const links = useStaffServices();
+  const business = useBusiness();
   const [editing, setEditing] = React.useState<ServiceRow | 'new' | null>(null);
+  // The confirm lives here, outside the sheet's modal, so it is not hidden behind it.
+  const [deleting, setDeleting] = React.useState<ServiceRow | null>(null);
+  const remove = useDeleteService({
+    onSuccess: () => toast.success(t('services.removed')),
+  });
+
+  const bookable = staff.data?.filter((s) => s.is_active) ?? null;
+  const staffIdsFor = (serviceId: string) =>
+    (links.data ?? [])
+      .filter((l) => l.service_id === serviceId)
+      .map((l) => l.staff_id);
 
   let body: React.ReactNode;
   if (isFailed(services)) {
@@ -50,16 +77,17 @@ export function ServicesScreen() {
   } else {
     body = (
       <BusinessGate>
-        {(business) =>
+        {(biz) =>
           groupByCategory(services.data, t('services.other')).map(
             ([category, rows]) => (
               <View key={category}>
-                <SectionTitle>{category}</SectionTitle>
+                <SectionTitle className="mt-5">{category}</SectionTitle>
                 <Group>
                   {rows.map((service, i) => {
                     const meta = joinMeta(
-                      formatDuration(service.duration_minutes),
-                      formatMoney(service.price_cents, business.currency),
+                      durationLabel(service.duration_minutes, t),
+                      compactMoney(service.price_cents, biz.currency),
+                      !service.is_active && t('services.hidden'),
                     );
                     return (
                       <GroupRow
@@ -67,19 +95,12 @@ export function ServicesScreen() {
                         showSeparator={i > 0}
                         title={service.name}
                         subtitle={meta}
-                        trailing={
-                          service.is_active ? undefined : (
-                            <Capsule label={t('services.hidden')} />
-                          )
-                        }
                         onPress={
                           canManage ? () => setEditing(service) : undefined
                         }
                         accessibilityLabel={t('settings.servicesList.open', {
                           name: service.name,
-                          meta: service.is_active
-                            ? meta
-                            : joinMeta(meta, t('services.hidden')),
+                          meta,
                         })}
                       />
                     );
@@ -94,34 +115,59 @@ export function ServicesScreen() {
   }
 
   return (
-    <Page
-      title={t('services.title')}
-      backLabel={t('tabs.settings')}
-      backFallback="/settings"
-      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
-    >
-      <SavedCopyBanner query={services} />
-      {services.data ? (
-        <Text className="mx-5 mt-1 text-title text-muted-foreground">
-          {t('settings.servicesList.summary', { count: services.data.length })}
-        </Text>
-      ) : null}
-      {canManage ? (
-        <TintLink
-          icon={Plus}
-          label={t('settings.servicesList.add')}
-          onPress={() => setEditing('new')}
-          className="ml-5 mt-1"
-        />
-      ) : null}
-      {body}
-      {editing ? (
+    <Presenter active={editing !== null}>
+      <GlassPage
+        title={t('services.title')}
+        backLabel={t('tabs.settings')}
+        backFallback="/settings"
+        onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
+      >
+        <SavedCopyBanner query={services} />
+        {services.data ? (
+          <Text className="mx-5 text-title text-muted-foreground">
+            {t('settings.servicesList.summary', {
+              count: services.data.length,
+            })}
+          </Text>
+        ) : null}
+        {canManage ? (
+          <TintLink
+            variant="action"
+            icon={Plus}
+            label={t('settings.servicesList.add')}
+            onPress={() => setEditing('new')}
+            className="ml-5 mt-2"
+          />
+        ) : null}
+        {body}
+      </GlassPage>
+      {editing && business.data ? (
         <ServiceForm
           service={editing === 'new' ? null : editing}
           categories={existingCategories(services.data ?? [])}
+          currency={business.data.currency}
+          staff={bookable && links.data ? bookable : null}
+          staffIds={editing === 'new' ? [] : staffIdsFor(editing.id)}
           onClose={() => setEditing(null)}
+          onDelete={() => {
+            if (editing !== 'new') setDeleting(editing);
+            setEditing(null);
+          }}
         />
       ) : null}
-    </Page>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={t('services.deleteDialog.title')}
+        description={t('services.deleteDialog.description')}
+        confirmLabel={t('services.deleteDialog.confirm')}
+        cancelLabel={t('services.deleteDialog.keep')}
+        destructive
+        onConfirm={() => {
+          if (deleting) remove.mutate(deleting.id);
+          setDeleting(null);
+        }}
+      />
+    </Presenter>
   );
 }

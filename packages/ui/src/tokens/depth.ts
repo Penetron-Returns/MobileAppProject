@@ -88,6 +88,54 @@ export interface DepthColors {
   red: string;
   /** Content on a tinted or red fill (the white of a selected day, a badge). */
   onFill: string;
+  /** Red for text on a surface ("Sign out", "Delete"); darker than `red` in light. */
+  destructiveText: string;
+  /** Hairline between the halves of a control (the stepper's centre line). */
+  hairline: string;
+}
+
+/** The eight system colours a person picks for their calendar column. */
+export const SYSTEM_COLORS = {
+  blue: { light: '#007AFF', dark: '#0A84FF' },
+  orange: { light: '#FF9500', dark: '#FF9F0A' },
+  purple: { light: '#AF52DE', dark: '#BF5AF2' },
+  teal: { light: '#30B0C7', dark: '#40C8E0' },
+  green: { light: '#34C759', dark: '#30D158' },
+  pink: { light: '#FF2D55', dark: '#FF375F' },
+  indigo: { light: '#5856D6', dark: '#5E5CE6' },
+  red: { light: '#FF3B30', dark: '#FF453A' },
+} as const;
+
+export type SystemColorKey = keyof typeof SYSTEM_COLORS;
+
+export const SYSTEM_COLOR_KEYS = Object.keys(SYSTEM_COLORS) as SystemColorKey[];
+
+/** The system colour a stored hex stands for (either scheme's variant), if any. */
+export function systemColorKey(
+  stored: string | null | undefined,
+): SystemColorKey | null {
+  if (!stored) return null;
+  const hex = stored.toLowerCase();
+  return (
+    SYSTEM_COLOR_KEYS.find(
+      (k) =>
+        SYSTEM_COLORS[k].light.toLowerCase() === hex ||
+        SYSTEM_COLORS[k].dark.toLowerCase() === hex,
+    ) ?? null
+  );
+}
+
+/**
+ * What to paint for a stored colour in this scheme: a system colour swaps to
+ * its dark variant, any other hex (older data) is returned as it is.
+ */
+export function resolveSystemColor(
+  stored: string | null | undefined,
+  scheme: DepthScheme,
+): string | null {
+  if (!stored) return null;
+  const key = systemColorKey(stored);
+  return key ? SYSTEM_COLORS[key][scheme] : stored;
 }
 
 export interface DepthTokens {
@@ -103,8 +151,34 @@ export interface DepthTokens {
   /** Secondary button and small raised controls. */
   button: SurfaceStyle;
   buttonPressed: SurfaceStyle;
-  /** Switch thumb, selected segment, bell button. */
+  /** Bell button and other small raised controls. */
   knob: SurfaceStyle;
+  /** Switch thumb (white in both schemes). */
+  thumb: SurfaceStyle;
+  /** The selected segment of a segmented control. */
+  segment: SurfaceStyle;
+  /** Frosted back pill: translucent fill, border, drop shadow and top highlight. */
+  glass: Pick<ViewStyle, 'backgroundColor' | 'borderColor' | 'boxShadow'>;
+  /** The fade under the status bar of a glass-nav screen (opaque on top, clear below). */
+  navFade: SurfaceStyle;
+  /** A pressed row of a group: dim fill, pressed in. */
+  rowPressed: SurfaceStyle;
+  /** The inline time wheel: the well, the centre bar and the two edge fades. */
+  wheel: SurfaceStyle;
+  wheelSelection: SurfaceStyle;
+  wheelTop: SurfaceStyle;
+  wheelBottom: SurfaceStyle;
+  /** Full-height sheet ground, its pinned footer fade, grabber and the scrim behind it. */
+  sheet: SurfaceStyle;
+  sheetFade: SurfaceStyle;
+  grabber: string;
+  scrim: string;
+  /** Avatar with a coloured ring: neutral fill under a lit dome. */
+  domeRing: SurfaceStyle;
+  /** Tint-filled avatar (the business row of Settings). */
+  domeTint: SurfaceStyle;
+  /** Selected-state wash of a time field. */
+  tintWash: string;
   /** Tactile primary button. */
   primary: SurfaceStyle;
   primaryPressed: SurfaceStyle;
@@ -126,6 +200,10 @@ export interface DepthTokens {
   capsule: Record<CapsuleToneKey, CapsuleColors>;
 }
 
+/** The lit-from-above highlight over a dome (the boards' radial gradient). */
+const domeLight = (highlight: string) =>
+  `radial-gradient(120% 90% at 50% 0%, ${highlight}, rgba(255,255,255,0) 55%)`;
+
 const vertical = (top: string, bottom: string, stop?: string) =>
   `linear-gradient(180deg, ${top} 0%, ${stop ? `${stop} 55%, ` : ''}${bottom} 100%)`;
 
@@ -141,6 +219,8 @@ const LIGHT = {
     success: '#34C759',
     red: '#FF3B30',
     onFill: '#FFFFFF',
+    destructiveText: '#D70015',
+    hairline: 'rgba(60,60,67,0.29)',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },
@@ -183,6 +263,28 @@ const LIGHT = {
     shadow:
       'inset 0 1px 0 rgba(255,255,255,1), 0 0 0 0.5px rgba(16,24,40,0.07), 0 1px 1px rgba(16,24,40,0.10), 0 3px 8px rgba(16,24,40,0.15)',
   },
+  thumb: { top: '#FFFFFF', bottom: '#F6F6F9' },
+  segment: { top: '#FFFFFF', bottom: '#F4F5F8' },
+  glass: {
+    fill: 'rgba(255,255,255,0.62)',
+    border: 'rgba(255,255,255,0.7)',
+    shadow: '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
+  },
+  navFade: 'rgba(242,242,247,0.6)',
+  navFadeClear: 'rgba(242,242,247,0)',
+  rowPressed: {
+    bg: 'rgba(16,24,40,0.055)',
+    shadow: 'inset 0 2px 4px rgba(16,24,40,0.08)',
+  },
+  wheel: { bg: '#F7F7FA', clear: 'rgba(247,247,250,0)' },
+  wheelSelection: 'rgba(118,118,128,0.12)',
+  sheet: { top: '#F7F7FA', bottom: '#ECEDF2' },
+  sheetShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.95), 0 0 0 0.5px rgba(16,24,40,0.08), 0 -8px 24px -6px rgba(16,24,40,0.18), 0 -28px 60px -20px rgba(16,24,40,0.28)',
+  sheetFade: 'rgba(242,242,247,0.85)',
+  grabber: 'rgba(60,60,67,0.3)',
+  ringFill: 'rgba(118,118,128,0.12)',
+  tintWashAlpha: 0.15,
 } as const;
 
 const DARK = {
@@ -197,6 +299,8 @@ const DARK = {
     success: '#30D158',
     red: '#FF453A',
     onFill: '#FFFFFF',
+    destructiveText: '#FF453A',
+    hairline: 'rgba(84,84,88,0.6)',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },
@@ -239,6 +343,28 @@ const DARK = {
     shadow:
       'inset 0 1px 0 rgba(255,255,255,0.12), 0 0 0 0.5px rgba(255,255,255,0.08), 0 1px 1px rgba(0,0,0,0.4), 0 3px 8px rgba(0,0,0,0.5)',
   },
+  thumb: { top: '#FFFFFF', bottom: '#F1F1F4' },
+  segment: { top: '#5A5C66', bottom: '#484A53' },
+  glass: {
+    fill: 'rgba(40,40,42,0.62)',
+    border: 'rgba(255,255,255,0.12)',
+    shadow: '0 4px 16px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
+  },
+  navFade: 'rgba(0,0,0,0.6)',
+  navFadeClear: 'rgba(0,0,0,0)',
+  rowPressed: {
+    bg: 'rgba(0,0,0,0.3)',
+    shadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+  },
+  wheel: { bg: '#2C2C2E', clear: 'rgba(44,44,46,0)' },
+  wheelSelection: 'rgba(118,118,128,0.24)',
+  sheet: { top: '#14151B', bottom: '#0F1014' },
+  sheetShadow:
+    'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 0.5px rgba(255,255,255,0.08), 0 -8px 24px -6px rgba(0,0,0,0.55), 0 -28px 60px -20px rgba(0,0,0,0.7)',
+  sheetFade: 'rgba(0,0,0,0.85)',
+  grabber: 'rgba(235,235,245,0.3)',
+  ringFill: 'rgba(118,118,128,0.24)',
+  tintWashAlpha: 0.22,
 } as const;
 
 const BADGE_BG = vertical('#FF6259', '#E02D23', '#FF3B30');
@@ -268,8 +394,9 @@ export function getDepth(
     boxShadow: shadow,
   });
   const light = resolvedTint;
-  const primaryTop = lighten(light, 0.08);
-  const primaryBottom = darken(light, 0.06);
+  // The settings-family boards' tint gradient (Settings, Team, Services, Sign in).
+  const primaryTop = lighten(light, 0.16);
+  const primaryBottom = darken(light, 0.1);
 
   const tokens: DepthTokens = {
     scheme,
@@ -288,6 +415,50 @@ export function getDepth(
       boxShadow: s.pressedShadow,
     },
     knob: gradient(s.raised, s.knobShadow),
+    thumb: gradient(s.thumb, s.knobShadow),
+    segment: gradient(s.segment, s.knobShadow),
+    glass: {
+      backgroundColor: s.glass.fill,
+      borderColor: s.glass.border,
+      boxShadow: s.glass.shadow,
+    },
+    navFade: {
+      backgroundColor: s.navFade,
+      experimental_backgroundImage: `linear-gradient(180deg, ${s.navFade} 0%, ${s.navFade} 72%, ${s.navFadeClear} 100%)`,
+    },
+    rowPressed: {
+      backgroundColor: s.rowPressed.bg,
+      boxShadow: s.rowPressed.shadow,
+    },
+    wheel: { backgroundColor: s.wheel.bg, boxShadow: s.inset.shadow },
+    wheelSelection: {
+      backgroundColor: s.wheelSelection,
+      boxShadow:
+        'inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 0.5px rgba(16,24,40,0.05)',
+    },
+    wheelTop: {
+      backgroundColor: 'transparent',
+      experimental_backgroundImage: `linear-gradient(${s.wheel.bg}, ${s.wheel.clear})`,
+    },
+    wheelBottom: {
+      backgroundColor: 'transparent',
+      experimental_backgroundImage: `linear-gradient(${s.wheel.clear}, ${s.wheel.bg})`,
+    },
+    sheet: gradient(s.sheet, s.sheetShadow),
+    sheetFade: { backgroundColor: s.sheetFade },
+    grabber: s.grabber,
+    scrim: 'rgba(0,0,0,0.32)',
+    domeRing: {
+      backgroundColor: s.ringFill,
+      experimental_backgroundImage: domeLight(s.dome.highlight),
+      boxShadow: '0 1px 2px rgba(16,24,40,0.15)',
+    },
+    domeTint: {
+      backgroundColor: light,
+      experimental_backgroundImage: `${domeLight(s.dome.highlight)}, ${vertical(primaryTop, primaryBottom, light)}`,
+      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.12), 0 1px 2px ${withAlpha(light, 0.35)}, 0 4px 10px -4px ${withAlpha(light, 0.45)}`,
+    },
+    tintWash: withAlpha(light, s.tintWashAlpha),
     primary: {
       backgroundColor: light,
       experimental_backgroundImage: vertical(primaryTop, primaryBottom, light),
@@ -300,12 +471,12 @@ export function getDepth(
     inset: { backgroundColor: s.inset.bg, boxShadow: s.inset.shadow },
     dome: {
       backgroundColor: s.dome.base,
-      experimental_backgroundImage: `linear-gradient(180deg, ${s.dome.highlight} 0%, rgba(255,255,255,0) 55%)`,
+      experimental_backgroundImage: domeLight(s.dome.highlight),
       boxShadow: s.dome.shadow,
     },
     domeFloat: {
       backgroundColor: s.dome.base,
-      experimental_backgroundImage: `linear-gradient(180deg, ${s.dome.highlight} 0%, rgba(255,255,255,0) 55%)`,
+      experimental_backgroundImage: domeLight(s.dome.highlight),
       boxShadow: s.dome.float,
     },
     engrave: {

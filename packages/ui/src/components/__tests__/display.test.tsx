@@ -144,11 +144,11 @@ describe('Group, GroupRow and SectionTitle', () => {
         .findAll((n) =>
           String(n.props.className ?? '').includes('absolute right-0 top-0'),
         )
-        .map((n) => String(n.props.className))
-        .join(' ');
-    expect(left(avatar)).toContain('left-[68px]');
-    expect(left(glyph)).toContain('left-[52px]');
-    expect(left(plain)).toContain('left-4');
+        .map((n) => (n.props.style as { left: number }).left);
+    // Where the title starts: 16 padding + avatar 44 + 12 gap, glyph 20 + 14 gap.
+    expect(left(avatar)).toContain(72);
+    expect(left(glyph)).toContain(50);
+    expect(left(plain)).toContain(16);
     expect(textOf(avatar)).toContain('TM');
   });
 
