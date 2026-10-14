@@ -10,7 +10,8 @@
     "search": "Search",
     "signOut": "Sign out",
     "saveChanges": "Save Changes",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "done": "Done"
   },
   "errors": {
     "generic": "Something went wrong.",
@@ -152,36 +153,53 @@
   },
   "calendar": {
     "today": "Today",
-    "time": "Time",
+    "goToToday": "Go to today",
     "closed": "Closed",
-    "free": "Free",
-    "break": "Break",
-    "apptCount_one": "{{count}} appt",
-    "apptCount_other": "{{count}} appts",
-    "monthView": "Month view",
-    "weekView": "Week view",
-    "openDay": "Open {{date}}",
-    "monthCellLabel": "{{date}}, {{count}} appointments",
-    "blockLabel": "{{service}} with {{client}}, {{time}}",
+    "dayOff": "Not working",
+    "weekView": "Week",
+    "loading": "Loading the calendar",
+    "noStaff": "Add a team member in Settings to see the calendar.",
+    "offline": "Offline · showing what we had saved",
+    "error": {
+      "title": "Couldn't load the calendar",
+      "description": "Check your connection and try again."
+    },
+    "unknownClient": "Walk-in client",
+    "timeRange": "{{start}} to {{end}}",
+    "blockLabel": "{{client}}, {{service}}, {{time}}, {{status}}",
+    "tone": {
+      "upcoming": "booked",
+      "arrived": "checked in",
+      "done": "completed",
+      "noShow": "no-show"
+    },
+    "bookingCount_one": "{{count}} booking",
+    "bookingCount_other": "{{count}} bookings",
+    "openDay": "Show {{date}}",
+    "showFor": "Show bookings for",
+    "everyone": "Everyone",
+    "weekDayLabel_one": "{{day}} {{date}}, {{count}} booking. Open day",
+    "weekDayLabel_other": "{{day}} {{date}}, {{count}} bookings. Open day",
+    "weekDayClosed": "{{day}} {{date}}, closed",
+    "weekTotal_one": "{{count}} booking this week",
+    "weekTotal_other": "{{count}} bookings this week",
+    "weekTotalFor_one": "{{count}} booking this week for {{name}}",
+    "weekTotalFor_other": "{{count}} bookings this week for {{name}}",
     "views": {
       "day": "Day",
-      "week": "Week",
-      "month": "Month"
+      "week": "Week"
     },
     "viewLabel": {
       "day": "Day view",
-      "week": "Week view",
-      "month": "Month view"
+      "week": "Week view"
     },
     "previous": {
       "day": "Previous day",
-      "week": "Previous week",
-      "month": "Previous month"
+      "week": "Previous week"
     },
     "next": {
       "day": "Next day",
-      "week": "Next week",
-      "month": "Next month"
+      "week": "Next week"
     }
   },
   "clients": {
@@ -239,73 +257,41 @@
     }
   },
   "booking": {
-    "title": "Booking Detail",
+    "title": "Booking",
     "notFound": "This booking couldn't be found.",
-    "bookedOn": "Booked {{date}} via {{source}}",
-    "source": {
-      "whatsapp": "WhatsApp",
-      "app": "the app",
-      "web": "the web page"
-    },
-    "clientHistory": "Client History",
-    "historyNew": "New client • first visit",
-    "historyReturning_one": "Returning client • {{count}} past visit",
-    "historyReturning_other": "Returning client • {{count}} past visits",
-    "historyVip_one": "VIP client • {{count}} past visit",
-    "historyVip_other": "VIP client • {{count}} past visits",
-    "viewClient": "View client profile for {{name}}",
-    "schedule": "Schedule",
-    "service": "Service",
-    "total": "Total",
-    "staff": "Assigned Staff",
-    "notes": "Booking Notes",
+    "thisClient": "the client",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "timeRange": "{{start}} to {{end}}",
+    "viewClient": "Open client profile for {{name}}",
     "message": "Message",
-    "viewCalendar": "Calendar",
-    "cancel": "Cancel",
-    "cancelled": "Booking cancelled",
-    "cancelDialog": {
-      "title": "Cancel appointment?",
-      "description": "The slot becomes available again and the client is notified on WhatsApp.",
-      "confirm": "Yes, cancel booking",
-      "keep": "Keep appointment"
-    }
-  },
-  "addBooking": {
-    "client": "Client",
-    "clientMode": {
-      "existing": "Existing",
-      "new": "New Client"
+    "messageLabel": "Message {{name}} on WhatsApp",
+    "whatsAppFailed": "Couldn't open WhatsApp.",
+    "reschedule": "Reschedule",
+    "rescheduleLabel": "Reschedule {{name}}'s booking",
+    "checkOut": "Check out",
+    "checkOutLabel": "Check out {{name}}",
+    "checkedOutToast": "{{name}} checked out",
+    "notes": "Notes",
+    "staff": "Staff",
+    "price": "Price",
+    "history": "History",
+    "historyFailed": "Couldn't load the history.",
+    "event": {
+      "created": "Booked",
+      "confirmation_sent": "Confirmation sent",
+      "reminder_sent": "Reminder sent",
+      "checked_in": "Checked in",
+      "rescheduled": "Moved to a new time",
+      "completed": "Checked out",
+      "no_show": "Marked as no-show",
+      "cancelled": "Cancelled",
+      "notes_updated": "Notes changed"
     },
-    "searchClient": "Search by name or phone...",
-    "noClientMatch": "No matching clients.",
-    "select": "Select",
-    "selectClient": "Select client {{name}}",
-    "changeClient": "Change client",
-    "newName": "Full name",
-    "newPhone": "Mobile number",
-    "service": "Service",
-    "pickService": "Select a service",
-    "staff": "Staff Member",
-    "pickStaff": "Select staff member",
-    "anyStaff": "No preference",
-    "date": "Date",
-    "time": "Time",
-    "pickServiceFirst": "Choose a service to see available times.",
-    "noSlots": "No free times on this day. Try another date.",
-    "notes": "Internal Notes",
-    "notesPlaceholder": "Special requests, allergies or notes for the staff...",
-    "whatsApp": "Send WhatsApp confirmation",
-    "whatsAppHint": "The client gets the booking details in their chat",
-    "save": "Save Booking",
-    "saving": "Saving...",
-    "created": "Booking created",
-    "slotTaken": "That time was just taken. Pick another slot.",
-    "errors": {
-      "client": "Select a client first.",
-      "newClient": "Enter the new client's name and mobile number.",
-      "service": "Select a service.",
-      "slot": "Select a time slot."
-    }
+    "cancel": "Cancel booking",
+    "more": "More",
+    "markNoShow": "Mark as no-show",
+    "markedNoShow": "Marked as no-show"
   },
   "settings": {
     "preferences": "Preferences",
@@ -445,5 +431,93 @@
       "confirm": "Yes, remove",
       "keep": "Keep staff"
     }
+  },
+  "slots": {
+    "pickService": "Choose a service to see times.",
+    "noDays": "No free days in the booking window.",
+    "noSlots": "No free times on this day. Try another day.",
+    "times": "Times",
+    "days": "Days",
+    "loading": "Checking live availability",
+    "error": {
+      "title": "Couldn't check availability",
+      "description": "Check your connection and try again."
+    }
+  },
+  "reschedule": {
+    "title": "Reschedule",
+    "notAllowed": "Only a confirmed booking can be moved.",
+    "summary": "{{name}} · {{service}} · {{duration}}",
+    "current": "{{when}} is the current time",
+    "tell": "Tell {{name}} on WhatsApp",
+    "pickTime": "Pick a new time",
+    "moveTo": "Move to {{when}}",
+    "slotTaken": "That time was just taken. Pick another.",
+    "done": "Moved",
+    "told": "{{name}} will get a WhatsApp update.",
+    "notTold": "No WhatsApp message was sent.",
+    "doneDetail": "{{when}} · {{service}}"
+  },
+  "cancel": {
+    "title": "Cancel booking",
+    "notAllowed": "This booking can't be cancelled.",
+    "question": "Why is this being cancelled?",
+    "summary": "{{name}} · {{service}} · {{when}}",
+    "reasons": {
+      "client": "Client asked",
+      "staff": "Staff unavailable",
+      "other": "Other"
+    },
+    "otherLabel": "What happened?",
+    "otherPlaceholder": "A few words are enough",
+    "late": "This is a late cancellation (within {{hours}} hours).",
+    "tell": "Tell {{name}} on WhatsApp",
+    "confirm": "Cancel booking",
+    "keep": "Keep booking",
+    "done": "Booking cancelled",
+    "told": "{{name}} will get a WhatsApp message.",
+    "notTold": "No WhatsApp message was sent.",
+    "recordedLate": "Recorded as a late cancellation."
+  },
+  "newBooking": {
+    "title": "New booking",
+    "who": "Who is it for?",
+    "searchPlaceholder": "Client name or number",
+    "searchFailed": "Couldn't search clients.",
+    "noMatch": "No client matches. Add them below.",
+    "selectClient": "Pick {{name}}",
+    "newClient": "New client",
+    "name": "Name",
+    "namePlaceholder": "First and last name",
+    "phone": "Mobile",
+    "phonePlaceholder": "+27 82 555 0143",
+    "service": "Service",
+    "noServices": "Add a service in Settings first.",
+    "next": "Next: pick a time",
+    "when": "When?",
+    "staff": "With",
+    "anyStaff": "Any",
+    "sendConfirmation": "Send {{name}} a WhatsApp confirmation",
+    "note": "Note",
+    "notePlaceholder": "Anything the team should know",
+    "thisClient": "the client",
+    "pickTime": "Pick a time",
+    "bookFor": "Book {{name}} for {{when}}",
+    "errors": {
+      "client": "Pick a client first.",
+      "newClient": "Enter the new client's name and mobile number.",
+      "service": "Pick a service.",
+      "slot": "Pick a time."
+    },
+    "taken": {
+      "title": "{{when}} was just booked by someone else.",
+      "closest": "Here are the closest times:",
+      "none": "Nothing else is free that day. Pick another day."
+    },
+    "done": "Booked",
+    "told": "{{name}} will get a WhatsApp confirmation.",
+    "notTold": "No WhatsApp message was sent.",
+    "doneDetail": "{{when}} · {{service}}",
+    "view": "View booking"
   }
 }

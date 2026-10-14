@@ -1,12 +1,10 @@
 import {
   addDays,
-  addMonths,
   businessDate,
-  endOfMonth,
   minutesSinceMidnight,
-  startOfMonth,
   startOfWeek,
   timeToMinutes,
+  weekdayOf,
   type ISODate,
 } from '@/lib/time';
 
@@ -15,54 +13,39 @@ import type { CalendarViewMode } from './navigation';
 export const PX_PER_HOUR = 96;
 const DEFAULT_DAY = { startMin: 9 * 60, endMin: 18 * 60 };
 
-/** First and last (exclusive) business date covered by a view. */
-export function periodRange(
-  view: CalendarViewMode,
-  anchor: ISODate,
-): { from: ISODate; to: ISODate } {
-  if (view === 'day') return { from: anchor, to: addDays(anchor, 1) };
-  if (view === 'week') {
-    const from = startOfWeek(anchor);
-    return { from, to: addDays(from, 7) };
-  }
-  const weeks = monthGrid(anchor);
-  return {
-    from: weeks[0][0].date,
-    to: addDays(weeks[weeks.length - 1][6].date, 1),
-  };
+export interface MinuteSpan {
+  startMin: number;
+  endMin: number;
 }
 
+export interface HoursRow {
+  weekday: number;
+  opens_at: string;
+  closes_at: string;
+}
+
+export interface RuleRow {
+  staff_id: string;
+  weekday: number;
+  start_time: string;
+  end_time: string;
+}
+
+export interface OverrideRow {
+  staff_id: string | null;
+  date: string;
+  is_closed: boolean;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+/** Shifts the view by one period. */
 export function shiftAnchor(
   view: CalendarViewMode,
   anchor: ISODate,
   direction: 1 | -1,
 ): ISODate {
-  if (view === 'day') return addDays(anchor, direction);
-  if (view === 'week') return addDays(anchor, 7 * direction);
-  return addMonths(startOfMonth(anchor), direction);
-}
-
-export interface MonthCell {
-  date: ISODate;
-  isCurrentMonth: boolean;
-}
-
-/** Monday-first weeks covering the anchor's month (5 or 6 rows). */
-export function monthGrid(anchor: ISODate): MonthCell[][] {
-  const first = startOfMonth(anchor);
-  const last = endOfMonth(anchor);
-  const month = first.slice(0, 7);
-  const weeks: MonthCell[][] = [];
-  let cursor = startOfWeek(first);
-  while (cursor <= last) {
-    const week: MonthCell[] = [];
-    for (let i = 0; i < 7; i += 1) {
-      week.push({ date: cursor, isCurrentMonth: cursor.startsWith(month) });
-      cursor = addDays(cursor, 1);
-    }
-    weeks.push(week);
-  }
-  return weeks;
+  return addDays(anchor, (view === 'week' ? 7 : 1) * direction);
 }
 
 export function weekDates(anchor: ISODate): ISODate[] {
@@ -70,57 +53,147 @@ export function weekDates(anchor: ISODate): ISODate[] {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
-export function countByDate(
-  appointments: { starts_at: string }[],
-  timezone: string,
-): Record<ISODate, number> {
-  const counts: Record<ISODate, number> = {};
-  for (const a of appointments) {
-    const date = businessDate(a.starts_at, timezone);
-    counts[date] = (counts[date] ?? 0) + 1;
-  }
-  return counts;
-}
-
-interface HoursRow {
+export interface StripDay {
+  date: ISODate;
+  /** Day of the month. */
+  num: number;
   weekday: number;
-  opens_at: string;
-  closes_at: string;
+  isToday: boolean;
+  isSelected: boolean;
 }
 
-export interface MinuteSpan {
-  startMin: number;
-  endMin: number;
+/** The seven days (Monday first) around `anchor`, for the day view's date strip. */
+export function weekStrip(anchor: ISODate, today: ISODate): StripDay[] {
+  return weekDates(anchor).map((date) => ({
+    date,
+    num: Number(date.slice(8, 10)),
+    weekday: weekdayOf(date),
+    isToday: date === today,
+    isSelected: date === anchor,
+  }));
 }
 
-export function shiftsForWeekday(
-  hours: HoursRow[],
-  weekday: number,
-): MinuteSpan[] {
-  return hours
-    .filter((h) => h.weekday === weekday)
-    .map((h) => ({
-      startMin: timeToMinutes(h.opens_at),
-      endMin: timeToMinutes(h.closes_at),
-    }))
+// ---------- working hours ----------
+
+/** Sorts spans and merges overlapping or touching ones. */
+export function mergeSpans(spans: MinuteSpan[]): MinuteSpan[] {
+  const sorted = spans
+    .filter((s) => s.endMin > s.startMin)
+    .map((s) => ({ ...s }))
     .sort((a, b) => a.startMin - b.startMin);
-}
-
-/** Gaps between a day's shifts (e.g. a lunch break between split shifts). */
-export function breaksBetween(shifts: MinuteSpan[]): MinuteSpan[] {
-  const breaks: MinuteSpan[] = [];
-  for (let i = 1; i < shifts.length; i += 1) {
-    if (shifts[i].startMin > shifts[i - 1].endMin) {
-      breaks.push({
-        startMin: shifts[i - 1].endMin,
-        endMin: shifts[i].startMin,
-      });
+  const merged: MinuteSpan[] = [];
+  for (const span of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && span.startMin <= last.endMin) {
+      last.endMin = Math.max(last.endMin, span.endMin);
+    } else {
+      merged.push(span);
     }
   }
-  return breaks;
+  return merged;
 }
 
-/** Whole-hour window covering every shift and appointment shown. */
+export function intersectSpans(a: MinuteSpan[], b: MinuteSpan[]): MinuteSpan[] {
+  const out: MinuteSpan[] = [];
+  for (const x of mergeSpans(a)) {
+    for (const y of mergeSpans(b)) {
+      const startMin = Math.max(x.startMin, y.startMin);
+      const endMin = Math.min(x.endMin, y.endMin);
+      if (endMin > startMin) out.push({ startMin, endMin });
+    }
+  }
+  return mergeSpans(out);
+}
+
+/** The parts of `window` that no span covers: the hatched off-hours. */
+export function complementSpans(
+  spans: MinuteSpan[],
+  window: MinuteSpan,
+): MinuteSpan[] {
+  const out: MinuteSpan[] = [];
+  let cursor = window.startMin;
+  for (const span of mergeSpans(spans)) {
+    if (span.endMin <= window.startMin || span.startMin >= window.endMin) {
+      continue;
+    }
+    if (span.startMin > cursor) {
+      out.push({ startMin: cursor, endMin: span.startMin });
+    }
+    cursor = Math.max(cursor, span.endMin);
+  }
+  if (cursor < window.endMin) {
+    out.push({ startMin: cursor, endMin: window.endMin });
+  }
+  return out;
+}
+
+function overrideSpans(overrides: OverrideRow[]): MinuteSpan[] | null {
+  if (overrides.length === 0) return null;
+  if (overrides.some((o) => o.is_closed)) return [];
+  return mergeSpans(
+    overrides
+      .filter((o) => o.start_time && o.end_time)
+      .map((o) => ({
+        startMin: timeToMinutes(o.start_time as string),
+        endMin: timeToMinutes(o.end_time as string),
+      })),
+  );
+}
+
+/** Business windows for a date: a business-wide override decides, else the weekly hours. */
+export function businessWindows(
+  date: ISODate,
+  hours: HoursRow[],
+  overrides: OverrideRow[],
+): MinuteSpan[] {
+  const override = overrideSpans(
+    overrides.filter((o) => o.staff_id === null && o.date === date),
+  );
+  if (override) return override;
+  const weekday = weekdayOf(date);
+  return mergeSpans(
+    hours
+      .filter((h) => h.weekday === weekday)
+      .map((h) => ({
+        startMin: timeToMinutes(h.opens_at),
+        endMin: timeToMinutes(h.closes_at),
+      })),
+  );
+}
+
+/**
+ * When one staff member works on a date (docs/booking-core.md): a staff
+ * override decides, else their weekly rules, else (no rules at all) the
+ * business windows. Always clipped to the business windows.
+ */
+export function staffWindows(opts: {
+  date: ISODate;
+  staffId: string;
+  hours: HoursRow[];
+  rules: RuleRow[];
+  overrides: OverrideRow[];
+}): MinuteSpan[] {
+  const { date, staffId, hours, rules, overrides } = opts;
+  const business = businessWindows(date, hours, overrides);
+  const own = overrideSpans(
+    overrides.filter((o) => o.staff_id === staffId && o.date === date),
+  );
+  if (own) return intersectSpans(own, business);
+  const mine = rules.filter((r) => r.staff_id === staffId);
+  if (mine.length === 0) return business;
+  const weekday = weekdayOf(date);
+  const today = mine
+    .filter((r) => r.weekday === weekday)
+    .map((r) => ({
+      startMin: timeToMinutes(r.start_time),
+      endMin: timeToMinutes(r.end_time),
+    }));
+  return intersectSpans(today, business);
+}
+
+// ---------- the day grid ----------
+
+/** Whole-hour window covering every span shown. */
 export function timelineWindow(spans: MinuteSpan[]): MinuteSpan {
   if (spans.length === 0) return DEFAULT_DAY;
   const start = Math.min(...spans.map((s) => s.startMin));
@@ -142,46 +215,145 @@ export function appointmentSpan(
   return { startMin, endMin: Math.min(24 * 60, startMin + a.duration_minutes) };
 }
 
-export interface LaidOutBlock<T> {
-  item: T;
-  span: MinuteSpan;
-  lane: number;
-  lanes: number;
-}
-
-/**
- * Places overlapping blocks side by side: each cluster of transitively
- * overlapping spans shares a lane count, each block takes the first free lane.
- */
-export function layoutLanes<T>(
-  items: { item: T; span: MinuteSpan }[],
-): LaidOutBlock<T>[] {
-  const sorted = [...items].sort(
-    (a, b) =>
-      a.span.startMin - b.span.startMin || b.span.endMin - a.span.endMin,
-  );
-  const result: LaidOutBlock<T>[] = [];
-  let cluster: LaidOutBlock<T>[] = [];
-  let laneEnds: number[] = [];
-  let clusterEnd = -1;
-  const closeCluster = () => {
-    cluster.forEach((b) => (b.lanes = laneEnds.length));
-    result.push(...cluster);
-    cluster = [];
-    laneEnds = [];
-  };
-  for (const entry of sorted) {
-    if (cluster.length && entry.span.startMin >= clusterEnd) closeCluster();
-    let lane = laneEnds.findIndex((end) => end <= entry.span.startMin);
-    if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = entry.span.endMin;
-    clusterEnd = Math.max(cluster.length ? clusterEnd : 0, entry.span.endMin);
-    cluster.push({ ...entry, lane, lanes: 0 });
-  }
-  if (cluster.length) closeCluster();
-  return result;
-}
-
 export function minutesToPx(minutes: number) {
   return (minutes / 60) * PX_PER_HOUR;
+}
+
+/** Minutes since midnight for the now line, or null when `date` is not today or it is off the grid. */
+export function nowMinute(
+  now: Date,
+  timezone: string,
+  date: ISODate,
+  window: MinuteSpan,
+): number | null {
+  if (businessDate(now, timezone) !== date) return null;
+  const minute = minutesSinceMidnight(now, timezone);
+  return minute >= window.startMin && minute <= window.endMin ? minute : null;
+}
+
+/** Column width: at least `minWidth`, widened so one or two columns fill the screen. */
+export function columnWidth(
+  available: number,
+  columns: number,
+  minWidth = 150,
+): number {
+  if (columns <= 0) return minWidth;
+  return Math.max(minWidth, Math.floor(available / Math.min(columns, 2)));
+}
+
+interface StaffLike {
+  id: string;
+  is_active: boolean;
+}
+
+/** Active staff, plus anyone with a booking that day (a deactivated colleague still shows their work). */
+export function columnStaff<S extends StaffLike>(
+  staff: S[],
+  appointments: { staff: { id: string } }[],
+): S[] {
+  const booked = new Set(appointments.map((a) => a.staff.id));
+  return staff.filter((s) => s.is_active || booked.has(s.id));
+}
+
+export interface DayColumn<S, A> {
+  staff: S;
+  working: MinuteSpan[];
+  appointments: A[];
+}
+
+/** Everything the grid draws: the columns and the shared hour window. */
+export function buildDayColumns<
+  S extends StaffLike,
+  A extends {
+    starts_at: string;
+    duration_minutes: number;
+    staff: { id: string };
+  },
+>(opts: {
+  date: ISODate;
+  timezone: string;
+  staff: S[];
+  appointments: A[];
+  hours: HoursRow[];
+  rules: RuleRow[];
+  overrides: OverrideRow[];
+}): { columns: DayColumn<S, A>[]; window: MinuteSpan } {
+  const { date, timezone, appointments, hours, rules, overrides } = opts;
+  const columns = columnStaff(opts.staff, appointments).map((staff) => ({
+    staff,
+    working: staffWindows({ date, staffId: staff.id, hours, rules, overrides }),
+    appointments: appointments.filter((a) => a.staff.id === staff.id),
+  }));
+  const window = timelineWindow([
+    ...columns.flatMap((c) => c.working),
+    ...appointments.map((a) => appointmentSpan(a, timezone)),
+  ]);
+  return { columns, window };
+}
+
+// ---------- the week list ----------
+
+export interface WeekDay {
+  date: ISODate;
+  count: number;
+  isClosed: boolean;
+  isToday: boolean;
+  /** 0..1 share of the busiest day, for the bar. */
+  fullness: number;
+}
+
+export interface WeekSummary {
+  days: WeekDay[];
+  total: number;
+}
+
+export function filterByStaff<A extends { staff: { id: string } }>(
+  appointments: A[],
+  staffId: string | null,
+): A[] {
+  return staffId
+    ? appointments.filter((a) => a.staff.id === staffId)
+    : appointments;
+}
+
+export function weekSummary(opts: {
+  anchor: ISODate;
+  today: ISODate;
+  timezone: string;
+  appointments: { starts_at: string }[];
+  hours: HoursRow[];
+  overrides: OverrideRow[];
+}): WeekSummary {
+  const { anchor, today, timezone, appointments, hours, overrides } = opts;
+  const counts: Record<ISODate, number> = {};
+  for (const a of appointments) {
+    const date = businessDate(a.starts_at, timezone);
+    counts[date] = (counts[date] ?? 0) + 1;
+  }
+  const dates = weekDates(anchor);
+  const busiest = Math.max(1, ...dates.map((d) => counts[d] ?? 0));
+  const days = dates.map((date) => {
+    const count = counts[date] ?? 0;
+    return {
+      date,
+      count,
+      isClosed:
+        count === 0 && businessWindows(date, hours, overrides).length === 0,
+      isToday: date === today,
+      fullness: count / busiest,
+    };
+  });
+  return { days, total: days.reduce((sum, d) => sum + d.count, 0) };
+}
+
+export type BlockTone = 'upcoming' | 'arrived' | 'done' | 'noShow';
+
+/** How a booking block is tinted: exceptions stand out, ordinary bookings stay quiet. */
+export function blockTone(a: {
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show';
+  checked_in_at: string | null;
+}): BlockTone {
+  if (a.status === 'no_show') return 'noShow';
+  if (a.status === 'completed') return 'done';
+  return a.checked_in_at ? 'arrived' : 'upcoming';
 }

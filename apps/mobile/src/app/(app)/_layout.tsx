@@ -33,12 +33,12 @@ export default function AppLayout() {
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
   const shouldActivateFirst = Boolean(
     authLoaded &&
-    isSignedIn &&
-    orgLoaded &&
-    listLoaded &&
-    !organization &&
-    memberships &&
-    memberships.length > 0,
+      isSignedIn &&
+      orgLoaded &&
+      listLoaded &&
+      !organization &&
+      memberships &&
+      memberships.length > 0,
   );
 
   React.useEffect(() => {
@@ -69,6 +69,20 @@ export default function AppLayout() {
       <Tabs.Screen name="inbox" options={{ href: null }} />
       <Tabs.Screen
         name="bookings/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="bookings/reschedule/[id]"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="bookings/cancel/[id]"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },
