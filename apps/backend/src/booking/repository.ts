@@ -116,12 +116,26 @@ export interface UserValues {
 
 // ---------- interface ----------
 
+export interface CompleteOnboardingInput {
+  businessId: UUID;
+  userId: string;
+  ownerName: string;
+  hours: BusinessHoursRow[];
+  team: { name: string; title: string | null }[];
+  services: { name: string; duration_minutes: number; price_cents: number }[];
+}
+
 export interface CatalogRepository {
   getBusiness(businessId: UUID): Promise<BusinessRow | null>;
   getBusinessBySlug(slug: string): Promise<BusinessRow | null>;
   updateBusiness(businessId: UUID, patch: BusinessPatch): Promise<BusinessRow>;
   listBusinessHours(businessId: UUID): Promise<BusinessHoursDbRow[]>;
   replaceBusinessHours(businessId: UUID, rows: BusinessHoursRow[]): Promise<void>;
+  /**
+   * RPC complete_onboarding: hours, owner + team staff and services in ONE transaction under a business lock, the
+   * completion marker written last. Resolves true when applied, false when the business was already onboarded.
+   */
+  completeOnboarding(input: CompleteOnboardingInput): Promise<boolean>;
 
   listServices(businessId: UUID, opts?: { activeOnly?: boolean }): Promise<ServiceRow[]>;
   getService(businessId: UUID, serviceId: UUID): Promise<ServiceRow | null>;
@@ -305,6 +319,18 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     },
     async replaceBusinessHours(businessId, hours) {
       check(await db.rpc('replace_business_hours', { p_business_id: businessId, p_rows: hours as unknown as Json }));
+    },
+    async completeOnboarding(input) {
+      const result = await db.rpc('complete_onboarding', {
+        p_business_id: input.businessId,
+        p_user_id: input.userId,
+        p_owner_name: input.ownerName,
+        p_hours: input.hours as unknown as Json,
+        p_team: input.team as unknown as Json,
+        p_services: input.services as unknown as Json,
+      });
+      if (result.error) throw mapDbError(result.error);
+      return result.data === true;
     },
 
     async listServices(businessId, opts = {}) {

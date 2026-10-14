@@ -150,3 +150,41 @@ describe('account events from the owner API', () => {
     expect(seen).toHaveLength(2);
   });
 });
+
+describe('account events never block the owner request', () => {
+  const hours = { hours: [{ weekday: 1, opens_at: '09:00', closes_at: '17:00' }] };
+
+  it('answers while Nerova is still hanging', async () => {
+    let started = 0;
+    const h = harness({ nerovaEvents: { accountChanged: () => (started += 1, new Promise<void>(() => {})) } });
+    expect((await h.call('PATCH', '/v1/business', { body: { name: 'Renamed' } })).status).toBe(200);
+    expect((await h.call('PUT', '/v1/business/hours', { body: hours })).status).toBe(200);
+    expect(started).toBe(2);
+  });
+
+  it('still succeeds when the port rejects, without an unhandled rejection', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      const h = harness({ nerovaEvents: { accountChanged: async () => Promise.reject(new Error('nerova down')) } });
+      expect((await h.call('PATCH', '/v1/business', { body: { name: 'Renamed' } })).status).toBe(200);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('hands the delivery to the runtime so it outlives the response when waitUntil exists', async () => {
+    const kept: Promise<unknown>[] = [];
+    (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime = { waitUntil: (p: Promise<unknown>) => void kept.push(p) };
+    try {
+      const h = harness({ nerovaEvents: { accountChanged: async () => {} } });
+      expect((await h.call('PATCH', '/v1/business', { body: { name: 'Renamed' } })).status).toBe(200);
+      expect(kept).toHaveLength(1);
+    } finally {
+      delete (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime;
+    }
+  });
+});

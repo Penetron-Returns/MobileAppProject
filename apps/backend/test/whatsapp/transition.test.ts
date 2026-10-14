@@ -565,7 +565,7 @@ describe('transition: flows, blocked clients', () => {
     expect(t.state).toBe('flow_booking');
     expect(t.context.busySince).toBe(NOW.toISOString());
     expect(only(t, 'create_booking')).toEqual([
-      { type: 'create_booking', serviceId: SVC_CUT, staffId: null, startsAt: '2026-10-05T07:00:00.000Z', idempotencyKey: 'wa-flow:v1.token:2026-10-05T07:00:00.000Z' },
+      { type: 'create_booking', serviceId: SVC_CUT, staffId: null, startsAt: '2026-10-05T07:00:00.000Z', idempotencyKey: `wa-flow:${ATTEMPT}:2026-10-05T07:00:00.000Z` },
     ]);
   });
 

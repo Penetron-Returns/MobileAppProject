@@ -450,6 +450,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          onboarded_at: string | null
           phone: string | null
           plan: Database["public"]["Enums"]["plan_key"]
           slug: string
@@ -466,6 +467,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          onboarded_at?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["plan_key"]
           slug: string
@@ -482,6 +484,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          onboarded_at?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["plan_key"]
           slug?: string
@@ -1374,6 +1377,17 @@ export type Database = {
           offset_minutes: number
           starts_at: string
         }[]
+      }
+      complete_onboarding: {
+        Args: {
+          p_business_id: string
+          p_hours: Json
+          p_owner_name: string
+          p_services: Json
+          p_team: Json
+          p_user_id: string
+        }
+        Returns: boolean
       }
       create_appointment: {
         Args: {

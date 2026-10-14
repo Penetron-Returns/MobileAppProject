@@ -285,7 +285,7 @@ describe('e2e: Flow path', () => {
     await send(nfmMsg(complete));
     await send(nfmMsg(complete, nextWamid()));
     expect(s.booking.tables.appointments).toHaveLength(1);
-    expect(s.booking.tables.appointments[0]!.idempotency_key).toBe(`wa-flow:${token}:${T}`);
+    expect(s.booking.tables.appointments[0]!.idempotency_key).toBe(`wa-flow:${h.repo.db.attempts[0]!.id}:${T}`);
     const confirmations = h.graph.sent.filter((m) => JSON.stringify(m.payload).includes("You're booked!"));
     expect(confirmations).toHaveLength(1);
     expect(h.repo.db.conversations[0]!.state).toBe('idle');

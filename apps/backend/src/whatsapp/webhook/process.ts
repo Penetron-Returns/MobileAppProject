@@ -8,6 +8,7 @@
  * retries. Failures after recording are kept on the row and never bubble up.
  */
 import type { TemplateStatus } from '../../../../../packages/shared/api.ts';
+import { hasFeatureOrNone } from '../../plans/entitlements.ts';
 import type { WaDeps } from '../deps.ts';
 import { handleInboundMessage } from '../engine/index.ts';
 import { escalate } from '../outbound.ts';
@@ -57,7 +58,7 @@ async function handleEvent(deps: WaDeps, event: WaEvent, accounts: WaAccountRow[
       const account = accounts[0];
       if (!account) return 'unlinked_number';
       // Paid plans: Nerova owns WhatsApp, so our deterministic engine must stay silent.
-      if (!(await deps.entitlements.hasFeature(account.business_id, 'whatsapp_menu'))) {
+      if (!(await hasFeatureOrNone(deps.entitlements, account.business_id, 'whatsapp_menu'))) {
         deps.logger.info('wa_inbound_skipped_feature_not_in_plan', { business_id: account.business_id });
         return 'feature_not_in_plan';
       }

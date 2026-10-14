@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { AppError, notFound } from '../../src/lib/errors.ts';
+import { processWebhook } from '../../src/whatsapp/webhook/process.ts';
+
 import { signMetaBody, verifyMetaSignature } from '../../src/whatsapp/signature.ts';
 import { extractEvents, WebhookPayload } from '../../src/whatsapp/webhook/events.ts';
 import {
@@ -8,6 +11,7 @@ import {
   buttonMsg,
   CUSTOMER_PHONE,
   fieldPayload,
+  harness,
   inbound,
   nextWamid,
   NOW,
@@ -302,5 +306,31 @@ describe('webhook: inbound input kinds', () => {
     // Unsupported input on idle shows the menu, like any other message.
     expect(sentText(h.graph)).toContain('What would you like to do?');
     expect(h.repo.db.messages[0]).toMatchObject({ type: 'media', body: { media_type: 'image' } });
+  });
+});
+
+describe('webhook: plan gate and entitlement errors', () => {
+  const failing = (error: unknown) => ({
+    getEntitlements: async () => Promise.reject(error),
+    hasFeature: async () => Promise.reject(error),
+    listBusinessIdsWithFeature: async () => [],
+  });
+
+  it('skips the engine quietly when the business has no plan row (NOT_FOUND means "no feature")', async () => {
+    const h = harness();
+    h.deps.entitlements = failing(notFound('Business plan'));
+    const summary = await processWebhook(h.deps, inbound(textMsg('wamid.NOPLAN')) as WebhookPayload);
+    expect(summary.errors).toBe(0);
+    expect(h.graph.sent).toHaveLength(0);
+    expect(h.repo.db.webhookEvents).toMatchObject([{ event_key: 'msg:wamid.NOPLAN', error: 'feature_not_in_plan' }]);
+  });
+
+  it('records a transient entitlement failure as an event error so the normal retry path applies', async () => {
+    const h = harness();
+    h.deps.entitlements = failing(new AppError('INTERNAL', 'db down'));
+    const summary = await processWebhook(h.deps, inbound(textMsg('wamid.DBDOWN')) as WebhookPayload);
+    expect(summary.errors).toBe(1);
+    expect(h.graph.sent).toHaveLength(0);
+    expect(h.repo.db.webhookEvents[0]!.error).toMatch(/^exception:/);
   });
 });
