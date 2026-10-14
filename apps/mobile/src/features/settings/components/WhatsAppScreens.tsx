@@ -19,6 +19,7 @@ import { View } from 'react-native';
 import { useBusinessDetails } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
 import { Gate } from '@/features/plans/components/Gate';
+import { isFailed, loadError } from '@/lib/offline';
 import { formatPhone } from '@/lib/format';
 import { toast, describeError } from '@/lib/toast';
 
@@ -46,11 +47,11 @@ function WhatsAppSettingsBody() {
   const action = useWhatsAppAction();
 
   let body: React.ReactNode;
-  if (channel.isError) {
+  if (isFailed(channel)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(channel.error)}
+        {...describeError(loadError(channel))}
         onRetry={() => void channel.refetch()}
       />
     );
@@ -133,11 +134,11 @@ function WhatsAppDetailBody() {
   const [confirmOff, setConfirmOff] = React.useState(false);
 
   let body: React.ReactNode;
-  if (channel.isError) {
+  if (isFailed(channel)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(channel.error)}
+        {...describeError(loadError(channel))}
         onRetry={() => void channel.refetch()}
       />
     );

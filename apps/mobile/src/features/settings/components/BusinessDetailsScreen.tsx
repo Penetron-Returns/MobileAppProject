@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { useBusinessDetails } from '@/features/business/hooks';
 
@@ -20,10 +21,10 @@ export function BusinessDetailsScreen() {
       backFallback="/settings"
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
-      {details.isError ? (
+      {isFailed(details) ? (
         <ErrorState
           variant="banner"
-          {...describeError(details.error)}
+          {...describeError(loadError(details))}
           onRetry={() => void details.refetch()}
         />
       ) : (

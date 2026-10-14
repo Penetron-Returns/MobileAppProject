@@ -1,6 +1,6 @@
 import {
+  BlockedActionSheet,
   Button,
-  DoneCard,
   EmptyState,
   ErrorState,
   goBack,
@@ -11,14 +11,14 @@ import {
   Surface,
   SwitchRow,
   Text,
-  useDepth,
+  useOfflineGuard,
 } from '@booking/ui';
-import { useRouter } from 'expo-router';
-import { CalendarX, Check } from 'lucide-react-native';
+import { CalendarX } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
-
+import { View } from 'react-native';
+import { isFailed, loadError } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
 import { describeError } from '@/lib/toast';
 import {
   useAppointment,
@@ -28,7 +28,6 @@ import {
 } from '@/features/appointments/hooks';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
 import { businessDate, formatDateShort, formatTime } from '@/lib/time';
-
 import {
   canChange,
   cancelReasonText,
@@ -38,20 +37,38 @@ import {
   windowHours,
   type CancelReason,
 } from '../logic';
+import { CancelOutcome, CancelDone, ReasonRow } from './CancelParts';
 
 const REASONS: CancelReason[] = ['client', 'staff', 'other'];
+
+interface CancelChoice {
+  request: ReturnType<typeof toCancelRequest>;
+  outcome: CancelOutcome;
+}
 
 /** Why is this being cancelled, and does the client hear about it on WhatsApp. */
 export function CancelScreen({ appointmentId }: { appointmentId: string }) {
   const { t } = useTranslation();
   const business = useBusiness();
   const appointment = useAppointment(appointmentId);
-  const failed = business.isError
+  const failed = isFailed(business)
     ? business
-    : appointment.isError
+    : isFailed(appointment)
       ? appointment
       : null;
   const data = appointment.data;
+  // The mutation and its result live here, not in the form: a successful
+  // cancel refetches the booking as cancelled, which swaps the form for the
+  // "can't be changed" state and would take the done card down with it.
+  const [outcome, setOutcome] = React.useState<CancelOutcome | null>(null);
+  const submitted = React.useRef<CancelOutcome | null>(null);
+  const cancel = useCancelAppointment({
+    onSuccess: () => setOutcome(submitted.current),
+  });
+  const confirm = ({ request, outcome: result }: CancelChoice) => {
+    submitted.current = result;
+    cancel.mutate({ id: appointmentId, ...request });
+  };
   return (
     <Screen
       header={
@@ -62,10 +79,12 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
         />
       }
     >
-      {failed ? (
+      {outcome ? (
+        <CancelDone appointmentId={appointmentId} outcome={outcome} />
+      ) : failed ? (
         <ErrorState
           variant="banner"
-          {...describeError(failed.error)}
+          {...describeError(loadError(failed))}
           onRetry={() => void failed.refetch()}
         />
       ) : !business.data || appointment.isPending ? (
@@ -83,7 +102,12 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
           }
         />
       ) : (
-        <CancelForm appointment={data} business={business.data} />
+        <CancelForm
+          appointment={data}
+          business={business.data}
+          isPending={cancel.isPending}
+          onConfirm={confirm}
+        />
       )}
     </Screen>
   );
@@ -92,17 +116,21 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
 function CancelForm({
   appointment,
   business,
+  isPending,
+  onConfirm,
 }: {
   appointment: AppointmentDetail;
   business: BusinessSummary;
+  isPending: boolean;
+  onConfirm: (choice: CancelChoice) => void;
 }) {
   const { t } = useTranslation();
-  const router = useRouter();
   const rules = useBookingRules();
+  const isOnline = useIsOnline();
+  const { guard, sheetProps } = useOfflineGuard(!isOnline);
   const [reason, setReason] = React.useState<CancelReason>('client');
   const [other, setOther] = React.useState('');
   const [notify, setNotify] = React.useState(true);
-  const [done, setDone] = React.useState(false);
   const tz = business.timezone;
   const name = appointment.client.name ?? t('booking.thisClient');
   const windowMin = cancellationWindowMinutes(rules.data);
@@ -111,33 +139,10 @@ function CancelForm({
     new Date(),
     windowMin,
   );
-  const cancel = useCancelAppointment({ onSuccess: () => setDone(true) });
-
-  if (done) {
-    return (
-      <View>
-        <DoneCard
-          title={t('cancel.done')}
-          lines={[
-            notify ? t('cancel.told', { name }) : t('cancel.notTold'),
-            ...(isLate ? [t('cancel.recordedLate')] : []),
-          ]}
-        />
-        <Button
-          size="lg"
-          className="mt-8"
-          onPress={() => router.replace(`/bookings/${appointment.id}` as never)}
-        >
-          <Text className="text-title">{t('common.done')}</Text>
-        </Button>
-      </View>
-    );
-  }
 
   const submit = () =>
-    cancel.mutate({
-      id: appointment.id,
-      ...toCancelRequest(
+    onConfirm({
+      request: toCancelRequest(
         cancelReasonText(
           reason,
           {
@@ -148,6 +153,7 @@ function CancelForm({
         ),
         notify,
       ),
+      outcome: { name, notify, isLate },
     });
 
   return (
@@ -213,53 +219,22 @@ function CancelForm({
       <Button
         variant="destructive"
         size="lg"
-        disabled={cancel.isPending}
-        accessibilityState={{ busy: cancel.isPending }}
-        onPress={submit}
+        disabled={isPending}
+        accessibilityLabel={t('cancel.confirm')}
+        accessibilityState={{ busy: isPending }}
+        onPress={guard(submit)}
       >
         <Text className="text-title">{t('cancel.confirm')}</Text>
       </Button>
       <Button
         variant="ghost"
         size="lg"
+        accessibilityLabel={t('cancel.keep')}
         onPress={() => goBack(`/bookings/${appointment.id}`)}
       >
         <Text className="text-title">{t('cancel.keep')}</Text>
       </Button>
+      <BlockedActionSheet {...sheetProps} />
     </View>
-  );
-}
-
-function ReasonRow({
-  label,
-  selected,
-  showSeparator,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  showSeparator: boolean;
-  onPress: () => void;
-}) {
-  const depth = useDepth();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      className="min-h-14 flex-row items-center justify-between px-4 active:bg-muted"
-    >
-      {showSeparator ? (
-        <Surface
-          variant="engrave"
-          className="absolute left-4 right-0 top-0 h-0.5"
-        />
-      ) : null}
-      <Text className="text-title">{label}</Text>
-      {selected ? (
-        <Check size={20} strokeWidth={2.6} color={depth.colors.tint} />
-      ) : null}
-    </Pressable>
   );
 }

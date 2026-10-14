@@ -37,11 +37,16 @@ export {
 } from './theme/useAppColorScheme';
 export { SchemeScope } from './theme/SchemeScope';
 export { useDepth } from './theme/useDepth';
+export { useReduceMotion } from './theme/useReduceMotion';
 
 // Utilities
 export { cn } from './lib/cn';
 export { initials } from './lib/initials';
 export { DS_STRINGS } from './lib/strings';
+export {
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  keyboardAvoidingBehavior,
+} from './lib/keyboard';
 export type { DsStringKey } from './lib/strings';
 
 // Primitives

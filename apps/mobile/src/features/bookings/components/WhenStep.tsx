@@ -1,7 +1,7 @@
-import { Chip, Input, Surface, SwitchRow, Text, useDepth } from '@booking/ui';
+import { Chip, Input, Surface, SwitchRow, Text } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useAvailableSlots } from '@/features/appointments/hooks';
 import type { StaffRow } from '@/features/catalog/hooks';
@@ -143,7 +143,6 @@ function SlotTakenCard({
   onPick: (slot: PickedSlot) => void;
 }) {
   const { t } = useTranslation();
-  const depth = useDepth();
   const day = businessDate(takenAt, timezone);
   const slots = useAvailableSlots({ serviceId, date: day, staffId });
   const options = closestSlots(

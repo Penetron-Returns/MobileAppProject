@@ -108,3 +108,14 @@ describe('light and dark parity', () => {
     expect(getDepth('dark', '#C2410C').colors.tint).toBe('#C2410C');
   });
 });
+
+describe('status and on-fill colours', () => {
+  it.each(['light', 'dark'] as const)(
+    'has a red for alerts and a white for content on a fill in %s',
+    (scheme) => {
+      const { colors } = getDepth(scheme);
+      expect(colors.red).toMatch(/^#[0-9A-F]{6}$/);
+      expect(colors.onFill).toBe('#FFFFFF');
+    },
+  );
+});

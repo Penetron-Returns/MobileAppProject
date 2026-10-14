@@ -41,6 +41,10 @@ npx expo start --dev-client   # once a dev build is installed, this is the daily
 sibling that renders Clerk's web components instead of the native ones (see `apps/mobile/src/app/(auth)/`), so web
 works without a dev client.
 
+`@react-native-community/netinfo` is a native module (it feeds connectivity to TanStack `onlineManager` in `src/lib/online.ts`), so rebuild the dev client once after pulling it in.
+
+Offline rules: queries pause offline and screens show their saved copy with `SavedCopyBanner`; a first load with nothing saved reads as an `OFFLINE` error (`loadError` in `src/lib/offline.ts`); writes are never queued (`useApiMutation` refuses them with the `errors.codes.OFFLINE` copy). Every sign-out goes through `useSignOut`, which empties the query cache.
+
 EAS profiles (`apps/mobile/eas.json`): `development` (dev client, internal distribution, `development` channel),
 `preview` (internal distribution, `preview` channel), `production` (auto-incrementing build number,
 `production` channel). Each profile's `env` block needs real values — the committed file has
@@ -57,7 +61,7 @@ apps/mobile/src/
     (dev)/gallery.tsx  every token, primitive, component and pattern of the design system, light/dark/both;
                        redirects away when `__DEV__` is false (sections in features/gallery/)
     book/[slug].tsx     public web-booking comparator placeholder
-  components/          app-only pieces: AuthTokenBridge, ClerkUserButton (+ .web), ConfigErrorScreen, ThemeProvider.
+  components/          app-only pieces: AuthTokenBridge, ConfigErrorScreen, ThemeProvider.
                        Every shared UI component lives in packages/ui (@booking/ui)
   features/<feature>/  hooks.ts (TanStack Query reads via supabase, writes via api), components/,
                        pure logic.ts + __tests__/ — appointments, bookings, business, calendar,

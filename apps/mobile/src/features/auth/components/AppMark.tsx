@@ -42,7 +42,7 @@ export function AppMark() {
       <Svg viewBox="0 0 24 24" width={52} height={52} fill="none">
         <Path
           d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1-2.5 2.5H6A2.5 2.5 0 0 1 3.5 18V7A2.5 2.5 0 0 1 6 4.5z M3.5 9.5h17 M8 2.5v3 M16 2.5v3 M8 14l2.5 2.5L16 12"
-          stroke="#FFFFFF"
+          stroke={depth.colors.onFill}
           strokeWidth={1.6}
           strokeLinecap="round"
           strokeLinejoin="round"

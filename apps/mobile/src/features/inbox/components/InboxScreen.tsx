@@ -4,23 +4,17 @@ import {
   ErrorState,
   Group,
   ListSkeleton,
-  OfflineBanner,
   Page,
   Text,
-  useDepth,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { describeError } from '@/lib/toast';
-import {
-  isShowingSavedCopy,
-  savedCopyLabel,
-  savedCopyTime,
-} from '@/lib/offline';
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { useBusiness } from '@/features/business/hooks';
 
 import { useInboxRealtime, useInboxThreads } from '../hooks';
@@ -30,7 +24,6 @@ import { ThreadRow } from './ThreadRow';
 /** Inbox: conversations, with the ones that need a person first. */
 export function InboxScreen() {
   const { t } = useTranslation();
-  const depth = useDepth();
   const queryClient = useQueryClient();
   const business = useBusiness();
   const threads = useInboxThreads();
@@ -46,14 +39,13 @@ export function InboxScreen() {
   const needsCount = all.filter(needsReply).length;
   const shown = filterThreads(all, view);
   const timezone = business.data?.timezone;
-  const isOffline = isShowingSavedCopy(threads);
 
   let body: React.ReactNode;
-  if (threads.isError && !threads.data) {
+  if (isFailed(threads) && !threads.data) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(threads.error)}
+        {...describeError(loadError(threads))}
         onRetry={() => void threads.refetch()}
         isRetrying={threads.isRefetching}
       />
@@ -117,14 +109,7 @@ export function InboxScreen() {
         queryClient.refetchQueries({ queryKey: ['conversations'] })
       }
     >
-      {isOffline ? (
-        <OfflineBanner
-          label={savedCopyLabel(
-            t,
-            timezone ? savedCopyTime(threads.dataUpdatedAt, timezone) : null,
-          )}
-        />
-      ) : null}
+      <SavedCopyBanner query={threads} timezone={timezone} />
       {body}
     </Page>
   );

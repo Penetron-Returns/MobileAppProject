@@ -1,6 +1,7 @@
 import { ErrorState, LoadingCard } from '@booking/ui';
 import * as React from 'react';
 
+import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 
 import { useBusiness, type BusinessSummary } from '../hooks';
@@ -13,11 +14,11 @@ export function BusinessGate({
 }) {
   const business = useBusiness();
   if (business.isPending) return <LoadingCard />;
-  if (business.isError) {
+  if (isFailed(business)) {
     return (
       <ErrorState
         variant="banner"
-        {...describeError(business.error)}
+        {...describeError(loadError(business))}
         onRetry={() => void business.refetch()}
       />
     );

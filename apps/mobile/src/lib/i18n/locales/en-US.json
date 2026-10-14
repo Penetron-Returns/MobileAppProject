@@ -20,23 +20,23 @@
       "headline": "Run your shop from your phone.",
       "valueProp": "Bookings, clients and WhatsApp in one place.",
       "google": "Continue with Google",
-      "email": "Continue with email",
+      "email": "Continue with email or phone",
       "legalPrefix": "By continuing you agree to our",
       "terms": "Terms",
       "and": "and",
-      "privacy": "Privacy Policy"
-    },
-    "email": {
-      "title": "What is your email?",
-      "subtitle": "We will send you a 6-digit code. No password needed.",
-      "label": "Email address",
-      "placeholder": "you@example.com",
-      "continue": "Continue",
-      "sending": "Sending code"
+      "privacy": "Privacy Policy",
+      "openLink": "Open {{page}}",
+      "linkFailed": "Couldn't open that page. Try again later."
     },
     "code": {
-      "title": "Check your email",
-      "subtitle": "We sent a 6-digit code to {{email}}.",
+      "title": {
+        "email_code": "Check your email",
+        "phone_code": "Check your messages"
+      },
+      "subtitle": {
+        "email_code": "We sent a 6-digit code to {{identifier}}.",
+        "phone_code": "We sent a 6-digit code by SMS to {{identifier}}."
+      },
       "label": "6-digit code",
       "cell": "Digit {{index}} of 6",
       "verify": "Verify",
@@ -44,11 +44,14 @@
       "resend": "Resend code",
       "resendIn": "Resend code in {{seconds}}s",
       "resent": "New code sent.",
-      "notYou": "Use a different email",
+      "notYou": {
+        "email_code": "Use a different email",
+        "phone_code": "Use a different number"
+      },
       "didntGet": "Did not get it?"
     },
     "errors": {
-      "emailInvalid": "That does not look like a valid email address.",
+      "emailInvalid": "Enter a valid email address, or a mobile number with its country code, like +27 82 555 0100.",
       "codeIncorrect": "That code is not right. Check it and try again.",
       "codeExpired": "That code has expired. Send a new one.",
       "tooManyAttempts": "Too many attempts. Wait a minute and try again.",
@@ -59,6 +62,14 @@
       "signUpIncomplete": "We could not finish creating your account. Please contact support.",
       "secondFactorUnsupported": "This account needs an extra verification step that this app does not support yet.",
       "generic": "Something went wrong. Please try again."
+    },
+    "identifier": {
+      "title": "What is your email or mobile number?",
+      "subtitle": "We will send you a 6-digit code by email or SMS. No password needed.",
+      "label": "Email or mobile number",
+      "placeholder": "you@example.com or +27 82 555 0100",
+      "continue": "Continue",
+      "sending": "Sending code"
     }
   },
   "errors": {
@@ -81,7 +92,8 @@
       "INTERNAL": "Something went wrong on our end.",
       "NETWORK_ERROR": "Could not reach the server. Check your connection.",
       "BAD_RESPONSE": "The server returned an unexpected response.",
-      "NOT_CONFIGURED": "This app isn't configured yet."
+      "NOT_CONFIGURED": "This app isn't configured yet.",
+      "OFFLINE": "You're offline. Reconnect to make changes."
     }
   },
   "status": {
@@ -817,7 +829,12 @@
     "messageLabel": "Message to {{name}}",
     "placeholder": "Message {{name}}",
     "send": "Send message",
-    "bookingMenu": "Booking menu"
+    "bookingMenu": "Booking menu",
+    "notFound": {
+      "title": "That conversation isn't here",
+      "description": "It may have been deleted, or the link is out of date.",
+      "action": "Back to inbox"
+    }
   },
   "states": {
     "loading": "Loading",
@@ -835,6 +852,113 @@
     "error": {
       "title": "Couldn't load this",
       "description": "Check your connection and try again."
+    }
+  },
+  "config": {
+    "title": "Missing configuration",
+    "body": "Add the following to a .env.local file at the project root (see .env.example), then restart the dev server:"
+  },
+  "notFound": {
+    "headerTitle": "Not found",
+    "title": "This screen doesn't exist.",
+    "action": "Go to Today"
+  },
+  "publicBooking": {
+    "title": "Coming soon",
+    "description": "The web booking page for \"{{slug}}\" will live here."
+  },
+  "session": {
+    "unsupportedTask": "This account needs an extra step ({{task}}) that the app can't show. Sign out and contact support."
+  },
+  "onboarding": {
+    "progress": "Setup progress",
+    "continue": "Continue",
+    "goToToday": "Go to Today",
+    "later": "Do this later",
+    "orgFailed": "Could not create the organisation.",
+    "typeLabel": "Business type",
+    "steps": {
+      "1": {
+        "title": "What kind of business?",
+        "subtitle": "We set up sensible defaults. You can change everything later."
+      },
+      "2": {
+        "title": "Your name and hours",
+        "subtitle": "Clients see your name in WhatsApp. Hours are filled in for you."
+      },
+      "3": {
+        "title": "Your services",
+        "subtitle": "Switch off what you do not offer and adjust prices."
+      },
+      "4": {
+        "title": "Your team",
+        "subtitle": "Add the people who take bookings. You are already in."
+      }
+    },
+    "types": {
+      "barber": {
+        "title": "Barber shop",
+        "subtitle": "Fades, shaves and beard trims",
+        "noun": "barber shop"
+      },
+      "salon": {
+        "title": "Hair salon",
+        "subtitle": "Cuts, colour, braids and styling",
+        "noun": "hair salon"
+      },
+      "beauty": {
+        "title": "Beauty parlour",
+        "subtitle": "Nails, lashes, brows, facials",
+        "noun": "beauty parlour"
+      },
+      "mix": {
+        "title": "A mix",
+        "subtitle": "Hair plus nails or beauty",
+        "noun": "mixed business"
+      }
+    },
+    "hours": {
+      "nameLabel": "Business name",
+      "namePlaceholder": "Ashgrove Hair & Beauty",
+      "heading": "Opening hours",
+      "days": {
+        "weekdays": "Monday to Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      },
+      "range": "{{opens}} to {{closes}}",
+      "closed": "Closed",
+      "dayOpen": "{{day}} open",
+      "caption": "Change exact times and special days later in Settings."
+    },
+    "services": {
+      "offer": "Offer {{name}}",
+      "price": "Price for {{name}} in rand",
+      "caption": "Add your own services later in Settings. Prices are in rand."
+    },
+    "team": {
+      "you": "You",
+      "youOwner": "You, the owner",
+      "nameLabel": "Team member name",
+      "namePlaceholder": "Name",
+      "roleLabel": "Team member role",
+      "rolePlaceholder": "Role (optional)",
+      "add": "Add team member",
+      "remove": "Remove {{name}}",
+      "caption": "Team members get their own column in the calendar. Invite them to the app later in Settings."
+    },
+    "done": {
+      "title": "You are ready",
+      "summary": "Your {{noun}} is set up with {{services}}. Connect WhatsApp in Settings to get your first booking.",
+      "setUp": "{{name}} is set up with",
+      "hours_one": "Opening hours on {{count}} day group",
+      "hours_other": "Opening hours on {{count}} day groups",
+      "services_one": "{{count}} service",
+      "services_other": "{{count}} services",
+      "team_one": "You and {{count}} team member",
+      "team_other": "You and {{count}} team members",
+      "teamNone": "You as the first team member",
+      "whatsapp": "Connect WhatsApp in Settings so clients can book in the chat they already use. Invite your team from Settings."
     }
   }
 }

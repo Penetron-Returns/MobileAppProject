@@ -8,6 +8,7 @@ import {
 import { useBusiness, useBusinessHours } from '@/features/business/hooks';
 import { useStaff, type StaffRow } from '@/features/catalog/hooks';
 import { useNow } from '@/hooks/useNow';
+import { isFailed, loadError, type LoadStatus } from '@/lib/offline';
 import { supabase, unwrap } from '@/lib/supabase';
 import { addDays, todayISO, zonedTimeToUtc, type ISODate } from '@/lib/time';
 
@@ -73,13 +74,13 @@ function useCalendarRange(from: ISODate, lastDay: ISODate) {
 }
 
 const failure = (
-  queries: { isError: boolean; error: unknown; refetch: () => unknown }[],
+  queries: (LoadStatus & { refetch: () => unknown })[],
 ): Failed | null => {
-  const failed = queries.find((q) => q.isError);
+  const failed = queries.find(isFailed);
   return failed
     ? {
         status: 'error',
-        error: failed.error,
+        error: loadError(failed),
         retry: () => queries.forEach((q) => void q.refetch()),
       }
     : null;
@@ -121,7 +122,7 @@ export function useCalendarDay(date: ISODate): CalendarDayView {
 
   const failed = failure(
     [business, appointments, hours, overrides, rules, staff].filter(
-      (q) => q.isError && q.data === undefined,
+      (q) => isFailed(q) && q.data === undefined,
     ),
   );
   if (failed) return failed;
@@ -178,7 +179,7 @@ export function useCalendarWeek(anchor: ISODate): CalendarWeekView {
 
   const failed = failure(
     [business, appointments, hours, overrides, staff].filter(
-      (q) => q.isError && q.data === undefined,
+      (q) => isFailed(q) && q.data === undefined,
     ),
   );
   if (failed) return failed;

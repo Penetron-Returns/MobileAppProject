@@ -9,7 +9,7 @@ import {
   Text,
   useAppColorScheme,
 } from '@booking/ui';
-import { useClerk, useOrganization, useUser } from '@clerk/expo';
+import { useOrganization, useUser } from '@clerk/expo';
 import { router } from 'expo-router';
 import {
   Bell,
@@ -27,6 +27,7 @@ import { Pressable, View } from 'react-native';
 import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { Gate } from '@/features/plans/components/Gate';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { formatPhone } from '@/lib/format';
 
 import { settingsGroups } from '../navigation';
@@ -43,7 +44,7 @@ const ICONS = {
 /** Settings: your business, WhatsApp, account. Staff only see their account. */
 export function SettingsScreen() {
   const { t } = useTranslation();
-  const { signOut } = useClerk();
+  const signOut = useSignOut();
   const { user } = useUser();
   const { organization } = useOrganization();
   const me = useMe();

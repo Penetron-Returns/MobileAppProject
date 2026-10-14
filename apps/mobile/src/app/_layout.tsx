@@ -10,12 +10,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { tokenCache } from '@/lib/clerk-token-cache';
 import { AuthTokenBridge } from '@/components/AuthTokenBridge';
+import { SessionCacheGuard } from '@/components/SessionCacheGuard';
 import { ConfigErrorScreen } from '@/components/ConfigErrorScreen';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { env, validateEnv } from '@/lib/env';
+import { startOnlineSync } from '@/lib/online';
 import { queryClient } from '@/lib/query';
 
 const envState = validateEnv();
+startOnlineSync();
 
 export default function RootLayout() {
   if (!envState.ok) {
@@ -31,6 +34,7 @@ export default function RootLayout() {
         >
           <AuthTokenBridge />
           <QueryClientProvider client={queryClient}>
+            <SessionCacheGuard />
             <ThemeProvider>
               <Slot />
               <Toaster />

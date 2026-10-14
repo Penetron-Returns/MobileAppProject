@@ -6,13 +6,19 @@ import { useAuthFlow, type AuthFlow } from '../useAuthFlow';
 const mockSignIn = {
   status: 'needs_first_factor',
   emailCode: { sendCode: jest.fn(), verifyCode: jest.fn() },
+  phoneCode: { sendCode: jest.fn(), verifyCode: jest.fn() },
   finalize: jest.fn(),
   reset: jest.fn(),
 };
 const mockSignUp = {
   status: 'missing_requirements',
   create: jest.fn(),
-  verifications: { sendEmailCode: jest.fn(), verifyEmailCode: jest.fn() },
+  verifications: {
+    sendEmailCode: jest.fn(),
+    verifyEmailCode: jest.fn(),
+    sendPhoneCode: jest.fn(),
+    verifyPhoneCode: jest.fn(),
+  },
   finalize: jest.fn(),
   reset: jest.fn(),
 };
@@ -45,6 +51,10 @@ beforeEach(() => {
   mockSignIn.emailCode.sendCode.mockResolvedValue({ error: null });
   mockSignIn.emailCode.verifyCode.mockResolvedValue({ error: null });
   mockSignIn.finalize.mockResolvedValue({ error: null });
+  mockSignIn.phoneCode.sendCode.mockResolvedValue({ error: null });
+  mockSignIn.phoneCode.verifyCode.mockResolvedValue({ error: null });
+  mockSignUp.verifications.sendPhoneCode.mockResolvedValue({ error: null });
+  mockSignUp.verifications.verifyPhoneCode.mockResolvedValue({ error: null });
   mockSignUp.create.mockResolvedValue({ error: null });
   mockSignUp.verifications.sendEmailCode.mockResolvedValue({ error: null });
   mockSignUp.verifications.verifyEmailCode.mockResolvedValue({ error: null });
@@ -55,7 +65,7 @@ describe('useAuthFlow', () => {
   it('signs an existing account in with an emailed code', async () => {
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail(' Colin@Nerova.com ');
+      await flow.current.submitIdentifier(' Colin@Nerova.com ');
     });
     expect(mockSignIn.emailCode.sendCode).toHaveBeenCalledWith({
       emailAddress: 'colin@nerova.com',
@@ -79,7 +89,7 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail('new@nerova.com');
+      await flow.current.submitIdentifier('new@nerova.com');
     });
     expect(mockSignUp.create).toHaveBeenCalledWith({
       emailAddress: 'new@nerova.com',
@@ -100,7 +110,7 @@ describe('useAuthFlow', () => {
   it('rejects an invalid email without calling Clerk', async () => {
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail('nope');
+      await flow.current.submitIdentifier('nope');
     });
     expect(flow.current.errorKey).toBe('emailInvalid');
     expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
@@ -112,7 +122,7 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@nerova.com');
     });
     await act(async () => {
       await flow.current.verifyCode('000000');
@@ -128,7 +138,7 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail('new@nerova.com');
+      await flow.current.submitIdentifier('new@nerova.com');
     });
     await act(async () => {
       await flow.current.verifyCode('123456');
@@ -143,9 +153,89 @@ describe('useAuthFlow', () => {
     );
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitEmail('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@nerova.com');
     });
     expect(flow.current.errorKey).toBe('network');
     expect(flow.current.step).toBe('welcome');
+  });
+
+  it('signs in by SMS code when given a mobile number', async () => {
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('+27 82 555 0100');
+    });
+    expect(mockSignIn.phoneCode.sendCode).toHaveBeenCalledWith({
+      phoneNumber: '+27825550100',
+    });
+    expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
+    expect(flow.current.strategy).toBe('phone_code');
+    expect(flow.current.identifier).toBe('+27825550100');
+
+    mockSignIn.status = 'complete';
+    await act(async () => {
+      await flow.current.verifyCode('123456');
+    });
+    expect(mockSignIn.phoneCode.verifyCode).toHaveBeenCalledWith({
+      code: '123456',
+    });
+    expect(mockSignIn.emailCode.verifyCode).not.toHaveBeenCalled();
+    expect(mockSignIn.finalize).toHaveBeenCalled();
+  });
+
+  it('starts a sign-up by SMS when the number has no account', async () => {
+    mockSignIn.phoneCode.sendCode.mockResolvedValue({
+      error: apiError('form_identifier_not_found'),
+    });
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('+27825550100');
+    });
+    expect(mockSignUp.create).toHaveBeenCalledWith({
+      phoneNumber: '+27825550100',
+    });
+    expect(mockSignUp.verifications.sendPhoneCode).toHaveBeenCalled();
+
+    mockSignUp.status = 'complete';
+    await act(async () => {
+      await flow.current.verifyCode('123456');
+    });
+    expect(mockSignUp.verifications.verifyPhoneCode).toHaveBeenCalledWith({
+      code: '123456',
+    });
+    expect(mockSignUp.finalize).toHaveBeenCalled();
+  });
+
+  it('resends the SMS code through the phone strategy', async () => {
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('+27825550100');
+    });
+    await act(async () => {
+      await flow.current.resendCode();
+    });
+    expect(mockSignIn.phoneCode.sendCode).toHaveBeenCalledTimes(2);
+    expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
+  });
+
+  it('verifies a code once when verify is triggered twice before Clerk answers', async () => {
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('colin@nerova.com');
+    });
+    mockSignIn.status = 'complete';
+    let release!: (v: { error: null }) => void;
+    mockSignIn.emailCode.verifyCode.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    await act(async () => {
+      const first = flow.current.verifyCode('123456');
+      const second = flow.current.verifyCode('123456');
+      release({ error: null });
+      await Promise.all([first, second]);
+    });
+    expect(mockSignIn.emailCode.verifyCode).toHaveBeenCalledTimes(1);
+    expect(mockSignIn.finalize).toHaveBeenCalledTimes(1);
   });
 });

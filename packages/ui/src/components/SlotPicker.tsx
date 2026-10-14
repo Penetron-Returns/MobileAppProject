@@ -58,14 +58,18 @@ export function DayChips({ days, selected, onSelect, label }: DayChipsProps) {
           >
             <Text
               style={{
-                color: isSelected ? '#FFFFFF' : depth.colors.secondary,
+                color: isSelected
+                  ? depth.colors.onFill
+                  : depth.colors.secondary,
               }}
               className="text-meta font-semibold"
             >
               {d.weekday}
             </Text>
             <Text
-              style={{ color: isSelected ? '#FFFFFF' : depth.colors.label }}
+              style={{
+                color: isSelected ? depth.colors.onFill : depth.colors.label,
+              }}
               className="text-title font-semibold"
             >
               {d.day}

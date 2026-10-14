@@ -43,7 +43,12 @@ export function InboxDome({ count, label, onPress }: InboxDomeProps) {
           style={depth.badge}
           className="absolute -right-1 -top-1 h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5"
         >
-          <Text className="text-meta font-semibold text-white">{count}</Text>
+          <Text
+            style={{ color: depth.colors.onFill }}
+            className="text-meta font-semibold"
+          >
+            {count}
+          </Text>
         </View>
       ) : null}
     </Pressable>
