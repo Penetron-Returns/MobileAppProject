@@ -85,9 +85,20 @@
     "domeLabel_one": "Inbox, {{count}} needs a reply",
     "domeLabel_other": "Inbox, {{count}} need a reply",
     "empty": {
-      "title": "Nothing needs a reply",
-      "description": "Conversations that need you will show up here."
-    }
+      "title": "All caught up",
+      "description": "Messages the booking menu can't handle land here."
+    },
+    "botPrefix": "Booking menu: {{text}}",
+    "noText": "Message",
+    "needsReply": "Needs a reply",
+    "filterLabel": "Filter conversations",
+    "segments": {
+      "needs": "Needs a reply ({{count}})",
+      "all": "All"
+    },
+    "nothingNeeds": "Nothing needs a reply right now.",
+    "footerNeeds": "Replying is free for 24 hours after a customer writes.",
+    "footerAll": "Conversations on WhatsApp."
   },
   "today": {
     "title": "Today",
@@ -187,41 +198,109 @@
     "weekTotalFor_other": "{{count}} bookings this week for {{name}}",
     "views": {
       "day": "Day",
-      "week": "Week"
+      "week": "Week",
+      "month": "Month"
     },
     "viewLabel": {
       "day": "Day view",
-      "week": "Week view"
+      "week": "Week view",
+      "month": "Month view"
     },
     "previous": {
       "day": "Previous day",
-      "week": "Previous week"
+      "week": "Previous week",
+      "month": "Previous month"
     },
     "next": {
       "day": "Next day",
-      "week": "Next week"
-    }
+      "week": "Next week",
+      "month": "Next month"
+    },
+    "time": "Time",
+    "free": "Free",
+    "break": "Break",
+    "apptCount_one": "{{count}} appt",
+    "apptCount_other": "{{count}} appts",
+    "monthView": "Month view",
+    "monthCellLabel": "{{date}}, {{count}} appointments"
   },
   "clients": {
     "title": "Clients",
     "subtitle": "Manage your client relationships",
     "new": "New",
     "addNew": "Add new client",
-    "searchPlaceholder": "Search clients by name or phone...",
+    "searchPlaceholder": "Search clients",
     "filters": {
-      "all": "All Clients",
+      "all": "All",
       "recent": "Recent",
-      "vip": "VIP"
+      "vip": "VIP",
+      "regulars": "Regulars"
     },
     "vip": "VIP",
-    "appointmentToday": "Appointment today at {{time}}",
-    "lastVisit": "Last visit: {{when}}",
+    "appointmentToday": "Booked today at {{time}}",
+    "lastVisit": "Last visit {{when}}",
     "noVisits": "No visits yet",
-    "loadMore": "Load more clients",
+    "loadMore": "Show more clients",
     "empty": {
-      "title": "No clients found",
-      "search": "No clients match \"{{query}}\". Try a different name or number.",
-      "filter": "No clients in this category yet."
+      "title": "No clients yet",
+      "search": "No clients match \"{{query}}\".",
+      "filter": "No clients here yet.",
+      "description": "Clients appear here after their first booking.",
+      "add": "Add a client"
+    },
+    "searchLabel": "Search clients",
+    "filterLabel": "Filter clients",
+    "listTitle": {
+      "all": "Everyone",
+      "recent": "Recent",
+      "regulars": "Regulars"
+    },
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "regular": "Regular",
+    "noShows_one": "{{count}} no-show",
+    "noShows_other": "{{count}} no-shows",
+    "profile": {
+      "notFound": "This client couldn't be found.",
+      "since": "Client since {{date}}",
+      "book": "Book",
+      "bookLabel": "Book {{name}}",
+      "whatsapp": "WhatsApp",
+      "whatsappLabel": "WhatsApp {{name}}",
+      "whatsappFailed": "Couldn't open WhatsApp.",
+      "call": "Call",
+      "callLabel": "Call {{name}}",
+      "callNumber": "{{phone}}, call",
+      "contact": "Contact",
+      "mobile": "Mobile",
+      "email": "Email",
+      "optIn": "WhatsApp messages",
+      "optedIn": "Reminders and confirmations are sent.",
+      "optedOut": "Opted out. No messages will be sent.",
+      "upNext": "Up next",
+      "openBooking": "{{when}}, {{service}}. Open booking",
+      "history": "Visit history",
+      "noHistory": "No past visits yet.",
+      "historyFailed": "Couldn't load visits. Tap to try again.",
+      "showAll": "Show all {{count}}",
+      "visits_one": "{{count}} visit",
+      "visits_other": "{{count}} visits",
+      "spent": "{{amount}} spent",
+      "cadence_one": "usually every week",
+      "cadence_other": "usually every {{count}} weeks",
+      "status": {
+        "confirmed": "Confirmed",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_show": "No-show"
+      },
+      "notes": "Notes",
+      "notesFailed": "Couldn't load notes.",
+      "noNotes": "No notes yet.",
+      "noteLabel": "Add a note about {{name}}",
+      "notePlaceholder": "Add a note",
+      "addNote": "Add",
+      "deleteNote": "Delete note"
     }
   },
   "clientProfile": {
@@ -291,11 +370,34 @@
     "cancel": "Cancel booking",
     "more": "More",
     "markNoShow": "Mark as no-show",
-    "markedNoShow": "Marked as no-show"
+    "markedNoShow": "Marked as no-show",
+    "bookedOn": "Booked {{date}} via {{source}}",
+    "source": {
+      "whatsapp": "WhatsApp",
+      "app": "the app",
+      "web": "the web page"
+    },
+    "clientHistory": "Client History",
+    "historyNew": "New client • first visit",
+    "historyReturning_one": "Returning client • {{count}} past visit",
+    "historyReturning_other": "Returning client • {{count}} past visits",
+    "historyVip_one": "VIP client • {{count}} past visit",
+    "historyVip_other": "VIP client • {{count}} past visits",
+    "schedule": "Schedule",
+    "service": "Service",
+    "total": "Total",
+    "viewCalendar": "Calendar",
+    "cancelled": "Booking cancelled",
+    "cancelDialog": {
+      "title": "Cancel appointment?",
+      "description": "The slot becomes available again and the client is notified on WhatsApp.",
+      "confirm": "Yes, cancel booking",
+      "keep": "Keep appointment"
+    }
   },
   "settings": {
     "preferences": "Preferences",
-    "darkMode": "Dark Mode",
+    "darkMode": "Dark mode",
     "darkModeHint": "Toggle appearance",
     "businessSettings": "Business Settings",
     "integrations": "Integrations",
@@ -305,25 +407,23 @@
       "staff": "Staff"
     },
     "items": {
-      "businessDetails": {
-        "title": "Business Details",
-        "subtitle": "Name, address, contact"
-      },
+      "businessDetails": "Business details",
       "operatingHours": {
         "title": "Operating Hours",
         "subtitle": "Opening times and breaks"
       },
-      "services": {
-        "title": "Services",
-        "subtitle": "Menu and pricing"
-      },
+      "services": "Services",
       "staff": {
         "title": "Staff Management",
         "subtitle": "Team members and roles"
-      }
+      },
+      "hours": "Hours",
+      "team": "Team",
+      "rules": "Booking rules",
+      "notifications": "Notifications"
     },
     "whatsapp": {
-      "title": "WhatsApp API",
+      "title": "WhatsApp",
       "loading": "Checking connection...",
       "notConnected": "Not connected yet",
       "status": {
@@ -332,7 +432,89 @@
         "needs_reauth": "Needs to be reconnected",
         "disconnected": "Disconnected",
         "paused": "Paused"
-      }
+      },
+      "detailTitle": "WhatsApp settings",
+      "detailsRow": "WhatsApp settings",
+      "bookingSwitch": "WhatsApp booking",
+      "state": {
+        "none": "Off",
+        "live": "Connected · {{phone}}",
+        "pending": "Setup in progress",
+        "needs_reauth": "Needs to be reconnected",
+        "disconnected": "Disconnected",
+        "paused": "Paused"
+      },
+      "footer": {
+        "none": "Let clients book, reschedule and cancel on WhatsApp with your booking menu. Connecting a number is done from the web dashboard.",
+        "live": "Clients message {{phone}} to book.",
+        "pending": "This takes a few minutes.",
+        "needs_reauth": "Reconnect your number so clients can book again.",
+        "disconnected": "Clients can't book on WhatsApp right now.",
+        "paused": "Clients can't book on WhatsApp while this is paused."
+      },
+      "quality": "Number quality",
+      "limit": "Message limit",
+      "customersSee": "What customers see",
+      "menu": {
+        "book": "Book",
+        "bookings": "My bookings",
+        "talk": "Talk to us"
+      },
+      "templates": "Messages we send",
+      "templateStatus": {
+        "draft": "Draft",
+        "submitted": "Waiting for Meta",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "paused": "Paused",
+        "disabled": "Off"
+      },
+      "sendTest": "Send a test message",
+      "testSent": "Test sent to your phone",
+      "testNeedsPhone": "Add your phone number in Business details to send a test message.",
+      "sync": "Refresh from WhatsApp",
+      "disconnect": "Disconnect number",
+      "disconnectTitle": "Disconnect this number?",
+      "disconnectBody": "Clients will no longer be able to book on {{phone}}.",
+      "disconnectConfirm": "Disconnect"
+    },
+    "title": "Settings",
+    "groups": {
+      "business": "Your business",
+      "whatsapp": "WhatsApp",
+      "account": "Account"
+    },
+    "ownerOnly": "Only the owner can change this.",
+    "units": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "rules": {
+      "hint": "Tap a rule to change it.",
+      "change": "{{rule}}: {{value}}. Change",
+      "lead_time_minutes": "Earliest booking",
+      "booking_horizon_days": "Latest booking",
+      "cancellation_window_minutes": "Free cancellation until",
+      "reminders": "Remind clients before",
+      "slot_interval_minutes": "Gap between start times",
+      "buffer_minutes": "Break between appointments",
+      "allow_staff_selection": "Clients can choose who",
+      "noReminders": "No reminders",
+      "and": "and",
+      "footer": "Staff can always cancel or move a booking."
+    },
+    "notifications": {
+      "push": "Notify me on this phone",
+      "pushHint": "New bookings and messages that need a reply.",
+      "footer": "Notifications go to this phone. Turn them off in your phone settings any time.",
+      "webUnsupported": "Push notifications are available in the phone app.",
+      "needsDevice": "Push notifications need a real phone.",
+      "denied": "Notifications are turned off for this app in your phone settings.",
+      "failed": "Couldn't turn notifications on. Try again."
     }
   },
   "businessDetails": {
@@ -519,5 +701,74 @@
     "notTold": "No WhatsApp message was sent.",
     "doneDetail": "{{when}} · {{service}}",
     "view": "View booking"
+  },
+  "addBooking": {
+    "client": "Client",
+    "clientMode": {
+      "existing": "Existing",
+      "new": "New Client"
+    },
+    "searchClient": "Search by name or phone...",
+    "noClientMatch": "No matching clients.",
+    "select": "Select",
+    "selectClient": "Select client {{name}}",
+    "changeClient": "Change client",
+    "newName": "Full name",
+    "newPhone": "Mobile number",
+    "service": "Service",
+    "pickService": "Select a service",
+    "staff": "Staff Member",
+    "pickStaff": "Select staff member",
+    "anyStaff": "No preference",
+    "date": "Date",
+    "time": "Time",
+    "pickServiceFirst": "Choose a service to see available times.",
+    "noSlots": "No free times on this day. Try another date.",
+    "notes": "Internal Notes",
+    "notesPlaceholder": "Special requests, allergies or notes for the staff...",
+    "whatsApp": "Send WhatsApp confirmation",
+    "whatsAppHint": "The client gets the booking details in their chat",
+    "save": "Save Booking",
+    "saving": "Saving...",
+    "created": "Booking created",
+    "slotTaken": "That time was just taken. Pick another slot.",
+    "errors": {
+      "client": "Select a client first.",
+      "newClient": "Enter the new client's name and mobile number.",
+      "service": "Select a service.",
+      "slot": "Select a time slot."
+    }
+  },
+  "conversation": {
+    "menuGroup": "Booking menu · {{count}} messages",
+    "handedOver": "Passed to you after the menu didn't understand",
+    "menuReplying": "Booking menu is replying",
+    "window_one": "You can reply for free for {{count}} more hour.",
+    "window_other": "You can reply for free for {{count}} more hours.",
+    "windowClosed": "The free reply window has closed. They need to message you first.",
+    "bookFor": "Book for {{name}}",
+    "release": "Done, back to menu",
+    "messageLabel": "Message to {{name}}",
+    "placeholder": "Message {{name}}",
+    "send": "Send message",
+    "bookingMenu": "Booking menu"
+  },
+  "states": {
+    "loading": "Loading",
+    "offline": {
+      "banner": "Offline · showing what we had at {{time}}",
+      "bannerNoTime": "Offline · showing what we had saved"
+    },
+    "blocked": {
+      "title": "You're offline",
+      "body": "New bookings need a connection so no one double-books the same time. Everything else you can still see.",
+      "stillOffline": "Still offline",
+      "ok": "OK",
+      "tryAgain": "Try again"
+    },
+    "error": {
+      "title": "Couldn't load this",
+      "description": "Check your connection and try again."
+    }
   }
 }
