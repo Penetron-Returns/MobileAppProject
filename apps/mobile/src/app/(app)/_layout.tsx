@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
+import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { isApiError } from '@/lib/api';
@@ -65,6 +66,15 @@ export default function AppLayout() {
   if (!orgLoaded || !listLoaded) return <CenteredSpinner />;
   if (inOnboarding || needsOnboarding) {
     return <OnboardingFlow onDone={() => setInOnboarding(false)} />;
+  }
+  if (me.isError) {
+    return (
+      <SessionErrorScreen
+        error={me.error}
+        onRetry={() => void me.refetch()}
+        isRetrying={me.isFetching}
+      />
+    );
   }
   if (!organization || me.isPending) return <CenteredSpinner />;
 
