@@ -361,7 +361,11 @@ beforeEach(() => {
       display_phone: '+27215550199',
       verified_name: 'Ashgrove',
     }),
-    useMe: success({ role: 'owner' }),
+    useMe: success({
+      role: 'owner',
+      plan: 'free',
+      features: [{ feature: 'whatsapp_menu', monthly_limit: null }],
+    }),
     useDashboardSummary: success(SUMMARY),
     useDaySchedule: success(SCHEDULE),
     useAppointmentsBetween: success(APPOINTMENTS),

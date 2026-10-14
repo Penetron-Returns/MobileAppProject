@@ -58,6 +58,8 @@ describe('me and business', () => {
       user: { id: 'user_owner', email: 'o@example.com', display_name: 'Owner' },
       business: { id: h.business.id, slug: 'salon', timezone: 'Africa/Johannesburg' },
       role: 'owner',
+      plan: 'free',
+      features: expect.arrayContaining([{ feature: 'inbox', monthly_limit: null }]),
     });
   });
 
