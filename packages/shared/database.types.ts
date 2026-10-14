@@ -1597,9 +1597,9 @@ export type Database = {
       }
     }
     Enums: {
-      actor_type: "customer" | "staff" | "system"
+      actor_type: "customer" | "staff" | "system" | "nerova"
       appointment_event_type: "created" | "rescheduled" | "cancelled" | "completed" | "no_show" | "checked_in" | "reminder_sent" | "confirmation_sent" | "notes_updated"
-      appointment_source: "whatsapp" | "app" | "web"
+      appointment_source: "whatsapp" | "app" | "web" | "nerova"
       appointment_status: "confirmed" | "cancelled" | "completed" | "no_show"
       attempt_outcome: "in_progress" | "completed" | "abandoned" | "failed"
       booking_channel: "whatsapp" | "web" | "app"

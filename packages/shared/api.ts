@@ -20,8 +20,8 @@ export type AppointmentStatus =
   | 'cancelled'
   | 'completed'
   | 'no_show';
-export type AppointmentSource = 'whatsapp' | 'app' | 'web';
-export type ActorType = 'customer' | 'staff' | 'system';
+export type AppointmentSource = 'whatsapp' | 'app' | 'web' | 'nerova';
+export type ActorType = 'customer' | 'staff' | 'system' | 'nerova';
 
 // ---------- plans / entitlements ----------
 /** Internal plan ids (display names and prices are not part of the contract). */
