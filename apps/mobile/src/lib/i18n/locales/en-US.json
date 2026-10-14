@@ -13,6 +13,53 @@
     "saving": "Saving...",
     "done": "Done"
   },
+  "auth": {
+    "appName": "Booking",
+    "welcome": {
+      "headline": "Run your shop from your phone.",
+      "valueProp": "Bookings, clients and WhatsApp in one place.",
+      "google": "Continue with Google",
+      "email": "Continue with email",
+      "legalPrefix": "By continuing you agree to our",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy"
+    },
+    "email": {
+      "title": "What is your email?",
+      "subtitle": "We will send you a 6-digit code. No password needed.",
+      "label": "Email address",
+      "placeholder": "you@example.com",
+      "continue": "Continue",
+      "sending": "Sending code"
+    },
+    "code": {
+      "title": "Check your email",
+      "subtitle": "We sent a 6-digit code to {{email}}.",
+      "label": "6-digit code",
+      "cell": "Digit {{index}} of 6",
+      "verify": "Verify",
+      "verifying": "Verifying",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {{seconds}}s",
+      "resent": "New code sent.",
+      "notYou": "Use a different email",
+      "didntGet": "Did not get it?"
+    },
+    "errors": {
+      "emailInvalid": "That does not look like a valid email address.",
+      "codeIncorrect": "That code is not right. Check it and try again.",
+      "codeExpired": "That code has expired. Send a new one.",
+      "tooManyAttempts": "Too many attempts. Wait a minute and try again.",
+      "network": "Could not reach the server. Check your connection and try again.",
+      "botCheck": "We could not confirm you are a person. Try again in a moment.",
+      "accountLocked": "This account is locked. Try again later or contact support.",
+      "notAllowed": "This email cannot be used to sign in.",
+      "signUpIncomplete": "We could not finish creating your account. Please contact support.",
+      "secondFactorUnsupported": "This account needs an extra verification step that this app does not support yet.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
   "errors": {
     "generic": "Something went wrong.",
     "loadFailed": "Couldn't load this.",
