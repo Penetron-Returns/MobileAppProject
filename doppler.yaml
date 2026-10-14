@@ -1,0 +1,10 @@
+# Doppler CLI scope. Run `doppler login` then `doppler setup` (no flags) from the repo root
+# and it picks these up per directory. Secrets themselves are never committed.
+# See docs/environments.md.
+setup:
+  - project: booking
+    config: dev
+    path: apps/backend
+  - project: booking
+    config: dev
+    path: apps/mobile
