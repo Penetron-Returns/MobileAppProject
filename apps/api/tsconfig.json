@@ -1,0 +1,17 @@
+{
+  "extends": "../../packages/config/tsconfig.node.json",
+  "compilerOptions": {
+    "paths": {
+      "@booking/types": ["../../packages/types/api.ts"],
+      "@booking/types/*": ["../../packages/types/*"],
+      "@booking/database": ["../../packages/database/database.types.ts"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "vitest.config.ts",
+    "../../packages/types/**/*.ts",
+    "../../packages/database/database.types.ts"
+  ]
+}
