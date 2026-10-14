@@ -1,157 +1,217 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { ChevronDown, Plus, Users } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Screen } from '@/components/Screen';
-import { SearchInput } from '@/components/SearchInput';
-import { EmptyState, ErrorState, LoadingRows } from '@/components/States';
-import { TabHeader } from '@/components/TabHeader';
-import { Icon } from '@/components/ui/icon';
+import { Chips } from '@/components/Chips';
+import { Group, SectionTitle } from '@/components/Group';
+import { Page } from '@/components/Page';
+import { Surface } from '@/components/Surface';
+import { BlockedActionSheet } from '@/components/states/BlockedActionSheet';
+import { ErrorScreen } from '@/components/states/ErrorScreen';
+import { ListSkeleton } from '@/components/states/ListSkeleton';
+import { OfflineBanner } from '@/components/states/OfflineBanner';
+import { isShowingSavedCopy, savedCopyTime } from '@/components/states/offline';
+import { useOfflineGuard } from '@/components/states/useOfflineGuard';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { BusinessGate } from '@/features/business/components/BusinessGate';
-import type { BusinessSummary } from '@/features/business/hooks';
+import { useBusiness } from '@/features/business/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { cn } from '@/lib/utils';
+import { useDepth } from '@/hooks/useDepth';
 
-import { useClientList } from '../hooks';
+import { useClientList, type ClientListItem } from '../hooks';
 import type { ClientFilter } from '../logic';
 import { ClientRow } from './ClientRow';
+import { ClientSearch } from './ClientSearch';
 
-const FILTERS: ClientFilter[] = ['all', 'recent', 'vip'];
+const FILTERS: ClientFilter[] = ['all', 'recent', 'regulars'];
+const ADD_CLIENT = { pathname: '/add', params: { mode: 'new' } };
 
+type Translate = ReturnType<typeof useTranslation>['t'];
+
+/** Clients: search, All / Recent / Regulars, and one tap to a profile. */
 export function ClientsScreen() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const business = useBusiness();
+  const [search, setSearch] = React.useState('');
+  const [filter, setFilter] = React.useState<ClientFilter>('all');
+  const debounced = useDebouncedValue(search);
+  const list = useClientList(filter, debounced);
+  const clients = React.useMemo(
+    () => list.data?.pages.flat() ?? [],
+    [list.data],
+  );
+  const timezone = business.data?.timezone;
+  const isOffline = isShowingSavedCopy(list);
+  const { guard, sheetProps } = useOfflineGuard(isOffline, () =>
+    list.refetch({ throwOnError: true }),
+  );
+
+  const options = FILTERS.map((value) => ({
+    value,
+    label: t(`clients.filters.${value}`),
+  }));
+  const isSearching = debounced.trim().length > 0;
+  const hasNoClientsAtAll =
+    list.isSuccess && clients.length === 0 && filter === 'all' && !isSearching;
+
   return (
-    <Screen
-      header={<TabHeader />}
+    <Page
+      title={t('clients.title')}
+      isTab
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
-      <BusinessGate>
-        {(business) => <ClientsContent business={business} />}
-      </BusinessGate>
-    </Screen>
+      {hasNoClientsAtAll ? (
+        <ClientsEmpty
+          onAdd={guard(() => router.navigate(ADD_CLIENT as never))}
+        />
+      ) : (
+        <>
+          <ClientSearch value={search} onChangeText={setSearch} />
+          <Chips
+            value={filter}
+            onChange={setFilter}
+            options={options}
+            label={t('clients.filterLabel')}
+          />
+          {isOffline ? (
+            <OfflineBanner
+              lastUpdated={
+                timezone ? savedCopyTime(list.dataUpdatedAt, timezone) : null
+              }
+            />
+          ) : null}
+          {business.isError ? (
+            <ErrorScreen
+              error={business.error}
+              onRetry={() => void business.refetch()}
+            />
+          ) : list.isPending || !timezone ? (
+            <ListSkeleton />
+          ) : list.isError && clients.length === 0 ? (
+            <ErrorScreen
+              error={list.error}
+              onRetry={() => void list.refetch()}
+              isRetrying={list.isRefetching}
+            />
+          ) : (
+            <ClientList
+              clients={clients}
+              timezone={timezone}
+              title={listTitle(t, filter, isSearching, clients.length)}
+              emptyText={
+                isSearching
+                  ? t('clients.empty.search', { query: debounced.trim() })
+                  : t('clients.empty.filter')
+              }
+              hasMore={Boolean(list.hasNextPage)}
+              isLoadingMore={list.isFetchingNextPage}
+              onLoadMore={() => void list.fetchNextPage()}
+            />
+          )}
+        </>
+      )}
+      <BlockedActionSheet {...sheetProps} />
+    </Page>
   );
 }
 
-function ClientsContent({ business }: { business: BusinessSummary }) {
+function listTitle(
+  t: Translate,
+  filter: ClientFilter,
+  isSearching: boolean,
+  count: number,
+): string {
+  if (isSearching) return t('clients.matches', { count });
+  return t(`clients.listTitle.${filter}`);
+}
+
+function ClientList({
+  clients,
+  timezone,
+  title,
+  emptyText,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
+}: {
+  clients: ClientListItem[];
+  timezone: string;
+  title: string;
+  emptyText: string;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
+}) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const [search, setSearch] = React.useState('');
-  const [filter, setFilter] = React.useState<ClientFilter>('all');
-  const debouncedSearch = useDebouncedValue(search);
-  const list = useClientList(filter, debouncedSearch);
-  const clients = list.data?.pages.flat() ?? [];
-
+  const depth = useDepth();
+  const now = React.useMemo(() => new Date(), []);
   return (
-    <View className="mx-auto w-full max-w-lg gap-5 pb-8 sm:max-w-2xl md:max-w-4xl">
-      <View className="flex-row items-end justify-between">
-        <View className="flex-1 pr-3">
-          <Text className="text-foreground text-2xl font-bold sm:text-3xl">
-            {t('clients.title')}
+    <>
+      <SectionTitle>{title}</SectionTitle>
+      <Group>
+        {clients.length === 0 ? (
+          <Text className="px-4 py-6 text-title text-muted-foreground">
+            {emptyText}
           </Text>
-          <Text className="text-muted-foreground mt-0.5 text-sm">
-            {t('clients.subtitle')}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() =>
-            router.push({ pathname: '/add', params: { mode: 'new' } } as never)
-          }
-          accessibilityRole="button"
-          accessibilityLabel={t('clients.addNew')}
-          className="bg-primary min-h-[44px] flex-row items-center gap-1.5 rounded-lg px-4 py-2.5 shadow-sm active:opacity-90"
-        >
-          <Icon as={Plus} size={18} className="text-primary-foreground" />
-          <Text className="text-primary-foreground text-sm font-semibold">
-            {t('clients.new')}
-          </Text>
-        </Pressable>
-      </View>
-
-      <SearchInput
-        value={search}
-        onChangeText={setSearch}
-        placeholder={t('clients.searchPlaceholder')}
-        containerClassName="rounded-xl border-border bg-card shadow-sm"
-      />
-
-      <View className="flex-row gap-2">
-        {FILTERS.map((id) => {
-          const isActive = filter === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => setFilter(id)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              className={cn(
-                'min-h-[36px] justify-center rounded-full border px-4 py-1.5 active:opacity-80',
-                isActive
-                  ? 'border-primary/20 bg-primary/10'
-                  : 'border-border bg-card',
-              )}
-            >
-              <Text
-                className={cn(
-                  'text-xs font-semibold',
-                  isActive ? 'text-primary' : 'text-muted-foreground',
-                )}
-              >
-                {t(`clients.filters.${id}`)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {list.isPending ? (
-        <LoadingRows count={5} />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : clients.length === 0 ? (
-        <View className="bg-card border-border rounded-xl border">
-          <EmptyState
-            icon={Users}
-            title={t('clients.empty.title')}
-            description={
-              debouncedSearch.trim()
-                ? t('clients.empty.search', { query: debouncedSearch.trim() })
-                : t('clients.empty.filter')
-            }
-          />
-        </View>
-      ) : (
-        <View className="bg-card border-border overflow-hidden rounded-xl border shadow-sm">
-          {clients.map((client, index) => (
+        ) : (
+          clients.map((client, index) => (
             <ClientRow
               key={client.id}
               client={client}
-              timezone={business.timezone}
-              isLast={index === clients.length - 1}
+              timezone={timezone}
+              showSeparator={index > 0}
+              now={now}
             />
-          ))}
-        </View>
-      )}
-
-      {list.hasNextPage ? (
-        <View className="flex-row justify-center pt-1">
-          <Pressable
-            onPress={() => void list.fetchNextPage()}
-            disabled={list.isFetchingNextPage}
-            accessibilityRole="button"
-            accessibilityLabel={t('clients.loadMore')}
-            className="min-h-[44px] flex-row items-center gap-1 py-2 active:opacity-70"
-          >
-            <Text className="text-primary text-sm font-semibold">
-              {t('clients.loadMore')}
-            </Text>
-            <Icon as={ChevronDown} size={18} className="text-primary" />
-          </Pressable>
-        </View>
+          ))
+        )}
+      </Group>
+      {hasMore ? (
+        <Pressable
+          onPress={onLoadMore}
+          disabled={isLoadingMore}
+          accessibilityRole="button"
+          accessibilityLabel={t('clients.loadMore')}
+          className="mx-5 min-h-12 justify-center px-1 active:opacity-50"
+        >
+          <Text style={{ color: depth.colors.tint }} className="text-title">
+            {isLoadingMore ? t('states.loading') : t('clients.loadMore')}
+          </Text>
+        </Pressable>
       ) : null}
+    </>
+  );
+}
+
+/** First run: no client has booked yet. */
+function ClientsEmpty({ onAdd }: { onAdd: () => void }) {
+  const { t } = useTranslation();
+  const depth = useDepth();
+  return (
+    <View className="items-center px-10 pt-24">
+      <Surface
+        variant="dome"
+        radius={32}
+        className="h-16 w-16 items-center justify-center"
+      >
+        <Users size={30} strokeWidth={1.8} color={depth.colors.secondary} />
+      </Surface>
+      <Text
+        role="heading"
+        aria-level="2"
+        className="mt-4 text-center text-section font-bold"
+      >
+        {t('clients.empty.title')}
+      </Text>
+      <Text className="mt-1.5 text-center text-title text-muted-foreground">
+        {t('clients.empty.description')}
+      </Text>
+      <Button size="lg" className="mt-6 px-7" onPress={onAdd}>
+        <Text className="text-title">{t('clients.empty.add')}</Text>
+      </Button>
     </View>
   );
 }
