@@ -1,13 +1,17 @@
+import {
+  Group,
+  GroupRow,
+  SectionTitle,
+  Skeleton,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 import { formatMoney } from '@/lib/format';
 import { formatDateShort, formatTime, businessDate } from '@/lib/time';
 

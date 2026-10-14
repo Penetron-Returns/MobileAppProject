@@ -104,15 +104,6 @@ export function formatDuration(minutes: number) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-export function initials(name: string | null | undefined, fallback = '?') {
-  if (!name) return fallback;
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return fallback;
-  const first = parts[0][0] ?? '';
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '';
-  return (first + last).toUpperCase();
-}
-
 /** Masks all but the last 4 digits (never log full numbers). */
 export function maskPhone(phone: string | null | undefined) {
   if (!phone) return '';

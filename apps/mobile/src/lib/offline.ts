@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next';
+
 import { formatTime } from '@/lib/time';
 
 interface QueryStatus {
@@ -21,4 +23,11 @@ export function savedCopyTime(
   timezone: string,
 ): string | null {
   return dataUpdatedAt ? formatTime(dataUpdatedAt, timezone) : null;
+}
+
+/** "Offline · showing what we had at 10:32", or the no-time wording when nothing was ever loaded. */
+export function savedCopyLabel(t: TFunction, time: string | null): string {
+  return time
+    ? t('states.offline.banner', { time })
+    : t('states.offline.bannerNoTime');
 }

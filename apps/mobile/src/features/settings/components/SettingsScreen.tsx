@@ -1,3 +1,14 @@
+import {
+  Avatar,
+  Group,
+  GroupRow,
+  Page,
+  SectionTitle,
+  Surface,
+  Switch,
+  Text,
+  useAppColorScheme,
+} from '@booking/ui';
 import { useClerk, useOrganization, useUser } from '@clerk/expo';
 import { router } from 'expo-router';
 import {
@@ -13,16 +24,9 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { InitialsDome } from '@/components/InitialsDome';
-import { Page } from '@/components/Page';
-import { Surface } from '@/components/Surface';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { Gate } from '@/features/plans/components/Gate';
-import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 import { formatPhone } from '@/lib/format';
 
 import { settingsGroups } from '../navigation';
@@ -68,7 +72,7 @@ export function SettingsScreen() {
           variant="raised"
           className="mx-5 min-h-[72px] flex-row items-center gap-3.5 px-4 py-3"
         >
-          <InitialsDome name={title} />
+          <Avatar name={title} />
           <View className="min-w-0 flex-1">
             <Text numberOfLines={1} className="text-title font-semibold">
               {title}

@@ -1,7 +1,6 @@
+import { CenteredSpinner } from '@booking/ui';
 import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
-
-import { CenteredSpinner } from '@/components/States';
 
 /** Public group: sign-in only (accounts are issued, so no sign-up route). */
 export default function AuthLayout() {

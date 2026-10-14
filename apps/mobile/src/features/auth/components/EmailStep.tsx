@@ -1,10 +1,8 @@
+import { Button, InsetInput, Text } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { InsetInput } from '@/components/InsetInput';
-
-import { AuthButton } from './AuthButton';
 import { AuthError } from './AuthError';
 import { StepFrame } from './StepFrame';
 import type { AuthErrorKey } from '../errors';
@@ -59,13 +57,19 @@ export function EmailStep({
         containerClassName="min-h-14"
       />
       <AuthError errorKey={errorKey} />
-      <AuthButton
-        label={isBusy ? t('auth.email.sending') : t('auth.email.continue')}
-        tone="primary"
+      <Button
+        size="xl"
         onPress={() => onSubmit(email)}
-        isBusy={isBusy}
-        isDisabled={!canSubmit}
-      />
+        loading={isBusy}
+        disabled={!canSubmit}
+        accessibilityLabel={
+          isBusy ? t('auth.email.sending') : t('auth.email.continue')
+        }
+      >
+        <Text>
+          {isBusy ? t('auth.email.sending') : t('auth.email.continue')}
+        </Text>
+      </Button>
       {/* Clerk mounts its bot-protection challenge here on sign-up. */}
       <View nativeID="clerk-captcha" />
     </StepFrame>

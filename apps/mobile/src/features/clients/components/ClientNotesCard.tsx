@@ -1,14 +1,16 @@
+import {
+  Button,
+  Group,
+  InsetInput,
+  SectionTitle,
+  Skeleton,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { AlertTriangle, Coffee, StickyNote, X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
-
-import { Group, SectionTitle } from '@/components/Group';
-import { InsetInput } from '@/components/InsetInput';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 
 import {
   useAddClientNote,

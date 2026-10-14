@@ -1,3 +1,19 @@
+import {
+  BlockedActionSheet,
+  Button,
+  Chips,
+  EmptyState,
+  ErrorState,
+  Group,
+  ListSkeleton,
+  OfflineBanner,
+  Page,
+  SearchField,
+  SectionTitle,
+  Text,
+  useDepth,
+  useOfflineGuard,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Users } from 'lucide-react-native';
@@ -5,26 +21,18 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Chips } from '@/components/Chips';
-import { Group, SectionTitle } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { Surface } from '@/components/Surface';
-import { BlockedActionSheet } from '@/components/states/BlockedActionSheet';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { OfflineBanner } from '@/components/states/OfflineBanner';
-import { isShowingSavedCopy, savedCopyTime } from '@/components/states/offline';
-import { useOfflineGuard } from '@/components/states/useOfflineGuard';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
+import {
+  isShowingSavedCopy,
+  savedCopyLabel,
+  savedCopyTime,
+} from '@/lib/offline';
 import { useBusiness } from '@/features/business/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { useDepth } from '@/hooks/useDepth';
 
 import { useClientList, type ClientListItem } from '../hooks';
 import type { ClientFilter } from '../logic';
 import { ClientRow } from './ClientRow';
-import { ClientSearch } from './ClientSearch';
 
 const FILTERS: ClientFilter[] = ['all', 'recent', 'regulars'];
 const ADD_CLIENT = { pathname: '/add', params: { mode: 'new' } };
@@ -70,7 +78,15 @@ export function ClientsScreen() {
         />
       ) : (
         <>
-          <ClientSearch value={search} onChangeText={setSearch} />
+          <SearchField
+            clear="cancel"
+            containerClassName="mx-5 mt-3"
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t('clients.searchPlaceholder')}
+            label={t('clients.searchLabel')}
+            autoCorrect={false}
+          />
           <Chips
             value={filter}
             onChange={setFilter}
@@ -79,21 +95,24 @@ export function ClientsScreen() {
           />
           {isOffline ? (
             <OfflineBanner
-              lastUpdated={
-                timezone ? savedCopyTime(list.dataUpdatedAt, timezone) : null
-              }
+              label={savedCopyLabel(
+                t,
+                timezone ? savedCopyTime(list.dataUpdatedAt, timezone) : null,
+              )}
             />
           ) : null}
           {business.isError ? (
-            <ErrorScreen
-              error={business.error}
+            <ErrorState
+              variant="banner"
+              {...describeError(business.error)}
               onRetry={() => void business.refetch()}
             />
           ) : list.isPending || !timezone ? (
             <ListSkeleton />
           ) : list.isError && clients.length === 0 ? (
-            <ErrorScreen
-              error={list.error}
+            <ErrorState
+              variant="banner"
+              {...describeError(list.error)}
               onRetry={() => void list.refetch()}
               isRetrying={list.isRefetching}
             />
@@ -189,29 +208,17 @@ function ClientList({
 /** First run: no client has booked yet. */
 function ClientsEmpty({ onAdd }: { onAdd: () => void }) {
   const { t } = useTranslation();
-  const depth = useDepth();
   return (
-    <View className="items-center px-10 pt-24">
-      <Surface
-        variant="dome"
-        radius={32}
-        className="h-16 w-16 items-center justify-center"
-      >
-        <Users size={30} strokeWidth={1.8} color={depth.colors.secondary} />
-      </Surface>
-      <Text
-        role="heading"
-        aria-level="2"
-        className="mt-4 text-center text-section font-bold"
-      >
-        {t('clients.empty.title')}
-      </Text>
-      <Text className="mt-1.5 text-center text-title text-muted-foreground">
-        {t('clients.empty.description')}
-      </Text>
-      <Button size="lg" className="mt-6 px-7" onPress={onAdd}>
-        <Text className="text-title">{t('clients.empty.add')}</Text>
-      </Button>
-    </View>
+    <EmptyState
+      variant="screen"
+      icon={Users}
+      title={t('clients.empty.title')}
+      description={t('clients.empty.description')}
+      action={
+        <Button size="lg" className="px-7" onPress={onAdd}>
+          <Text className="text-title">{t('clients.empty.add')}</Text>
+        </Button>
+      }
+    />
   );
 }

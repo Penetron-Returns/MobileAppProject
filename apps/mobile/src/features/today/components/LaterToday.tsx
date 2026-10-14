@@ -1,13 +1,11 @@
+import { Surface, Text, useDepth } from '@booking/ui';
 import { router } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Text } from '@/components/ui/text';
 import { setCalendarViewMode } from '@/features/calendar/navigation';
-import { useDepth } from '@/hooks/useDepth';
 import { formatTime } from '@/lib/time';
 
 import {

@@ -1,14 +1,11 @@
+import { Button, Surface, Text, useDepth } from '@booking/ui';
 import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
 import { useCheckInAppointment } from '@/features/appointments/hooks';
 import { whatsAppChatUrl } from '@/features/dashboard/logic';
-import { useDepth } from '@/hooks/useDepth';
 import { formatDuration } from '@/lib/format';
 import { formatTime } from '@/lib/time';
 import { toast } from '@/lib/toast';

@@ -1,13 +1,10 @@
+import { Button, DoneCard, Screen, StackHeader, Text } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Header } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
 import {
   useBookingRules,
   useCreateAppointment,
@@ -32,7 +29,6 @@ import { toast } from '@/lib/toast';
 
 import { bookableStaff, bookingHorizonDays, toCreateRequest } from '../logic';
 import { ClientStep, type ClientChoice } from './ClientStep';
-import { DoneCard } from './DoneCard';
 import { WhenStep, type WhenState } from './WhenStep';
 
 const EMPTY_CLIENT: ClientChoice = {
@@ -160,7 +156,7 @@ function NewBookingFlow({
 
   if (booked) {
     return (
-      <Screen header={<Header title={t('newBooking.title')} hideBack />}>
+      <Screen header={<StackHeader title={t('newBooking.title')} hideBack />}>
         <DoneCard
           title={t('newBooking.done')}
           lines={[
@@ -234,7 +230,7 @@ function NewBookingFlow({
   return (
     <Screen
       header={
-        <Header
+        <StackHeader
           title={t('newBooking.title')}
           hideBack={step === 1}
           onBack={() => setStep(1)}

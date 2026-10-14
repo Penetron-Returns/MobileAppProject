@@ -1,16 +1,22 @@
+import {
+  Capsule,
+  EmptyState,
+  ErrorState,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  Page,
+  SectionTitle,
+  Text,
+  TintLink,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Sparkles } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Capsule } from '@/components/Capsule';
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { Page } from '@/components/Page';
-import { EmptyState } from '@/components/States';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
 import { useCanManage } from '@/features/business/me';
 import { useServices, type ServiceRow } from '@/features/catalog/hooks';
@@ -18,7 +24,6 @@ import { formatDuration, formatMoney } from '@/lib/format';
 
 import { existingCategories, groupByCategory, joinMeta } from '../lists';
 import { ServiceForm } from './ServiceForm';
-import { TintLink } from './TintLink';
 
 export function ServicesScreen() {
   const { t } = useTranslation();
@@ -30,8 +35,9 @@ export function ServicesScreen() {
   let body: React.ReactNode;
   if (services.isError) {
     body = (
-      <ErrorScreen
-        error={services.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(services.error)}
         onRetry={() => void services.refetch()}
       />
     );

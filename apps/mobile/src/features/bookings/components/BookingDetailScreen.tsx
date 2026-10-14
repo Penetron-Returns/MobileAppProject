@@ -1,3 +1,14 @@
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  LoadingCard,
+  Screen,
+  StackHeader,
+  Surface,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { router } from 'expo-router';
 import {
   CalendarX,
@@ -9,12 +20,6 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
-import { Header } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { EmptyState, ErrorState, LoadingCard } from '@/components/States';
-import { Surface } from '@/components/Surface';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
 import {
   useAppointment,
   useAppointmentEvents,
@@ -24,7 +29,6 @@ import {
 } from '@/features/appointments/hooks';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
 import { whatsAppChatUrl } from '@/features/dashboard/logic';
-import { useDepth } from '@/hooks/useDepth';
 import { formatMoney, formatPhone } from '@/lib/format';
 import {
   businessDate,
@@ -32,7 +36,7 @@ import {
   formatTime,
   todayISO,
 } from '@/lib/time';
-import { toast } from '@/lib/toast';
+import { toast, describeError } from '@/lib/toast';
 
 import {
   canChange,
@@ -58,12 +62,15 @@ export function BookingDetailScreen({
   const data = appointment.data;
   return (
     <Screen
-      header={<Header title={t('booking.title')} fallbackHref="/calendar" />}
+      header={
+        <StackHeader title={t('booking.title')} fallbackHref="/calendar" />
+      }
       onRefresh={() => Promise.all([business.refetch(), appointment.refetch()])}
     >
       {failed ? (
         <ErrorState
-          error={failed.error}
+          variant="banner"
+          {...describeError(failed.error)}
           onRetry={() => void failed.refetch()}
         />
       ) : !business.data || appointment.isPending ? (

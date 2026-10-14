@@ -1,16 +1,25 @@
+import {
+  Button,
+  DoneCard,
+  EmptyState,
+  ErrorState,
+  goBack,
+  Input,
+  LoadingCard,
+  Screen,
+  StackHeader,
+  Surface,
+  SwitchRow,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { CalendarX, Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Header, goBack } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { EmptyState, ErrorState, LoadingCard } from '@/components/States';
-import { Surface } from '@/components/Surface';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
 import {
   useAppointment,
   useBookingRules,
@@ -18,7 +27,6 @@ import {
   type AppointmentDetail,
 } from '@/features/appointments/hooks';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
-import { useDepth } from '@/hooks/useDepth';
 import { businessDate, formatDateShort, formatTime } from '@/lib/time';
 
 import {
@@ -30,8 +38,6 @@ import {
   windowHours,
   type CancelReason,
 } from '../logic';
-import { DoneCard } from './DoneCard';
-import { ToggleRow } from './ToggleRow';
 
 const REASONS: CancelReason[] = ['client', 'staff', 'other'];
 
@@ -49,7 +55,7 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
   return (
     <Screen
       header={
-        <Header
+        <StackHeader
           title={t('cancel.title')}
           close
           fallbackHref={`/bookings/${appointmentId}`}
@@ -58,7 +64,8 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
     >
       {failed ? (
         <ErrorState
-          error={failed.error}
+          variant="banner"
+          {...describeError(failed.error)}
           onRetry={() => void failed.refetch()}
         />
       ) : !business.data || appointment.isPending ? (
@@ -196,10 +203,11 @@ function CancelForm({
         </Text>
       ) : null}
 
-      <ToggleRow
-        label={t('cancel.tell', { name })}
+      <SwitchRow
+        variant="card"
+        title={t('cancel.tell', { name })}
         checked={notify}
-        onChange={setNotify}
+        onCheckedChange={setNotify}
       />
 
       <Button

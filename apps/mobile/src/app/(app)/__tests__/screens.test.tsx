@@ -24,10 +24,13 @@ jest.mock('lucide-react-native', () => {
   return new Proxy({}, { get: () => View });
 });
 
-jest.mock('@/components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
-
-// Reanimated (used by the sheet's animations) can't load under Jest.
-jest.mock('@/components/Sheet', () => {
+// Sheets and dialogs portal into a host the test renderer does not have. The
+// mocks target the package's own modules, so the design system's OptionSheet
+// and the barrel both pick them up.
+jest.mock('@booking/ui/components/ConfirmDialog', () => ({
+  ConfirmDialog: () => null,
+}));
+jest.mock('@booking/ui/components/Sheet', () => {
   const { View } = require('react-native');
   const Passthrough = ({ children }: { children?: unknown }) =>
     children ?? null;
