@@ -1,8 +1,8 @@
 import type { MiddlewareHandler } from 'hono';
 
 import type { Json } from '@booking/database';
-import { sha256Hex } from '../lib/crypto.ts';
-import { AppError } from '../lib/errors.ts';
+import { sha256Hex } from '@booking/features/lib/crypto.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import type { AppEnv } from '../types.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);

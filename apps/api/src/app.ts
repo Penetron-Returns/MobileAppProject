@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import { getContainer as defaultGetContainer, type Container } from './container.ts';
-import { AppError } from './lib/errors.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import { requireAuth, requireOrgOwnerSession, type ClerkClaims } from './middleware/auth.ts';
 import { baseContext, errorHandler, requireCronSecret } from './middleware/common.ts';
 import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';

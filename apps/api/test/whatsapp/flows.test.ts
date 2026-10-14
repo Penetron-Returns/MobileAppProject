@@ -2,12 +2,22 @@ import { constants, createCipheriv, createDecipheriv, generateKeyPairSync, publi
 
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, invertIv, loadFlowPrivateKey } from '../../src/whatsapp/flows/crypto.ts';
-import { FLOW_COPY, handleFlowRequest, type FlowRequest } from '../../src/whatsapp/flows/handler.ts';
-import { AppError, notFound } from '../../src/lib/errors.ts';
-import { signFlowToken, verifyFlowToken } from '../../src/whatsapp/flows/token.ts';
-import { signMetaBody } from '../../src/whatsapp/signature.ts';
-import { appHarness, appointment, CUSTOMER_PHONE, harness, NOW, STAFF_SAM, SVC_COLOUR, SVC_CUT, type Harness } from './fakes.ts';
+import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, invertIv, loadFlowPrivateKey } from '@booking/app-store/whatsapp/flows/crypto.ts';
+import { FLOW_COPY, handleFlowRequest, type FlowRequest } from '@booking/app-store/whatsapp/flows/handler.ts';
+import { AppError, notFound } from '@booking/features/lib/errors.ts';
+import { signFlowToken, verifyFlowToken } from '@booking/app-store/whatsapp/flows/token.ts';
+import { signMetaBody } from '@booking/app-store/whatsapp/signature.ts';
+import {
+  appointment,
+  CUSTOMER_PHONE,
+  harness,
+  NOW,
+  STAFF_SAM,
+  SVC_COLOUR,
+  SVC_CUT,
+  type Harness,
+} from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 const CONV = '00000000-0000-4000-8000-00000000c0c0';
 const ATTEMPT = '00000000-0000-4000-8000-0000000a7777';

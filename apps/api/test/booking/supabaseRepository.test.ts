@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 
-import { createSupabaseRepository } from '../../src/booking/repository.ts';
-import { AppError } from '../../src/lib/errors.ts';
-import type { Db } from '../../src/lib/db.ts';
+import { createSupabaseRepository } from '@booking/features/repositories/supabase.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import type { Db } from '@booking/features/lib/db.ts';
 
 interface Captured {
   method: string;

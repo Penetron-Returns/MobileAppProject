@@ -5,9 +5,9 @@
  */
 import { Hono } from 'hono';
 
-import { getMe } from '../../booking/admin.ts';
-import { getBookingRepository } from '../../booking/index.ts';
-import { completeOnboarding } from '../../booking/onboarding.ts';
+import { getMe } from '@booking/features/catalog/services/catalog.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { completeOnboarding } from '@booking/features/onboarding/services/onboarding.ts';
 import { parseJson } from '../../lib/validation.ts';
 import type { AppEnv } from '../../types.ts';
 import { onboardingSchema } from './schemas.ts';

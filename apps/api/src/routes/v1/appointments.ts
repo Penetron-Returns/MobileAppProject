@@ -1,8 +1,13 @@
 /** Member routes: appointment lifecycle. */
 import { Hono } from 'hono';
 
-import { checkInAppointment, setAppointmentStatus, updateAppointmentNotes, upsertClient } from '../../booking/admin.ts';
-import { notFound } from '../../lib/errors.ts';
+import {
+  checkInAppointment,
+  setAppointmentStatus,
+  updateAppointmentNotes,
+} from '@booking/features/bookings/services/appointmentExtras.ts';
+import { upsertClient } from '@booking/features/clients/services/clients.ts';
+import { notFound } from '@booking/features/lib/errors.ts';
 import { parseJson } from '../../lib/validation.ts';
 import type { AppEnv } from '../../types.ts';
 import { deps, idParam, parseOptionalJson, rpcIdempotencyKey } from './context.ts';

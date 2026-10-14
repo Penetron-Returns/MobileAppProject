@@ -1,7 +1,7 @@
 import { generateKeyPairSync, createSign } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { normalizePem } from '../src/lib/pem.ts';
+import { normalizePem } from '@booking/features/lib/pem.ts';
 import { defaultVerifier, failureReason } from '../src/middleware/auth.ts';
 
 const b64url = (v: Buffer | string) => Buffer.from(v).toString('base64url');

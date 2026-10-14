@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatReplyId, parseReplyId, rid, type ReplyId } from '../../src/whatsapp/ids.ts';
-import { buttons, clip, flow, LIMITS, list, MessageLimitError, storedBody, template, text, toGraphPayload } from '../../src/whatsapp/messages.ts';
+import { formatReplyId, parseReplyId, rid, type ReplyId } from '@booking/app-store/whatsapp/ids.ts';
+import { buttons, clip, flow, LIMITS, list, MessageLimitError, storedBody, template, text, toGraphPayload } from '@booking/app-store/whatsapp/messages.ts';
 
 const long = (n: number) => 'x'.repeat(n);
 

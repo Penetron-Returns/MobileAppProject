@@ -1,8 +1,8 @@
 import { Webhook } from 'svix';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { slugify } from '../../src/booking/clerkSync.ts';
-import { runCleanupJob } from '../../src/booking/jobs.ts';
+import { slugify } from '@booking/features/team/services/clerkSync.ts';
+import { runCleanupJob } from '@booking/features/bookings/services/cleanupJob.ts';
 import { testContainer } from '../helpers.ts';
 import { NOW } from './fixtures.ts';
 import { harness, type Harness } from './harness.ts';

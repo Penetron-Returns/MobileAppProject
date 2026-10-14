@@ -3,10 +3,10 @@ import { TokenVerificationError, TokenVerificationErrorReason } from '@clerk/bac
 import type { Context, MiddlewareHandler } from 'hono';
 
 import type { MemberRole } from '@booking/types';
-import { getBookingRepository } from '../booking/index.ts';
-import { syncSessionMember, type SessionMember } from '../booking/memberSync.ts';
-import { AppError } from '../lib/errors.ts';
-import { normalizePem } from '../lib/pem.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { syncSessionMember, type SessionMember } from '@booking/features/team/services/memberSync.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import { normalizePem } from '@booking/features/lib/pem.ts';
 import type { AppEnv } from '../types.ts';
 
 export interface ClerkClaims {

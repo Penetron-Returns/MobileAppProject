@@ -2,9 +2,9 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app.ts';
-import { AppError, mapDbError } from '../src/lib/errors.ts';
-import { redact } from '../src/lib/logger.ts';
-import { decryptSecret, encryptSecret } from '../src/lib/crypto.ts';
+import { AppError, mapDbError } from '@booking/features/lib/errors.ts';
+import { redact } from '@booking/features/lib/logger.ts';
+import { decryptSecret, encryptSecret } from '@booking/features/lib/crypto.ts';
 import { orgFromClaims } from '../src/middleware/auth.ts';
 import { baseContext, errorHandler } from '../src/middleware/common.ts';
 import { idempotency } from '../src/middleware/idempotency.ts';

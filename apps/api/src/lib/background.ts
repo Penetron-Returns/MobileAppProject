@@ -3,7 +3,7 @@
  * caused them. The promise is always caught; on Supabase Edge Functions `EdgeRuntime.waitUntil` keeps the
  * isolate alive until it settles, elsewhere (Node tests) the promise simply runs on.
  */
-import type { Logger } from './logger.ts';
+import type { Logger } from '@booking/features/lib/logger.ts';
 
 interface WaitUntilRuntime {
   waitUntil?: (promise: Promise<unknown>) => void;

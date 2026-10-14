@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { AppError, notFound } from '../../src/lib/errors.ts';
-import { processWebhook } from '../../src/whatsapp/webhook/process.ts';
+import { AppError, notFound } from '@booking/features/lib/errors.ts';
+import { processWebhook } from '@booking/app-store/whatsapp/webhook/process.ts';
 
-import { signMetaBody, verifyMetaSignature } from '../../src/whatsapp/signature.ts';
-import { extractEvents, WebhookPayload } from '../../src/whatsapp/webhook/events.ts';
+import { signMetaBody, verifyMetaSignature } from '@booking/app-store/whatsapp/signature.ts';
+import { extractEvents, WebhookPayload } from '@booking/app-store/whatsapp/webhook/events.ts';
 import {
   ACCOUNT_ID,
-  appHarness,
   buttonMsg,
   CUSTOMER_PHONE,
   fieldPayload,
@@ -20,7 +19,8 @@ import {
   statusPayload,
   textMsg,
   WABA_ID,
-} from './fakes.ts';
+} from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 describe('webhook: verification handshake', () => {
   it('echoes the challenge for the right verify token', async () => {

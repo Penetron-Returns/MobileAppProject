@@ -4,9 +4,9 @@ import type { ErrorHandler, MiddlewareHandler } from 'hono';
 
 import type { ApiErrorBody } from '@booking/types';
 import type { Container } from '../container.ts';
-import { safeEqual } from '../lib/crypto.ts';
-import { AppError } from '../lib/errors.ts';
-import { createLogger } from '../lib/logger.ts';
+import { safeEqual } from '@booking/features/lib/crypto.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import { createLogger } from '@booking/features/lib/logger.ts';
 import type { AppEnv } from '../types.ts';
 
 /** Attaches request id, logger and the DI container to every request. */

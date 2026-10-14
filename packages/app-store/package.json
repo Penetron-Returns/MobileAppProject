@@ -1,0 +1,10 @@
+{
+  "name": "@booking/app-store",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Optional third-party apps, one folder each, plus the hand-written registry. The WhatsApp Free demo lives here.",
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  }
+}

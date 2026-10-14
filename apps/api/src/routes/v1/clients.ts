@@ -1,7 +1,12 @@
 /** Member routes: clients and client notes. */
 import { Hono } from 'hono';
 
-import { addClientNote, deleteClientNote, updateClient, upsertClient } from '../../booking/admin.ts';
+import {
+  addClientNote,
+  deleteClientNote,
+  updateClient,
+  upsertClient,
+} from '@booking/features/clients/services/clients.ts';
 import { parseJson } from '../../lib/validation.ts';
 import type { AppEnv } from '../../types.ts';
 import { deps, idParam } from './context.ts';

@@ -1,14 +1,14 @@
 import { createApp } from '../../src/app.ts';
-import type { BookingContainer } from '../../src/booking/index.ts';
-import { createBookingServiceFromRepository } from '../../src/booking/service.ts';
-import { sha256Hex } from '../../src/lib/crypto.ts';
-import { notFound } from '../../src/lib/errors.ts';
+import { createBookingServiceFromRepository } from '@booking/features/bookings/services/bookingService.ts';
+import { sha256Hex } from '@booking/features/lib/crypto.ts';
+import { notFound } from '@booking/features/lib/errors.ts';
 import type { Env } from '../../src/env.ts';
-import type { AccountEventsPort, AppointmentChangedEvent, BookingService, EntitlementService } from '../../src/ports.ts';
+import type { AccountEventsPort, AppointmentChangedEvent, BookingService, EntitlementService } from '@booking/features/ports.ts';
 import type { FeatureKey, PlanKey } from '@booking/types';
 import { silentLogger } from '../booking/harness.ts';
 import { NOW, seed, type Seed } from '../booking/fixtures.ts';
-import { memoryIdempotencyStore, PLAN_FEATURES, TEST_ENV, testContainer } from '../helpers.ts';
+import { PLAN_FEATURES } from '@booking/testing/entitlements.ts';
+import { memoryIdempotencyStore, TEST_ENV, testContainer, type BookingContainer } from '../helpers.ts';
 
 export const CONNECTOR_TOKEN = 'nerova-test-token-0123456789';
 export const ENDPOINT = '/connector/nerova/mcp';

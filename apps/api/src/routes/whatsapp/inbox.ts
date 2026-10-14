@@ -8,8 +8,8 @@ import { Hono, type Context } from 'hono';
 import { parseJson } from '../../lib/validation.ts';
 import { requireFeature } from '../../middleware/feature.ts';
 import type { AppEnv } from '../../types.ts';
-import { getWaDeps } from '../../whatsapp/deps.ts';
-import { releaseConversation, resolveEscalation, sendStaffMessage } from '../../whatsapp/inbox.ts';
+import { getWaDeps } from '@booking/app-store/whatsapp/deps.ts';
+import { releaseConversation, resolveEscalation, sendStaffMessage } from '@booking/app-store/whatsapp/inbox.ts';
 import { idParam, parseOptionalJson } from '../v1/context.ts';
 import { resolveEscalationSchema, staffMessageSchema } from './schemas.ts';
 

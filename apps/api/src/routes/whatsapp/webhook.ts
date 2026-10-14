@@ -2,13 +2,13 @@ import { Buffer } from 'node:buffer';
 
 import { Hono } from 'hono';
 
-import { safeEqual } from '../../lib/crypto.ts';
-import { AppError } from '../../lib/errors.ts';
+import { safeEqual } from '@booking/features/lib/crypto.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import type { AppEnv } from '../../types.ts';
-import { getWaDeps } from '../../whatsapp/deps.ts';
-import { verifyMetaSignature } from '../../whatsapp/signature.ts';
-import { WebhookPayload } from '../../whatsapp/webhook/events.ts';
-import { processWebhook } from '../../whatsapp/webhook/process.ts';
+import { getWaDeps } from '@booking/app-store/whatsapp/deps.ts';
+import { verifyMetaSignature } from '@booking/app-store/whatsapp/signature.ts';
+import { WebhookPayload } from '@booking/app-store/whatsapp/webhook/events.ts';
+import { processWebhook } from '@booking/app-store/whatsapp/webhook/process.ts';
 
 /**
  * Mounted at /webhooks/whatsapp. The signature is checked on the raw body

@@ -13,14 +13,20 @@ import type {
   StartAttemptResponse,
   UUID,
 } from '@booking/types';
-import { getBookingRepository } from '../booking/index.ts';
-import { upsertClient } from '../booking/admin.ts';
-import { completeAttempt, failAttempt, recordWebStep, requireOpenWebAttempt, startWebAttempt } from '../booking/attempts.ts';
-import { bookingRules, toServiceDTO } from '../booking/mappers.ts';
-import { clientIp, createRateLimiter, type RateLimiter } from '../booking/rateLimit.ts';
-import type { BookingRepository } from '../booking/repository.ts';
-import type { BusinessRow } from '../booking/rows.ts';
-import { AppError, notFound } from '../lib/errors.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { upsertClient } from '@booking/features/clients/services/clients.ts';
+import {
+  completeAttempt,
+  failAttempt,
+  recordWebStep,
+  requireOpenWebAttempt,
+  startWebAttempt,
+} from '@booking/features/bookings/services/attempts.ts';
+import { bookingRules, toServiceDTO } from '@booking/features/bookings/lib/mappers.ts';
+import { clientIp, createRateLimiter, type RateLimiter } from '@booking/features/bookings/lib/rateLimit.ts';
+import type { BookingRepository } from '@booking/features/repositories/types.ts';
+import type { BusinessRow } from '@booking/features/repositories/rows.ts';
+import { AppError, notFound } from '@booking/features/lib/errors.ts';
 import { parseJson, parseParam, parseQuery } from '../lib/validation.ts';
 import type { AppEnv } from '../types.ts';
 import { rpcIdempotencyKey, type Ctx } from './v1/context.ts';

@@ -1,10 +1,11 @@
 import type { Container } from '../src/container.ts';
 import type { Env } from '../src/env.ts';
-import type { Db } from '../src/lib/db.ts';
+import type { Db } from '@booking/features/lib/db.ts';
 import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
-import type { BookingService, EntitlementService, NotificationService } from '../src/ports.ts';
-import { createFakeClerkAdmin } from './fakes/clerkAdmin.ts';
-import type { FeatureKey, PlanKey } from '@booking/types';
+import type { BookingRepository } from '@booking/features/repositories/types.ts';
+import type { BookingService, NotificationService } from '@booking/features/ports.ts';
+import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
+import { fakeEntitlements } from '@booking/testing/entitlements.ts';
 
 export const TEST_ENV: Env = {
   SUPABASE_URL: 'http://localhost:54321',
@@ -39,34 +40,6 @@ export function memoryIdempotencyStore(): IdempotencyStore & { records: Map<stri
   };
 }
 
-/**
- * Mirror of the plan_features seed in packages/database/supabase/migrations/20261014000001_plan_flags.sql
- * (a test asserts the two stay identical).
- */
-export const PLAN_FEATURES: Record<PlanKey, FeatureKey[]> = {
-  free: ['whatsapp_menu', 'inbox', 'extensions'],
-  starter: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
-  growth: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
-  pro: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
-};
-
-/** In-memory EntitlementService for one plan; `limits` sets monthly caps per feature. */
-export function fakeEntitlements(plan: PlanKey = 'free', limits: Partial<Record<FeatureKey, number>> = {}): EntitlementService {
-  const get = async () => ({
-    plan,
-    features: PLAN_FEATURES[plan].map((feature) => ({ feature, monthly_limit: limits[feature] ?? null })),
-  });
-  return {
-    getEntitlements: get,
-    async hasFeature(_businessId, feature) {
-      return PLAN_FEATURES[plan].includes(feature);
-    },
-    async listBusinessIdsWithFeature() {
-      return [];
-    },
-  };
-}
-
 /** Builds a container with fakes; override only what a test needs. */
 export function testContainer(overrides: Partial<Container> = {}): Container {
   const unimplemented = new Proxy({}, {
@@ -87,3 +60,6 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     ...overrides,
   };
 }
+
+/** A container that may carry an injected booking repository (see getBookingRepository). */
+export type BookingContainer = Container & { bookingRepository?: BookingRepository };

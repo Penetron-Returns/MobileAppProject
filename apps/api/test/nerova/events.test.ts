@@ -10,7 +10,7 @@ import {
   eventSenderFromEnv,
   signStandardWebhook,
   type AccountEvent,
-} from '../../src/nerova/events.ts';
+} from '@booking/companion/events/events.ts';
 import { silentLogger, harness } from '../booking/harness.ts';
 import { plansEntitlements } from './harness.ts';
 

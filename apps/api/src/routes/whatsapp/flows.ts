@@ -4,10 +4,10 @@ import { Hono } from 'hono';
 
 import type { Env } from '../../env.ts';
 import type { AppEnv } from '../../types.ts';
-import { getWaDeps } from '../../whatsapp/deps.ts';
-import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, loadFlowPrivateKey, type EncryptedFlowRequest, type FlowPrivateKey } from '../../whatsapp/flows/crypto.ts';
-import { handleFlowRequest, type FlowRequest } from '../../whatsapp/flows/handler.ts';
-import { verifyMetaSignature } from '../../whatsapp/signature.ts';
+import { getWaDeps } from '@booking/app-store/whatsapp/deps.ts';
+import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, loadFlowPrivateKey, type EncryptedFlowRequest, type FlowPrivateKey } from '@booking/app-store/whatsapp/flows/crypto.ts';
+import { handleFlowRequest, type FlowRequest } from '@booking/app-store/whatsapp/flows/handler.ts';
+import { verifyMetaSignature } from '@booking/app-store/whatsapp/signature.ts';
 
 /**
  * Mounted at /flows/whatsapp. Status codes follow Meta's Flows endpoint spec:

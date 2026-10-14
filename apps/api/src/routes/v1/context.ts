@@ -1,10 +1,10 @@
 import type { Context } from 'hono';
 import type { z } from 'zod';
 
-import { getBookingRepository } from '../../booking/index.ts';
-import { AppError } from '../../lib/errors.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import { parseJson, parseParam } from '../../lib/validation.ts';
-import type { Actor } from '../../ports.ts';
+import type { Actor } from '@booking/features/ports.ts';
 import type { AppEnv } from '../../types.ts';
 import { uuid } from './schemas.ts';
 

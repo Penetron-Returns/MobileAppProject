@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { createNotificationService, notifyAppointmentChanged } from '../../src/notifications/index.ts';
-import { createPushSender, EXPO_PUSH_URL } from '../../src/notifications/push.ts';
-import type { Db } from '../../src/lib/db.ts';
-import type { AppointmentChangedEvent } from '../../src/ports.ts';
-import { GraphError } from '../../src/whatsapp/graph.ts';
-import { appointment, BIZ, CUSTOMER_PHONE, harness, NOW, silentLogger, type Harness } from './fakes.ts';
+import { createNotificationService, notifyAppointmentChanged } from '@booking/app-store/whatsapp/notifications/index.ts';
+import { createPushSender, EXPO_PUSH_URL } from '@booking/app-store/whatsapp/notifications/push.ts';
+import type { Db } from '@booking/features/lib/db.ts';
+import type { AppointmentChangedEvent } from '@booking/features/ports.ts';
+import { GraphError } from '@booking/app-store/whatsapp/graph.ts';
+import {
+  appointment,
+  BIZ,
+  CUSTOMER_PHONE,
+  harness,
+  NOW,
+  silentLogger,
+  type Harness,
+} from '@booking/testing/whatsapp/index.ts';
 
 const APPT = '00000000-0000-4000-8000-00000000aaaa';
 

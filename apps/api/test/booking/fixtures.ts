@@ -1,5 +1,5 @@
-import { createMemoryRepository, type MemoryRepository } from '../../src/booking/memoryRepository.ts';
-import { DEFAULT_BOOKING_RULES, type BusinessRow, type ClientRow, type ServiceRow, type StaffRow } from '../../src/booking/rows.ts';
+import { createMemoryRepository, type MemoryRepository } from '@booking/testing/bookingMemoryRepository.ts';
+import { DEFAULT_BOOKING_RULES, type BusinessRow, type ClientRow, type ServiceRow, type StaffRow } from '@booking/features/repositories/rows.ts';
 import type { BookingRules } from '@booking/types';
 
 /** Monday 2026-09-28 08:00 SAST. */

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createRateLimiter } from '../../src/booking/rateLimit.ts';
+import { createRateLimiter } from '@booking/features/bookings/lib/rateLimit.ts';
 import { baseContext, errorHandler } from '../../src/middleware/common.ts';
 import { idempotency } from '../../src/middleware/idempotency.ts';
 import { createPublicRoutes, publicRateLimiter } from '../../src/routes/public.ts';

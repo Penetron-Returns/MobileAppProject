@@ -9,6 +9,10 @@ package-lock.json
 
 # Formatted by their own conventions, not the app's Prettier config.
 apps/api/
+packages/features/
+packages/companion/
+packages/app-store/
+packages/testing/
 packages/database/supabase/
 packages/database/database.types.ts
 docs/

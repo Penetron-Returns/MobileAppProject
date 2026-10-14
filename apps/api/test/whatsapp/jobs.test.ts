@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { decryptSecret, encryptSecret } from '../../src/lib/crypto.ts';
-import { GraphError } from '../../src/whatsapp/graph.ts';
-import { runConversationExpiry, runReminders, runTokenRefresh, runWabaHealth } from '../../src/whatsapp/jobs.ts';
-import { appHarness, appointment, BIZ, buttonMsg, CUSTOMER_PHONE, harness, inbound, NOW, templateButtonMsg, type Harness } from './fakes.ts';
+import { decryptSecret, encryptSecret } from '@booking/features/lib/crypto.ts';
+import { GraphError } from '@booking/app-store/whatsapp/graph.ts';
+import {
+  runConversationExpiry,
+  runReminders,
+  runTokenRefresh,
+  runWabaHealth,
+} from '@booking/app-store/whatsapp/jobs.ts';
+import {
+  appointment,
+  BIZ,
+  buttonMsg,
+  CUSTOMER_PHONE,
+  harness,
+  inbound,
+  NOW,
+  templateButtonMsg,
+  type Harness,
+} from '@booking/testing/whatsapp/index.ts';
+import { appHarness } from './appHarness.ts';
 
 const APPT = '00000000-0000-4000-8000-00000000aaaa';
 const STARTS = '2026-09-29T07:00:00.000Z';

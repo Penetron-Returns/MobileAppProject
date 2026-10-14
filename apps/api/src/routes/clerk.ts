@@ -7,9 +7,9 @@
 import { Hono } from 'hono';
 import { Webhook } from 'svix';
 
-import { getBookingRepository } from '../booking/index.ts';
-import { handleClerkEvent, type ClerkEvent } from '../booking/clerkSync.ts';
-import { AppError } from '../lib/errors.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { handleClerkEvent, type ClerkEvent } from '@booking/features/team/services/clerkSync.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import type { AppEnv } from '../types.ts';
 
 export const clerkWebhookRoutes = new Hono<AppEnv>();

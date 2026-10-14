@@ -1,10 +1,22 @@
 /** Inbound pipeline: persistence rules around the pure transition. */
 import { describe, expect, it } from 'vitest';
 
-import { handleInboundMessage } from '../../src/whatsapp/engine/index.ts';
-import { COPY } from '../../src/whatsapp/engine/copy.ts';
-import { toInbound } from '../../src/whatsapp/webhook/events.ts';
-import { appointment, buttonMsg, CUSTOMER_PHONE, harness, liveAccount, listMsg, NOW, sentIds, sentText, SVC_CUT, textMsg } from './fakes.ts';
+import { handleInboundMessage } from '@booking/app-store/whatsapp/engine/index.ts';
+import { COPY } from '@booking/app-store/whatsapp/engine/copy.ts';
+import { toInbound } from '@booking/app-store/whatsapp/webhook/events.ts';
+import {
+  appointment,
+  buttonMsg,
+  CUSTOMER_PHONE,
+  harness,
+  liveAccount,
+  listMsg,
+  NOW,
+  sentIds,
+  sentText,
+  SVC_CUT,
+  textMsg,
+} from '@booking/testing/whatsapp/index.ts';
 
 const run = (h: ReturnType<typeof harness>, message: Record<string, unknown>) =>
   handleInboundMessage(h.deps, liveAccount(), toInbound(message as never, 'Thandi'));

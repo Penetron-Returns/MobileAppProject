@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createBookingServiceFromRepository } from '../../src/booking/service.ts';
-import { AppError } from '../../src/lib/errors.ts';
-import type { Logger } from '../../src/lib/logger.ts';
-import type { Actor, AppointmentChangedEvent, BookingService, CreateAppointmentInput } from '../../src/ports.ts';
+import { createBookingServiceFromRepository } from '@booking/features/bookings/services/bookingService.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
+import type { Logger } from '@booking/features/lib/logger.ts';
+import type { Actor, AppointmentChangedEvent, BookingService, CreateAppointmentInput } from '@booking/features/ports.ts';
 import { NOW, sast, seed, WED, type Seed } from './fixtures.ts';
 
 const staffActor: Actor = { type: 'staff', id: 'user_staff' };
