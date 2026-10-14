@@ -54,6 +54,17 @@ export type AttemptPatch = Partial<
   Pick<BookingAttemptRow, 'client_id' | 'completed_at' | 'step_count' | 'outcome' | 'appointment_id' | 'error_code' | 'steps'>
 >;
 
+export interface AppointmentWindowFilter {
+  fromIso: string;
+  toIso: string;
+  staffId?: UUID;
+  clientId?: UUID;
+  status?: AppointmentStatus;
+  /** Keyset cursor: rows strictly after (starts_at, id) */
+  after?: { startsAt: string; id: UUID };
+  limit: number;
+}
+
 export interface BusyRow {
   id: UUID;
   staff_id: UUID;
@@ -145,6 +156,8 @@ export interface AppointmentRepository {
   listBusy(businessId: UUID, staffIds: UUID[], fromIso: string, toIso: string): Promise<BusyRow[]>;
   getAppointment(businessId: UUID, appointmentId: UUID): Promise<AppointmentRow | null>;
   findAppointmentByIdempotencyKey(businessId: UUID, key: string): Promise<AppointmentRow | null>;
+  /** Appointments starting in [fromIso, toIso), ordered by (starts_at, id), at most `limit` rows */
+  listAppointmentsInWindow(businessId: UUID, filter: AppointmentWindowFilter): Promise<AppointmentRow[]>;
   /** Confirmed, starting strictly after `nowIso`, ascending */
   listUpcomingAppointments(businessId: UUID, clientId: UUID, nowIso: string): Promise<AppointmentRow[]>;
   createAppointment(args: CreateAppointmentArgs): Promise<AppointmentRow>;
@@ -157,6 +170,9 @@ export interface AppointmentRepository {
 
 export interface ClientRepository {
   getClient(businessId: UUID, clientId: UUID): Promise<ClientRow | null>;
+  findClientByPhone(businessId: UUID, phoneE164: string): Promise<ClientRow | null>;
+  /** Clients by id, in no particular order; unknown ids are skipped */
+  listClientsByIds(businessId: UUID, clientIds: UUID[]): Promise<ClientRow[]>;
   /** RPC upsert_client_by_phone: inserts or bumps last_seen_at; only fills name when null */
   upsertClientByPhone(businessId: UUID, phoneE164: string, name: string | null): Promise<ClientRow>;
   updateClient(businessId: UUID, clientId: UUID, patch: ClientPatch): Promise<ClientRow | null>;
@@ -420,6 +436,21 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         await t('appointments').select(APPOINTMENT_COLS).eq('business_id', businessId).eq('idempotency_key', key).maybeSingle(),
       );
     },
+    async listAppointmentsInWindow(businessId, f) {
+      let q = t('appointments')
+        .select(APPOINTMENT_COLS)
+        .eq('business_id', businessId)
+        .gte('starts_at', f.fromIso)
+        .lt('starts_at', f.toIso);
+      if (f.staffId) q = q.eq('staff_id', f.staffId);
+      if (f.clientId) q = q.eq('client_id', f.clientId);
+      if (f.status) q = q.eq('status', f.status);
+      if (f.after) {
+        // keyset: (starts_at, id) > (after.startsAt, after.id)
+        q = q.or(`starts_at.gt.${f.after.startsAt},and(starts_at.eq.${f.after.startsAt},id.gt.${f.after.id})`);
+      }
+      return rows(await q.order('starts_at').order('id').limit(f.limit));
+    },
     async listUpcomingAppointments(businessId, clientId, nowIso) {
       return rows(
         await t('appointments')
@@ -502,6 +533,15 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     // ----- clients -----
     async getClient(businessId, clientId) {
       return maybe(await t('clients').select(CLIENT_COLS).eq('business_id', businessId).eq('id', clientId).maybeSingle());
+    },
+    async findClientByPhone(businessId, phoneE164) {
+      return maybe(
+        await t('clients').select(CLIENT_COLS).eq('business_id', businessId).eq('phone_e164', phoneE164).maybeSingle(),
+      );
+    },
+    async listClientsByIds(businessId, clientIds) {
+      if (clientIds.length === 0) return [];
+      return rows(await t('clients').select(CLIENT_COLS).eq('business_id', businessId).in('id', clientIds));
     },
     async upsertClientByPhone(businessId, phoneE164, name) {
       return rpcRow(

@@ -60,6 +60,9 @@ export function fakeEntitlements(plan: PlanKey = 'free', limits: Partial<Record<
     async hasFeature(_businessId, feature) {
       return PLAN_FEATURES[plan].includes(feature);
     },
+    async listBusinessIdsWithFeature() {
+      return [];
+    },
   };
 }
 
@@ -77,6 +80,8 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     notifications: { appointmentChanged: async () => {} } satisfies NotificationService,
     // Free plan = the WhatsApp menu + inbox, which is what the existing suites exercise.
     entitlements: fakeEntitlements('free'),
+    nerovaEvents: { accountChanged: async () => {} },
+    clock: () => new Date(),
     ...overrides,
   };
 }

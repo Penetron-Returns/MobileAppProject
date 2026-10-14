@@ -147,6 +147,8 @@ The `RULE` codes in use are:
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
 - Updates that only touch `updated_at` (or `clients.last_seen_at`) are not audited.
 
+**Nerova attribution** (migration `20261015000001_nerova_actor_source`): `appointment_source` and `actor_type` gain the label `nerova` (additive `ADD VALUE IF NOT EXISTS`). Appointments booked through the Nerova connector carry `source = nerova`, and their `appointment_events` carry `actor = nerova`. Asserted in `supabase/tests/12_nerova_actor.sql`.
+
 **Plans and entitlements** (migration `20261014000001_plan_flags`)
 - `businesses.plan` (`plan_key`, default `free`) says which plan a business is on. Only the service role writes it (future billing webhook). Clients have SELECT only and there is no API route for it.
 - `plan_features(plan, feature, monthly_limit)` is the catalogue, seeded in the migration. RLS is on, `authenticated` can SELECT it and only the service role writes. Feature keys: `whatsapp_menu`, `inbox`, `companion`, `desktop_app`, `extensions`, `assistant_bookings`. `monthly_limit` is null (uncapped) everywhere until the paid-tier caps are decided.

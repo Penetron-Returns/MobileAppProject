@@ -30,6 +30,14 @@ const EnvSchema = z.object({
   PUBLIC_WEB_BOOKING_URL: optional,
   EXPO_ACCESS_TOKEN: optional,
 
+  /** Nerova Booking connector: comma-separated SHA-256 hex hashes of accepted bearer tokens (empty = connector off) */
+  NEROVA_CONNECTOR_TOKEN_HASHES: optional,
+  /** "true" turns on signed account events to Nerova (off by default) */
+  NEROVA_EVENTS_ENABLED: optional,
+  NEROVA_EVENTS_URL: optional,
+  /** whsec_... signing secret shown on the Nerova connection */
+  NEROVA_EVENTS_SIGNING_SECRET: optional,
+
   /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
   STRIPE_SECRET_KEY: optional,
   STRIPE_WEBHOOK_SECRET: optional,

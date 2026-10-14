@@ -59,9 +59,9 @@ Schemas: tables live in `public`. Helpers (`current_business_id()`, audit trigge
 ### Enums
 - `member_role`: `owner | staff`
 - `appointment_status`: `confirmed | cancelled | completed | no_show`
-- `appointment_source`: `whatsapp | app | web`
+- `appointment_source`: `whatsapp | app | web | nerova` (`nerova` added by migration `20261015000001_nerova_actor_source`: bookings made by the Nerova companion)
 - `appointment_event_type`: `created | rescheduled | cancelled | completed | no_show | checked_in | reminder_sent | confirmation_sent | notes_updated`
-- `actor_type`: `customer | staff | system`
+- `actor_type`: `customer | staff | system | nerova` (`nerova` added by migration `20261015000001_nerova_actor_source`; `actor_id` is `nerova` or `nerova:<conversationId>`)
 - `wa_account_status`: `pending | live | needs_reauth | disconnected | paused`
 - `template_status`: `draft | submitted | approved | rejected | paused | disabled`
 - `message_direction`: `in | out`
@@ -236,9 +236,25 @@ Screens from the mockups (§5 of the spec) plus architecture §6: Sign-in · Das
 
 Stack: NativeWind v4 + react-native-reusables components inside the `@booking/ui` design system (`packages/ui`), lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `apps/mobile/src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 
+### Nerova Booking connector (`/connector/nerova/**`)
+
+Lets Nerova's AI companion (Pip) read and act on the bookings of **paid-plan businesses** (feature `companion`). It implements **Nerova Booking MCP v1, contract `2026-10-12`**: MCP over streamable HTTP, served statelessly by the `api` function. Full design: [nerova-connector.md](nerova-connector.md).
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| POST | `/connector/nerova/mcp` | `Authorization: Bearer <connector token>` (SHA-256 hash in `NEROVA_CONNECTOR_TOKEN_HASHES`) | JSON-RPC: `initialize`, `notifications/*`, `ping`, `tools/list`, `tools/call` |
+
+- Not under `/v1`: no Clerk, no CORS, no `Idempotency-Key` header. Browser `Origin` requests get 403; other methods 405. A missing, wrong or unconfigured token is HTTP **401** (`application/problem+json`, `code: unauthorized`).
+- Tools (published verbatim from `apps/backend/src/nerova/booking-connector.mcp-tools.json`, read-only annotations on the seven read tools): `accounts_list`, `accounts_get`, `services_list`, `staff_list`, `availability_search`, `appointments_get`, `appointments_list`, `appointments_create`, `appointments_reschedule`, `appointments_cancel`.
+- **Account = business** (`accountId` = `businesses.id`, also its single location). Only businesses with `companion` are listed or readable: Free, unknown and malformed ids are `not_found`. Entitlements are read live on every call.
+- Results are `structuredContent` (+ the same JSON as a `text` item). Failures are tool results with `isError: true` and `structuredContent.code` ∈ `invalid_request | unauthorized | not_found | conflict | rate_limited | provider_unavailable`. Mapping: `VALIDATION_FAILED→invalid_request`, `NOT_FOUND/NO_BUSINESS→not_found`, `SLOT_UNAVAILABLE/RULE_VIOLATION/IDEMPOTENCY_KEY_REUSED→conflict`, everything unexpected → `provider_unavailable` (no internals leaked).
+- Writes go through `BookingService` (`source: 'nerova'`, actor `{ type: 'nerova', id: 'nerova' | 'nerova:<conversationId>' }`, `notifyCustomer: false`), so the exclusion constraint, `appointment_events` and the idempotent `create_appointment` apply. The idempotency key is `nerova:<accountId>:<idempotencyKey>`; a replay returns the first appointment. When Nerova's `origin.channel` is present (a customer-facing conversation) reschedule/cancel are held to `cancellation_window_minutes` (`enforceCancellationWindow`).
+- Ports: `BookingService.listAppointments(AppointmentWindowQuery)`, `EntitlementService.listBusinessIdsWithFeature`, `AccountEventsPort.accountChanged`; `CancelAppointmentInput`/`RescheduleAppointmentInput` gain `enforceCancellationWindow`; `Container` gains `nerovaEvents` and `clock`.
+- Signed account events (Standard Webhooks) to Nerova's `events.url` on business/hours changes; **off by default** (`NEROVA_EVENTS_ENABLED`).
+
 ## 7. Backend environment
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push), `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` (optional, reserved for planned subscriptions). Environments and secret handling: `docs/environments.md`.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push), `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` (optional, reserved for planned subscriptions), `NEROVA_CONNECTOR_TOKEN_HASHES` (csv of SHA-256 hex hashes of accepted connector bearer tokens; empty = connector off), `NEROVA_EVENTS_ENABLED` / `NEROVA_EVENTS_URL` / `NEROVA_EVENTS_SIGNING_SECRET` (optional signed account events, off by default). Environments and secret handling: `docs/environments.md`.
 
 ## 8. Workstreams and sequencing
 

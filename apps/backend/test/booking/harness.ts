@@ -5,7 +5,7 @@ import type { Env } from '../../src/env.ts';
 import type { Db } from '../../src/lib/db.ts';
 import type { Logger } from '../../src/lib/logger.ts';
 import type { ClerkClaims } from '../../src/middleware/auth.ts';
-import type { AppointmentChangedEvent } from '../../src/ports.ts';
+import type { AccountEventsPort, AppointmentChangedEvent } from '../../src/ports.ts';
 import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
 import { NOW, seed, type Seed } from './fixtures.ts';
 
@@ -44,7 +44,7 @@ export interface Harness extends Seed {
 
 let keySeq = 0;
 
-export function harness(opts: { env?: Partial<Env> } = {}): Harness {
+export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEventsPort } = {}): Harness {
   const s = seed();
   const events: AppointmentChangedEvent[] = [];
   const booking = createBookingServiceFromRepository({
@@ -54,7 +54,12 @@ export function harness(opts: { env?: Partial<Env> } = {}): Harness {
     clock: () => NOW,
   });
   const container: BookingContainer = {
-    ...testContainer({ booking, db: authDb(s.business.id), env: { ...TEST_ENV, ...opts.env } }),
+    ...testContainer({
+      booking,
+      db: authDb(s.business.id),
+      env: { ...TEST_ENV, ...opts.env },
+      ...(opts.nerovaEvents ? { nerovaEvents: opts.nerovaEvents } : {}),
+    }),
     bookingRepository: s.repo,
   };
   const store = memoryIdempotencyStore();

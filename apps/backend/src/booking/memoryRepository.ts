@@ -277,6 +277,25 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     async findAppointmentByIdempotencyKey(businessId, key) {
       return clone(tables.appointments.find((a) => a.business_id === businessId && a.idempotency_key === key) ?? null);
     },
+    async listAppointmentsInWindow(businessId, f) {
+      const from = Date.parse(f.fromIso);
+      const to = Date.parse(f.toIso);
+      const start = (a: AppointmentRow) => Date.parse(rangeBounds(a.slot).start);
+      return clone(
+        inBusiness(tables.appointments, businessId)
+          .filter((a) => start(a) >= from && start(a) < to)
+          .filter((a) => !f.staffId || a.staff_id === f.staffId)
+          .filter((a) => !f.clientId || a.client_id === f.clientId)
+          .filter((a) => !f.status || a.status === f.status)
+          .sort((a, b) => start(a) - start(b) || a.id.localeCompare(b.id))
+          .filter((a) => {
+            if (!f.after) return true;
+            const afterMs = Date.parse(f.after.startsAt);
+            return start(a) > afterMs || (start(a) === afterMs && a.id > f.after.id);
+          })
+          .slice(0, f.limit),
+      );
+    },
     async listUpcomingAppointments(businessId, clientId, nowIso) {
       const at = Date.parse(nowIso);
       return clone(
@@ -366,6 +385,12 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     // ----- clients -----
     async getClient(businessId, id) {
       return clone(find(tables.clients, businessId, id));
+    },
+    async findClientByPhone(businessId, phone) {
+      return clone(tables.clients.find((c) => c.business_id === businessId && c.phone_e164 === phone) ?? null);
+    },
+    async listClientsByIds(businessId, ids) {
+      return clone(inBusiness(tables.clients, businessId).filter((c) => ids.includes(c.id)));
     },
     async upsertClientByPhone(businessId, phone, name) {
       const existing = tables.clients.find((c) => c.business_id === businessId && c.phone_e164 === phone);

@@ -20,7 +20,7 @@ Each phase ends with its checks green (`.claude/CLAUDE.md` §5) and an emulator 
 ## Phase 6: AI tiers (the real product)
 | # | Task | Done when |
 | - | ---- | --------- |
-| 6.1 | Implement Nerova's **Booking connector** contract (REST, version 2026-10-12) on our backend: the 9 required operations, with auth, idempotency and tests | Nerova's `connections_verify` certifies it against a test account |
+| 6.1 | Implement Nerova's **Booking connector** (MCP v1, contract 2026-10-12, the recommended transport) on our backend: the 10 required tools, with auth, idempotency and tests. Built: `/connector/nerova/mcp`, see [nerova-connector.md](nerova-connector.md) | Nerova's `connections_verify` certifies it against a test account (needs deploy + connection in Nerova Test) |
 | 6.2 | Connection + provisioning in Nerova's **Test** environment for a paid-plan business | `get_companion_setup` reports `nextStep: none` |
 | 6.3 | Pip in the app: server-side widget session endpoint + the owner chat surface per the AI designs (Companion sheet, approvals, report, goals) | The owner chats with Pip on the emulator and an approval moves a real booking |
 | 6.4 | Stripe subscriptions for Starter / Growth / Pro (web checkout), webhook → `businesses.plan` | A test checkout switches a business to the AI tier |
