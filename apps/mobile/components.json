@@ -11,11 +11,11 @@
     "prefix": ""
   },
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@booking/ui/components",
+    "utils": "@booking/ui/lib/cn",
+    "ui": "@booking/ui/rnr",
+    "lib": "@booking/ui/lib",
+    "hooks": "@booking/ui/theme"
   },
   "iconLibrary": "lucide"
 }
