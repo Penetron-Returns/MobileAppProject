@@ -12,7 +12,8 @@ export const businessRoutes = new Hono<AppEnv>();
 
 businessRoutes.get('/me', async (c) => {
   const { repo, auth } = deps(c);
-  return c.json({ data: await getMe(repo, auth) });
+  const entitlements = await c.get('container').entitlements.getEntitlements(auth.businessId);
+  return c.json({ data: await getMe(repo, auth, entitlements) });
 });
 
 businessRoutes.patch('/business', requireOwner, async (c) => {

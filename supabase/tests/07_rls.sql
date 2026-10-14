@@ -69,8 +69,8 @@ begin
      where n.nspname = 'public'
   loop
     perform tests.ok(not has_function_privilege('anon', r.fn, 'execute'), format('anon cannot execute %s', r.proname));
-    perform tests.ok(has_function_privilege('authenticated', r.fn, 'execute') = (r.proname = 'dashboard_summary'),
-                     format('authenticated execute on %s only if dashboard_summary', r.proname));
+    perform tests.ok(has_function_privilege('authenticated', r.fn, 'execute') = (r.proname in ('dashboard_summary', 'business_features')),
+                     format('authenticated execute on %s only if dashboard_summary or business_features', r.proname));
     perform tests.ok(has_function_privilege('service_role', r.fn, 'execute'), format('service_role can execute %s', r.proname));
   end loop;
 

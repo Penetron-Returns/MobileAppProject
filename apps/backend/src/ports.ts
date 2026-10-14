@@ -9,6 +9,8 @@ import type {
   AppointmentSource,
   AvailableSlotsResponse,
   BusinessDTO,
+  EntitlementsDTO,
+  FeatureKey,
   ISODate,
   ISODateTime,
   ServiceDTO,
@@ -111,4 +113,10 @@ export interface AppointmentChangedEvent {
 export interface NotificationService {
   /** Must never throw for delivery failures; failures are logged + escalated. */
   appointmentChanged(event: AppointmentChangedEvent): Promise<void>;
+}
+
+/** Resolves what a business's plan unlocks. Always a live read: plans can change at any time. */
+export interface EntitlementService {
+  getEntitlements(businessId: UUID): Promise<EntitlementsDTO>;
+  hasFeature(businessId: UUID, feature: FeatureKey): Promise<boolean>;
 }

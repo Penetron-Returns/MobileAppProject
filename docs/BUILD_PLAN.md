@@ -70,13 +70,15 @@ Schemas: tables live in `public`. Helpers (`current_business_id()`, audit trigge
 - `escalation_status`: `open | resolved`
 - `booking_channel`: `whatsapp | web | app`
 - `attempt_outcome`: `in_progress | completed | abandoned | failed`
+- `plan_key`: `free | starter | growth | pro` (internal ids only; display names and prices are not part of the contract)
 
 ### Tables
 All have `id uuid pk default gen_random_uuid()` (unless noted) and `created_at timestamptz not null default now()`. Mutable tables also have `updated_at` maintained by a trigger. Every business-owned table has `business_id uuid not null references businesses on delete cascade`.
 
 | Table | Columns (beyond id/created_at/updated_at/business_id) | Notes |
 | --- | --- | --- |
-| `businesses` | `clerk_org_id text unique not null`, `name text not null`, `slug citext unique not null`, `timezone text not null default 'Africa/Johannesburg'`, `currency char(3) not null default 'ZAR'`, `logo_url text`, `address text`, `phone text`, `email text`, `booking_rules jsonb not null default <below>` | no business_id |
+| `businesses` | `clerk_org_id text unique not null`, `name text not null`, `slug citext unique not null`, `timezone text not null default 'Africa/Johannesburg'`, `currency char(3) not null default 'ZAR'`, `logo_url text`, `address text`, `phone text`, `email text`, `booking_rules jsonb not null default <below>`, `plan plan_key not null default 'free'` | no business_id. `plan` is written only by the service role (future billing webhook); the app has SELECT only and no API route changes it |
+| `plan_features` | pk(`plan`, `feature`), `plan plan_key`, `feature text` (snake_case), `monthly_limit int null` (>= 0; null = no cap) | global catalogue, no business_id. RLS on, SELECT for `authenticated`, writes service role only. See *Plans and entitlements* below |
 | `users` | `id text pk` (Clerk user id), `business_id uuid null`, `role member_role not null default 'staff'`, `email text`, `display_name text`, `avatar_url text` | mirrored from Clerk |
 | `staff` | `user_id text null references users`, `name text not null`, `title text`, `photo_url text`, `phone text`, `email text`, `color text`, `is_active bool not null default true`, `accepts_bookings bool not null default true`, `sort_order int not null default 0` | a staff member may have no login |
 | `services` | `name text not null`, `description text`, `category text`, `duration_minutes int not null check (>0 and <= 720)`, `price_cents int not null default 0 check (>=0)`, `deposit_cents int not null default 0`, `is_active bool not null default true`, `sort_order int not null default 0` | |
@@ -126,6 +128,7 @@ All raise with SQLSTATE-coded errors that the API maps:
 8. `dashboard_summary(p_date date) returns jsonb`. **Callable by `authenticated`** and uses `private.current_business_id()`. Returns `{ month_revenue_cents, revenue_by_day: [{date, cents}], today: {total, confirmed, completed, cancelled, no_show, checked_in}, next_appointment_id }` (revenue = completed + confirmed, excluding cancelled/no-show).
 9. `replace_business_hours(p_business_id uuid, p_rows jsonb)` and `replace_staff_availability(p_staff_id uuid, p_rows jsonb)` and `replace_staff_services(p_staff_id uuid, p_service_ids uuid[])`. Each is an atomic full-replace.
 10. `set_request_context(p_actor_id text, p_request_id text)` sets the `app.*` GUCs for the audit trigger (the API calls it inside RPCs where it matters; triggers fall back to `system`).
+11. `business_features(p_business_id uuid default null) returns table(plan plan_key, feature text, monthly_limit int)`. The plan and feature rows for one business (null = the caller's business from the JWT org). **SECURITY INVOKER**: `authenticated` only ever sees its own business through RLS, and `service_role` can ask for any. **Callable by `authenticated`**, like `dashboard_summary`.
 
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
 `reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
@@ -136,7 +139,7 @@ Base URL: `https://<project-ref>.supabase.co/functions/v1/api` (the paths below 
 
 Envelope: success `{ "data": … }`. Error `{ "error": { "code", "message", "details"?, "request_id" } }`.
 Headers: `Authorization: Bearer <Clerk session JWT>` on `/v1/**`. `Idempotency-Key: <uuid>` is **required** on every mutating `/v1/**` and `/public/**` call. Every response carries `x-request-id`.
-Error codes: `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `INTERNAL 500`.
+Error codes: `FEATURE_NOT_IN_PLAN 403` (with `details.feature`), `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `INTERNAL 500`.
 
 DTO shapes live in `packages/shared/api.ts`.
 
@@ -144,7 +147,7 @@ DTO shapes live in `packages/shared/api.ts`.
 | Method | Path | Who | Notes |
 | --- | --- | --- | --- |
 | GET | `/health` | public | |
-| GET | `/v1/me` | member | `{ user, business, role }` |
+| GET | `/v1/me` | member | `{ user, business, role, plan, features }` (`features` = `FeatureEntitlementDTO[]`, see *Plans and entitlements*) |
 | PATCH | `/v1/business` | owner | details + `booking_rules` (partial merge) |
 | PUT | `/v1/business/hours` | owner | full week replace `{ hours: BusinessHoursRow[] }` |
 | POST/PATCH/DELETE | `/v1/services[/:id]` | owner | DELETE = soft (is_active=false) if referenced |
@@ -190,6 +193,26 @@ DTO shapes live in `packages/shared/api.ts`.
 | POST | `/v1/conversations/:id/release` | member | hand back to the bot (state → `menu`) |
 | POST | `/v1/escalations/:id/resolve` | member | `{ note? }` |
 | POST | `/cron/reminders` · `/cron/conversation-expiry` · `/cron/waba-health` · `/cron/token-refresh` | cron secret | |
+
+### Plans and entitlements
+
+Code gates on a **feature key**, never on a plan name. `plan_features` (migration `20261014000001_plan_flags`) is the single source of truth; the API reads it through `business_features()` (`EntitlementService` in `ports.ts`, `createEntitlementService` in `plans/entitlements.ts`) on every gated call, so a plan change applies immediately.
+
+| Feature key | free | starter / growth / pro | What it gates |
+| --- | --- | --- | --- |
+| `whatsapp_menu` | yes | no | our deterministic WhatsApp engine: `/v1/whatsapp/**`, inbound webhook processing, Flows |
+| `inbox` | yes | no | owner Inbox: `/v1/conversations/**`, `/v1/escalations/**` |
+| `companion` | no | yes | AI companion powered by Nerova (Nerova also owns their WhatsApp setup) |
+| `desktop_app` | no | yes | desktop web app access |
+| `extensions` | yes | yes | intake forms, gift cards, loyalty, waitlist, review requests, deposits (deposits also need a payment app, out of scope) |
+| `assistant_bookings` | no | yes | monthly assistant-booking cap: `monthly_limit` is **null** (uncapped) until the numbers are decided |
+
+Enforcement:
+- `requireFeature(feature)` (`middleware/feature.ts`) runs after `requireAuth` and throws `AppError('FEATURE_NOT_IN_PLAN')` → **403** `{ error: { code: 'FEATURE_NOT_IN_PLAN', details: { feature } } }`. It applies to every `/v1/whatsapp/**` route (status, embedded-signup, connect, sync, pause, resume, disconnect, test-message) with `whatsapp_menu`, and to `/v1/conversations/**` and `/v1/escalations/**` (staff reply, release, resolve) with `inbox`. The check is about the plan, so staff and owners are treated alike.
+- `POST /webhooks/whatsapp`: an inbound *message* for an account whose business lacks `whatsapp_menu` is acknowledged (200), recorded in `webhook_events` with note `feature_not_in_plan`, logged, and **not processed**: no client, conversation or message rows and no reply. `POST /flows/whatsapp` answers 427 (flow closed) for such a business. Status, template and account events are unaffected.
+- Shared types: `PlanKey`, `FeatureKey`, `FeatureEntitlementDTO`, `EntitlementsDTO` in `packages/shared/api.ts`; `MeDTO` gains `plan` and `features` (additive).
+- App: `features/plans` exposes `useEntitlements()` (reads `/v1/me`; fails closed while loading or on error) and `<Gate feature="…">`. The app hides UI, the API enforces.
+- Not gated on purpose: cron jobs (a business without a WhatsApp account has nothing to send) and notification fan-out, which already skip businesses without a live account. Revisit when Nerova's channel is wired in.
 
 ## 5. Deterministic conversation engine (WS-C)
 
