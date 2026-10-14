@@ -26,7 +26,7 @@ export function SuccessMark({ size = 88 }: { size?: number }) {
         },
       ]}
     >
-      <Check size={size * 0.59} strokeWidth={2.6} color="#FFFFFF" />
+      <Check size={size * 0.59} strokeWidth={2.6} color={depth.colors.onFill} />
     </View>
   );
 }

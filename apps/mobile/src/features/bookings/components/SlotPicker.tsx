@@ -15,6 +15,7 @@ import {
   useAvailableDays,
   useAvailableSlots,
 } from '@/features/appointments/hooks';
+import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import {
   WEEKDAYS,
@@ -102,14 +103,14 @@ export function SlotPicker({
       </Text>
     );
   }
-  if (days.isError) {
+  if (isFailed(days)) {
     return (
       <ErrorState
         variant="banner"
         className="mx-0 mt-0"
         title={t('slots.error.title')}
         description={t('slots.error.description')}
-        {...describeError(days.error)}
+        {...describeError(loadError(days))}
         onRetry={() => void days.refetch()}
       />
     );
@@ -131,13 +132,13 @@ export function SlotPicker({
         onSelect={(value) => onDateChange(value as ISODate)}
         label={t('slots.days')}
       />
-      {slots.isError ? (
+      {isFailed(slots) ? (
         <ErrorState
           variant="banner"
           className="mx-0 mt-0"
           title={t('slots.error.title')}
           description={t('slots.error.description')}
-          {...describeError(slots.error)}
+          {...describeError(loadError(slots))}
           onRetry={() => void slots.refetch()}
         />
       ) : slots.isPending ? (

@@ -77,7 +77,7 @@ export function ChoiceCard({
             },
           ]}
         >
-          <Check size={16} strokeWidth={3} color="#FFFFFF" />
+          <Check size={16} strokeWidth={3} color={depth.colors.onFill} />
         </View>
       ) : null}
     </Pressable>

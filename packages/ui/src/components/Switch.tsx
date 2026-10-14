@@ -8,7 +8,6 @@ const TRACK_W = 51;
 const TRACK_H = 31;
 const KNOB = 27;
 
-const ON_BG = '#34C759';
 const ON_GRADIENT = 'linear-gradient(180deg, #3BD16F 0%, #2DB45B 100%)';
 const ON_SHADOW =
   'inset 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 0.5px rgba(0,0,0,0.08)';
@@ -41,7 +40,7 @@ export function Switch({
       style={[
         checked
           ? {
-              backgroundColor: ON_BG,
+              backgroundColor: depth.colors.success,
               experimental_backgroundImage: ON_GRADIENT,
               boxShadow: ON_SHADOW,
             }

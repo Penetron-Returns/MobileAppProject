@@ -16,6 +16,8 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { describeError } from '@/lib/toast';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
 import { useCanManage } from '@/features/business/me';
@@ -33,11 +35,11 @@ export function ServicesScreen() {
   const [editing, setEditing] = React.useState<ServiceRow | 'new' | null>(null);
 
   let body: React.ReactNode;
-  if (services.isError) {
+  if (isFailed(services)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(services.error)}
+        {...describeError(loadError(services))}
         onRetry={() => void services.refetch()}
       />
     );
@@ -98,6 +100,7 @@ export function ServicesScreen() {
       backFallback="/settings"
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
+      <SavedCopyBanner query={services} />
       {services.data ? (
         <Text className="mx-5 mt-1 text-title text-muted-foreground">
           {t('settings.servicesList.summary', { count: services.data.length })}

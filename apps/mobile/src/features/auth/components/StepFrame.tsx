@@ -1,6 +1,11 @@
-import { BackPill, Text, useDepth } from '@booking/ui';
+import {
+  BackPill,
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import * as React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface StepFrameProps {
@@ -23,7 +28,7 @@ export function StepFrame({
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_AVOIDING_BEHAVIOR}
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"

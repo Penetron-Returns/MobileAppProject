@@ -116,7 +116,7 @@ function LaterRow({
         <View
           style={{
             backgroundColor: depth.colors.amberFill,
-            boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.06)',
+            boxShadow: depth.inset.boxShadow,
           }}
           className="rounded-xl px-2.5 py-[3px]"
         >

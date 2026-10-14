@@ -18,6 +18,7 @@ import {
   useDeleteClientNote,
   type ClientNoteRow,
 } from '../hooks';
+import { isFailed } from '@/lib/offline';
 
 const KIND_ICON = {
   warning: AlertTriangle,
@@ -52,7 +53,7 @@ export function ClientNotesCard({
       <Group className="gap-3 p-4">
         {notes.isPending ? (
           <Skeleton className="h-5 w-2/3" />
-        ) : notes.isError ? (
+        ) : isFailed(notes) ? (
           <View className="flex-row items-center justify-between gap-3">
             <Text className="flex-1 text-subtitle text-muted-foreground">
               {t('clients.profile.notesFailed')}

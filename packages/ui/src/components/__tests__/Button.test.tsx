@@ -79,6 +79,17 @@ describe('Button', () => {
     );
   });
 
+  it('widens the small button hit area so it reaches 44pt', () => {
+    // 36pt tall + 4pt of slop above and below.
+    expect(findButtonNode(renderButton({ size: 'sm' })).props.hitSlop).toEqual({
+      top: 4,
+      bottom: 4,
+    });
+    expect(
+      findButtonNode(renderButton({ size: 'default' })).props.hitSlop,
+    ).toBeUndefined();
+  });
+
   it('is busy and blocks presses while loading, without dimming', () => {
     const tree = renderButton({ loading: true });
     const button = findButtonNode(tree);

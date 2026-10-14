@@ -8,14 +8,21 @@ import {
   isUnknownIdentifier,
   type AuthErrorKey,
 } from './errors';
-import { isValidEmail, normalizeEmail, RESEND_COOLDOWN_SECONDS } from './logic';
+import {
+  parseIdentifier,
+  RESEND_COOLDOWN_SECONDS,
+  type CodeStrategy,
+} from './logic';
 
-export type AuthStep = 'welcome' | 'email' | 'code';
+export type AuthStep = 'welcome' | 'identifier' | 'code';
 type Mode = 'signIn' | 'signUp';
 
 export interface AuthFlow {
   step: AuthStep;
-  email: string;
+  /** The email or E.164 phone number the code went to. */
+  identifier: string;
+  /** How the code was sent: by email or by SMS. */
+  strategy: CodeStrategy;
   errorKey: AuthErrorKey | null;
   /** True while any Clerk request is in flight. */
   isBusy: boolean;
@@ -23,12 +30,12 @@ export interface AuthFlow {
   resendAt: number | null;
   /** Set briefly after a successful resend. */
   didResend: boolean;
-  goToEmail: () => void;
+  goToIdentifier: () => void;
   goToWelcome: () => void;
-  submitEmail: (email: string) => Promise<void>;
+  submitIdentifier: (raw: string) => Promise<void>;
   verifyCode: (code: string) => Promise<void>;
   resendCode: () => Promise<void>;
-  changeEmail: () => void;
+  changeIdentifier: () => void;
   continueWithGoogle: () => Promise<void>;
   clearError: () => void;
 }
@@ -36,9 +43,9 @@ export interface AuthFlow {
 const goHome = () => router.replace('/');
 
 /**
- * The email-code sign-in / sign-up flow on Clerk's headless hooks. One screen
- * covers both: we try to sign in, and when Clerk says the email has no
- * account we start a sign-up with the same email. Clerk issues and checks the
+ * The one-time-code sign-in / sign-up flow on Clerk's headless hooks, by email
+ * code or SMS code (`sms-otp`). One screen covers both: we try to sign in, and
+ * when Clerk says the identifier has no account we start a sign-up with it. Clerk issues and checks the
  * codes, rate-limits and bot-checks; we only drive the steps and show copy.
  */
 export function useAuthFlow(): AuthFlow {
@@ -47,15 +54,20 @@ export function useAuthFlow(): AuthFlow {
   const { startSSOFlow } = useSSO();
 
   const [step, setStep] = React.useState<AuthStep>('welcome');
-  const [email, setEmail] = React.useState('');
+  const [identifier, setIdentifier] = React.useState('');
+  const [strategy, setStrategy] = React.useState<CodeStrategy>('email_code');
   const [mode, setMode] = React.useState<Mode>('signIn');
   const [errorKey, setErrorKey] = React.useState<AuthErrorKey | null>(null);
   const [isBusy, setIsBusy] = React.useState(false);
   const [resendAt, setResendAt] = React.useState<number | null>(null);
   const [didResend, setDidResend] = React.useState(false);
+  // A ref, not state: two taps (or auto-submit plus a tap) land before a re-render.
+  const inFlight = React.useRef(false);
 
   /** Runs one Clerk step: busy flag, error mapping, "already signed in" shortcut. */
   const run = React.useCallback(async (action: () => Promise<boolean>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setIsBusy(true);
     setErrorKey(null);
     try {
@@ -63,6 +75,7 @@ export function useAuthFlow(): AuthFlow {
     } catch (e) {
       setErrorKey(authErrorKey(e));
     } finally {
+      inFlight.current = false;
       setIsBusy(false);
     }
   }, []);
@@ -82,19 +95,21 @@ export function useAuthFlow(): AuthFlow {
     setResendAt(Date.now() + RESEND_COOLDOWN_SECONDS * 1000);
   }, []);
 
-  const submitEmail = React.useCallback(
+  const submitIdentifier = React.useCallback(
     async (raw: string) => {
-      const address = normalizeEmail(raw);
-      if (!isValidEmail(address)) {
+      const parsed = parseIdentifier(raw);
+      if (!parsed) {
         setErrorKey('emailInvalid');
         return;
       }
+      const isPhone = parsed.strategy === 'phone_code';
       await run(async () => {
-        const first = await signIn.emailCode.sendCode({
-          emailAddress: address,
-        });
+        const first = isPhone
+          ? await signIn.phoneCode.sendCode({ phoneNumber: parsed.value })
+          : await signIn.emailCode.sendCode({ emailAddress: parsed.value });
         if (!first.error) {
-          setEmail(address);
+          setIdentifier(parsed.value);
+          setStrategy(parsed.strategy);
           setMode('signIn');
           armResend();
           setStep('code');
@@ -102,11 +117,18 @@ export function useAuthFlow(): AuthFlow {
         }
         if (!isUnknownIdentifier(first.error)) return failed(first.error);
 
-        const created = await signUp.create({ emailAddress: address });
+        const created = await signUp.create(
+          isPhone
+            ? { phoneNumber: parsed.value }
+            : { emailAddress: parsed.value },
+        );
         if (failed(created.error)) return false;
-        const sent = await signUp.verifications.sendEmailCode();
+        const sent = isPhone
+          ? await signUp.verifications.sendPhoneCode()
+          : await signUp.verifications.sendEmailCode();
         if (failed(sent.error)) return false;
-        setEmail(address);
+        setIdentifier(parsed.value);
+        setStrategy(parsed.strategy);
         setMode('signUp');
         armResend();
         setStep('code');
@@ -120,7 +142,10 @@ export function useAuthFlow(): AuthFlow {
     async (code: string) => {
       await run(async () => {
         if (mode === 'signIn') {
-          const { error } = await signIn.emailCode.verifyCode({ code });
+          const { error } =
+            strategy === 'phone_code'
+              ? await signIn.phoneCode.verifyCode({ code })
+              : await signIn.emailCode.verifyCode({ code });
           if (failed(error)) return false;
           if (signIn.status !== 'complete') {
             setErrorKey('secondFactorUnsupported');
@@ -129,7 +154,10 @@ export function useAuthFlow(): AuthFlow {
           const done = await signIn.finalize({ navigate: goHome });
           return !failed(done.error);
         }
-        const { error } = await signUp.verifications.verifyEmailCode({ code });
+        const { error } =
+          strategy === 'phone_code'
+            ? await signUp.verifications.verifyPhoneCode({ code })
+            : await signUp.verifications.verifyEmailCode({ code });
         if (failed(error)) return false;
         if (signUp.status !== 'complete') {
           setErrorKey('signUpIncomplete');
@@ -139,30 +167,35 @@ export function useAuthFlow(): AuthFlow {
         return !failed(done.error);
       });
     },
-    [mode, signIn, signUp, run, failed],
+    [mode, strategy, signIn, signUp, run, failed],
   );
 
   const resendCode = React.useCallback(async () => {
     setDidResend(false);
     await run(async () => {
+      const isPhone = strategy === 'phone_code';
       const { error } =
         mode === 'signIn'
-          ? await signIn.emailCode.sendCode()
-          : await signUp.verifications.sendEmailCode();
+          ? await (isPhone
+              ? signIn.phoneCode.sendCode()
+              : signIn.emailCode.sendCode())
+          : await (isPhone
+              ? signUp.verifications.sendPhoneCode()
+              : signUp.verifications.sendEmailCode());
       if (failed(error)) return false;
       armResend();
       setDidResend(true);
       return true;
     });
-  }, [mode, signIn, signUp, run, failed, armResend]);
+  }, [mode, strategy, signIn, signUp, run, failed, armResend]);
 
-  const changeEmail = React.useCallback(() => {
+  const changeIdentifier = React.useCallback(() => {
     void signIn.reset();
     void signUp.reset();
     setErrorKey(null);
     setDidResend(false);
     setResendAt(null);
-    setStep('email');
+    setStep('identifier');
   }, [signIn, signUp]);
 
   const continueWithGoogle = React.useCallback(async () => {
@@ -187,23 +220,24 @@ export function useAuthFlow(): AuthFlow {
 
   return {
     step,
-    email,
+    identifier,
+    strategy,
     errorKey,
     isBusy,
     resendAt,
     didResend,
-    goToEmail: () => {
+    goToIdentifier: () => {
       setErrorKey(null);
-      setStep('email');
+      setStep('identifier');
     },
     goToWelcome: () => {
       setErrorKey(null);
       setStep('welcome');
     },
-    submitEmail,
+    submitIdentifier,
     verifyCode,
     resendCode,
-    changeEmail,
+    changeIdentifier,
     continueWithGoogle,
     clearError: () => setErrorKey(null),
   };

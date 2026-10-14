@@ -58,26 +58,6 @@ export function formatMoney(
   return value < 0 ? `-${out}` : out;
 }
 
-/** `R1.2k`, `R 950`, used on compact stat tiles. */
-export function formatMoneyCompact(
-  cents: number | null | undefined,
-  currency = 'ZAR',
-) {
-  const value = (cents ?? 0) / 100;
-  const symbol = currencySymbol(currency);
-  const abs = Math.abs(value);
-  let body: string;
-  if (abs >= 1_000_000) body = `${trimZero((abs / 1_000_000).toFixed(1))}m`;
-  else if (abs >= 1_000) body = `${trimZero((abs / 1_000).toFixed(1))}k`;
-  else body = formatNumber(abs, 0);
-  const out = abs >= 1_000 ? `${symbol}${body}` : joinSymbol(symbol, body);
-  return value < 0 ? `-${out}` : out;
-}
-
-function trimZero(s: string) {
-  return s.endsWith('.0') ? s.slice(0, -2) : s;
-}
-
 /** Parses user input like "1 250,50" or "R85" into cents. Returns null if invalid. */
 export function parseMoneyToCents(input: string): number | null {
   const cleaned = input.replace(/[^\d.,-]/g, '').trim();

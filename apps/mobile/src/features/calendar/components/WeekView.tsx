@@ -85,17 +85,25 @@ export function WeekView({
                 />
               ) : null}
               <View
-                style={day.isToday ? { backgroundColor: '#FF3B30' } : undefined}
+                style={
+                  day.isToday
+                    ? { backgroundColor: depth.colors.red }
+                    : undefined
+                }
                 className="h-11 w-11 items-center justify-center rounded-full"
               >
                 <Text
-                  style={day.isToday ? { color: '#FFFFFF' } : undefined}
+                  style={
+                    day.isToday ? { color: depth.colors.onFill } : undefined
+                  }
                   className="text-meta font-semibold uppercase text-muted-foreground"
                 >
                   {weekday.slice(0, 3)}
                 </Text>
                 <Text
-                  style={day.isToday ? { color: '#FFFFFF' } : undefined}
+                  style={
+                    day.isToday ? { color: depth.colors.onFill } : undefined
+                  }
                   className="text-title font-semibold"
                 >
                   {num}

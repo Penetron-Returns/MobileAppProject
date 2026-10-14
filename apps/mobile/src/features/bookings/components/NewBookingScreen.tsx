@@ -1,4 +1,12 @@
-import { Button, DoneCard, Screen, StackHeader, Text } from '@booking/ui';
+import {
+  BlockedActionSheet,
+  Button,
+  DoneCard,
+  Screen,
+  StackHeader,
+  Text,
+  useOfflineGuard,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -18,6 +26,7 @@ import {
 } from '@/features/catalog/hooks';
 import { useClient } from '@/features/clients/hooks';
 import { isApiError } from '@/lib/api';
+import { useIsOnline } from '@/lib/online';
 import { qk } from '@/lib/query';
 import {
   businessDate,
@@ -84,6 +93,8 @@ function NewBookingFlow({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const tz = business.timezone;
+  const isOnline = useIsOnline();
+  const { guard, sheetProps } = useOfflineGuard(!isOnline);
   const [step, setStep] = React.useState<1 | 2>(1);
   const [choice, setChoice] = React.useState<ClientChoice>({
     ...EMPTY_CLIENT,
@@ -97,11 +108,15 @@ function NewBookingFlow({
     label: string;
   } | null>(null);
 
+  // Route params preselect the client once. Background refetches hand back a
+  // new object for the same client, and must not undo what the user picked since.
   const preselected = useClient(initialClientId ?? '');
+  const appliedClientId = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (initialClientId && preselected.data) {
-      setChoice({ ...EMPTY_CLIENT, client: preselected.data });
-    }
+    if (!initialClientId || !preselected.data) return;
+    if (appliedClientId.current === initialClientId) return;
+    appliedClientId.current = initialClientId;
+    setChoice({ ...EMPTY_CLIENT, client: preselected.data });
   }, [initialClientId, preselected.data]);
 
   const services = useServices();
@@ -242,7 +257,7 @@ function NewBookingFlow({
           disabled={disabled}
           accessibilityLabel={primaryLabel}
           accessibilityState={{ busy: create.isPending, disabled }}
-          onPress={next}
+          onPress={step === 1 ? next : guard(next)}
         >
           <Text className="text-title">{primaryLabel}</Text>
         </Button>
@@ -274,6 +289,7 @@ function NewBookingFlow({
           onTakenDismiss={() => setTakenAt(null)}
         />
       ) : null}
+      <BlockedActionSheet {...sheetProps} />
     </Screen>
   );
 }
