@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { AddBookingScreen } from '@/features/bookings/components/AddBookingScreen';
+import { NewBookingScreen } from '@/features/bookings/components/NewBookingScreen';
 
 export default function AddBookingRoute() {
   const { clientId, mode } = useLocalSearchParams<{
@@ -8,7 +8,7 @@ export default function AddBookingRoute() {
     mode?: string;
   }>();
   return (
-    <AddBookingScreen
+    <NewBookingScreen
       key={`${clientId ?? ''}:${mode ?? ''}`}
       initialClientId={clientId}
       startWithNewClient={mode === 'new'}

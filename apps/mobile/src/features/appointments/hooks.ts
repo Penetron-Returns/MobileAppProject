@@ -1,6 +1,8 @@
 import type {
   CancelAppointmentRequest,
   CreateAppointmentRequest,
+  RescheduleAppointmentRequest,
+  SetAppointmentStatusRequest,
 } from '@shared/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
@@ -64,7 +66,7 @@ async function fetchAppointment(id: string) {
   const res = await supabase
     .from('appointments')
     .select(
-      'id, client_id, starts_at, ends_at, duration_minutes, status, source, price_cents, notes, checked_in_at, created_at, client:clients(id, name, phone_e164, tags), service:services(name, category), staff:staff(name, photo_url)',
+      'id, client_id, service_id, staff_id, starts_at, ends_at, duration_minutes, status, source, price_cents, notes, checked_in_at, created_at, client:clients(id, name, phone_e164, tags), service:services(name, category), staff:staff(name, photo_url)',
     )
     .eq('id', id)
     .maybeSingle();
@@ -131,5 +133,94 @@ export function useAvailableSlots(q: {
     enabled: Boolean(q.serviceId && q.date),
     staleTime: 0,
     gcTime: 0,
+  });
+}
+
+/** Bookable days in [from, to] for a service (live, like slots). */
+export function useAvailableDays(q: {
+  serviceId: string | null;
+  from: string | null;
+  to: string | null;
+  staffId: string | null;
+}) {
+  return useQuery({
+    queryKey: [...qk.availabilityDays, q.serviceId, q.from, q.to, q.staffId],
+    queryFn: () =>
+      api.availableDays({
+        service_id: q.serviceId ?? '',
+        from: q.from ?? '',
+        to: q.to ?? '',
+        staff_id: q.staffId,
+      }),
+    enabled: Boolean(q.serviceId && q.from && q.to),
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+export function useRescheduleAppointment(
+  opts: {
+    onSuccess?: () => void;
+    onError?: (e: unknown) => boolean | void;
+  } = {},
+) {
+  return useApiMutation<{ id: string } & RescheduleAppointmentRequest>({
+    mutationFn: ({ id, ...body }, key) =>
+      api.rescheduleAppointment(id, body, key),
+    invalidate: [
+      ...APPOINTMENT_KEYS,
+      qk.availabilitySlots,
+      qk.availabilityDays,
+    ],
+    onSuccess: opts.onSuccess,
+    onError: opts.onError,
+  });
+}
+
+/** Check-out is `completed`; no-show is the exception path. */
+export function useSetAppointmentStatus(opts: { onSuccess?: () => void } = {}) {
+  return useApiMutation<{ id: string } & SetAppointmentStatusRequest>({
+    mutationFn: ({ id, ...body }, key) =>
+      api.setAppointmentStatus(id, body, key),
+    invalidate: APPOINTMENT_KEYS,
+    onSuccess: opts.onSuccess,
+  });
+}
+
+async function fetchAppointmentEvents(id: string) {
+  return unwrap(
+    await supabase
+      .from('appointment_events')
+      .select('id, type, occurred_at')
+      .eq('appointment_id', id)
+      .order('occurred_at'),
+  );
+}
+
+export type AppointmentEvent = Awaited<
+  ReturnType<typeof fetchAppointmentEvents>
+>[number];
+
+export function useAppointmentEvents(id: string) {
+  return useQuery({
+    queryKey: [...qk.appointment(id), 'events'],
+    queryFn: () => fetchAppointmentEvents(id),
+  });
+}
+
+async function fetchBookingRules() {
+  const res = await supabase
+    .from('businesses')
+    .select('booking_rules')
+    .single();
+  return unwrap<NonNullable<typeof res.data>>(res).booking_rules;
+}
+
+/** The business `booking_rules` JSON (parse with the pure helpers in bookings/logic). */
+export function useBookingRules() {
+  return useQuery({
+    queryKey: [...qk.business, 'booking-rules'],
+    queryFn: fetchBookingRules,
+    staleTime: 5 * 60_000,
   });
 }
