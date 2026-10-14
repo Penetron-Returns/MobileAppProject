@@ -1,0 +1,37 @@
+name: Deploy dev
+
+# Applies migrations and deploys the `api` Edge Function to the SHARED dev Supabase project.
+# Required repo secrets (Settings > Secrets and variables > Actions): SUPABASE_ACCESS_TOKEN,
+# SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF (the dev project's ref, never prod).
+# See docs/environments.md. Never seeds data. Runtime secrets (Clerk, Meta, ...) are set
+# separately with `npm run env:push-secrets`.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Migrate and deploy api
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link dev project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Apply migrations
+        run: supabase db push
+      - name: Deploy api function
+        run: supabase functions deploy api --project-ref "$SUPABASE_PROJECT_REF"
