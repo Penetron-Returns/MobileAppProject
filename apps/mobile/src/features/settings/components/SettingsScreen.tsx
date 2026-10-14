@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
+import { Gate } from '@/features/plans/components/Gate';
 import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 import { formatPhone } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -83,9 +84,12 @@ export function SettingsScreen() {
             </Pressable>
           ))}
         </Card>
-        <Card title={t('settings.integrations')}>
-          <WhatsAppStatus />
-        </Card>
+        {/* Our own WhatsApp integration is a Free-plan feature (Nerova runs it on paid plans) */}
+        <Gate feature="whatsapp_menu">
+          <Card title={t('settings.integrations')}>
+            <WhatsAppStatus />
+          </Card>
+        </Gate>
         <Pressable
           onPress={() => void signOut()}
           accessibilityRole="button"

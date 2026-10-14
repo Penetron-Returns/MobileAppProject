@@ -11,7 +11,7 @@ import { decryptSecret } from '../lib/crypto.ts';
 import type { Db } from '../lib/db.ts';
 import { createLogger, type Logger } from '../lib/logger.ts';
 import { createPushSender, type PushSender } from '../notifications/push.ts';
-import type { BookingService } from '../ports.ts';
+import type { BookingService, EntitlementService } from '../ports.ts';
 import { createGraphClient, type GraphClient } from './graph.ts';
 import type { WaAccountRow, WaRepo } from './repo.ts';
 import { supabaseWaRepo } from './supabaseRepo.ts';
@@ -29,6 +29,8 @@ export interface OutboundDeps {
 
 export interface WaDeps extends OutboundDeps {
   booking: BookingService;
+  /** Plan gating: the engine only runs for businesses with the whatsapp_menu feature */
+  entitlements: EntitlementService;
   newId: () => string;
 }
 
@@ -58,7 +60,7 @@ export function getWaDeps(container: Container, logger?: Logger): WaDeps {
   if (!deps) {
     const overrides = (container as WaContainer).whatsapp ?? {};
     const base = buildOutboundDeps({ env: container.env, db: overrides.repo ? undefined : container.db, overrides });
-    deps = { ...base, booking: overrides.booking ?? container.booking, newId: overrides.newId ?? randomUUID };
+    deps = { ...base, booking: overrides.booking ?? container.booking, entitlements: overrides.entitlements ?? container.entitlements, newId: overrides.newId ?? randomUUID };
     cache.set(container, deps);
   }
   return logger ? { ...deps, logger } : deps;

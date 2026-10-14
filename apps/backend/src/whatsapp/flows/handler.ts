@@ -82,6 +82,8 @@ export async function handleFlowRequest(deps: WaDeps, req: FlowRequest): Promise
   if (!check?.ok) return { status: 427 };
   const conv = await deps.repo.getConversation(check.claims.conversationId);
   if (!conv) return { status: 427 };
+  // Plan gate: a business without the whatsapp_menu feature has no live flows; close any stale one.
+  if (!(await deps.entitlements.hasFeature(conv.business_id, 'whatsapp_menu'))) return { status: 427 };
   const client = await deps.repo.getClient(conv.business_id, conv.client_id);
   if (!client) return { status: 427 };
   const business = await deps.booking.getBusiness(conv.business_id);

@@ -5,17 +5,18 @@
 -- week, this week, next week) so the demo always looks current, and they are
 -- written through the same RPCs the API uses, so every constraint applies.
 -- Fixed ids make the demo addressable from app/API tests:
---   business 10000000-0000-4000-8000-000000000001 (org_demo_ashgrove)
+--   business 10000000-0000-4000-8000-000000000001 (org_demo_ashgrove, plan free)
+--   business 10000000-0000-4000-8000-000000000002 (org_demo_harbour, plan growth, bare)
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
 -- Business
 -- -----------------------------------------------------------------------------
-insert into public.businesses (id, clerk_org_id, name, slug, timezone, currency, address, phone, email)
+insert into public.businesses (id, clerk_org_id, name, slug, timezone, currency, address, phone, email, plan)
 values (
   '10000000-0000-4000-8000-000000000001', 'org_demo_ashgrove', 'Ashgrove Hair & Beauty', 'ashgrove',
   'Africa/Johannesburg', 'ZAR', '14 Ashgrove Lane, Rondebosch, Cape Town, 7700',
-  '+27215550199', 'hello@ashgrove.example'
+  '+27215550199', 'hello@ashgrove.example', 'free'
 )
 on conflict (id) do nothing;
 
@@ -329,4 +330,12 @@ values ('80000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-0000000
         now() - interval '2 days', 2, 'abandoned',
         jsonb_build_array(jsonb_build_object('step', 'menu:book', 'at', now() - interval '2 days'),
                           jsonb_build_object('step', 'select_service', 'at', now() - interval '2 days' + interval '40 seconds')))
+on conflict (id) do nothing;
+
+-- -----------------------------------------------------------------------------
+-- Second demo business on a paid plan (companion + desktop, no inbox / WhatsApp
+-- menu). Deliberately bare: it exists to exercise plan gating.
+-- -----------------------------------------------------------------------------
+insert into public.businesses (id, clerk_org_id, name, slug, plan)
+values ('10000000-0000-4000-8000-000000000002', 'org_demo_harbour', 'Harbour Barbers', 'harbour', 'growth')
 on conflict (id) do nothing;

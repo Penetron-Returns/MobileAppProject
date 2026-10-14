@@ -3,35 +3,36 @@
 @tailwind utilities;
 
 /*
- * Theme tokens (HSL channels, shadcn convention) derived from the mockups:
- * deep teal-blue primary (#0B6A8F), lighter accent (#2E8FC4), page #F5F7FB,
- * white cards with soft borders.
+ * Theme tokens (HSL channels, shadcn convention) from the approved iPhone
+ * designs: iOS system blue tint (#007AFF / #0A84FF dark), ground #F7F7FA
+ * (#0B0C10 dark), true-black labels. The layered shadows and gradients that
+ * classes can't express live in src/lib/depth.ts.
  */
 @layer base {
   :root {
-    --background: 220 43% 97%;
-    --foreground: 216 50% 12%;
+    --background: 240 20% 97%;
+    --foreground: 0 0% 0%;
     --card: 0 0% 100%;
-    --card-foreground: 216 50% 12%;
+    --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
-    --popover-foreground: 216 50% 12%;
-    --primary: 197 86% 30%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 216 60% 94%;
-    --secondary-foreground: 213 45% 30%;
-    --muted: 216 33% 95%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 205 70% 93%;
-    --accent-foreground: 197 86% 26%;
+    --secondary: 240 20% 96%;
+    --secondary-foreground: 211 100% 50%;
+    --muted: 240 14% 94%;
+    --muted-foreground: 240 2% 46%;
+    --accent: 211 100% 95%;
+    --accent-foreground: 211 100% 40%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 28% 90%;
-    --input: 214 28% 86%;
-    --ring: 201 62% 47%;
+    --border: 240 10% 90%;
+    --input: 240 10% 86%;
+    --ring: 211 100% 50%;
     --radius: 0.875rem;
 
-    --brand: 201 62% 47%;
-    --brand-soft: 205 70% 93%;
+    --brand: 211 100% 50%;
+    --brand-soft: 211 100% 95%;
     --success: 142 64% 32%;
     --success-soft: 138 60% 93%;
     --warning: 32 90% 44%;
@@ -39,8 +40,8 @@
     --whatsapp: 142 70% 42%;
     --whatsapp-soft: 142 60% 92%;
 
-    --status-confirmed: 197 86% 30%;
-    --status-confirmed-soft: 203 72% 92%;
+    --status-confirmed: 211 100% 45%;
+    --status-confirmed-soft: 211 100% 95%;
     --status-pending: 4 70% 52%;
     --status-pending-soft: 4 85% 95%;
     --status-completed: 215 16% 40%;
@@ -50,28 +51,28 @@
   }
 
   .dark:root {
-    --background: 216 40% 7%;
-    --foreground: 210 40% 96%;
-    --card: 216 35% 11%;
-    --card-foreground: 210 40% 96%;
-    --popover: 216 35% 11%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 199 75% 45%;
+    --background: 230 22% 6%;
+    --foreground: 0 0% 100%;
+    --card: 230 11% 12%;
+    --card-foreground: 0 0% 100%;
+    --popover: 230 11% 12%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 211 100% 52%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 216 30% 18%;
-    --secondary-foreground: 210 40% 90%;
-    --muted: 216 30% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 200 45% 20%;
-    --accent-foreground: 199 80% 80%;
+    --secondary: 230 9% 18%;
+    --secondary-foreground: 211 100% 62%;
+    --muted: 230 10% 15%;
+    --muted-foreground: 240 8% 70%;
+    --accent: 211 50% 20%;
+    --accent-foreground: 211 100% 80%;
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 216 25% 20%;
-    --input: 216 25% 24%;
-    --ring: 199 75% 50%;
+    --border: 230 9% 20%;
+    --input: 230 9% 24%;
+    --ring: 211 100% 56%;
 
-    --brand: 199 75% 55%;
-    --brand-soft: 200 45% 20%;
+    --brand: 211 100% 56%;
+    --brand-soft: 211 50% 20%;
     --success: 142 55% 50%;
     --success-soft: 142 40% 16%;
     --warning: 38 90% 58%;
@@ -79,8 +80,8 @@
     --whatsapp: 142 65% 45%;
     --whatsapp-soft: 142 40% 16%;
 
-    --status-confirmed: 199 80% 70%;
-    --status-confirmed-soft: 200 45% 20%;
+    --status-confirmed: 211 100% 72%;
+    --status-confirmed-soft: 211 50% 20%;
     --status-pending: 4 85% 70%;
     --status-pending-soft: 4 40% 20%;
     --status-completed: 215 20% 70%;

@@ -451,6 +451,7 @@ export type Database = {
           logo_url: string | null
           name: string
           phone: string | null
+          plan: Database["public"]["Enums"]["plan_key"]
           slug: string
           timezone: string
           updated_at: string
@@ -466,6 +467,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           phone?: string | null
+          plan?: Database["public"]["Enums"]["plan_key"]
           slug: string
           timezone?: string
           updated_at?: string
@@ -481,6 +483,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           phone?: string | null
+          plan?: Database["public"]["Enums"]["plan_key"]
           slug?: string
           timezone?: string
           updated_at?: string
@@ -936,6 +939,24 @@ export type Database = {
           },
         ]
       }
+      plan_features: {
+        Row: {
+          feature: string
+          monthly_limit: number | null
+          plan: Database["public"]["Enums"]["plan_key"]
+        }
+        Insert: {
+          feature: string
+          monthly_limit?: number | null
+          plan: Database["public"]["Enums"]["plan_key"]
+        }
+        Update: {
+          feature?: string
+          monthly_limit?: number | null
+          plan?: Database["public"]["Enums"]["plan_key"]
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           business_id: string
@@ -1259,6 +1280,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      business_features: {
+        Args: {
+          p_business_id?: string
+        }
+        Returns: {
+          feature: string
+          monthly_limit: number
+          plan: Database["public"]["Enums"]["plan_key"]
+        }[]
+      }
       cancel_appointment: {
         Args: {
           p_actor: Database["public"]["Enums"]["actor_type"]
@@ -1577,6 +1608,7 @@ export type Database = {
       message_direction: "in" | "out"
       message_status: "received" | "queued" | "sent" | "delivered" | "read" | "failed"
       message_type: "text" | "interactive" | "flow" | "template" | "button" | "reaction" | "media" | "unknown"
+      plan_key: "free" | "starter" | "growth" | "pro"
       template_status: "draft" | "submitted" | "approved" | "rejected" | "paused" | "disabled"
       wa_account_status: "pending" | "live" | "needs_reauth" | "disconnected" | "paused"
     }

@@ -251,6 +251,10 @@ For each inbound message (`engine/index.ts`):
 - **Flow JSON:** `apps/backend/whatsapp/flows/*.json` (Flow JSON `7.1`, `data_api_version` `3.0`, `routing_model` declared, SUMMARY terminal).
 - **SUCCESS:** the response carries `extension_message_response.params = {flow_token, appointment_id, flow}`. Meta then sends an `nfm_reply` to the webhook. The engine verifies the token and the conversation, loads the appointment, closes the attempt and sends the in-chat confirmation. The dedupe key keeps that confirmation to one per change.
 
+## Plan gating
+
+The engine, `/v1/whatsapp/**` and the inbox are the **Free-plan** features `whatsapp_menu` and `inbox` (BUILD_PLAN §4, *Plans and entitlements*). Paid plans run on Nerova's WhatsApp, so for a business without `whatsapp_menu` the webhook records the inbound message in `webhook_events` (note `feature_not_in_plan`) and does nothing else, and the Flows endpoint answers 427. The REST routes answer `403 FEATURE_NOT_IN_PLAN`.
+
 ## Webhook
 
 - **Signature check:** `POST /webhooks/whatsapp` checks the signature on the raw body. A bad or missing signature gets `401` with the error envelope, and nothing is stored.

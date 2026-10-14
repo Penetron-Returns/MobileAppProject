@@ -63,8 +63,8 @@ apps/mobile/src/
                        ConfirmDialog, Sheet, Toaster, ClerkUserButton (+ .web.tsx)
   features/<feature>/  hooks.ts (TanStack Query reads via supabase, writes via api), components/,
                        pure logic.ts + __tests__/ — appointments, bookings, business, calendar,
-                       catalog (services/staff), clients, dashboard, settings
-  hooks/               useAppColorScheme (NativeWind dark mode + persistence)
+                       catalog (services/staff), clients, dashboard, inbox, settings, today
+  hooks/               useAppColorScheme (NativeWind dark mode + persistence), useDepth
   lib/                 supabase.ts, api.ts, query.ts, env.ts, theme.ts, i18n/, toast.ts, idempotency.ts
 ```
 
@@ -106,16 +106,42 @@ color tokens. `apps/mobile/src/lib/theme.ts` mirrors the light/dark values as ra
 JS color (the nav theme, `RefreshControl`, SVG strokes) and exports `NAV_THEME`, consumed by
 `apps/mobile/src/components/ThemeProvider.tsx` (`expo-router`'s `ThemeProvider`, so headers/tab bars/status bar all
 match). `useAppColorScheme` (in `apps/mobile/src/hooks/`) wraps NativeWind's `useColorScheme`, persists the explicit
-choice to `AsyncStorage`, and defaults to the system scheme otherwise. Brand colors: primary `#0B6A8F`,
-accent `#2E8FC4` (the `brand` token), page background `#F5F7FB`, white cards, 12–16px radius
-(`--radius: 0.875rem`).
+choice to `AsyncStorage`, and defaults to the system scheme otherwise. Palette (iPhone design, iOS 26 / HIG):
+tint = iOS system blue (`#007AFF`, `#0A84FF` in dark) as `--primary`/`--brand`, ground `#F7F7FA` (`#0B0C10` dark),
+true-black / white labels, secondary text at 0.72 alpha. Type scale (SOFT.md) is in `tailwind.config.cjs`
+(`text-large-title` 34/41, `text-section` 22/28, `text-title` 17/22, `text-subtitle` 15/20, `text-meta` 13/18) on the
+system font (SF on iOS).
+
+### Depth (layered shadows and gradients)
+
+NativeWind classes can't express the design's layered `box-shadow`s and gradients, so
+`apps/mobile/src/lib/depth.ts` holds them as typed tokens (`getDepth(scheme, tint)`, light + dark, copied from the
+approved `Main.dc.html` theme object): `ground`, `raised`, `hero` (one per screen), `floating`, `button`, `knob`,
+`primary` (tactile) with their `*Pressed` states, `inset`, `dome`, `engrave`, `bar`, `pill`, `badge`. They use React
+Native 0.86's CSS-style `boxShadow` (incl. `inset`) and `experimental_backgroundImage` gradients, so
+`expo-linear-gradient` is not needed; each token also carries a solid `backgroundColor` fallback. Use them through
+`useDepth()` (`src/hooks/`), `<Surface variant="raised|hero|inset|dome|engrave">` and `<Ground>`. Deviations from the
+design: domes use a linear (not radial) top highlight, and there is no backdrop blur on the tab capsule (it is 94%
+opaque in the design).
+
+Deliberate divergence from upstream react-native-reusables: `Button` `default` is the tactile primary and
+`secondary` the raised button (both pill-shaped, styled from `depth.ts`); `sm`/`lg` sizes are `h-9` / `h-[52px]`.
+
+### Floating tab bar
+
+`src/components/tab-bar/` replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) · Clients ·
+Settings in one capsule, plus the Inbox dome above it. `InboxDome` reads `useInboxEntry()`, the single placeholder
+for plan gating and the unread count (defaults to shown, no badge). The bar floats over content, so `Screen` adds
+bottom padding on the top-level tab screens (`isTabRootPath`); screens that opt out with
+`tabBarStyle: { display: 'none' }` (details, settings sub-pages) hide it.
 
 ## Route map
 
 | Route | Group | Notes |
 | --- | --- | --- |
 | `/sign-in` | `(auth)` | native `AuthView` (`mode="signIn"`) / web `<SignIn />`; redirects to `/` if already signed in |
-| `/` | `(app)` (tabs) | Dashboard: `dashboard_summary` RPC + today's schedule, check-in |
+| `/` | `(app)` (tabs) | Today (`features/today`): today's `appointments` (business timezone), Up next hero + check-in, Later today, expected total; loading / empty / error / offline states |
+| `/inbox` | `(app)` (hidden tab) | Stub: opened from the floating Inbox dome; conversations and escalations come later |
 | `/calendar` | `(app)` (tabs) | Day/week/month from `appointments` + `business_hours` (breaks = gaps between shifts) |
 | `/add` | `(app)` (tabs) | Add booking: client search/new client, live slots from `/v1/availability/slots`, `POST /v1/appointments`. Params `clientId`, `mode=new` |
 | `/bookings/[id]` | `(app)` | Booking detail + cancel (`/v1/appointments/:id/cancel`) |
@@ -149,10 +175,10 @@ when none is active yet, and renders `NoBusinessScreen` (with sign-out) when the
 
 ## Deviations from a from-scratch setup
 
-- `ios.bundleIdentifier` and `android.package` are both `com.neighborhoodpicks.app` — there was no
-  existing iOS product to derive a different identifier from, and Clerk's native SDK needs *some* iOS
-  bundle id registered (`docs/clerk-setup.md` §7). Change both together if iOS ever ships under a
-  different identifier.
+- `ios.bundleIdentifier` and `android.package` are both the **dev placeholder** `si.nerova.booking.dev` (the app has no name yet; Clerk's
+  native SDK needs *some* id registered, `docs/clerk-setup.md` §7). It must be finalised before the first Play Store / App Store release;
+  see `docs/environments.md`.
+- `android/` and `ios/` are not committed: they are generated by `expo prebuild` / EAS Build (CNG) and git-ignored.
 - `expo-symbols`, `expo-haptics`, `expo-notifications`, `expo-device` and `expo-clipboard` are installed
   but not yet used by any screen — they back planned work (push tokens for `device_push_tokens`, haptic
   feedback, share links) rather than dead weight from the original boilerplate.

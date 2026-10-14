@@ -72,6 +72,14 @@ module.exports = {
           'cancelled-soft': 'hsl(var(--status-cancelled-soft))',
         },
       },
+      // SOFT.md type scale (SF / system font): size / line height.
+      fontSize: {
+        'large-title': ['34px', { lineHeight: '41px', letterSpacing: '0.4px' }],
+        section: ['22px', { lineHeight: '28px' }],
+        title: ['17px', { lineHeight: '22px' }],
+        subtitle: ['15px', { lineHeight: '20px' }],
+        meta: ['13px', { lineHeight: '18px' }],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

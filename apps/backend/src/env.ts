@@ -29,6 +29,10 @@ const EnvSchema = z.object({
   API_BASE_URL: optional,
   PUBLIC_WEB_BOOKING_URL: optional,
   EXPO_ACCESS_TOKEN: optional,
+
+  /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
+  STRIPE_SECRET_KEY: optional,
+  STRIPE_WEBHOOK_SECRET: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

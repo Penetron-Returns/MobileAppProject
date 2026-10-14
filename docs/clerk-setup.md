@@ -74,12 +74,11 @@ origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 Dashboard → **Native applications** (`https://dashboard.clerk.com/~/native-applications`) → enable the
 Native API, then register the app:
 
-- **Android**: package name `com.neighborhoodpicks.app` (from `apps/mobile/app.json` → `expo.android.package`).
-- **iOS**: bundle identifier `com.neighborhoodpicks.app` (from `apps/mobile/app.json` → `expo.ios.bundleIdentifier`).
-  There is no separate iOS product yet, so it deliberately reuses the Android package name in
-  reverse-DNS form rather than inventing an unrelated one — change both together if that ever needs to
-  differ. Clerk's native SDK needs *some* bundle identifier registered even though both platforms ship
-  from one Expo project.
+- **Android**: package name `si.nerova.booking.dev` (`apps/mobile/app.json` → `expo.android.package`; a **dev placeholder** that must be
+  finalised before a store release, see `docs/environments.md`) plus the **SHA-256 certificate fingerprint** of the signing key of the build
+  (`eas credentials -p android` for EAS `preview`/`development` builds; a local prebuild debug key has a different fingerprint, register it too if used).
+- **iOS**: bundle identifier `si.nerova.booking.dev` (from `apps/mobile/app.json` → `expo.ios.bundleIdentifier`).
+  iOS is not distributed yet (no Apple Developer account); it reuses the same placeholder id. Change both together when the final id is chosen.
 
 The `@clerk/expo` config plugin (`apps/mobile/app.json` → `expo.plugins`) sets the iOS deployment target (17.0) and
 Android packaging/Kotlin options the native SDKs need; run `npx expo prebuild --clean` (or an EAS build)
@@ -100,7 +99,7 @@ Frontend API's CORS checks both key off this list.
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | app (`.env.local`, EAS `env`) | Dashboard → API keys → Publishable key |
 | `CLERK_SECRET_KEY` | `apps/backend/` | Dashboard → API keys → Secret key |
 | `CLERK_JWT_KEY` | `apps/backend/` | Dashboard → API keys → Show JWT public key (PEM) |
-| `CLERK_AUTHORIZED_PARTIES` | `apps/backend/` | the app's scheme(s) (`bookingadmin://`) and web origin(s), comma-separated |
+| `CLERK_AUTHORIZED_PARTIES` | `apps/backend/` | the app's scheme(s) (`bookingadmin://`; unchanged by the package id) and web origin(s), comma-separated |
 | `CLERK_WEBHOOK_SECRET` | `apps/backend/` | the webhook endpoint's signing secret (step 5) |
 
 ## Sources

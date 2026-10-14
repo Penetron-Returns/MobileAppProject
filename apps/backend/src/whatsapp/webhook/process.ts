@@ -56,6 +56,11 @@ async function handleEvent(deps: WaDeps, event: WaEvent, accounts: WaAccountRow[
     case 'message': {
       const account = accounts[0];
       if (!account) return 'unlinked_number';
+      // Paid plans: Nerova owns WhatsApp, so our deterministic engine must stay silent.
+      if (!(await deps.entitlements.hasFeature(account.business_id, 'whatsapp_menu'))) {
+        deps.logger.info('wa_inbound_skipped_feature_not_in_plan', { business_id: account.business_id });
+        return 'feature_not_in_plan';
+      }
       const outcome = await handleInboundMessage(deps, account, event.message);
       if (outcome === 'not_live') return `account_${account.status}`;
       if (outcome === 'duplicate' || outcome === 'invalid_sender') return outcome;
