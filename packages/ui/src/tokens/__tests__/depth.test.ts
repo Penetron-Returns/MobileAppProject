@@ -1,4 +1,11 @@
-import { darken, getDepth, lighten, withAlpha } from '../depth';
+import {
+  darken,
+  getDepth,
+  lighten,
+  resolveSystemColor,
+  systemColorKey,
+  withAlpha,
+} from '../depth';
 
 describe('colour helpers', () => {
   it('lightens and darkens towards white and black', () => {
@@ -35,7 +42,7 @@ describe('getDepth', () => {
   it('builds the tactile primary from the tint', () => {
     const { primary } = getDepth('light', '#007AFF');
     expect(primary.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #1485FF 0%, #007AFF 55%, #0073F0 100%)',
+      'linear-gradient(180deg, #298FFF 0%, #007AFF 55%, #006EE6 100%)',
     );
     expect(primary.boxShadow).toContain('rgba(0,122,255,0.45)');
   });
@@ -118,4 +125,67 @@ describe('status and on-fill colours', () => {
       expect(colors.onFill).toBe('#FFFFFF');
     },
   );
+});
+
+describe('board tokens for the settings screens', () => {
+  it('uses the board selected-segment and switch-thumb fills', () => {
+    expect(getDepth('light').segment.experimental_backgroundImage).toBe(
+      'linear-gradient(180deg, #FFFFFF 0%, #F4F5F8 100%)',
+    );
+    expect(getDepth('dark').segment.experimental_backgroundImage).toBe(
+      'linear-gradient(180deg, #5A5C66 0%, #484A53 100%)',
+    );
+    expect(getDepth('light').thumb.experimental_backgroundImage).toBe(
+      'linear-gradient(180deg, #FFFFFF 0%, #F6F6F9 100%)',
+    );
+    expect(getDepth('dark').thumb.experimental_backgroundImage).toBe(
+      'linear-gradient(180deg, #FFFFFF 0%, #F1F1F4 100%)',
+    );
+  });
+
+  it('frosts the back pill and fades the nav per scheme', () => {
+    expect(getDepth('light').glass).toEqual({
+      backgroundColor: 'rgba(255,255,255,0.62)',
+      borderColor: 'rgba(255,255,255,0.7)',
+      boxShadow:
+        '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
+    });
+    expect(getDepth('dark').glass.backgroundColor).toBe('rgba(40,40,42,0.62)');
+    expect(getDepth('light').navFade.experimental_backgroundImage).toContain(
+      'rgba(242,242,247,0.6) 72%',
+    );
+    expect(getDepth('dark').navFade.backgroundColor).toBe('rgba(0,0,0,0.6)');
+  });
+
+  it('uses the board red for destructive text', () => {
+    expect(getDepth('light').colors.destructiveText).toBe('#D70015');
+    expect(getDepth('dark').colors.destructiveText).toBe('#FF453A');
+  });
+
+  it('washes a picked time field in the tint at 15% light and 22% dark', () => {
+    expect(getDepth('light').tintWash).toBe('rgba(0,122,255,0.15)');
+    expect(getDepth('dark').tintWash).toBe('rgba(10,132,255,0.22)');
+  });
+
+  it('lights the ring avatar from above with the board shadow', () => {
+    const { domeRing } = getDepth('light');
+    expect(domeRing.experimental_backgroundImage).toContain('radial-gradient');
+    expect(domeRing.boxShadow).toBe('0 1px 2px rgba(16,24,40,0.15)');
+  });
+});
+
+describe('system colours', () => {
+  it('finds the colour a stored hex stands for in either scheme', () => {
+    expect(systemColorKey('#FF9500')).toBe('orange');
+    expect(systemColorKey('#ff9f0a')).toBe('orange');
+    expect(systemColorKey('#C2410C')).toBeNull();
+    expect(systemColorKey(null)).toBeNull();
+  });
+
+  it('swaps system colours for their dark variant and leaves others alone', () => {
+    expect(resolveSystemColor('#007AFF', 'dark')).toBe('#0A84FF');
+    expect(resolveSystemColor('#0A84FF', 'light')).toBe('#007AFF');
+    expect(resolveSystemColor('#C2410C', 'dark')).toBe('#C2410C');
+    expect(resolveSystemColor(undefined, 'light')).toBeNull();
+  });
 });

@@ -89,15 +89,11 @@ describe('Ground', () => {
 });
 
 describe('Divider', () => {
-  it.each([
-    [16, 'left-4'],
-    [52, 'left-[52px]'],
-    [68, 'left-[68px]'],
-  ] as const)('insets %i points', (inset, expected) => {
+  it.each([16, 50, 72] as const)('insets %i points', (inset) => {
     const tree = render(<Divider inset={inset} />);
     expect(JSON.stringify(tree.toJSON())).toBeTruthy();
     const surface = tree.root.findByType(Surface);
-    expect(String(surface.props.className)).toContain(expected);
+    expect(surface.props.style).toEqual({ left: inset });
   });
 });
 

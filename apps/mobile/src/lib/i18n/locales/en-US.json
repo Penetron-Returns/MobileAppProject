@@ -467,14 +467,11 @@
         "subtitle": "Opening times and breaks"
       },
       "services": "Services",
-      "staff": {
-        "title": "Staff Management",
-        "subtitle": "Team members and roles"
-      },
       "hours": "Hours",
       "team": "Team",
       "rules": "Booking rules",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "whatsapp": "WhatsApp"
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -530,11 +527,20 @@
       "disconnect": "Disconnect number",
       "disconnectTitle": "Disconnect this number?",
       "disconnectBody": "Clients will no longer be able to book on {{phone}}.",
-      "disconnectConfirm": "Disconnect"
+      "disconnectConfirm": "Disconnect",
+      "rowStatus": {
+        "none": "Not connected",
+        "live": "Connected",
+        "pending": "Setting up",
+        "needs_reauth": "Reconnect",
+        "disconnected": "Off",
+        "paused": "Paused"
+      }
     },
     "title": "Settings",
     "groups": {
       "business": "Your business",
+      "customize": "Customize",
       "whatsapp": "WhatsApp",
       "account": "Account"
     },
@@ -581,17 +587,9 @@
       "hint": "Tap a time to change it. Switch a day off to close the shop that day."
     },
     "servicesList": {
-      "summary_one": "{{count}} service",
-      "summary_other": "{{count}} services",
+      "summary_one": "{{count}} service. Tap one to edit.",
+      "summary_other": "{{count}} services. Tap one to edit.",
       "add": "Add a service",
-      "open": "{{name}}, {{meta}}"
-    },
-    "staffList": {
-      "summary_one": "{{count}} person",
-      "summary_other": "{{count}} people",
-      "add": "Add a team member",
-      "paused": "Not taking bookings",
-      "inactive": "Inactive",
       "open": "{{name}}, {{meta}}"
     }
   },
@@ -619,19 +617,26 @@
     }
   },
   "hours": {
-    "title": "Operating Hours",
+    "title": "Operating hours",
     "intro": "Set your standard opening times. Add a second time range for split shifts such as a lunch break.",
     "open": "Open",
     "closed": "Closed",
-    "toggle": "Toggle {{day}} open",
+    "toggle": "{{day}} open",
     "noHours": "No hours set",
     "to": "to",
-    "addRange": "Add time range",
-    "removeRange": "Remove time range",
+    "addRange": "Add hours",
+    "removeRange": "Remove these hours",
+    "done": "Done",
+    "hour": "Hour {{value}}",
+    "minutes": "Minutes {{value}}",
     "saved": "Operating hours saved",
     "pick": {
-      "opens": "{{day}} opening time",
-      "closes": "{{day}} closing time"
+      "opens": "{{day}} opens",
+      "closes": "{{day}} closes"
+    },
+    "field": {
+      "opens": "{{day}} opens at {{time}}",
+      "closes": "{{day}} closes at {{time}}"
     },
     "errors": {
       "order": "{{day}}: closing time must be after opening time.",
@@ -643,9 +648,17 @@
     "empty": "No services yet",
     "other": "Other",
     "hidden": "Hidden",
-    "add": "Add Service",
-    "edit": "Edit Service",
-    "name": "Service Name",
+    "add": "New service",
+    "edit": "Edit service",
+    "name": "Name",
+    "whoDoes": "Who does it",
+    "moreOptions": "More options",
+    "newCategory": "Or a new category",
+    "shorter": "Shorter",
+    "longer": "Longer",
+    "minutes": "{{value}} min",
+    "hoursOnly": "{{hours}} h",
+    "hoursAndMinutes": "{{hours}} h {{minutes}} min",
     "category": "Category",
     "categoryHint": "Existing: {{list}}",
     "duration": "Duration",
@@ -655,7 +668,7 @@
     "added": "Service added",
     "updated": "Service updated",
     "removed": "Service removed",
-    "delete": "Delete Service",
+    "delete": "Delete service",
     "deleteDialog": {
       "title": "Delete service?",
       "description": "Clients can no longer book it. A service with past bookings is hidden instead of deleted.",
@@ -664,23 +677,13 @@
     }
   },
   "staff": {
-    "screenTitle": "Staff Management",
-    "directory": "Team Directory",
-    "directoryHint": "Manage roles and availability",
     "empty": "No staff members yet",
-    "add": "Add Staff",
-    "edit": "Edit Staff Member",
     "name": "Full Name",
-    "title": "Role / Title",
     "active": "Active",
     "activeHint": "Inactive staff are hidden from the booking flow",
     "acceptsBookings": "Accept Bookings",
     "acceptsBookingsHint": "Clients can be booked with this staff member",
     "services": "Services they perform",
-    "bookings": "Bookings",
-    "toggleBookings": "Toggle bookings for {{name}}",
-    "statusActive": "Active",
-    "statusInactive": "Inactive",
     "added": "Staff member added",
     "updated": "Staff details updated",
     "removed": "Staff member removed",
@@ -960,5 +963,96 @@
       "teamNone": "You as the first team member",
       "whatsapp": "Connect WhatsApp in Settings so clients can book in the chat they already use. Invite your team from Settings."
     }
+  },
+  "team": {
+    "title": "Team",
+    "summary_one": "{{count}} person can take bookings",
+    "summary_other": "{{count}} people can take bookings",
+    "openPerson": "{{name}}, {{meta}}. Open",
+    "access": {
+      "owner": "Owner",
+      "invited": "Invite pending",
+      "none": "No app access"
+    },
+    "accessSpoken": {
+      "member": "can sign in",
+      "invited": "invite pending",
+      "none": "no app access"
+    },
+    "invite": {
+      "action": "Invite a team member",
+      "toApp": "Invite to the app",
+      "emailLabel": "Their email address",
+      "emailPlaceholder": "name@example.com",
+      "hint": "They get an email invite. They join by signing in to the app with this address.",
+      "send": "Send invite",
+      "sent": "Invite sent.",
+      "pendingFor": "Invite sent to {{email}} as {{role}}. They join by signing in with that address."
+    },
+    "addPerson": "Add someone without app access",
+    "editDetails": "Edit name, job and services",
+    "to": "to",
+    "off": "Off",
+    "workingDays": {
+      "title": "Working days",
+      "none": "No working days set"
+    },
+    "services": {
+      "title": "Services",
+      "count_one": "{{count}} service",
+      "count_other": "{{count}} services"
+    },
+    "more": "More",
+    "role": {
+      "label": "Role",
+      "staff": "Staff",
+      "owner": "Owner"
+    },
+    "colour": {
+      "label": "Calendar colour",
+      "blue": "Blue",
+      "orange": "Orange",
+      "purple": "Purple",
+      "teal": "Teal",
+      "green": "Green",
+      "pink": "Pink",
+      "indigo": "Indigo",
+      "red": "Red"
+    },
+    "remove": {
+      "action": "Remove from team",
+      "title": "Remove {{name}} from the team?",
+      "description": "This removes their access to the app. {{name}} stays in the calendar with their bookings unless you make them inactive.",
+      "confirm": "Remove",
+      "keep": "Keep"
+    },
+    "revoke": {
+      "action": "Revoke invite"
+    },
+    "removed": "{{name}} no longer has app access",
+    "revoked": "Invite revoked",
+    "form": {
+      "editTitle": "Edit person",
+      "addTitle": "Add a person",
+      "job": "Job title"
+    },
+    "errors": {
+      "LAST_OWNER": "A business needs at least one owner. Make someone else an owner first.",
+      "ALREADY_MEMBER": "That person is already on your team.",
+      "ALREADY_INVITED": "That address already has a pending invite.",
+      "STAFF_ALREADY_LINKED": "This person already has a login.",
+      "FORBIDDEN": "Only the owner can manage the team."
+    },
+    "status": {
+      "paused": "Not taking bookings",
+      "inactive": "Inactive"
+    }
+  },
+  "join": {
+    "headline": "You've been invited to {{business}}",
+    "subtitle": "Join to see their calendar and bookings. You can create your own business instead.",
+    "join": "Join {{business}}",
+    "createOwn": "Create my own business instead",
+    "failed": "Couldn't join. Check your connection and try again."
   }
 }

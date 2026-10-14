@@ -35,6 +35,13 @@ export const toast = {
     showToast({ kind: 'success', title, description }),
   info: (title: string, description?: string) =>
     showToast({ kind: 'info', title, description }),
+  /** A fixed message (already translated) that still carries the API request id. */
+  failed: (message: string, error?: unknown) =>
+    showToast({
+      kind: 'error',
+      title: message,
+      requestId: isApiError(error) ? error.requestId : null,
+    }),
   error: (error: unknown, title?: string) =>
     showToast({
       kind: 'error',

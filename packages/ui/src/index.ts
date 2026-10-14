@@ -9,10 +9,14 @@ import './lib/interop';
 export { COLOR_ROLES, THEME, cssVariable, hsl } from './tokens/colors';
 export type { ColorRole, ColorScheme, ThemeColors } from './tokens/colors';
 export {
+  SYSTEM_COLORS,
+  SYSTEM_COLOR_KEYS,
   SYSTEM_TINT,
   darken,
   getDepth,
   lighten,
+  resolveSystemColor,
+  systemColorKey,
   withAlpha,
 } from './tokens/depth';
 export type {
@@ -21,6 +25,7 @@ export type {
   DepthColors,
   DepthScheme,
   DepthTokens,
+  SystemColorKey,
 } from './tokens/depth';
 export { MOTION, TOAST_TTL } from './tokens/motion';
 export { RADII } from './tokens/radii';
@@ -59,7 +64,7 @@ export type { PressableProps } from './primitives/Pressable';
 export { Skeleton } from './primitives/Skeleton';
 export { Surface } from './primitives/Surface';
 export type { SurfaceProps, SurfaceVariant } from './primitives/Surface';
-export { Text, TextClassContext } from './primitives/Text';
+export { Text, TextClassContext, TextStyleContext } from './primitives/Text';
 
 // Components
 export { Avatar } from './components/Avatar';
@@ -71,23 +76,35 @@ export {
 } from './components/Button';
 export type { ButtonProps } from './components/Button';
 export { Capsule } from './components/Capsule';
+export { ColorSwatches } from './components/ColorSwatches';
+export type { ColorSwatchesProps } from './components/ColorSwatches';
 export type { CapsuleProps, CapsuleTone } from './components/Capsule';
 export { ChoiceCard } from './components/ChoiceCard';
 export type { ChoiceCardProps } from './components/ChoiceCard';
 export { Chip, Chips } from './components/Chips';
 export type { ChipOption, ChipProps, ChipsProps } from './components/Chips';
 export { ConfirmDialog } from './components/ConfirmDialog';
+export { DestructiveRow } from './components/DestructiveRow';
+export type { DestructiveRowProps } from './components/DestructiveRow';
+export { Disclosure } from './components/Disclosure';
+export type { DisclosureProps } from './components/Disclosure';
 export { DoneCard } from './components/DoneCard';
 export type { DoneCardProps } from './components/DoneCard';
 export { FormField } from './components/FormField';
-export { Group, GroupRow, SectionTitle } from './components/Group';
-export type { GroupRowProps } from './components/Group';
+export { GLYPHS } from './components/Glyph';
+export type { GlyphComponent, GlyphProps } from './components/Glyph';
+export { FormSheet } from './components/FormSheet';
+export type { FormSheetProps } from './components/FormSheet';
+export { Group, GroupBlock, GroupRow, SectionTitle } from './components/Group';
+export type { GroupProps, GroupRowProps } from './components/Group';
 export { GroupField } from './components/GroupField';
 export type { GroupFieldProps } from './components/GroupField';
 export { IconButton } from './components/IconButton';
 export type { IconButtonProps } from './components/IconButton';
 export { IconDome } from './components/IconDome';
 export type { IconDomeProps } from './components/IconDome';
+export { InlineInsetInput } from './components/InlineInsetInput';
+export type { InlineInsetInputProps } from './components/InlineInsetInput';
 export { AmountInsetField, LabeledInsetField } from './components/InsetFields';
 export { InsetInput } from './components/InsetInput';
 export type { InsetInputProps } from './components/InsetInput';
@@ -118,11 +135,17 @@ export type {
   SlotTime,
   TimeChipsProps,
 } from './components/SlotPicker';
+export { Stepper } from './components/Stepper';
+export type { StepperProps } from './components/Stepper';
 export { CheckPoint, SuccessMark } from './components/SuccessMark';
 export { Switch } from './components/Switch';
 export type { SwitchProps } from './components/Switch';
 export { SwitchRow } from './components/SwitchRow';
 export type { SwitchRowProps } from './components/SwitchRow';
+export { TimeField } from './components/TimeField';
+export type { TimeFieldProps } from './components/TimeField';
+export { TimeWheel } from './components/TimeWheel';
+export type { TimeWheelProps } from './components/TimeWheel';
 export { TintLink } from './components/TintLink';
 export type { TintLinkProps } from './components/TintLink';
 export { Toaster } from './components/Toast';
@@ -138,9 +161,12 @@ export {
   FlowHeading,
   FlowTopBar,
 } from './patterns/Flow';
+export { GLASS_NAV_HEIGHT, GlassPage } from './patterns/GlassPage';
+export type { GlassPageProps } from './patterns/GlassPage';
 export { goBack } from './patterns/navigation';
 export { Page } from './patterns/Page';
 export type { PageProps } from './patterns/Page';
+export { Presenter } from './patterns/Presenter';
 export { SaveFooter } from './patterns/SaveFooter';
 export { Screen } from './patterns/Screen';
 export { StackHeader } from './patterns/StackHeader';

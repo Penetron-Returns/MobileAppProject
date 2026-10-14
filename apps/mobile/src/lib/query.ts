@@ -46,6 +46,7 @@ export const qk = {
   services: ['services'] as const,
   staff: ['staff'] as const,
   staffServices: ['staff-services'] as const,
+  team: ['team'] as const,
   staffRules: (id: string) => ['staff-rules', id] as const,
   overrides: (staffId: string | null) =>
     ['overrides', staffId ?? 'business'] as const,

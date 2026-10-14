@@ -1,9 +1,8 @@
 import {
   ErrorState,
+  GlassPage,
   Group,
   ListSkeleton,
-  OptionSheet,
-  Page,
   SaveFooter,
   Text,
 } from '@booking/ui';
@@ -17,19 +16,18 @@ import {
 } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
 import { isFailed, loadError } from '@/lib/offline';
-import { formatTimeOfDay, WEEKDAYS } from '@/lib/time';
+import { WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
 import {
   nextRange,
-  TIME_OPTIONS,
   toHoursRows,
   toWeekSchedule,
   validateWeek,
   type DayHours,
   type TimeRange,
 } from '../logic';
-import { DayHoursRow } from './DayHoursRow';
+import { DayHoursRow, type PickedTime } from './DayHoursRow';
 
 export function OperatingHoursScreen() {
   const { t } = useTranslation();
@@ -37,7 +35,7 @@ export function OperatingHoursScreen() {
   const hours = useBusinessHours();
   if (hours.data) return <HoursEditor initial={toWeekSchedule(hours.data)} />;
   return (
-    <Page
+    <GlassPage
       title={t('hours.title')}
       backLabel={t('tabs.settings')}
       backFallback="/settings"
@@ -52,14 +50,12 @@ export function OperatingHoursScreen() {
       ) : (
         <ListSkeleton rows={7} />
       )}
-    </Page>
+    </GlassPage>
   );
 }
 
-interface PickerTarget {
+interface PickerTarget extends PickedTime {
   weekday: number;
-  index: number;
-  field: keyof TimeRange;
 }
 
 function HoursEditor({ initial }: { initial: DayHours[] }) {
@@ -85,14 +81,8 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
     replace.mutate(toHoursRows(days));
   };
 
-  const pickerValue = picker
-    ? (days.find((d) => d.weekday === picker.weekday)?.ranges[picker.index]?.[
-        picker.field
-      ] ?? null)
-    : null;
-
   return (
-    <Page
+    <GlassPage
       title={t('hours.title')}
       backLabel={t('tabs.settings')}
       backFallback="/settings"
@@ -108,7 +98,7 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
         ) : undefined
       }
     >
-      <Group className="mt-5">
+      <Group radius={26} className="mx-4">
         {days.map((day, i) => (
           <DayHoursRow
             key={day.weekday}
@@ -116,54 +106,49 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
             label={WEEKDAYS[day.weekday]}
             editable={canManage}
             showSeparator={i > 0}
-            onToggle={(isOpen) =>
-              updateDay(day.weekday, (d) => ({ ...d, isOpen }))
-            }
+            picked={picker?.weekday === day.weekday ? picker : null}
+            onToggle={(isOpen) => {
+              updateDay(day.weekday, (d) => ({ ...d, isOpen }));
+              if (picker?.weekday === day.weekday) setPicker(null);
+            }}
             onPick={(index, field) =>
-              setPicker({ weekday: day.weekday, index, field })
+              setPicker((cur) =>
+                cur?.weekday === day.weekday &&
+                cur.index === index &&
+                cur.field === field
+                  ? null
+                  : { weekday: day.weekday, index, field },
+              )
             }
-            onAddRange={() =>
+            onClosePicker={() => setPicker(null)}
+            onChangeTime={(index, field: keyof TimeRange, time) =>
+              updateDay(day.weekday, (d) => ({
+                ...d,
+                ranges: d.ranges.map((r, j) =>
+                  j === index ? { ...r, [field]: time } : r,
+                ),
+              }))
+            }
+            onAddRange={() => {
               updateDay(day.weekday, (d) => ({
                 ...d,
                 ranges: [...d.ranges, nextRange(d.ranges)],
-              }))
-            }
-            onRemoveRange={(index) =>
+              }));
+              setPicker(null);
+            }}
+            onRemoveRange={(index) => {
               updateDay(day.weekday, (d) => ({
                 ...d,
-                ranges: d.ranges.filter((_, i) => i !== index),
-              }))
-            }
+                ranges: d.ranges.filter((_, j) => j !== index),
+              }));
+              setPicker(null);
+            }}
           />
         ))}
       </Group>
-      <Text className="mx-5 mt-3 text-meta text-muted-foreground">
+      <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
         {t('settings.hours.hint')}
       </Text>
-
-      <OptionSheet
-        open={picker !== null}
-        onOpenChange={(open) => !open && setPicker(null)}
-        title={
-          picker
-            ? t(`hours.pick.${picker.field}`, { day: WEEKDAYS[picker.weekday] })
-            : ''
-        }
-        selected={pickerValue}
-        options={TIME_OPTIONS.map((time) => ({
-          value: time,
-          label: formatTimeOfDay(time),
-        }))}
-        onSelect={(time) => {
-          if (!picker) return;
-          updateDay(picker.weekday, (d) => ({
-            ...d,
-            ranges: d.ranges.map((r, i) =>
-              i === picker.index ? { ...r, [picker.field]: time } : r,
-            ),
-          }));
-        }}
-      />
-    </Page>
+    </GlassPage>
   );
 }

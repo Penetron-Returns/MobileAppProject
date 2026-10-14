@@ -1,3 +1,5 @@
+import { formatMoney } from '@/lib/format';
+
 /** Pure helpers behind the Services and Staff list screens. */
 
 /** Groups by trimmed category, keeping first-seen order; blank ones go under `other`. */
@@ -36,4 +38,44 @@ export function staffStatus(member: {
 }): StaffStatus {
   if (!member.is_active) return 'inactive';
   return member.accepts_bookings ? 'active' : 'paused';
+}
+
+/** The board's compact price: `R350` (no space, no cents when whole). */
+export function compactMoney(cents: number, currency: string) {
+  return formatMoney(cents, currency, { decimals: cents % 100 !== 0 }).replace(
+    /^(\D+?)\s(?=\d)/,
+    '$1',
+  );
+}
+
+type Translate = (key: string, values?: Record<string, unknown>) => string;
+
+/** Minutes as the board writes them: `45 min`, `1 h`, `1 h 15 min`. */
+export function durationLabel(minutes: number, t: Translate) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return t('services.minutes', { value: rest });
+  return rest
+    ? t('services.hoursAndMinutes', { hours, minutes: rest })
+    : t('services.hoursOnly', { hours });
+}
+
+/** First name for a chip ("Thandi Mokoena" -> "Thandi"). */
+export function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] ?? name;
+}
+
+export const SERVICE_DURATION_STEP = 15;
+export const SERVICE_DURATION_MIN = 15;
+export const SERVICE_DURATION_MAX = 720;
+
+/** One stepper press: moves by `step` and stays inside `min`..`max`. */
+export function stepValue(
+  value: number,
+  direction: 1 | -1,
+  step: number,
+  min: number,
+  max: number,
+) {
+  return Math.min(max, Math.max(min, value + direction * step));
 }
