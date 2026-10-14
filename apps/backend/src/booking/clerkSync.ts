@@ -14,7 +14,7 @@ export interface ClerkEvent {
 
 export type ClerkEventResult = 'handled' | 'ignored';
 
-interface ClerkOrganization {
+export interface ClerkOrganization {
   id: string;
   name?: string | null;
   slug?: string | null;
@@ -79,7 +79,7 @@ function primaryEmail(user: ClerkUser): string | null {
   return (emails.find((e) => e.id === user.primary_email_address_id) ?? emails[0])?.email_address ?? null;
 }
 
-async function upsertBusiness(repo: BookingRepository, org: ClerkOrganization): Promise<BusinessRow> {
+export async function upsertBusiness(repo: BookingRepository, org: ClerkOrganization): Promise<BusinessRow> {
   const name = org.name?.trim() || 'My business';
   const existing = await repo.getBusinessByOrgId(org.id);
   if (!existing) {
@@ -114,35 +114,66 @@ async function deleteUser(repo: BookingRepository, userId: string) {
   await repo.deleteUser(userId);
 }
 
-async function upsertMembership(repo: BookingRepository, m: ClerkMembership, created: boolean): Promise<ClerkEventResult> {
-  const userId = m.public_user_data?.user_id;
-  if (!m.organization?.id || !userId) return 'ignored';
-  const business = await upsertBusiness(repo, m.organization);
-  const identifier = m.public_user_data?.identifier ?? null;
-  const email = identifier?.includes('@') ? identifier : null;
-  const displayName = fullName(m.public_user_data?.first_name, m.public_user_data?.last_name);
+export interface MemberInput {
+  userId: string;
+  role: MemberRole;
+  email?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}
+
+/**
+ * Links a user to a business and makes sure a staff row exists for them.
+ * Shared by the Clerk membership webhook and in-app onboarding so both
+ * converge on the same rows.
+ */
+export async function ensureMember(
+  repo: BookingRepository,
+  business: BusinessRow,
+  m: MemberInput,
+  opts: { createStaff: boolean },
+) {
   await repo.upsertUser({
-    id: userId,
+    id: m.userId,
     business_id: business.id,
-    role: roleFromClerk(m.role),
-    ...(email ? { email } : {}),
-    ...(displayName ? { display_name: displayName } : {}),
-    ...(m.public_user_data?.image_url ? { avatar_url: m.public_user_data.image_url } : {}),
+    role: m.role,
+    ...(m.email ? { email: m.email } : {}),
+    ...(m.displayName ? { display_name: m.displayName } : {}),
+    ...(m.avatarUrl ? { avatar_url: m.avatarUrl } : {}),
   });
-  if (created && !(await repo.findStaffByUserId(business.id, userId))) {
+  if (opts.createStaff && !(await repo.findStaffByUserId(business.id, m.userId))) {
     await repo.insertStaff(business.id, {
-      user_id: userId,
-      name: displayName ?? email?.split('@')[0] ?? 'Staff member',
+      user_id: m.userId,
+      name: m.displayName ?? m.email?.split('@')[0] ?? 'Staff member',
       title: null,
-      photo_url: m.public_user_data?.image_url ?? null,
+      photo_url: m.avatarUrl ?? null,
       phone: null,
-      email,
+      email: m.email ?? null,
       color: null,
       is_active: true,
       accepts_bookings: true,
       sort_order: 0,
     });
   }
+}
+
+async function upsertMembership(repo: BookingRepository, m: ClerkMembership, created: boolean): Promise<ClerkEventResult> {
+  const userId = m.public_user_data?.user_id;
+  if (!m.organization?.id || !userId) return 'ignored';
+  const business = await upsertBusiness(repo, m.organization);
+  const identifier = m.public_user_data?.identifier ?? null;
+  await ensureMember(
+    repo,
+    business,
+    {
+      userId,
+      role: roleFromClerk(m.role),
+      email: identifier?.includes('@') ? identifier : null,
+      displayName: fullName(m.public_user_data?.first_name, m.public_user_data?.last_name),
+      avatarUrl: m.public_user_data?.image_url ?? null,
+    },
+    { createStaff: created },
+  );
   return 'handled';
 }
 
