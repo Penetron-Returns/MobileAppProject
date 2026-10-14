@@ -25,7 +25,7 @@ interactive colour. Android is first on device, so check every change there too.
 | Lint | `npm run lint -w packages/ui` (same rules as the app, plus: the package never imports the app) |
 
 The package has **peer dependencies only** (React Native, NativeWind, Reanimated, `expo-router`,
-`react-i18next`, `react-hook-form`, `lucide-react-native` and friends). The app owns their versions.
+`react-i18next`, `react-hook-form`, `lucide-react-native`, `expo-blur` and friends). The app owns their versions.
 
 ## Layout
 
@@ -41,8 +41,10 @@ packages/ui/
     components/              Button, IconButton, Switch, SwitchRow, SegmentedControl, Chip(s), Capsule, Avatar,
                              IconDome, Group/GroupRow/SectionTitle, GroupField, FormField, InsetInput,
                              SearchField, Sheet, OptionSheet, ConfirmDialog, Toaster (+ toast store),
-                             slot picker kit (DayChips, TimeChips, SlotSkeleton), DoneCard, ChoiceCard, ...
-    patterns/                Page, Screen, StackHeader, BackPill, Flow* (top bar, footer, heading),
+                             slot picker kit (DayChips, TimeChips, SlotSkeleton), DoneCard, ChoiceCard,
+                             settings kit (Stepper, TimeField, TimeWheel, InlineInsetInput, Disclosure,
+                             ColorSwatches, FormSheet, GroupBlock), ...
+    patterns/                Page, GlassPage, Presenter, Screen, StackHeader, BackPill, Flow* (top bar, footer, heading),
                              SaveFooter, states (ErrorState, EmptyState, OfflineBanner, skeletons,
                              BlockedActionSheet), tab-bar (FloatingTabBar, InboxDome)
     rnr/                     the react-native-reusables (shadcn for RN) base, kept close to upstream
@@ -63,6 +65,13 @@ components. Nothing in the package imports the app (`@/…`), and the app import
   (`ground`, `raised`, `hero`, `floating`, `button`, `knob`, `primary`, `inset`, `dome`, `engrave`, `bar`,
   `pill`, `badge`, status `capsule` colours) from `Main.dc.html`. Use them through `useDepth()`, `Surface`
   and `Ground`. Never hand-roll a shadow.
+- **Settings-board tokens** (Team, Hours, Services, Settings boards): `thumb` (switch thumb, white in both
+  schemes), `segment` (selected segment; `#5A5C66`-`#484A53` in dark), `glass` (frosted back pill),
+  `navFade` (the fade under the status bar), `rowPressed`, `wheel*` (time wheel), `sheet`/`sheetFade`/
+  `grabber`/`scrim` (form sheet), `domeRing`/`domeTint` (ringed and tint avatars), `tintWash`, and the colours
+  `destructiveText` (red text on a surface) and `hairline`. `SYSTEM_COLORS` holds the eight calendar colours with
+  their dark variants (`resolveSystemColor` swaps a stored hex for the scheme). The tint gradient of `primary`
+  and `domeTint` is the boards' 16% lighter / 10% darker one; domes are lit by the boards' radial highlight.
 - **Type scale** (`tokens/typography.ts`, mirrored as `text-*` classes): large title 34/41, section 22/28,
   title 17/22, subtitle 15/20, meta 13/18, button 17/22 semibold. Nothing a person must read is under 15px.
 - **Spacing** (4/8 grid), **radii**, **motion** durations and **z-index** are tables in `tokens/`; use the
@@ -79,6 +88,23 @@ components. Nothing in the package imports the app (`@/…`), and the app import
 - Strings: the package owns only accessibility labels and the fixed state screens (`lib/strings.ts`,
   `DS_STRINGS`). They read the host's i18n keys and fall back to English; `src/lib/__tests__/ds-strings.test.ts`
   keeps `en-US.json` equal to the defaults. Everything else arrives as props.
+
+## Glass-nav screens, sheets and the settings kit
+
+The settings sub-screens (Team, Hours, Services) have no large title. `GlassPage` is their shell: content scrolls
+under a fade (`navFade`, status-bar inset + 44pt), a frosted `BackPill variant="glass"` sits at the left of the 44pt
+nav row and the title is centred in it (17pt semibold). Pass `onBack` for a detail view that returns to its list.
+The editor of a record is a `FormSheet` (RN `Modal`, full height, grabber, Cancel + title, pinned footer); wrap the
+screen in `Presenter active={open}` so it shrinks to 94% behind it as iOS cards do. **Dialogs cannot sit inside a
+`FormSheet`**: `ConfirmDialog` portals to the root host, which is behind a native modal, so close the sheet and open
+the dialog from the screen. `DestructiveRow` is the red last row of a card; `GLYPHS` are the Settings board's own line icons for `GroupRow icon`.
+
+Building blocks: `Group radius={22|26}` (lists use 22, cards 26), `GroupBlock` for a custom row with its engraved
+line, `GroupRow` metrics per the boards (glyph row 56pt / 14pt gap, avatar row 64pt, text row 60pt), `SegmentedControl
+variant="choice"` (40pt pill, radio semantics), `Chip variant="choice|toggle"` (44pt, optional colour dot),
+`Stepper`, `InlineInsetInput`, `TimeField` + `TimeWheel`, `Disclosure`, `TintLink variant="action"`, `ColorSwatches`,
+`Avatar ring|tone="tint"|size="hero"`. The primary button's label carries the boards' 1pt soft text shadow
+(`TextStyleContext`).
 
 ## Accessibility rules
 
@@ -127,6 +153,7 @@ subtree (CSS variables and depth tokens), so both can be compared on one screen.
 
 - `Screen` plus `StackHeader` (the classic shell) still power the booking detail, cancel, reschedule and new
   booking screens until they are restyled to the depth `Page`.
-- The tab bar has no backdrop blur: it is 94% opaque as in the design; domes use a linear highlight.
+- The tab bar has no backdrop blur: it is 94% opaque as in the design. The glass back pill and the form sheet
+  footer use `expo-blur`; the nav fade is a plain gradient because React Native has no mask for a blurred layer.
 - There is no `@testing-library/react-native` in the repo; tests use `react-test-renderer` through
   `src/testing/render.tsx`.

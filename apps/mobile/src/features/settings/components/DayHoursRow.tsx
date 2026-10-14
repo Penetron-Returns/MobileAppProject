@@ -1,12 +1,27 @@
-import { Surface, Switch, Text, useDepth } from '@booking/ui';
+import {
+  GroupBlock,
+  IconButton,
+  Pressable,
+  Switch,
+  Text,
+  TimeField,
+  TimeWheel,
+  TintLink,
+  useDepth,
+} from '@booking/ui';
 import { Plus, X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { formatTimeOfDay } from '@/lib/time';
 
 import type { DayHours, TimeRange } from '../logic';
+
+export interface PickedTime {
+  index: number;
+  field: keyof TimeRange;
+}
 
 interface DayHoursRowProps {
   day: DayHours;
@@ -14,37 +29,82 @@ interface DayHoursRowProps {
   label: string;
   editable: boolean;
   showSeparator?: boolean;
+  /** The time whose wheel is open under this row, if any. */
+  picked: PickedTime | null;
   onToggle: (isOpen: boolean) => void;
   onPick: (index: number, field: keyof TimeRange) => void;
+  onClosePicker: () => void;
+  onChangeTime: (index: number, field: keyof TimeRange, time: string) => void;
   onAddRange: () => void;
   onRemoveRange: (index: number) => void;
 }
 
-/** One weekday inside a `Group`: name, switch, and its tappable time ranges. */
+/**
+ * One weekday of the Hours group (board: 56pt row, 92pt name, a pair of time
+ * fields, the switch; the wheel opens under the row). Extra ranges (split
+ * shifts) repeat the pair on further lines.
+ */
 export function DayHoursRow({
   day,
   label,
   editable,
   showSeparator,
+  picked,
   onToggle,
   onPick,
+  onClosePicker,
+  onChangeTime,
   onAddRange,
   onRemoveRange,
 }: DayHoursRowProps) {
   const { t } = useTranslation();
   const depth = useDepth();
+  const range = picked ? day.ranges[picked.index] : undefined;
+  const hasPicker = day.isOpen && picked !== null && range !== undefined;
+
   return (
-    <View className="px-4 py-1.5">
-      {showSeparator ? (
-        <Surface
-          variant="engrave"
-          className="absolute left-4 right-0 top-0 h-0.5"
-        />
-      ) : null}
-      <View className="min-h-12 flex-row items-center gap-3">
-        <Text className="w-28 text-title">{label}</Text>
-        <View className="min-w-0 flex-1 items-end">
-          {day.isOpen ? null : (
+    <GroupBlock showSeparator={showSeparator}>
+      <View className="min-h-14 flex-row items-center gap-2 px-4 py-2">
+        <Text className="w-[92px] text-title">{label}</Text>
+        <View className="min-w-0 flex-1 items-end gap-1.5">
+          {day.isOpen ? (
+            day.ranges.map((r, index) => (
+              <View key={index} className="flex-row items-center gap-1.5">
+                {editable && index > 0 ? (
+                  <IconButton
+                    icon={X}
+                    size="sm"
+                    variant="plain"
+                    label={t('hours.removeRange')}
+                    onPress={() => onRemoveRange(index)}
+                  />
+                ) : null}
+                {(['opens', 'closes'] as const).map((field, i) => (
+                  <React.Fragment key={field}>
+                    {i === 1 ? (
+                      <Text
+                        importantForAccessibility="no"
+                        style={{ color: depth.colors.secondary }}
+                        className="text-title"
+                      >
+                        -
+                      </Text>
+                    ) : null}
+                    <TimeField
+                      value={formatTimeOfDay(r[field], false)}
+                      label={t(`hours.field.${field}`, {
+                        day: label,
+                        time: formatTimeOfDay(r[field], false),
+                      })}
+                      active={picked?.index === index && picked.field === field}
+                      disabled={!editable}
+                      onPress={() => onPick(index, field)}
+                    />
+                  </React.Fragment>
+                ))}
+              </View>
+            ))
+          ) : (
             <Text className="text-title text-muted-foreground">
               {t('hours.closed')}
             </Text>
@@ -57,89 +117,42 @@ export function DayHoursRow({
           accessibilityLabel={t('hours.toggle', { day: label })}
         />
       </View>
-      {day.isOpen ? (
-        <View className="pb-1">
-          {day.ranges.map((range, index) => (
-            <View key={index} className="min-h-11 flex-row items-center gap-1">
-              <TimeLink
-                value={range.opens}
-                label={t('hours.pick.opens', { day: label })}
-                disabled={!editable}
-                onPress={() => onPick(index, 'opens')}
-              />
-              <Text className="text-title text-muted-foreground">
-                {t('hours.to')}
-              </Text>
-              <TimeLink
-                value={range.closes}
-                label={t('hours.pick.closes', { day: label })}
-                disabled={!editable}
-                onPress={() => onPick(index, 'closes')}
-              />
-              {editable && day.ranges.length > 1 ? (
-                <Pressable
-                  onPress={() => onRemoveRange(index)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('hours.removeRange')}
-                  className="h-11 w-11 items-center justify-center"
-                >
-                  <X
-                    size={18}
-                    strokeWidth={2.4}
-                    color={depth.colors.secondary}
-                  />
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-          {editable ? (
+      {hasPicker ? (
+        <View className="px-4 pb-3.5">
+          <View className="flex-row items-center justify-between px-1 pb-1.5">
+            <Text className="text-subtitle text-muted-foreground">
+              {t(`hours.pick.${picked.field}`, { day: label })}
+            </Text>
             <Pressable
-              onPress={onAddRange}
+              onPress={onClosePicker}
               accessibilityRole="button"
-              accessibilityLabel={t('hours.addRange')}
-              className="min-h-11 flex-row items-center gap-1.5 self-start"
+              accessibilityLabel={t('hours.done')}
+              className="min-h-11 justify-center pl-3"
             >
-              <Plus size={18} strokeWidth={2.4} color={depth.colors.tint} />
               <Text
                 style={{ color: depth.colors.tint }}
-                className="text-subtitle"
+                className="text-title font-semibold"
               >
-                {t('hours.addRange')}
+                {t('hours.done')}
               </Text>
             </Pressable>
+          </View>
+          <TimeWheel
+            value={range[picked.field]}
+            onChange={(time) => onChangeTime(picked.index, picked.field, time)}
+            hourLabel={(value) => t('hours.hour', { value })}
+            minuteLabel={(value) => t('hours.minutes', { value })}
+          />
+          {editable ? (
+            <TintLink
+              icon={Plus}
+              label={t('hours.addRange')}
+              onPress={onAddRange}
+              className="mt-1"
+            />
           ) : null}
         </View>
       ) : null}
-    </View>
-  );
-}
-
-function TimeLink({
-  value,
-  label,
-  disabled,
-  onPress,
-}: {
-  value: string;
-  label: string;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  const depth = useDepth();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}, ${formatTimeOfDay(value)}`}
-      className="min-h-11 min-w-16 justify-center"
-    >
-      <Text
-        style={{ color: disabled ? depth.colors.label : depth.colors.tint }}
-        className="text-title"
-      >
-        {formatTimeOfDay(value)}
-      </Text>
-    </Pressable>
+    </GroupBlock>
   );
 }

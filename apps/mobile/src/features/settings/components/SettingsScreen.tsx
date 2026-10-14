@@ -1,168 +1,206 @@
 import {
   Avatar,
+  GLYPHS,
   Group,
   GroupRow,
   Page,
+  Pressable,
   SectionTitle,
-  Surface,
   Switch,
   Text,
   useAppColorScheme,
+  useDepth,
+  type GlyphComponent,
 } from '@booking/ui';
 import { useOrganization, useUser } from '@clerk/expo';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import {
-  Bell,
-  Clock,
-  MessageCircle,
-  Scissors,
-  SlidersHorizontal,
-  Store,
-  Users,
-} from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { useSignOut } from '@/features/auth/useSignOut';
 import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
+import { useServices, useStaff } from '@/features/catalog/hooks';
 import { Gate } from '@/features/plans/components/Gate';
-import { useSignOut } from '@/features/auth/useSignOut';
-import { formatPhone } from '@/lib/format';
 
-import { settingsGroups } from '../navigation';
+import {
+  appVersionLabel,
+  settingsGroups,
+  type SettingsGroup,
+  type SettingsItem,
+} from '../navigation';
 
-const ICONS = {
-  businessDetails: Store,
-  hours: Clock,
-  services: Scissors,
-  team: Users,
-  rules: SlidersHorizontal,
-  notifications: Bell,
-} as const;
+const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
+  businessDetails: GLYPHS.store,
+  hours: GLYPHS.clock,
+  services: GLYPHS.scissors,
+  team: GLYPHS.team,
+  rules: GLYPHS.sliders,
+  whatsapp: GLYPHS.chat,
+  notifications: GLYPHS.bell,
+};
 
-/** Settings: your business, WhatsApp, account. Staff only see their account. */
+const ROUTES: Record<SettingsItem, string> = {
+  businessDetails: '/settings/business-details',
+  hours: '/settings/operating-hours',
+  services: '/settings/services',
+  team: '/settings/team',
+  rules: '/settings/booking-rules',
+  whatsapp: '/settings/whatsapp',
+  notifications: '/settings/notifications',
+};
+
+type Translate = (key: string, values?: Record<string, unknown>) => string;
+
+/**
+ * Settings, per the board: the business (or the person, for staff), then the
+ * groups the role may open, Sign out and the app version. Staff see only
+ * Notifications; the API refuses the rest anyway.
+ */
 export function SettingsScreen() {
   const { t } = useTranslation();
+  const depth = useDepth();
   const signOut = useSignOut();
   const { user } = useUser();
   const { organization } = useOrganization();
   const me = useMe();
+  const services = useServices();
+  const staff = useStaff();
+  const whatsapp = useWhatsAppAccount();
   const { isDark, toggle } = useAppColorScheme();
   const isOwner = me.data?.role !== 'staff';
-  const groups = settingsGroups(isOwner);
   const userName =
     user?.fullName || user?.primaryEmailAddress?.emailAddress || '';
   const title = isOwner ? (organization?.name ?? userName) : userName;
   const role = me.data ? t(`settings.roles.${me.data.role}`) : '';
 
+  const details: Partial<Record<SettingsItem, string>> = {
+    services: services.data ? String(services.data.length) : undefined,
+    team: staff.data ? String(staff.data.length) : undefined,
+    whatsapp: whatsappDetail(t, whatsapp.data),
+  };
+
+  const renderGroup = (group: SettingsGroup) => {
+    const content = (
+      <React.Fragment key={group.id}>
+        {group.titled ? (
+          <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
+        ) : (
+          <View className="mt-7" />
+        )}
+        <Group radius={26}>
+          {group.items.map((item, i) => (
+            <GroupRow
+              key={item}
+              showSeparator={i > 0}
+              icon={GLYPH_FOR[item]}
+              title={t(`settings.items.${item}`)}
+              detail={details[item]}
+              detailTone={
+                item === 'whatsapp' && whatsapp.data?.status === 'live'
+                  ? 'success'
+                  : 'secondary'
+              }
+              onPress={() => router.push(ROUTES[item] as never)}
+            />
+          ))}
+          {group.id === 'account' && isOwner ? (
+            <GroupRow
+              showSeparator
+              title={t('settings.darkMode')}
+              trailing={
+                <Switch
+                  checked={isDark}
+                  onCheckedChange={toggle}
+                  accessibilityLabel={t('settings.darkMode')}
+                />
+              }
+            />
+          ) : null}
+        </Group>
+      </React.Fragment>
+    );
+    // Our own WhatsApp booking menu is a Free-plan feature.
+    return group.id === 'customize' ? (
+      <Gate key={group.id} feature="whatsapp_menu">
+        {content}
+      </Gate>
+    ) : (
+      content
+    );
+  };
+
+  const profile = (
+    <View className="mx-5 mt-4 min-h-[72px] flex-row items-center gap-3.5">
+      <Avatar name={title} size="lg" tone="tint" />
+      <View className="min-w-0 flex-1">
+        <Text
+          numberOfLines={1}
+          className="text-[20px] font-semibold leading-[25px]"
+        >
+          {title}
+        </Text>
+        <Text className="text-subtitle text-muted-foreground">{role}</Text>
+      </View>
+      {isOwner ? (
+        <ChevronRight
+          size={14}
+          strokeWidth={2.8}
+          color={depth.colors.secondary}
+        />
+      ) : null}
+    </View>
+  );
+
   return (
     <Page title={t('settings.title')} isTab>
-      <Pressable
-        onPress={
-          isOwner
-            ? () => router.push('/settings/business-details' as never)
-            : undefined
-        }
-        disabled={!isOwner}
-        accessibilityRole={isOwner ? 'button' : 'text'}
-        accessibilityLabel={`${title}, ${role}`}
-        className="mt-4"
-      >
-        <Surface
-          variant="raised"
-          className="mx-5 min-h-[72px] flex-row items-center gap-3.5 px-4 py-3"
+      {isOwner ? (
+        <Pressable
+          onPress={() => router.push(ROUTES.businessDetails as never)}
+          accessibilityRole="button"
+          accessibilityLabel={`${title}, ${role}`}
         >
-          <Avatar name={title} />
-          <View className="min-w-0 flex-1">
-            <Text numberOfLines={1} className="text-title font-semibold">
-              {title}
-            </Text>
-            <Text className="text-subtitle text-muted-foreground">{role}</Text>
-          </View>
-        </Surface>
-      </Pressable>
+          {profile}
+        </Pressable>
+      ) : (
+        <View accessible accessibilityLabel={`${title}, ${role}`}>
+          {profile}
+        </View>
+      )}
 
-      {groups.map((group) => (
-        <React.Fragment key={group.id}>
-          <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
-          <Group>
-            {group.items.map((item, i) => (
-              <GroupRow
-                key={item}
-                showSeparator={i > 0}
-                icon={ICONS[item]}
-                title={t(`settings.items.${item}`)}
-                onPress={() => router.push(ROUTES[item] as never)}
-              />
-            ))}
-            {group.id === 'account' ? (
-              <GroupRow
-                showSeparator
-                title={t('settings.darkMode')}
-                trailing={
-                  <Switch
-                    checked={isDark}
-                    onCheckedChange={toggle}
-                    accessibilityLabel={t('settings.darkMode')}
-                  />
-                }
-              />
-            ) : null}
-          </Group>
-          {/* Our own WhatsApp booking menu is a Free-plan feature. */}
-          {group.id === 'business' && isOwner ? (
-            <Gate feature="whatsapp_menu">
-              <WhatsAppRow />
-            </Gate>
-          ) : null}
-        </React.Fragment>
-      ))}
+      {settingsGroups(isOwner).map(renderGroup)}
 
       <Pressable
         onPress={() => void signOut()}
         accessibilityRole="button"
         accessibilityLabel={t('common.signOut')}
-        className="mx-5 mt-7 min-h-12 items-center justify-center active:opacity-50"
+        className="mx-5 mt-5 min-h-[52px] items-center justify-center"
       >
-        <Text className="text-title text-destructive">
+        <Text
+          style={{ color: depth.colors.destructiveText }}
+          className="text-title"
+        >
           {t('common.signOut')}
         </Text>
       </Pressable>
+      <Text className="mx-5 mt-1 text-center text-meta text-muted-foreground">
+        {appVersionLabel(
+          t('auth.appName'),
+          Constants.expoConfig?.version ?? '',
+          Constants.nativeBuildVersion ?? null,
+        )}
+      </Text>
     </Page>
   );
 }
 
-const ROUTES = {
-  businessDetails: '/settings/business-details',
-  hours: '/settings/operating-hours',
-  services: '/settings/services',
-  team: '/settings/staff-management',
-  rules: '/settings/booking-rules',
-  notifications: '/settings/notifications',
-} as const;
-
-function WhatsAppRow() {
-  const { t } = useTranslation();
-  const account = useWhatsAppAccount();
-  const status = account.data?.status ?? null;
-  const detail = status
-    ? t(`settings.whatsapp.status.${status}`, {
-        phone: formatPhone(account.data?.display_phone ?? ''),
-      })
-    : t('settings.whatsapp.notConnected');
-  return (
-    <>
-      <SectionTitle>{t('settings.groups.whatsapp')}</SectionTitle>
-      <Group>
-        <GroupRow
-          icon={MessageCircle}
-          title={t('settings.whatsapp.title')}
-          detail={detail}
-          detailTone={status === 'live' ? 'success' : 'secondary'}
-          onPress={() => router.push('/settings/whatsapp' as never)}
-        />
-      </Group>
-    </>
-  );
+function whatsappDetail(
+  t: Translate,
+  account: { status: string; display_phone: string | null } | null | undefined,
+): string | undefined {
+  if (account === undefined) return undefined;
+  return t(`settings.whatsapp.rowStatus.${account?.status ?? 'none'}`);
 }

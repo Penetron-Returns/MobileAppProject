@@ -13,9 +13,14 @@ export interface ChipProps {
   onPress: () => void;
   /**
    * `filter` is a row of single-select filters (radio semantics, 40pt pill);
-   * `time` is a bookable time or staff pill (button semantics, 76pt wide).
+   * `time` is a bookable time or staff pill (button semantics, 76pt wide);
+   * `choice` is a 44pt option in a form (radio semantics, raised when off);
+   * `toggle` is the same pill for a multi-select (button semantics), with an
+   * optional colour dot ("Who does it").
    */
-  variant?: 'filter' | 'time';
+  variant?: 'filter' | 'time' | 'choice' | 'toggle';
+  /** Small colour dot before the label (a team member's calendar colour). */
+  dotColor?: string | null;
   accessibilityLabel?: string;
 }
 
@@ -25,43 +30,56 @@ export function Chip({
   selected,
   onPress,
   variant = 'time',
+  dotColor,
   accessibilityLabel,
 }: ChipProps) {
   const depth = useDepth();
   const isFilter = variant === 'filter';
+  const isOption = variant === 'choice' || variant === 'toggle';
+  const isRadio = isFilter || variant === 'choice';
+  const textStyle = isFilter
+    ? undefined
+    : {
+        color: selected ? depth.colors.onFill : depth.colors.label,
+        fontVariant: ['tabular-nums' as const],
+      };
   return (
     <Pressable
       onPress={onPress}
       feedback="none"
-      accessibilityRole={isFilter ? 'radio' : 'button'}
+      accessibilityRole={isRadio ? 'radio' : 'button'}
       accessibilityState={
-        isFilter ? { selected, checked: selected } : { selected }
+        isRadio ? { selected, checked: selected } : { selected }
       }
       accessibilityLabel={accessibilityLabel ?? label}
-      className={cn('min-h-11 justify-center', !isFilter && 'min-w-[76px]')}
+      className={cn(
+        'min-h-11 justify-center',
+        !isFilter && !isOption && 'min-w-[76px]',
+      )}
     >
       <View
         style={[
-          selected ? depth.primary : depth.button,
+          selected ? depth.primary : isOption ? depth.raised : depth.button,
           { borderRadius: isFilter ? RADII.pill : RADII.full },
         ]}
         className={cn(
-          'items-center justify-center px-4',
-          isFilter ? 'h-10' : 'h-11',
+          'items-center justify-center',
+          isFilter ? 'h-10 px-4' : 'h-11',
+          !isFilter && (dotColor ? 'flex-row gap-2 pl-3.5 pr-[18px]' : 'px-4'),
+          isOption && !dotColor && 'px-[18px]',
         )}
       >
+        {dotColor ? (
+          <View
+            style={{ backgroundColor: dotColor }}
+            className="h-2 w-2 rounded-full"
+          />
+        ) : null}
         <Text
-          style={
-            isFilter
-              ? undefined
-              : {
-                  color: selected ? depth.colors.onFill : depth.colors.label,
-                  fontVariant: ['tabular-nums'],
-                }
-          }
+          style={textStyle}
           className={cn(
             isFilter ? 'text-subtitle' : 'text-title',
-            'font-semibold',
+            !isOption && 'font-semibold',
             isFilter && selected && 'text-primary-foreground',
           )}
         >

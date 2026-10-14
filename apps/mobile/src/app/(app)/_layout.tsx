@@ -7,14 +7,27 @@ import { useTranslation } from 'react-i18next';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
+import { JoinScreen } from '@/features/join/components/JoinScreen';
+import { usePendingInvitations } from '@/features/join/hooks';
 import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import {
   resolveAppRoute,
+  type InvitationsInput,
   type MeStatus,
   type SessionTaskKey,
 } from '@/features/auth/appRoute';
 import { isApiError } from '@/lib/api';
+
+function toInvitationsInput(
+  enabled: boolean,
+  query: { isSuccess: boolean; isError: boolean; data?: readonly unknown[] },
+): InvitationsInput {
+  if (!enabled) return { status: 'idle', count: 0 };
+  if (query.isSuccess)
+    return { status: 'ready', count: query.data?.length ?? 0 };
+  return { status: query.isError ? 'error' : 'loading', count: 0 };
+}
 
 function toMeStatus(
   enabled: boolean,
@@ -52,12 +65,18 @@ export default function AppLayout() {
   const { setActive } = useClerk();
   const { t } = useTranslation();
   const [inOnboarding, setInOnboarding] = React.useState(false);
+  const [joinDeclined, setJoinDeclined] = React.useState(false);
 
   const membershipOrgIds = React.useMemo(
     () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
     [user?.organizationMemberships],
   );
   const hasOrg = Boolean(isSignedIn && orgId);
+  // Invitations only matter to someone with no organisation to open.
+  const asksInvitations = Boolean(
+    isSignedIn && userLoaded && !orgId && membershipOrgIds.length === 0,
+  );
+  const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
   useAppointmentsRealtime(hasOrg);
 
@@ -75,6 +94,8 @@ export default function AppLayout() {
     activeOrgId: orgId ?? null,
     membershipOrgIds,
     me: toMeStatus(hasOrg, me),
+    invitations: toInvitationsInput(asksInvitations, invitations),
+    joinDeclined,
     inOnboarding,
   });
 
@@ -98,6 +119,13 @@ export default function AppLayout() {
       return <CenteredSpinner />;
     case 'signed-out':
       return <Redirect href="/sign-in" />;
+    case 'join':
+      return (
+        <JoinScreen
+          invitations={invitations.data ?? []}
+          onDecline={() => setJoinDeclined(true)}
+        />
+      );
     case 'onboarding':
       return <OnboardingFlow onDone={() => setInOnboarding(false)} />;
     case 'unsupported-task':
@@ -186,7 +214,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings/staff-management"
+        name="settings/team"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },

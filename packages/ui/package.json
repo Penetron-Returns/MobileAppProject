@@ -39,6 +39,7 @@
     "@rn-primitives/tooltip": "*",
     "class-variance-authority": "*",
     "clsx": "*",
+    "expo-blur": "*",
     "expo-router": "*",
     "lucide-react-native": "*",
     "nativewind": "^4",
@@ -48,6 +49,7 @@
     "react-native": "*",
     "react-native-reanimated": "*",
     "react-native-safe-area-context": "*",
+    "react-native-svg": "*",
     "react-native-screens": "*",
     "tailwind-merge": "*"
   }
