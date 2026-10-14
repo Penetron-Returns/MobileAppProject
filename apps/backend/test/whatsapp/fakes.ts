@@ -189,6 +189,9 @@ export function fakeBooking(world: World): BookingService {
       const ids = world.staffServices[serviceId] ?? [];
       return world.staff.filter((s) => ids.includes(s.id));
     },
+    async listAppointments() {
+      return [];
+    },
     async listAvailableDays(q) {
       log('listAvailableDays', q);
       return world.days.filter((d) => d >= q.from && d <= q.to);

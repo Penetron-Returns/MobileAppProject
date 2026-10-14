@@ -35,8 +35,22 @@ export function createEntitlementService(deps: { db: Db }): EntitlementService {
     };
   }
 
+  /** Plans that unlock a feature, then the businesses on them (keyset on id). */
+  async function listBusinessIdsWithFeature(feature: FeatureKey, opts: { after?: UUID; limit: number }): Promise<UUID[]> {
+    const plans = await deps.db.from('plan_features').select('plan').eq('feature', feature);
+    if (plans.error) throw mapDbError(plans.error);
+    const planKeys = [...new Set((plans.data ?? []).map((row) => row.plan))];
+    if (planKeys.length === 0) return [];
+    let query = deps.db.from('businesses').select('id').in('plan', planKeys);
+    if (opts.after) query = query.gt('id', opts.after);
+    const businesses = await query.order('id').limit(opts.limit);
+    if (businesses.error) throw mapDbError(businesses.error);
+    return (businesses.data ?? []).map((row) => row.id);
+  }
+
   return {
     getEntitlements,
+    listBusinessIdsWithFeature,
     async hasFeature(businessId, feature) {
       const { features } = await getEntitlements(businessId);
       return features.some((f) => f.feature === feature);
