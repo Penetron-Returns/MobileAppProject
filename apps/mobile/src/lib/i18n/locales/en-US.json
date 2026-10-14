@@ -8,6 +8,7 @@
     "confirm": "Confirm",
     "save": "Save",
     "search": "Search",
+    "clearSearch": "Clear search",
     "signOut": "Sign out",
     "saveChanges": "Save Changes",
     "saving": "Saving...",
@@ -190,8 +191,6 @@
       "title": "Couldn't load today",
       "description": "Check your connection and try again."
     },
-    "offline": "Offline · showing what we had at {{time}}",
-    "offlineNoTime": "Offline · showing what we had saved",
     "loading": "Loading today"
   },
   "noBusiness": {
@@ -210,6 +209,7 @@
     "invalidPrice": "Enter a price like 250 or 250.00."
   },
   "calendar": {
+    "viewSwitch": "Calendar view",
     "today": "Today",
     "goToToday": "Go to today",
     "closed": "Closed",

@@ -1,12 +1,9 @@
+import { Surface, Switch, Text, useDepth } from '@booking/ui';
 import { Plus, X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 import { formatTimeOfDay } from '@/lib/time';
 
 import type { DayHours, TimeRange } from '../logic';

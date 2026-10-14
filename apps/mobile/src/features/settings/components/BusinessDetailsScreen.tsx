@@ -1,10 +1,9 @@
+import { ErrorState, ListSkeleton, Page } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Page } from '@/components/Page';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
+import { describeError } from '@/lib/toast';
 import { useBusinessDetails } from '@/features/business/hooks';
 
 import { BusinessDetailsForm } from './BusinessDetailsForm';
@@ -22,8 +21,9 @@ export function BusinessDetailsScreen() {
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
       {details.isError ? (
-        <ErrorScreen
-          error={details.error}
+        <ErrorState
+          variant="banner"
+          {...describeError(details.error)}
           onRetry={() => void details.refetch()}
         />
       ) : (

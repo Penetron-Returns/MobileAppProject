@@ -1,9 +1,6 @@
+import { Ground, useDepth, withAlpha } from '@booking/ui';
 import * as React from 'react';
 import { View } from 'react-native';
-
-import { Ground } from '@/components/Ground';
-import { useDepth } from '@/hooks/useDepth';
-import { withAlpha } from '@/lib/depth';
 
 /** Ground gradient plus the soft accent glow at the top of the sign-in board. */
 export function AuthBackdrop({ children }: { children: React.ReactNode }) {

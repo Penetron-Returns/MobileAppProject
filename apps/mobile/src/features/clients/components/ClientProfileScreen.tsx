@@ -1,3 +1,17 @@
+import {
+  Avatar,
+  Capsule,
+  ErrorState,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  Page,
+  SectionTitle,
+  Surface,
+  Switch,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Calendar, UserX, type LucideIcon } from 'lucide-react-native';
@@ -5,20 +19,10 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
-import { Capsule } from '@/components/Capsule';
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { InitialsDome } from '@/components/InitialsDome';
-import { Page } from '@/components/Page';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Surface } from '@/components/Surface';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import { useBusiness } from '@/features/business/hooks';
-import { useDepth } from '@/hooks/useDepth';
 import { formatPhone } from '@/lib/format';
 import { formatDateMedium, businessDate } from '@/lib/time';
-import { toast } from '@/lib/toast';
+import { toast, describeError } from '@/lib/toast';
 
 import { useClient, useUpdateClient, type ClientProfile } from '../hooks';
 import { VIP_TAG } from '../logic';
@@ -39,8 +43,9 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
   let body: React.ReactNode;
   if (client.isError || business.isError) {
     body = (
-      <ErrorScreen
-        error={client.error ?? business.error}
+      <ErrorState
+        variant="banner"
+        {...describeError(client.error ?? business.error)}
         onRetry={() => {
           void client.refetch();
           void business.refetch();
@@ -102,7 +107,7 @@ function ProfileBody({
   return (
     <>
       <View className="mx-5 mt-2 flex-row items-center gap-3">
-        <InitialsDome name={name} size="xl" />
+        <Avatar name={name} size="xl" />
         <View className="min-w-0 flex-1 gap-1">
           <Text className="text-subtitle text-muted-foreground">
             {t('clients.profile.since', { date: joined })}

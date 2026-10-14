@@ -1,12 +1,12 @@
+import { CenteredSpinner, FloatingTabBar } from '@booking/ui';
 import { useAuth, useOrganization, useOrganizationList } from '@clerk/expo';
 import { Redirect, Tabs } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CenteredSpinner } from '@/components/States';
-import { FloatingTabBar } from '@/components/tab-bar/FloatingTabBar';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
+import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { isApiError } from '@/lib/api';
 
@@ -73,7 +73,9 @@ export default function AppLayout() {
       // Detail pages are hidden tabs, so back must follow history, not jump to the first tab.
       backBehavior="history"
       // The floating capsule draws itself (icons, labels and the centre "+").
-      tabBar={(props) => <FloatingTabBar {...props} />}
+      tabBar={(props) => (
+        <FloatingTabBar {...props} inbox={<InboxEntryDome />} />
+      )}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />

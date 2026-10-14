@@ -1,11 +1,8 @@
+import { useAppColorScheme, useRestoreColorScheme } from '@booking/ui';
 import { ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as React from 'react';
 import { StatusBar } from 'expo-status-bar';
 
-import {
-  useAppColorScheme,
-  useRestoreColorScheme,
-} from '@/hooks/useAppColorScheme';
 import { NAV_THEME } from '@/lib/theme';
 
 /**

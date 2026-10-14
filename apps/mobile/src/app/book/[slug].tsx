@@ -1,8 +1,6 @@
+import { EmptyState, Screen } from '@booking/ui';
 import { useLocalSearchParams } from 'expo-router';
 import { Globe } from 'lucide-react-native';
-
-import { Screen } from '@/components/Screen';
-import { EmptyState } from '@/components/States';
 
 /**
  * Public web-booking comparator (`docs/BUILD_PLAN.md` §4, `/public/b/:slug`).

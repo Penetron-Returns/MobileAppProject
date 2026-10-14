@@ -1,5 +1,5 @@
 ---
-paths: apps/mobile/src/features/**/components/*Form*.tsx,apps/mobile/src/features/**/*schema*.ts,apps/mobile/src/components/FormField.tsx
+paths: apps/mobile/src/features/**/components/*Form*.tsx,apps/mobile/src/features/**/*schema*.ts,packages/ui/src/components/FormField.tsx,packages/ui/src/components/GroupField.tsx
 description: Rules for forms with react-hook-form, zod validation and API error mapping
 ---
 

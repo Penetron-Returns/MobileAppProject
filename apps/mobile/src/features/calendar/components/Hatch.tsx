@@ -1,8 +1,6 @@
+import { useDepth, withAlpha } from '@booking/ui';
 import * as React from 'react';
 import Svg, { Defs, Line, Pattern, Rect } from 'react-native-svg';
-
-import { withAlpha } from '@/lib/depth';
-import { useDepth } from '@/hooks/useDepth';
 
 /** Diagonal stripes over a region of the grid that is outside working hours. */
 export function Hatch({ width, height }: { width: number; height: number }) {

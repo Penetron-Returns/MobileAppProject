@@ -1,35 +1,8 @@
-import { useSyncExternalStore } from 'react';
+import { showToast } from '@booking/ui';
 
 import i18n from '@/lib/i18n';
 
 import { isApiError } from './api';
-
-export type ToastKind = 'success' | 'error' | 'info';
-export interface ToastItem {
-  id: number;
-  kind: ToastKind;
-  title: string;
-  description?: string;
-  requestId?: string | null;
-}
-
-let items: ToastItem[] = [];
-let seq = 1;
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach((l) => l());
-
-function push(t: Omit<ToastItem, 'id'>, ttl = 4500) {
-  const id = seq++;
-  items = [...items.slice(-2), { ...t, id }];
-  emit();
-  setTimeout(() => dismiss(id), ttl);
-  return id;
-}
-
-export function dismiss(id: number) {
-  items = items.filter((t) => t.id !== id);
-  emit();
-}
 
 /** Human message for an error, preferring API codes we know about. */
 export function errorMessage(error: unknown): string {
@@ -42,30 +15,31 @@ export function errorMessage(error: unknown): string {
   return i18n.t('errors.generic');
 }
 
+/**
+ * What the design system's error components need from an error: the message
+ * and the API request id. Spread it: `<ErrorState {...describeError(e)} />`.
+ */
+export function describeError(error: unknown): {
+  message: string;
+  requestId: string | null;
+} {
+  return {
+    message: errorMessage(error),
+    requestId: isApiError(error) ? error.requestId : null,
+  };
+}
+
+/** Toasts that know how to read an API error (the design system only shows them). */
 export const toast = {
   success: (title: string, description?: string) =>
-    push({ kind: 'success', title, description }),
+    showToast({ kind: 'success', title, description }),
   info: (title: string, description?: string) =>
-    push({ kind: 'info', title, description }),
+    showToast({ kind: 'info', title, description }),
   error: (error: unknown, title?: string) =>
-    push(
-      {
-        kind: 'error',
-        title: title ?? errorMessage(error),
-        description: title ? errorMessage(error) : undefined,
-        requestId: isApiError(error) ? error.requestId : null,
-      },
-      7000,
-    ),
+    showToast({
+      kind: 'error',
+      title: title ?? errorMessage(error),
+      description: title ? errorMessage(error) : undefined,
+      requestId: isApiError(error) ? error.requestId : null,
+    }),
 };
-
-export function useToasts(): ToastItem[] {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => items,
-    () => items,
-  );
-}

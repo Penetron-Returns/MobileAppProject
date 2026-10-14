@@ -1,14 +1,10 @@
+import { Avatar, Capsule, Surface, Text, useDepth } from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Capsule } from '@/components/Capsule';
-import { InitialsDome } from '@/components/InitialsDome';
-import { Surface } from '@/components/Surface';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 import { formatPhone } from '@/lib/format';
 import { formatRelativeDate, formatTime, todayISO } from '@/lib/time';
 
@@ -74,7 +70,7 @@ export function ClientRow({
           className="absolute left-[72px] right-0 top-0 h-0.5"
         />
       ) : null}
-      <InitialsDome name={name} />
+      <Avatar name={name} />
       <View className="min-w-0 flex-1">
         <Text numberOfLines={1} className="text-title">
           {name}

@@ -1,11 +1,9 @@
+import { Chip, Surface, Text, useDepth } from '@booking/ui';
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { Surface } from '@/components/Surface';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 import { WEEKDAYS, formatDateLong, type ISODate } from '@/lib/time';
 
 import type { CalendarWeekView } from '../hooks';
@@ -50,21 +48,13 @@ export function WeekView({
             (s) => {
               const selected = s.id === staffId;
               return (
-                <Pressable
+                <Chip
                   key={s.id ?? 'all'}
+                  variant="filter"
+                  label={s.name}
+                  selected={selected}
                   onPress={() => setStaffId(s.id)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                  style={selected ? depth.primary : depth.button}
-                  className="min-h-11 justify-center rounded-full px-4"
-                >
-                  <Text
-                    style={{ color: selected ? '#FFFFFF' : depth.colors.label }}
-                    className="text-subtitle font-semibold"
-                  >
-                    {s.name}
-                  </Text>
-                </Pressable>
+                />
               );
             },
           )}

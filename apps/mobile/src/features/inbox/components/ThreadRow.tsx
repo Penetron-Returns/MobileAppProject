@@ -1,12 +1,9 @@
+import { Avatar, Capsule, cn, Surface, Text } from '@booking/ui';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Capsule } from '@/components/Capsule';
-import { InitialsDome } from '@/components/InitialsDome';
-import { Surface } from '@/components/Surface';
-import { Text } from '@/components/ui/text';
 import { formatPhone } from '@/lib/format';
 import {
   businessDate,
@@ -14,7 +11,6 @@ import {
   formatTime,
   todayISO,
 } from '@/lib/time';
-import { cn } from '@/lib/utils';
 
 import type { InboxThread } from '../hooks';
 import { messageText, needsReply } from '../logic';
@@ -70,7 +66,7 @@ export function ThreadRow({
           className="absolute left-[72px] right-0 top-0 h-0.5"
         />
       ) : null}
-      <InitialsDome name={name} />
+      <Avatar name={name} />
       <View className="min-w-0 flex-1">
         <View className="flex-row items-baseline justify-between gap-2">
           <Text

@@ -3,17 +3,16 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@shared/*": [
-        "../../packages/shared/*"
-      ]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../../packages/shared/*"],
+      "@booking/ui": ["../../packages/ui/src/index.ts"],
+      "@booking/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": [
     "src/**/*",
     "../../packages/shared/**/*",
+    "../../packages/ui/**/*",
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
@@ -22,8 +21,5 @@
     "jest.setup.ts",
     "nativewind-env.d.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "jest.config.js"
-  ]
+  "exclude": ["node_modules", "jest.config.js"]
 }
