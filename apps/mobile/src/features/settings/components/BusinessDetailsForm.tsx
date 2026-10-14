@@ -1,18 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, ChevronDown } from 'lucide-react-native';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
-import { FormField } from '@/components/FormField';
-import { Header } from '@/components/Header';
+import { Group, GroupRow, SectionTitle } from '@/components/Group';
+import { InitialsDome } from '@/components/InitialsDome';
 import { OptionSheet } from '@/components/OptionSheet';
+import { Page } from '@/components/Page';
 import { PersonAvatar } from '@/components/PersonAvatar';
-import { Screen } from '@/components/Screen';
-import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
-import { Textarea } from '@/components/ui/textarea';
 import {
   useUpdateBusiness,
   type BusinessDetails,
@@ -26,6 +22,8 @@ import {
   toUpdateBusinessRequest,
   type BusinessDetailsValues,
 } from '../schemas';
+import { GroupField } from './GroupField';
+import { SaveFooter } from './SaveFooter';
 
 const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'BWP', 'NAD', 'KES', 'NGN'];
 const API_FIELDS = {
@@ -62,136 +60,104 @@ export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
   );
   const currencyLabel = (code: string) =>
     t(`businessDetails.currencies.${code}`, { defaultValue: code });
+  const currency = form.watch('currency');
 
   return (
-    <Screen
-      header={
-        <Header title={t('businessDetails.title')} fallbackHref="/settings" />
-      }
+    <Page
+      title={t('businessDetails.title')}
+      backLabel={t('tabs.settings')}
+      backFallback="/settings"
       footer={
         canManage ? (
-          <Pressable
-            onPress={save}
+          <SaveFooter
+            label={
+              update.isPending ? t('common.saving') : t('common.saveChanges')
+            }
+            onPress={() => void save()}
             disabled={update.isPending}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.saveChanges')}
-            className="bg-primary h-12 w-full flex-row items-center justify-center gap-2 rounded-xl shadow-md active:opacity-90"
-          >
-            <Icon as={Check} size={18} className="text-primary-foreground" />
-            <Text className="text-primary-foreground text-base font-semibold">
-              {update.isPending ? t('common.saving') : t('common.saveChanges')}
-            </Text>
-          </Pressable>
+          />
         ) : undefined
       }
     >
-      <View className="mx-auto w-full max-w-2xl gap-5 pb-6">
-        <View className="bg-card border-border items-center gap-2 rounded-xl border p-5 shadow-sm">
+      <View className="items-center gap-2 pt-4">
+        {initial.logo_url ? (
           <PersonAvatar
             name={initial.name}
             imageUrl={initial.logo_url}
             size="xl"
           />
-          <Text className="text-muted-foreground text-xs">
-            {t('businessDetails.timezone', { tz: initial.timezone })}
-          </Text>
-        </View>
-
-        <Section title={t('businessDetails.info')}>
-          <FormField
-            control={form.control}
-            name="name"
-            label={t('businessDetails.name')}
-            editable={canManage}
-          />
-          <FormField
-            control={form.control}
-            name="email"
-            label={t('businessDetails.email')}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={canManage}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            label={t('businessDetails.phone')}
-            keyboardType="phone-pad"
-            editable={canManage}
-          />
-        </Section>
-
-        <Section title={t('businessDetails.location')}>
-          <FormField
-            control={form.control}
-            name="address"
-            label={t('businessDetails.address')}
-            render={({ value, onChange, onBlur }) => (
-              <Textarea
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                editable={canManage}
-              />
-            )}
-          />
-        </Section>
-
-        <Section title={t('businessDetails.regional')}>
-          <FormField
-            control={form.control}
-            name="currency"
-            label={t('businessDetails.currency')}
-            render={({ value, onChange }) => (
-              <>
-                <Pressable
-                  onPress={() => canManage && setCurrencyOpen(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('businessDetails.currency')}
-                  className="border-border bg-muted/30 min-h-[44px] flex-row items-center justify-between rounded-xl border px-3.5 py-2.5"
-                >
-                  <Text className="text-foreground text-sm font-medium">
-                    {currencyLabel(value)}
-                  </Text>
-                  <Icon
-                    as={ChevronDown}
-                    size={18}
-                    className="text-muted-foreground"
-                  />
-                </Pressable>
-                <OptionSheet
-                  open={currencyOpen}
-                  onOpenChange={setCurrencyOpen}
-                  title={t('businessDetails.currency')}
-                  selected={value}
-                  options={CURRENCIES.map((code) => ({
-                    value: code,
-                    label: currencyLabel(code),
-                  }))}
-                  onSelect={onChange}
-                />
-              </>
-            )}
-          />
-        </Section>
+        ) : (
+          <InitialsDome name={initial.name} size="xl" />
+        )}
       </View>
-    </Screen>
-  );
-}
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View className="bg-card border-border gap-4 rounded-xl border p-5 shadow-sm">
-      <Text className="text-foreground border-border border-b pb-2.5 text-base font-bold">
-        {title}
-      </Text>
-      <View className="gap-3.5">{children}</View>
-    </View>
+      <SectionTitle>{t('settings.details.contact')}</SectionTitle>
+      <Group>
+        <GroupField
+          control={form.control}
+          name="name"
+          label={t('businessDetails.name')}
+          editable={canManage}
+        />
+        <GroupField
+          showSeparator
+          control={form.control}
+          name="email"
+          label={t('businessDetails.email')}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          editable={canManage}
+        />
+        <GroupField
+          showSeparator
+          control={form.control}
+          name="phone"
+          label={t('businessDetails.phone')}
+          keyboardType="phone-pad"
+          editable={canManage}
+        />
+      </Group>
+
+      <SectionTitle>{t('settings.details.address')}</SectionTitle>
+      <Group>
+        <GroupField
+          control={form.control}
+          name="address"
+          label={t('businessDetails.address')}
+          multiline
+          editable={canManage}
+        />
+      </Group>
+
+      <SectionTitle>{t('settings.details.regional')}</SectionTitle>
+      <Group>
+        <GroupRow
+          title={t('businessDetails.currency')}
+          detail={currencyLabel(currency)}
+          onPress={canManage ? () => setCurrencyOpen(true) : undefined}
+          accessibilityLabel={t('settings.details.currencyChange', {
+            value: currencyLabel(currency),
+          })}
+        />
+        <GroupRow
+          showSeparator
+          title={t('settings.details.timezone')}
+          detail={initial.timezone}
+        />
+      </Group>
+      <OptionSheet
+        open={currencyOpen}
+        onOpenChange={setCurrencyOpen}
+        title={t('businessDetails.currency')}
+        selected={currency}
+        options={CURRENCIES.map((code) => ({
+          value: code,
+          label: currencyLabel(code),
+        }))}
+        onSelect={(code) =>
+          form.setValue('currency', code, { shouldDirty: true })
+        }
+      />
+    </Page>
   );
 }
