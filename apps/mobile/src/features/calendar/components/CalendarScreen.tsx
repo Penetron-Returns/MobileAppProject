@@ -1,3 +1,16 @@
+import {
+  ErrorState,
+  Ground,
+  INBOX_DOME_CLEARANCE,
+  OfflineBanner,
+  SegmentedControl,
+  Skeleton,
+  Surface,
+  tabBarClearance,
+  Text,
+  useAppColorScheme,
+  useDepth,
+} from '@booking/ui';
 import { useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
@@ -5,19 +18,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Ground } from '@/components/Ground';
-import { OfflineBanner } from '@/components/OfflineBanner';
-import { RetryCard } from '@/components/RetryCard';
-import { Surface } from '@/components/Surface';
-import {
-  INBOX_DOME_CLEARANCE,
-  tabBarClearance,
-} from '@/components/tab-bar/layout';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import { useBusiness } from '@/features/business/hooks';
-import { useAppColorScheme } from '@/hooks/useAppColorScheme';
-import { useDepth } from '@/hooks/useDepth';
+import { describeError } from '@/lib/toast';
 import {
   WEEKDAYS,
   formatDateLong,
@@ -27,7 +29,6 @@ import {
   weekdayOf,
   type ISODate,
 } from '@/lib/time';
-import { cn } from '@/lib/utils';
 
 import { useCalendarDay, useCalendarWeek } from '../hooks';
 import { shiftAnchor, weekStrip } from '../logic';
@@ -56,10 +57,11 @@ export function CalendarScreen() {
         {tz ? (
           <CalendarContent timezone={tz} />
         ) : business.isError ? (
-          <RetryCard
+          <ErrorState
+            variant="banner"
             title={t('calendar.error.title')}
             description={t('calendar.error.description')}
-            error={business.error}
+            {...describeError(business.error)}
             onRetry={() => void business.refetch()}
           />
         ) : (
@@ -142,10 +144,11 @@ function DayBody({ date }: { date: ISODate }) {
   if (view.status === 'loading') return <CalendarSkeleton />;
   if (view.status === 'error') {
     return (
-      <RetryCard
+      <ErrorState
+        variant="banner"
         title={t('calendar.error.title')}
         description={t('calendar.error.description')}
-        error={view.error}
+        {...describeError(view.error)}
         onRetry={view.retry}
       />
     );
@@ -201,10 +204,11 @@ function WeekBody({
       <View className="w-full max-w-2xl self-center">
         {view.status === 'loading' ? <CalendarSkeleton /> : null}
         {view.status === 'error' ? (
-          <RetryCard
+          <ErrorState
+            variant="banner"
             title={t('calendar.error.title')}
             description={t('calendar.error.description')}
-            error={view.error}
+            {...describeError(view.error)}
             onRetry={view.retry}
           />
         ) : null}
@@ -293,30 +297,17 @@ function CalendarHeader({
         </View>
       </View>
 
-      <Surface
-        variant="inset"
-        radius={12}
-        accessibilityRole="tablist"
-        className="mt-3 flex-row p-0.5"
-      >
-        {VIEWS.map((v) => (
-          <Pressable
-            key={v}
-            onPress={() => onViewChange(v)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: view === v }}
-            accessibilityLabel={t(`calendar.viewLabel.${v}`)}
-            style={view === v ? depth.knob : undefined}
-            className={cn(
-              'min-h-11 flex-1 items-center justify-center rounded-[10px]',
-            )}
-          >
-            <Text className="text-subtitle font-semibold">
-              {t(`calendar.views.${v}`)}
-            </Text>
-          </Pressable>
-        ))}
-      </Surface>
+      <SegmentedControl
+        className="mt-3"
+        label={t('calendar.viewSwitch')}
+        value={view}
+        onChange={onViewChange}
+        options={VIEWS.map((v) => ({
+          accessibilityLabel: t(`calendar.viewLabel.${v}`),
+          label: t(`calendar.views.${v}`),
+          value: v,
+        }))}
+      />
 
       {view === 'day' ? (
         <DayStrip anchor={anchor} today={today} onPick={onAnchor} />

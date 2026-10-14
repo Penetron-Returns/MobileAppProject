@@ -1,12 +1,10 @@
+import { Text, useDepth, withAlpha } from '@booking/ui';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Text } from '@/components/ui/text';
 import type { AppointmentListItem } from '@/features/appointments/hooks';
-import { useDepth } from '@/hooks/useDepth';
-import { withAlpha } from '@/lib/depth';
 import { formatTime } from '@/lib/time';
 
 import { blockTone, type BlockTone } from '../logic';

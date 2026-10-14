@@ -1,15 +1,19 @@
+import {
+  ErrorState,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  OptionSheet,
+  Page,
+  Switch,
+  Text,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { Group, GroupRow, SectionTitle } from '@/components/Group';
-import { OptionSheet } from '@/components/OptionSheet';
-import { Page } from '@/components/Page';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
+import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 
 import { useBookingRules, useSaveBookingRules, type RulePatch } from '../hooks';
@@ -62,7 +66,11 @@ export function BookingRulesScreen() {
     );
   } else if (rules.isError) {
     body = (
-      <ErrorScreen error={rules.error} onRetry={() => void rules.refetch()} />
+      <ErrorState
+        variant="banner"
+        {...describeError(rules.error)}
+        onRetry={() => void rules.refetch()}
+      />
     );
   } else if (rules.isPending) {
     body = <ListSkeleton rows={4} />;

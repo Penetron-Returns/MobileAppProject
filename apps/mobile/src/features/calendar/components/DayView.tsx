@@ -1,3 +1,4 @@
+import { Text, useAppColorScheme, useDepth, withAlpha } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -8,10 +9,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { Text } from '@/components/ui/text';
-import { useAppColorScheme } from '@/hooks/useAppColorScheme';
-import { useDepth } from '@/hooks/useDepth';
-import { withAlpha } from '@/lib/depth';
 import { minutesToTime, type ISODate } from '@/lib/time';
 
 import type { CalendarDayView } from '../hooks';

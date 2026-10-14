@@ -1,23 +1,16 @@
+import { IconButton, OfflineBanner, Page, Surface, Text } from '@booking/ui';
+import { Bell } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshControl, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 
-import { Ground } from '@/components/Ground';
-import { Surface } from '@/components/Surface';
-import {
-  INBOX_DOME_CLEARANCE,
-  tabBarClearance,
-} from '@/components/tab-bar/layout';
-import { Text } from '@/components/ui/text';
-import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 import { formatMoney } from '@/lib/format';
+import { savedCopyLabel } from '@/lib/offline';
+import { toast } from '@/lib/toast';
 
 import { useToday, type TodayView } from '../hooks';
 import { LaterToday } from './LaterToday';
-import { TodayHeader } from './TodayHeader';
 import {
-  OfflineBanner,
   TodayAllDone,
   TodayEmpty,
   TodayError,
@@ -27,61 +20,40 @@ import { UpNextCard } from './UpNextCard';
 
 /** Today: what is next, what is later, and what the day is worth. */
 export function TodayScreen() {
+  const { t } = useTranslation();
   const view = useToday();
-  const { colors } = useAppColorScheme();
-  const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = React.useState(false);
-
-  const refresh = view.status === 'ready' ? view.refresh : null;
-  const onRefresh = React.useCallback(async () => {
-    if (!refresh) return;
-    setRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refresh]);
-
   return (
-    <Ground className="flex-1">
-      <ScrollView
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{
-          paddingTop: insets.top + 8,
-          // Clear the floating tab bar and the Inbox dome above it.
-          paddingBottom: tabBarClearance(insets.bottom) + INBOX_DOME_CLEARANCE,
-        }}
-        refreshControl={
-          refresh ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          ) : undefined
-        }
-      >
-        <View className="w-full max-w-2xl self-center">
-          <TodayHeader
-            caption={view.status === 'ready' ? view.caption : null}
-          />
-          <TodayBody view={view} />
-        </View>
-      </ScrollView>
-    </Ground>
+    <Page
+      title={t('today.title')}
+      caption={view.status === 'ready' ? (view.caption ?? ' ') : ' '}
+      isTab
+      onRefresh={view.status === 'ready' ? view.refresh : undefined}
+      titleRight={
+        <IconButton
+          icon={Bell}
+          label={t('today.notifications')}
+          size="sm"
+          tone="label"
+          onPress={() => toast.info(t('today.noNotifications'))}
+        />
+      }
+    >
+      <TodayBody view={view} />
+    </Page>
   );
 }
 
 function TodayBody({ view }: { view: TodayView }) {
+  const { t } = useTranslation();
   if (view.status === 'loading') return <TodaySkeleton />;
   if (view.status === 'error') {
     return <TodayError error={view.error} onRetry={view.retry} />;
   }
   return (
     <>
-      {view.isOffline ? <OfflineBanner lastUpdated={view.lastUpdated} /> : null}
+      {view.isOffline ? (
+        <OfflineBanner label={savedCopyLabel(t, view.lastUpdated)} />
+      ) : null}
       {view.appointments.length === 0 ? (
         <TodayEmpty />
       ) : view.upNext ? (

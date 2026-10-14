@@ -1,3 +1,16 @@
+import {
+  Button,
+  Chip,
+  ConfirmDialog,
+  FormField,
+  Icon,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  Switch,
+  Text,
+} from '@booking/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trash2 } from 'lucide-react-native';
 import * as React from 'react';
@@ -5,18 +18,6 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { FormField } from '@/components/FormField';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/Sheet';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import {
   useDeleteStaff,
   useSaveStaff,
@@ -32,7 +33,6 @@ import {
   toStaffFields,
   type StaffValues,
 } from '../schemas';
-import { Chip } from './ServiceForm';
 
 const API_FIELDS = {
   name: 'name',
@@ -133,6 +133,7 @@ export function StaffForm({
                     const selected = value.includes(s.id);
                     return (
                       <Chip
+                        variant="filter"
                         key={s.id}
                         label={s.name}
                         selected={selected}

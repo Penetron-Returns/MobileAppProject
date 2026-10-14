@@ -1,15 +1,21 @@
+import {
+  DayChips,
+  ErrorState,
+  type SlotDay,
+  SlotSkeleton,
+  type SlotTime,
+  Text,
+  TimeChips,
+} from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
-import { RetryCard } from '@/components/RetryCard';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import {
   useAvailableDays,
   useAvailableSlots,
 } from '@/features/appointments/hooks';
-import { useDepth } from '@/hooks/useDepth';
+import { describeError } from '@/lib/toast';
 import {
   WEEKDAYS,
   WEEKDAYS_SHORT,
@@ -21,12 +27,20 @@ import {
 } from '@/lib/time';
 
 import { dayRange, pickDay } from '../logic';
-import { Chip } from './Chip';
 
 export interface PickedSlot {
   startsAt: string;
   /** Qualified staff free at this time, in the engine's tie-break order. */
   staffIds: string[];
+}
+
+function toSlotDay(date: ISODate): SlotDay {
+  return {
+    value: date,
+    weekday: WEEKDAYS_SHORT[weekdayOf(date)],
+    day: String(parseISODate(date).d),
+    accessibilityLabel: `${WEEKDAYS[weekdayOf(date)]} ${formatDateLong(date)}`,
+  };
 }
 
 /**
@@ -63,6 +77,7 @@ export function SlotPicker({
     staffId,
   });
   const dayList = React.useMemo(() => days.data?.days ?? [], [days.data]);
+  const dayTiles = React.useMemo(() => dayList.map(toSlotDay), [dayList]);
   const shown = pickDay(dayList, date);
 
   // Land on the first bookable day once the days arrive or the chosen one vanishes.
@@ -71,6 +86,14 @@ export function SlotPicker({
   }, [shown, date, onDateChange]);
 
   const slots = useAvailableSlots({ serviceId, date: shown, staffId });
+  const times: SlotTime[] = React.useMemo(
+    () =>
+      (slots.data?.slots ?? []).map((slot) => ({
+        value: slot.starts_at,
+        label: formatTime(slot.starts_at, timezone),
+      })),
+    [slots.data, timezone],
+  );
 
   if (!serviceId) {
     return (
@@ -81,16 +104,17 @@ export function SlotPicker({
   }
   if (days.isError) {
     return (
-      <RetryCard
+      <ErrorState
+        variant="banner"
         className="mx-0 mt-0"
         title={t('slots.error.title')}
         description={t('slots.error.description')}
-        error={days.error}
+        {...describeError(days.error)}
         onRetry={() => void days.refetch()}
       />
     );
   }
-  if (days.isPending) return <SlotSkeleton />;
+  if (days.isPending) return <SlotSkeleton label={t('slots.loading')} />;
   if (dayList.length === 0) {
     return (
       <Text className="text-subtitle text-muted-foreground">
@@ -101,111 +125,40 @@ export function SlotPicker({
 
   return (
     <View className="gap-4">
-      <DayChips days={dayList} selected={shown} onSelect={onDateChange} />
+      <DayChips
+        days={dayTiles}
+        selected={shown}
+        onSelect={(value) => onDateChange(value as ISODate)}
+        label={t('slots.days')}
+      />
       {slots.isError ? (
-        <RetryCard
+        <ErrorState
+          variant="banner"
           className="mx-0 mt-0"
           title={t('slots.error.title')}
           description={t('slots.error.description')}
-          error={slots.error}
+          {...describeError(slots.error)}
           onRetry={() => void slots.refetch()}
         />
       ) : slots.isPending ? (
-        <SlotSkeleton />
-      ) : slots.data.slots.length === 0 ? (
+        <SlotSkeleton label={t('slots.loading')} />
+      ) : times.length === 0 ? (
         <Text className="text-subtitle text-muted-foreground">
           {t('slots.noSlots')}
         </Text>
       ) : (
-        <View
-          accessibilityLabel={t('slots.times')}
-          className="flex-row flex-wrap gap-2"
-        >
-          {slots.data.slots.map((slot) => (
-            <Chip
-              key={slot.starts_at}
-              label={formatTime(slot.starts_at, timezone)}
-              selected={selected === slot.starts_at}
-              onPress={() =>
-                onSelect({ startsAt: slot.starts_at, staffIds: slot.staff_ids })
-              }
-            />
-          ))}
-        </View>
+        <TimeChips
+          times={times}
+          selected={selected}
+          label={t('slots.times')}
+          onSelect={(startsAt) => {
+            const slot = slots.data?.slots.find(
+              (s) => s.starts_at === startsAt,
+            );
+            if (slot) onSelect({ startsAt, staffIds: slot.staff_ids });
+          }}
+        />
       )}
-    </View>
-  );
-}
-
-function DayChips({
-  days,
-  selected,
-  onSelect,
-}: {
-  days: ISODate[];
-  selected: ISODate | null;
-  onSelect: (date: ISODate) => void;
-}) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerClassName="gap-2"
-      accessibilityLabel={t('slots.days')}
-    >
-      {days.map((d) => {
-        const isSelected = d === selected;
-        return (
-          <Pressable
-            key={d}
-            onPress={() => onSelect(d)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isSelected }}
-            accessibilityLabel={`${WEEKDAYS[weekdayOf(d)]} ${formatDateLong(d)}`}
-            style={isSelected ? depth.primary : depth.button}
-            className="min-h-14 w-14 items-center justify-center rounded-2xl"
-          >
-            <Text
-              style={{
-                color: isSelected ? '#FFFFFF' : depth.colors.secondary,
-              }}
-              className="text-meta font-semibold"
-            >
-              {WEEKDAYS_SHORT[weekdayOf(d)]}
-            </Text>
-            <Text
-              style={{ color: isSelected ? '#FFFFFF' : depth.colors.label }}
-              className="text-title font-semibold"
-            >
-              {parseISODate(d).d}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
-}
-
-function SlotSkeleton() {
-  const { t } = useTranslation();
-  return (
-    <View
-      accessibilityLabel={t('slots.loading')}
-      accessibilityState={{ busy: true }}
-      className="gap-3"
-    >
-      <View className="flex-row gap-2">
-        {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-14 w-14 rounded-2xl" />
-        ))}
-      </View>
-      <View className="flex-row gap-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-11 w-[76px] rounded-full" />
-        ))}
-      </View>
     </View>
   );
 }

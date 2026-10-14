@@ -1,3 +1,16 @@
+import {
+  Button,
+  Chip,
+  ConfirmDialog,
+  FormField,
+  Icon,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  Switch,
+  Text,
+} from '@booking/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trash2 } from 'lucide-react-native';
 import * as React from 'react';
@@ -5,28 +18,14 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { FormField } from '@/components/FormField';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/Sheet';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/text';
 import {
   useDeleteService,
   useSaveService,
   type ServiceRow,
 } from '@/features/catalog/hooks';
-import { useDepth } from '@/hooks/useDepth';
 import { centsToInput, formatDuration } from '@/lib/format';
 import { applyApiFieldErrors } from '@/lib/form-errors';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 
 import {
   DURATION_PRESETS,
@@ -126,6 +125,7 @@ export function ServiceForm({
                 <View className="flex-row flex-wrap gap-2">
                   {DURATION_PRESETS.map((minutes) => (
                     <Chip
+                      variant="filter"
                       key={minutes}
                       label={formatDuration(minutes)}
                       selected={value === minutes}
@@ -199,39 +199,5 @@ export function ServiceForm({
         />
       </SheetContent>
     </Sheet>
-  );
-}
-
-export function Chip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const depth = useDepth();
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      className="min-h-11 justify-center"
-    >
-      <View
-        style={[selected ? depth.primary : depth.button, { borderRadius: 20 }]}
-        className="h-10 items-center justify-center px-4"
-      >
-        <Text
-          className={cn(
-            'text-subtitle font-semibold',
-            selected && 'text-primary-foreground',
-          )}
-        >
-          {label}
-        </Text>
-      </View>
-    </Pressable>
   );
 }

@@ -1,3 +1,13 @@
+import {
+  Button,
+  ErrorState,
+  FlowFooter,
+  FlowHeading,
+  FlowTopBar,
+  Ground,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useUser } from '@clerk/expo';
 import * as React from 'react';
 import {
@@ -9,16 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  FlowFooter,
-  FlowHeading,
-  FlowTopBar,
-} from '@/components/flow/FlowChrome';
-import { Ground } from '@/components/Ground';
-import { ErrorState } from '@/components/States';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
+import { describeError } from '@/lib/toast';
 
 import { useCompleteOnboarding } from '../hooks';
 import {
@@ -139,7 +140,8 @@ export function OnboardingFlow({ onDone }: { onDone: () => void }) {
                 {submit.error ? (
                   <View className="mx-5 mt-4">
                     <ErrorState
-                      error={submit.error}
+                      variant="banner"
+                      {...describeError(submit.error)}
                       onRetry={() => void finish(false)}
                     />
                   </View>

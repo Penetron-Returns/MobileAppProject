@@ -1,5 +1,5 @@
 ---
-paths: apps/mobile/src/**/*.ts,apps/mobile/src/**/*.tsx,apps/mobile/app.json,apps/mobile/eas.json,apps/mobile/babel.config.cjs,apps/mobile/metro.config.cjs,apps/mobile/tailwind.config.cjs,apps/mobile/global.css
+paths: apps/mobile/src/**/*.ts,apps/mobile/src/**/*.tsx,packages/ui/**,apps/mobile/app.json,apps/mobile/eas.json,apps/mobile/babel.config.cjs,apps/mobile/metro.config.cjs,apps/mobile/tailwind.config.cjs,apps/mobile/global.css
 description: Core rules for the Expo / React Native app (structure, routing, state, platform)
 ---
 
@@ -12,8 +12,8 @@ Guidelines for the owner/staff Expo app: folder structure, routing, state owners
 1. Follow the folder structure:
    - `apps/mobile/src/app/`: Expo Router route files only. Thin: compose feature components, no data logic
    - `apps/mobile/src/features/<feature>/`: `hooks.ts` (queries/mutations), `components/`, pure logic (`*.ts`) with tests
-   - `apps/mobile/src/components/ui/`: design-system primitives (react-native-reusables)
-   - `apps/mobile/src/components/`: app-level composites (`Screen`, `Header`, `EmptyState` …)
+   - `packages/ui/` (`@booking/ui`): the design system: tokens, primitives, components and patterns, imported from the package entry point only (see [docs/design-system.md](/docs/design-system.md))
+   - `apps/mobile/src/components/`: app-only pieces (auth token bridge, Clerk button, theme provider, config error screen). Shared UI goes in the design system, not here
    - `apps/mobile/src/lib/`: clients (`supabase`, `api`, `query`), `env`, formatters, `utils`
 2. Use default exports only in Expo Router route files. Use named exports everywhere else.
 3. Keep server state in TanStack Query only. Keep local UI state in components. Never mirror server data in React context or global stores.

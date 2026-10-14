@@ -1,4 +1,19 @@
 import {
+  AmountInsetField,
+  Button,
+  CheckPoint,
+  ChoiceCard,
+  FlowCaption,
+  FlowHeading,
+  InsetInput,
+  LabeledInsetField,
+  SuccessMark,
+  Surface,
+  SwitchRow,
+  Text,
+  useDepth,
+} from '@booking/ui';
+import {
   Brush,
   LayoutGrid,
   Scissors,
@@ -8,20 +23,6 @@ import {
 } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
-
-import { ChoiceCard } from '@/components/flow/ChoiceCard';
-import { SwitchRow } from '@/components/flow/DepthSwitch';
-import { FlowCaption, FlowHeading } from '@/components/flow/FlowChrome';
-import {
-  AmountInsetField,
-  LabeledInsetField,
-} from '@/components/flow/InsetFields';
-import { CheckPoint, SuccessMark } from '@/components/flow/SuccessMark';
-import { InsetInput } from '@/components/InsetInput';
-import { Surface } from '@/components/Surface';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
-import { useDepth } from '@/hooks/useDepth';
 
 import {
   BUSINESS_TYPES,

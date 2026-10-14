@@ -1,20 +1,23 @@
+import {
+  ErrorState,
+  Group,
+  ListSkeleton,
+  OptionSheet,
+  Page,
+  SaveFooter,
+  Text,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Group } from '@/components/Group';
-import { OptionSheet } from '@/components/OptionSheet';
-import { Page } from '@/components/Page';
-import { ErrorScreen } from '@/components/states/ErrorScreen';
-import { ListSkeleton } from '@/components/states/ListSkeleton';
-import { Text } from '@/components/ui/text';
 import {
   useBusinessHours,
   useReplaceBusinessHours,
 } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
 import { formatTimeOfDay, WEEKDAYS } from '@/lib/time';
-import { toast } from '@/lib/toast';
+import { toast, describeError } from '@/lib/toast';
 
 import {
   nextRange,
@@ -26,7 +29,6 @@ import {
   type TimeRange,
 } from '../logic';
 import { DayHoursRow } from './DayHoursRow';
-import { SaveFooter } from './SaveFooter';
 
 export function OperatingHoursScreen() {
   const { t } = useTranslation();
@@ -41,7 +43,11 @@ export function OperatingHoursScreen() {
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
       {hours.isError ? (
-        <ErrorScreen error={hours.error} onRetry={() => void hours.refetch()} />
+        <ErrorState
+          variant="banner"
+          {...describeError(hours.error)}
+          onRetry={() => void hours.refetch()}
+        />
       ) : (
         <ListSkeleton rows={7} />
       )}
