@@ -1,14 +1,23 @@
 import { TextClassContext } from '@/components/ui/text';
+import { useDepth } from '@/hooks/useDepth';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Platform, Pressable } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  type PressableStateCallbackType,
+} from 'react-native';
 
 // Ported from react-native-reusables (new-york). Sizes bumped so every
 // default/large button meets the 44pt touch target; extra variants for the
 // mockups (outline-primary, outline-destructive, soft, whatsapp).
+// Deliberate divergence (docs/mobile-app.md): `default` is the tactile primary
+// and `secondary` the raised button of the depth design. Their gradients and
+// layered shadows come from src/lib/depth.ts (classes can't express them);
+// the classes below only keep the solid fallback and the pill shape.
 const buttonVariants = cva(
   cn(
-    'group shrink-0 flex-row items-center justify-center gap-2 rounded-lg shadow-none',
+    'group shrink-0 flex-row items-center justify-center gap-2 rounded-full shadow-none',
     Platform.select({
       web: "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive whitespace-nowrap outline-none transition-all focus-visible:ring-[3px] disabled:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
     }),
@@ -17,7 +26,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: cn(
-          'bg-primary active:bg-primary/90 shadow-sm shadow-black/5',
+          'bg-primary',
           Platform.select({ web: 'hover:bg-primary/90' }),
         ),
         destructive: cn(
@@ -40,10 +49,7 @@ const buttonVariants = cva(
           'border-destructive bg-card active:bg-destructive/10 border',
           Platform.select({ web: 'hover:bg-destructive/10' }),
         ),
-        secondary: cn(
-          'bg-secondary active:bg-secondary/80 shadow-sm shadow-black/5',
-          Platform.select({ web: 'hover:bg-secondary/80' }),
-        ),
+        secondary: cn('bg-card', Platform.select({ web: 'hover:bg-card/80' })),
         soft: cn(
           'bg-accent active:bg-accent/80',
           Platform.select({ web: 'hover:bg-accent/80' }),
@@ -64,13 +70,10 @@ const buttonVariants = cva(
           Platform.select({ web: 'has-[>svg]:px-3' }),
         ),
         sm: cn(
-          'h-9 gap-1.5 rounded-md px-3',
+          'h-9 gap-1.5 px-3',
           Platform.select({ web: 'has-[>svg]:px-2.5' }),
         ),
-        lg: cn(
-          'h-12 rounded-xl px-6',
-          Platform.select({ web: 'has-[>svg]:px-4' }),
-        ),
+        lg: cn('h-[52px] px-6', Platform.select({ web: 'has-[>svg]:px-4' })),
         icon: 'h-11 w-11',
       },
     },
@@ -97,7 +100,7 @@ const buttonTextVariants = cva(
         ),
         'outline-primary': 'text-primary',
         'outline-destructive': 'text-destructive',
-        secondary: 'text-secondary-foreground',
+        secondary: 'text-primary',
         soft: 'text-accent-foreground',
         whatsapp: 'text-white',
         ghost: 'group-active:text-accent-foreground',
@@ -122,11 +125,33 @@ const buttonTextVariants = cva(
   },
 );
 
+const PRESSED_NUDGE = { transform: [{ translateY: 1 }] } as const;
+
 type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function Button({ className, variant, size, style, ...props }: ButtonProps) {
+  const depth = useDepth();
+  const isSecondary = variant === 'secondary';
+  const isTactile = variant == null || variant === 'default';
+  const depthStyle = (pressed: boolean) => {
+    if (isTactile) {
+      return [
+        depth.primary,
+        pressed && depth.primaryPressed,
+        pressed && PRESSED_NUDGE,
+      ];
+    }
+    if (isSecondary) {
+      return [
+        depth.button,
+        pressed && depth.buttonPressed,
+        pressed && PRESSED_NUDGE,
+      ];
+    }
+    return null;
+  };
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
@@ -137,6 +162,10 @@ function Button({ className, variant, size, ...props }: ButtonProps) {
         )}
         role="button"
         accessibilityRole="button"
+        style={(state: PressableStateCallbackType) => [
+          depthStyle(state.pressed),
+          typeof style === 'function' ? style(state) : style,
+        ]}
         {...props}
       />
     </TextClassContext.Provider>

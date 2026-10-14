@@ -72,11 +72,68 @@
     }
   },
   "tabs": {
-    "dashboard": "Dashboard",
+    "today": "Today",
     "calendar": "Calendar",
-    "add": "Add",
+    "add": "New booking",
     "clients": "Clients",
     "settings": "Settings"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "domeLabel_zero": "Inbox",
+    "domeLabel_one": "Inbox, {{count}} needs a reply",
+    "domeLabel_other": "Inbox, {{count}} need a reply",
+    "empty": {
+      "title": "Nothing needs a reply",
+      "description": "Conversations that need you will show up here."
+    }
+  },
+  "today": {
+    "title": "Today",
+    "notifications": "Notifications",
+    "noNotifications": "No new notifications",
+    "upNext": "Up next",
+    "when": {
+      "arrived": "Arrived",
+      "now": "{{time}} · now",
+      "in": "{{time}} · in {{duration}}"
+    },
+    "serviceWithStaff": "{{service}} with {{staff}}",
+    "unknownClient": "Walk-in client",
+    "checkIn": "Check in",
+    "checkedIn": "Checked in",
+    "checkedInToast": "{{name}} checked in",
+    "checkInLabel": "Check in {{name}}",
+    "message": "Message",
+    "messageLabel": "Message {{name}} on WhatsApp",
+    "whatsAppGreeting": "Hi {{name}}, confirming your appointment with us today.",
+    "openingWhatsApp": "Opening WhatsApp chat for {{name}}",
+    "laterToday": "Later today",
+    "needsConfirming": "Needs confirming",
+    "seeAllMore_one": "See {{count}} more",
+    "seeAllMore_other": "See all {{count}} more",
+    "seeAllLabel": "See the rest of today in the calendar",
+    "bookingLabel": "{{client}}, {{service}}, {{time}}",
+    "expected": "{{amount}} expected today",
+    "allDone": {
+      "title": "Nothing else today",
+      "description": "All of today's bookings are done."
+    },
+    "empty": {
+      "title": "No bookings today",
+      "description": "Share your WhatsApp booking link so clients can book themselves.",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "linkLabel": "Your booking link",
+      "addBooking": "Add a booking"
+    },
+    "error": {
+      "title": "Couldn't load today",
+      "description": "Check your connection and try again."
+    },
+    "offline": "Offline · showing what we had at {{time}}",
+    "offlineNoTime": "Offline · showing what we had saved",
+    "loading": "Loading today"
   },
   "noBusiness": {
     "title": "No business linked",
