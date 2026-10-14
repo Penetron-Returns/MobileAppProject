@@ -1,5 +1,5 @@
-import { DashboardScreen } from '@/features/dashboard/components/DashboardScreen';
+import { TodayScreen } from '@/features/today/components/TodayScreen';
 
-export default function DashboardRoute() {
-  return <DashboardScreen />;
+export default function TodayRoute() {
+  return <TodayScreen />;
 }
