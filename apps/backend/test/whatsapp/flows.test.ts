@@ -1,9 +1,10 @@
 import { constants, createCipheriv, createDecipheriv, generateKeyPairSync, publicEncrypt, randomBytes } from 'node:crypto';
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, invertIv, loadFlowPrivateKey } from '../../src/whatsapp/flows/crypto.ts';
 import { FLOW_COPY, handleFlowRequest, type FlowRequest } from '../../src/whatsapp/flows/handler.ts';
+import { AppError, notFound } from '../../src/lib/errors.ts';
 import { signFlowToken, verifyFlowToken } from '../../src/whatsapp/flows/token.ts';
 import { signMetaBody } from '../../src/whatsapp/signature.ts';
 import { appHarness, appointment, CUSTOMER_PHONE, harness, NOW, STAFF_SAM, SVC_COLOUR, SVC_CUT, type Harness } from './fakes.ts';
@@ -47,6 +48,8 @@ function decryptResponse(b64: string, aesKey: Buffer, iv: Buffer): unknown {
   return JSON.parse(Buffer.concat([decipher.update(raw.subarray(0, raw.length - 16)), decipher.final()]).toString('utf8'));
 }
 
+afterEach(() => vi.restoreAllMocks());
+
 describe('flow crypto', () => {
   it('round-trips a request and answers with the inverted IV', async () => {
     const { request, aesKey, iv } = encryptRequest({ action: 'ping', version: '3.0' });
@@ -56,6 +59,14 @@ describe('flow crypto', () => {
     expect(decrypted.aesKey.equals(aesKey)).toBe(true);
     const response = await encryptFlowResponse({ data: { status: 'active' } }, decrypted.aesKey, decrypted.iv);
     expect(decryptResponse(response, aesKey, iv)).toEqual({ data: { status: 'active' } });
+  });
+
+  it('retries the key import after a transient failure instead of caching the rejection', async () => {
+    const key = loadFlowPrivateKey(keys.privatePem);
+    const { request } = encryptRequest({ ok: 1 });
+    vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new Error('transient'));
+    await expect(decryptFlowRequest(request, key)).rejects.toBeInstanceOf(FlowDecryptError);
+    expect((await decryptFlowRequest(request, key)).payload).toEqual({ ok: 1 });
   });
 
   it('inverts every IV bit', () => {
@@ -424,5 +435,25 @@ describe('flows: HTTP endpoint', () => {
     const body = JSON.stringify(request);
     expect((await post(body, { 'x-hub-signature-256': 'sha256=00' })).status).toBe(432);
     expect((await post(body, { 'x-hub-signature-256': signMetaBody('app-secret', body) })).status).toBe(200);
+  });
+});
+
+describe('flow plan gate and entitlement errors', () => {
+  const failingEntitlements = (error: unknown) => ({
+    getEntitlements: async () => Promise.reject(error),
+    hasFeature: async () => Promise.reject(error),
+    listBusinessIdsWithFeature: async () => [],
+  });
+
+  it('closes the flow (427) when the business has no plan row: NOT_FOUND means "no feature"', async () => {
+    const { h, ask } = await setup();
+    h.deps.entitlements = failingEntitlements(notFound('Business plan'));
+    expect((await ask({ action: 'INIT' })).status).toBe(427);
+  });
+
+  it('lets a transient database error surface so the request is retried', async () => {
+    const { h, ask } = await setup();
+    h.deps.entitlements = failingEntitlements(new AppError('INTERNAL', 'db down'));
+    await expect(ask({ action: 'INIT' })).rejects.toMatchObject({ code: 'INTERNAL' });
   });
 });
