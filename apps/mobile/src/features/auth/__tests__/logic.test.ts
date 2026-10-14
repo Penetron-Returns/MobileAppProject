@@ -3,6 +3,8 @@ import {
   isCodeComplete,
   isValidEmail,
   normalizeEmail,
+  normalizePhone,
+  parseIdentifier,
   resendSecondsLeft,
   sanitizeCode,
 } from '../logic';
@@ -59,5 +61,29 @@ describe('resendSecondsLeft', () => {
   });
   it('never goes negative', () => {
     expect(resendSecondsLeft(500, 2_000)).toBe(0);
+  });
+});
+
+describe('parseIdentifier', () => {
+  it.each([
+    [
+      ' Colin@Nerova.com ',
+      { strategy: 'email_code', value: 'colin@nerova.com' },
+    ],
+    ['+27 82 555 0100', { strategy: 'phone_code', value: '+27825550100' }],
+    ['+27 (82) 555-0100', { strategy: 'phone_code', value: '+27825550100' }],
+    ['0027825550100', { strategy: 'phone_code', value: '+27825550100' }],
+    ['0825550100', null],
+    ['+0825550100', null],
+    ['+27 82', null],
+    ['+2782555010012345', null],
+    ['nope', null],
+    ['', null],
+  ])('%j', (input, expected) => {
+    expect(parseIdentifier(input)).toEqual(expected);
+  });
+
+  it('normalizes phone numbers typed with separators', () => {
+    expect(normalizePhone(' +1 (415) 555.2671 ')).toBe('+14155552671');
   });
 });

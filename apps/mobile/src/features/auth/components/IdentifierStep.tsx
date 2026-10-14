@@ -6,42 +6,42 @@ import { View } from 'react-native';
 import { AuthError } from './AuthError';
 import { StepFrame } from './StepFrame';
 import type { AuthErrorKey } from '../errors';
-import { isValidEmail } from '../logic';
+import { parseIdentifier } from '../logic';
 
-interface EmailStepProps {
-  initialEmail: string;
+interface IdentifierStepProps {
+  initialValue: string;
   isBusy: boolean;
   errorKey: AuthErrorKey | null;
-  onSubmit: (email: string) => void;
+  onSubmit: (value: string) => void;
   onBack: () => void;
   onEdit: () => void;
 }
 
-/** Email entry: one inset field and a Continue button (sign in or sign up). */
-export function EmailStep({
-  initialEmail,
+/** Email or mobile number: one inset field and Continue (sign in or sign up, code by email or SMS). */
+export function IdentifierStep({
+  initialValue,
   isBusy,
   errorKey,
   onSubmit,
   onBack,
   onEdit,
-}: EmailStepProps) {
+}: IdentifierStepProps) {
   const { t } = useTranslation();
-  const [email, setEmail] = React.useState(initialEmail);
-  const canSubmit = isValidEmail(email);
+  const [value, setValue] = React.useState(initialValue);
+  const canSubmit = parseIdentifier(value) !== null;
 
   return (
     <StepFrame
-      title={t('auth.email.title')}
-      subtitle={t('auth.email.subtitle')}
+      title={t('auth.identifier.title')}
+      subtitle={t('auth.identifier.subtitle')}
       onBack={onBack}
     >
       <InsetInput
-        label={t('auth.email.label')}
-        placeholder={t('auth.email.placeholder')}
-        value={email}
+        label={t('auth.identifier.label')}
+        placeholder={t('auth.identifier.placeholder')}
+        value={value}
         onChangeText={(v) => {
-          setEmail(v);
+          setValue(v);
           if (errorKey) onEdit();
         }}
         editable={!isBusy}
@@ -52,22 +52,24 @@ export function EmailStep({
         keyboardType="email-address"
         textContentType="emailAddress"
         returnKeyType="go"
-        onSubmitEditing={() => canSubmit && onSubmit(email)}
+        onSubmitEditing={() => canSubmit && onSubmit(value)}
         radius={16}
         containerClassName="min-h-14"
       />
       <AuthError errorKey={errorKey} />
       <Button
         size="xl"
-        onPress={() => onSubmit(email)}
+        onPress={() => onSubmit(value)}
         loading={isBusy}
         disabled={!canSubmit}
         accessibilityLabel={
-          isBusy ? t('auth.email.sending') : t('auth.email.continue')
+          isBusy ? t('auth.identifier.sending') : t('auth.identifier.continue')
         }
       >
         <Text>
-          {isBusy ? t('auth.email.sending') : t('auth.email.continue')}
+          {isBusy
+            ? t('auth.identifier.sending')
+            : t('auth.identifier.continue')}
         </Text>
       </Button>
       {/* Clerk mounts its bot-protection challenge here on sign-up. */}

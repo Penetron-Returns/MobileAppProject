@@ -1,9 +1,9 @@
 import { Button, ErrorState, Text } from '@booking/ui';
-import { useClerk } from '@clerk/expo';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSignOut } from '@/features/auth/useSignOut';
 import { describeError } from '@/lib/toast';
 
 /**
@@ -21,7 +21,7 @@ export function SessionErrorScreen({
   isRetrying: boolean;
 }) {
   const { t } = useTranslation();
-  const { signOut } = useClerk();
+  const signOut = useSignOut();
   const insets = useSafeAreaInsets();
 
   return (

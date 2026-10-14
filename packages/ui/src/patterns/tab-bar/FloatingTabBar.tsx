@@ -139,7 +139,7 @@ export function FloatingTabBar({
               ]}
               className="h-[52px] w-[52px] items-center justify-center rounded-full"
             >
-              <Plus size={26} strokeWidth={2.4} color="#FFFFFF" />
+              <Plus size={26} strokeWidth={2.4} color={depth.colors.onFill} />
             </View>
           )}
         </Pressable>

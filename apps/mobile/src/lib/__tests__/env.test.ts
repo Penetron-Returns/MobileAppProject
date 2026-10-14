@@ -15,7 +15,6 @@ function setEnv(vars: Partial<Record<(typeof REQUIRED)[number], string>>) {
 function loadEnvModule(): typeof import('@/lib/env') {
   let mod!: typeof import('@/lib/env');
   jest.isolateModules(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     mod = require('@/lib/env');
   });
   return mod;

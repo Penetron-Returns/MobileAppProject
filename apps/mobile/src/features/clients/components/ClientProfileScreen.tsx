@@ -20,6 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
 import { useBusiness } from '@/features/business/hooks';
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { formatPhone } from '@/lib/format';
 import { formatDateMedium, businessDate } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
@@ -41,11 +43,13 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
   const client = useClient(clientId);
 
   let body: React.ReactNode;
-  if (client.isError || business.isError) {
+  if (isFailed(client) || isFailed(business)) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(client.error ?? business.error)}
+        {...describeError(
+          isFailed(client) ? loadError(client) : loadError(business),
+        )}
         onRetry={() => {
           void client.refetch();
           void business.refetch();
@@ -84,6 +88,7 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
       backFallback="/clients"
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
+      <SavedCopyBanner query={client} timezone={business.data?.timezone} />
       {body}
     </Page>
   );

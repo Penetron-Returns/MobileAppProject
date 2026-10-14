@@ -1,5 +1,6 @@
 import {
   Button,
+  KEYBOARD_AVOIDING_BEHAVIOR,
   cn,
   ErrorState,
   goBack,
@@ -15,32 +16,24 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { describeError } from '@/lib/toast';
 import { formatPhone } from '@/lib/format';
-
 import {
   useConversation,
   useInboxRealtime,
   useReleaseConversation,
   useSendReply,
   useThreadMessages,
-  type ThreadMessage,
 } from '../hooks';
-import {
-  collapseMenuExchange,
-  messageOptions,
-  messageText,
-  needsReply,
-  replyHoursLeft,
-  senderOf,
-} from '../logic';
+import { collapseMenuExchange, needsReply, replyHoursLeft } from '../logic';
+import { ConversationNotFound, Bubble } from './ConversationParts';
 
 /** One WhatsApp thread: read it, reply inside the free window, hand it back to the booking menu. */
 export function ConversationScreen({
@@ -81,12 +74,20 @@ export function ConversationScreen({
     if (text && canReply) send.mutate(text);
   };
 
+  // maybeSingle: a deleted or mistyped conversation id loads as null, not as an error.
+  if (head.data === null) return <ConversationNotFound />;
+
   let body: React.ReactNode;
-  if ((head.isError && !head.data) || (messages.isError && !messages.data)) {
+  if (
+    (isFailed(head) && !head.data) ||
+    (isFailed(messages) && !messages.data)
+  ) {
     body = (
       <ErrorState
         variant="banner"
-        {...describeError(head.error ?? messages.error)}
+        {...describeError(
+          isFailed(head) ? loadError(head) : loadError(messages),
+        )}
         onRetry={() => {
           void head.refetch();
           void messages.refetch();
@@ -181,8 +182,9 @@ export function ConversationScreen({
       </View>
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       >
+        <SavedCopyBanner query={messages} />
         <ScrollView
           ref={scrollRef}
           keyboardShouldPersistTaps="handled"
@@ -260,51 +262,5 @@ export function ConversationScreen({
         </View>
       </KeyboardAvoidingView>
     </Ground>
-  );
-}
-
-function Bubble({ message }: { message: ThreadMessage }) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  const sender = senderOf(message);
-  const text = messageText(message.body) ?? t('inbox.noText');
-  const options = messageOptions(message.body);
-  const isOut = sender !== 'customer';
-  const staff = sender === 'staff';
-  return (
-    <View
-      className={cn('max-w-[82%] gap-1', isOut ? 'self-end' : 'self-start')}
-    >
-      {sender === 'bot' ? (
-        <Text className="px-1 text-meta text-muted-foreground">
-          {t('conversation.bookingMenu')}
-        </Text>
-      ) : null}
-      <View
-        style={staff ? { backgroundColor: depth.colors.tint } : undefined}
-        className={cn(
-          'rounded-[20px] px-3.5 py-2',
-          !staff && (isOut ? 'bg-accent' : 'bg-muted'),
-        )}
-      >
-        <Text
-          selectable
-          className={cn('text-title', staff && 'text-primary-foreground')}
-        >
-          {text}
-        </Text>
-        {options.length > 0 ? (
-          <View className="mt-2 gap-1.5">
-            {options.map((o) => (
-              <View key={o} className="rounded-xl bg-background px-3 py-1.5">
-                <Text className="text-center text-subtitle text-primary">
-                  {o}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-    </View>
   );
 }

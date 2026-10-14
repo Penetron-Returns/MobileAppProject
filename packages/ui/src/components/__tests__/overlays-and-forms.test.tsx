@@ -10,6 +10,7 @@ import { FormField } from '../FormField';
 import { GroupField } from '../GroupField';
 import { OptionSheet } from '../OptionSheet';
 import { DayChips, SlotSkeleton, TimeChips } from '../SlotPicker';
+import { getDepth } from '../../tokens/depth';
 import { Toaster } from '../Toast';
 import { clearToasts, dismissToast, showToast, useToasts } from '../toastStore';
 
@@ -246,6 +247,25 @@ describe('toasts', () => {
       tree.root.find((n) => n.props.accessibilityRole === 'alert'),
     ).toBeTruthy();
     expect(pressable(tree, 'Dismiss')).toBeTruthy();
+  });
+
+  it('lifts the toast with the floating depth token and respects reduced motion', () => {
+    act(() => {
+      showToast({ kind: 'info', title: 'Lifted' });
+    });
+    const tree = render(<Toaster />);
+    const card = tree.root.find(
+      (n) =>
+        typeof n.type === 'string' &&
+        n.props.accessibilityRole === 'alert' &&
+        n.props.style?.boxShadow,
+    );
+    expect(card.props.style.boxShadow).toBe(
+      getDepth('light').floating.boxShadow,
+    );
+    expect(card.props.className ?? '').not.toContain('shadow-');
+    const animated = tree.root.find((n) => n.props.entering !== undefined);
+    expect(animated.props.entering).toBeTruthy();
   });
 });
 

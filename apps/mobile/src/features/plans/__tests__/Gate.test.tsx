@@ -6,7 +6,7 @@ import { Gate } from '../components/Gate';
 import type { Entitlements } from '../hooks';
 
 jest.mock('../hooks', () => ({ useEntitlements: jest.fn() }));
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const mockUseEntitlements = (
   require('../hooks') as { useEntitlements: jest.Mock }
 ).useEntitlements;

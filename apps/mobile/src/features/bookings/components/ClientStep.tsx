@@ -14,6 +14,7 @@ import { Pressable, View } from 'react-native';
 import type { ServiceRow } from '@/features/catalog/hooks';
 import { useClientSearch, type ClientOption } from '@/features/clients/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { isFailed } from '@/lib/offline';
 import { formatDuration, formatMoney, formatPhone } from '@/lib/format';
 
 export interface ClientChoice {
@@ -111,7 +112,7 @@ export function ClientStep({
               <Skeleton className="h-5 w-2/3" />
               <Skeleton className="h-5 w-1/2" />
             </View>
-          ) : search.isError ? (
+          ) : isFailed(search) ? (
             <Text className="p-4 text-subtitle text-muted-foreground">
               {t('newBooking.searchFailed')}
             </Text>

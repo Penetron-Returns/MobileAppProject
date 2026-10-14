@@ -1,4 +1,5 @@
 import {
+  BlockedActionSheet,
   Button,
   DoneCard,
   EmptyState,
@@ -9,6 +10,7 @@ import {
   StackHeader,
   SwitchRow,
   Text,
+  useOfflineGuard,
 } from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { CalendarX } from 'lucide-react-native';
@@ -23,6 +25,8 @@ import {
   type AppointmentDetail,
 } from '@/features/appointments/hooks';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
+import { isFailed, loadError } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
 import { isApiError } from '@/lib/api';
 import { formatDuration } from '@/lib/format';
 import {
@@ -42,9 +46,9 @@ export function RescheduleScreen({ appointmentId }: { appointmentId: string }) {
   const { t } = useTranslation();
   const business = useBusiness();
   const appointment = useAppointment(appointmentId);
-  const failed = business.isError
+  const failed = isFailed(business)
     ? business
-    : appointment.isError
+    : isFailed(appointment)
       ? appointment
       : null;
   const data = appointment.data;
@@ -62,7 +66,7 @@ export function RescheduleScreen({ appointmentId }: { appointmentId: string }) {
       {failed ? (
         <ErrorState
           variant="banner"
-          {...describeError(failed.error)}
+          {...describeError(loadError(failed))}
           onRetry={() => void failed.refetch()}
         />
       ) : !business.data || appointment.isPending ? (
@@ -104,6 +108,8 @@ function RescheduleForm({
   const [done, setDone] = React.useState<string | null>(null);
   const name = appointment.client.name ?? t('booking.thisClient');
 
+  const isOnline = useIsOnline();
+  const { guard, sheetProps } = useOfflineGuard(!isOnline);
   const move = useRescheduleAppointment({
     onSuccess: () =>
       setDone(
@@ -185,9 +191,9 @@ function RescheduleForm({
         size="lg"
         disabled={!request || move.isPending}
         accessibilityState={{ busy: move.isPending }}
-        onPress={() =>
-          request && move.mutate({ id: appointment.id, ...request })
-        }
+        onPress={guard(
+          () => request && move.mutate({ id: appointment.id, ...request }),
+        )}
       >
         <Text className="text-title">
           {picked
@@ -197,6 +203,7 @@ function RescheduleForm({
             : t('reschedule.pickTime')}
         </Text>
       </Button>
+      <BlockedActionSheet {...sheetProps} />
     </View>
   );
 }
