@@ -140,6 +140,23 @@ export interface ReplaceBusinessHoursRequest {
   hours: BusinessHoursRow[];
 }
 
+/**
+ * POST /v1/onboarding (owner of the active Clerk org, no business needed yet).
+ * Creates or completes the business, owner user and owner staff row, then
+ * applies hours, services and team. Responds with the same shape as GET /v1/me.
+ */
+export interface OnboardingRequest {
+  business: { name: string };
+  /** Shown on the owner's own staff row (falls back to the mirrored user name) */
+  owner_name?: string | null;
+  /** Opening hours, one row per open range. At least one row */
+  hours: BusinessHoursRow[];
+  /** First services; every bookable staff member is qualified for them */
+  services: { name: string; duration_minutes: number; price_cents: number }[];
+  /** Extra team members besides the owner (may be empty) */
+  team: { name: string; title?: string | null }[];
+}
+
 export interface MeDTO {
   user: {
     id: string;

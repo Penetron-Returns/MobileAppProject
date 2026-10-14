@@ -19,6 +19,7 @@ import type {
   CreateStaffRequest,
   ManualConnectRequest,
   MeDTO,
+  OnboardingRequest,
   PublicBookingRequest,
   PublicBookingResponse,
   PublicBusinessResponse,
@@ -217,6 +218,10 @@ const enc = encodeURIComponent;
 /** Typed endpoint map (docs/BUILD_PLAN.md §4). */
 export const api = {
   me: () => get<MeDTO>('/v1/me'),
+
+  // onboarding: needs only an org-owner session, no business yet
+  onboard: (b: OnboardingRequest, key: string) =>
+    send<OnboardingRequest, MeDTO>('POST', '/v1/onboarding')(b, key),
 
   // business
   updateBusiness: (b: UpdateBusinessRequest, key: string) =>

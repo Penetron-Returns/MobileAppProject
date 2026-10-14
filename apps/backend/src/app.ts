@@ -3,12 +3,13 @@ import { cors } from 'hono/cors';
 
 import { getContainer as defaultGetContainer, type Container } from './container.ts';
 import { AppError } from './lib/errors.ts';
-import { requireAuth, type ClerkClaims } from './middleware/auth.ts';
+import { requireAuth, requireOrgOwnerSession, type ClerkClaims } from './middleware/auth.ts';
 import { baseContext, errorHandler, requireCronSecret } from './middleware/common.ts';
 import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';
 import { clerkWebhookRoutes } from './routes/clerk.ts';
 import { cronRoutes } from './routes/cron.ts';
 import { publicRoutes } from './routes/public.ts';
+import { onboardingRoutes } from './routes/v1/onboarding.ts';
 import { v1Routes } from './routes/v1/index.ts';
 import {
   v1InboxRoutes,
@@ -40,6 +41,11 @@ export function createApp(options: AppOptions = {}) {
   app.use('/public/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] }));
 
   app.get('/health', (c) => c.json({ data: { ok: true, time: new Date().toISOString() } }));
+
+  // Onboarding runs before the business exists, so it has its own auth (org owner, no business row).
+  // It must be registered before the requireAuth() wildcard, which would answer NO_BUSINESS.
+  app.use('/v1/onboarding', requireOrgOwnerSession(options.verifyToken), idem);
+  app.route('/v1/onboarding', onboardingRoutes);
 
   // Owner/staff API (Clerk JWT)
   app.use('/v1/*', requireAuth(options.verifyToken), idem);
