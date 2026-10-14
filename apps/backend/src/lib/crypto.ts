@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export function sha256Hex(input: string | Buffer): string {
