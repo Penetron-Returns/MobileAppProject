@@ -97,6 +97,15 @@ jest.mock('@/features/appointments/hooks', () => ({
   useCheckInAppointment: mockMutation,
   useCancelAppointment: mockMutation,
   useCreateAppointment: mockHook('useCreateAppointment'),
+  useAvailableDays: mockHook('useAvailableDays'),
+  useAppointmentEvents: mockHook('useAppointmentEvents'),
+  useBookingRules: mockHook('useBookingRules'),
+  useRescheduleAppointment: mockMutation,
+  useSetAppointmentStatus: mockMutation,
+}));
+jest.mock('@/features/calendar/hooks', () => ({
+  useCalendarDay: mockHook('useCalendarDay'),
+  useCalendarWeek: mockHook('useCalendarWeek'),
 }));
 jest.mock('@/features/clients/hooks', () => ({
   useClientList: mockHook('useClientList'),
@@ -260,6 +269,8 @@ const CLIENT_HISTORY = [
 const APPOINTMENT_DETAIL = {
   id: 'a-1',
   client_id: 'c-1',
+  service_id: 'sv-1',
+  staff_id: 's-1',
   starts_at: '2026-10-13T12:00:00.000Z',
   ends_at: '2026-10-13T15:00:00.000Z',
   duration_minutes: 180,
@@ -344,6 +355,42 @@ const STAFF = [
   },
 ];
 
+function STAFF_FIRST() {
+  return STAFF[0];
+}
+
+const DAY_VIEW = {
+  status: 'ready',
+  timezone: 'Africa/Johannesburg',
+  today: '2026-10-12',
+  now: new Date('2026-10-12T08:40:00.000Z'),
+  columns: [
+    {
+      staff: STAFF_FIRST(),
+      working: [
+        { startMin: 540, endMin: 780 },
+        { startMin: 840, endMin: 1080 },
+      ],
+      appointments: APPOINTMENTS,
+    },
+  ],
+  window: { startMin: 540, endMin: 1080 },
+  isOffline: false,
+  refresh: jest.fn(),
+};
+const WEEK_VIEW = {
+  status: 'ready',
+  timezone: 'Africa/Johannesburg',
+  today: '2026-10-12',
+  now: new Date('2026-10-12T08:40:00.000Z'),
+  hours: HOURS,
+  overrides: [],
+  appointments: APPOINTMENTS,
+  staff: [],
+  isOffline: false,
+  refresh: jest.fn(),
+};
+
 beforeEach(() => {
   mockSearchParams.mockReturnValue({});
   const defaults: Record<string, unknown> = {
@@ -391,6 +438,13 @@ beforeEach(() => {
     useStaff: success(STAFF),
     useStaffServices: success([{ staff_id: 's-1', service_id: 'sv-1' }]),
     useCreateAppointment: mockMutation(),
+    useAvailableDays: { ...success(undefined), isPending: true },
+    useAppointmentEvents: success([
+      { id: 'e-1', type: 'created', occurred_at: '2026-10-01T08:00:00.000Z' },
+    ]),
+    useBookingRules: success({ cancellation_window_minutes: 1440 }),
+    useCalendarDay: DAY_VIEW,
+    useCalendarWeek: WEEK_VIEW,
   };
   for (const [name, value] of Object.entries(defaults)) {
     mockHooks[name] = jest.fn(() => value);
@@ -405,6 +459,8 @@ import { setCalendarViewMode } from '@/features/calendar/navigation';
 import AddBookingRoute from '../add';
 import BookingDetailRoute from '../bookings/[id]';
 import CalendarRoute from '../calendar';
+import CancelRoute from '../bookings/cancel/[id]';
+import RescheduleRoute from '../bookings/reschedule/[id]';
 import ClientsRoute from '../clients';
 import ClientProfileRoute from '../clients/[id]';
 import SettingsRoute from '../settings';
@@ -442,38 +498,33 @@ function toJson(tree: renderer.ReactTestRenderer) {
 const render = (ui: React.ReactElement) => toJson(renderScreen(ui));
 
 describe('Calendar', () => {
-  it('renders the day timeline with bookings and the lunch break from split shifts', () => {
+  it('renders the day grid with staff column, booking and off-hours state', () => {
     const json = render(<CalendarRoute />);
+    expect(json).toContain('Emma Thompson');
+    expect(json).toContain('1 booking');
+    expect(json).toContain('Olivia Bennett');
     expect(json).toContain('Balayage & Toner');
-    expect(json).toContain('Olivia Bennett · Emma Thompson');
-    expect(json).toContain('09:00 - 10:00');
-    expect(json).toContain('Break');
   });
 
-  it('switches between week and month views and back to today via setCalendarViewMode', () => {
+  it('switches to the read-only week list and back via setCalendarViewMode', () => {
     const tree = renderScreen(<CalendarRoute />);
     act(() =>
       tree.root
         .findByProps({ accessibilityLabel: 'Week view' })
         .props.onPress(),
     );
-    expect(toJson(tree)).toContain('Week view');
-    expect(toJson(tree)).toContain('1 appt');
-    act(() =>
-      tree.root
-        .findByProps({ accessibilityLabel: 'Month view' })
-        .props.onPress(),
-    );
-    expect(toJson(tree)).toContain('Month view');
+    expect(toJson(tree)).toContain('1 booking this week');
     act(() => setCalendarViewMode('day'));
-    expect(toJson(tree)).toContain('Break');
+    expect(toJson(tree)).toContain('Olivia Bennett');
   });
 
-  it('shows an error when appointments fail to load', () => {
-    mockHooks.useAppointmentsBetween.mockReturnValue(
-      failure(new Error('down')),
-    );
-    expect(render(<CalendarRoute />)).toContain("Couldn't load this.");
+  it('shows a retry card when the day fails to load', () => {
+    mockHooks.useCalendarDay.mockReturnValue({
+      status: 'error',
+      error: new Error('down'),
+      retry: jest.fn(),
+    });
+    expect(render(<CalendarRoute />)).toContain("Couldn't load the calendar");
   });
 });
 
@@ -509,18 +560,18 @@ describe('Clients', () => {
 });
 
 describe('Booking detail', () => {
-  it('shows the client, schedule, service, staff and a cancel action', () => {
+  it('shows service, time, client, actions and the cancel link', () => {
     mockSearchParams.mockReturnValue({ id: 'a-1' });
     const json = render(<BookingDetailRoute />);
-    expect(json).toContain('Booking Detail');
-    expect(json).toContain('Olivia Bennett');
-    expect(json).toContain('VIP client • 1 past visit');
-    expect(json).toContain('14:00 - 17:00');
     expect(json).toContain('Balayage & Toner');
+    expect(json).toContain('14:00 to 17:00');
+    expect(json).toContain('Olivia Bennett');
+    expect(json).toContain('Check in');
+    expect(json).toContain('Message');
+    expect(json).toContain('Reschedule');
     expect(json).toContain('R 2,200.00');
-    expect(json).toContain('Emma Thompson');
-    expect(json).toContain('Patch test done.');
-    expect(json).toContain('Cancel');
+    expect(json).toContain('Cancel booking');
+    expect(json).not.toContain('No-show');
   });
 
   it('shows not-found for a missing booking', () => {
@@ -532,20 +583,39 @@ describe('Booking detail', () => {
   });
 });
 
-describe('Add booking', () => {
-  it('renders the client, service, staff, date and confirmation sections', () => {
+describe('Reschedule', () => {
+  it('shows the current time and a disabled move button until a time is chosen', () => {
+    mockSearchParams.mockReturnValue({ id: 'a-1' });
+    const json = render(<RescheduleRoute />);
+    expect(json).toContain('is the current time');
+    expect(json).toContain('Pick a new time');
+    expect(json).toContain('Tell Olivia Bennett on WhatsApp');
+  });
+});
+
+describe('Cancel booking', () => {
+  it('offers the reasons and the WhatsApp toggle', () => {
+    mockSearchParams.mockReturnValue({ id: 'a-1' });
+    const json = render(<CancelRoute />);
+    expect(json).toContain('Why is this being cancelled?');
+    expect(json).toContain('Client asked');
+    expect(json).toContain('Staff unavailable');
+    expect(json).toContain('Tell Olivia Bennett on WhatsApp');
+  });
+});
+
+describe('New booking', () => {
+  it('starts with the client search, new client row and the service list', () => {
     const json = render(<AddBookingRoute />);
-    expect(json).toContain('Existing');
-    expect(json).toContain('New Client');
+    expect(json).toContain('Who is it for?');
     expect(json).toContain('Olivia Bennett');
-    expect(json).toContain('Select a service');
-    expect(json).toContain('No preference');
-    expect(json).toContain('Choose a service to see available times.');
-    expect(json).toContain('Send WhatsApp confirmation');
-    expect(json).toContain('Save Booking');
+    expect(json).toContain('New client');
+    expect(json).toContain("Women's Haircut");
+    expect(json).not.toContain('Retired Treatment');
+    expect(json).toContain('Next: pick a time');
   });
 
-  it('clears the form and the client preselection after a booking is saved', () => {
+  it('resets the form and client preselection once a booking is made', () => {
     let onSuccess: ((id: string) => void) | undefined;
     mockHooks.useCreateAppointment.mockImplementation(
       (opts: { onSuccess: (id: string) => void }) => {
@@ -554,21 +624,24 @@ describe('Add booking', () => {
       },
     );
     const tree = renderScreen(<AddBookingRoute />);
-    const notes = () =>
-      tree.root.findAllByProps({
-        placeholder: 'Special requests, allergies or notes for the staff...',
-      })[0];
-
-    act(() => notes().props.onChangeText('Allergic to latex'));
-    expect(notes().props.value).toBe('Allergic to latex');
-
+    act(() =>
+      tree.root
+        .findByProps({ accessibilityLabel: "Women's Haircut" })
+        .props.onPress(),
+    );
+    act(() =>
+      tree.root
+        .findByProps({ accessibilityLabel: 'Pick Olivia Bennett' })
+        .props.onPress(),
+    );
+    act(() =>
+      tree.root
+        .findByProps({ accessibilityLabel: 'Next: pick a time' })
+        .props.onPress(),
+    );
+    expect(toJson(tree)).toContain('When?');
     act(() => onSuccess?.('appt-9'));
-    expect(notes().props.value).toBe('');
-    expect(mockRouter.setParams).toHaveBeenCalledWith({
-      clientId: '',
-      mode: '',
-    });
-    expect(mockRouter.push).toHaveBeenCalledWith('/bookings/appt-9');
+    expect(toJson(tree)).toContain('Booked');
   });
 });
 
