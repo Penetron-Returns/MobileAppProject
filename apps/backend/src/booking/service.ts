@@ -198,8 +198,8 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
   }
 
   /** Customers must act at least cancellation_window_minutes before the start. */
-  function assertCustomerWindow(business: BusinessRow, row: AppointmentRow, actor: Actor, now: Date) {
-    if (actor.type !== 'customer') return;
+  function assertCustomerWindow(business: BusinessRow, row: AppointmentRow, actor: Actor, now: Date, enforce = false) {
+    if (actor.type !== 'customer' && !enforce) return;
     const windowMinutes = bookingRules(business).cancellation_window_minutes;
     const start = Date.parse(rangeBounds(row.slot).start);
     if (start - now.getTime() < windowMinutes * MINUTE) {
@@ -305,7 +305,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       if (current.status !== 'confirmed') {
         throw ruleViolation('INVALID_STATUS', 'Only confirmed appointments can be rescheduled');
       }
-      assertCustomerWindow(business, current, input.actor, now);
+      assertCustomerWindow(business, current, input.actor, now, input.enforceCancellationWindow);
 
       const staffId = await resolveStaff({
         business,
@@ -332,7 +332,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       const now = input.now ?? clock();
       const business = await requireBusiness(input.businessId);
       const current = await requireAppointment(input.businessId, input.appointmentId, input.actor);
-      assertCustomerWindow(business, current, input.actor, now);
+      assertCustomerWindow(business, current, input.actor, now, input.enforceCancellationWindow);
       const row = await repo.cancelAppointment({
         appointmentId: current.id,
         reason: input.reason ?? null,
@@ -345,6 +345,19 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     async getAppointment(businessId, appointmentId) {
       const row = await repo.getAppointment(businessId, appointmentId);
       return row ? toAppointmentDTO(row) : null;
+    },
+
+    async listAppointments(query) {
+      const rows = await repo.listAppointmentsInWindow(query.businessId, {
+        fromIso: parseInstant(query.from, 'from'),
+        toIso: parseInstant(query.to, 'to'),
+        staffId: query.staffId,
+        clientId: query.clientId,
+        status: query.status,
+        after: query.after,
+        limit: query.limit,
+      });
+      return rows.map(toAppointmentDTO);
     },
 
     async listUpcomingForClient(businessId, clientId, now) {
