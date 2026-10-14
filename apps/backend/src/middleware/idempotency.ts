@@ -61,15 +61,19 @@ export function idempotency(
   return async (c, next) => {
     if (!MUTATING.has(c.req.method)) return next();
 
-    const key = c.req.header('idempotency-key');
-    if (!key) throw new AppError('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key header is required');
-    if (!KEY_RE.test(key)) throw new AppError('VALIDATION_FAILED', 'Malformed Idempotency-Key');
+    const clientKey = c.req.header('idempotency-key');
+    if (!clientKey) throw new AppError('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key header is required');
+    if (!KEY_RE.test(clientKey)) throw new AppError('VALIDATION_FAILED', 'Malformed Idempotency-Key');
 
     const store = storeFactory(c);
     const endpoint = `${c.req.method} ${c.req.path}`;
     const body = await c.req.text();
     const requestHash = sha256Hex(`${endpoint}\n${body}`);
     const businessId = c.get('auth')?.businessId ?? null;
+    // Before a business exists (onboarding) the record is scoped to the verified org + user instead, so two
+    // callers that pick the same key can never see each other's stored response.
+    const session = businessId ? undefined : c.get('session');
+    const key = session ? `session:${session.orgId}:${session.userId}:${clientKey}` : clientKey;
 
     const existing = await store.get(key);
     if (existing) return replay(existing);
