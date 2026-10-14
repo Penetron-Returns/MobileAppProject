@@ -37,6 +37,7 @@ jest.mock('@/components/Sheet', () => {
     SheetContent: Passthrough,
     SheetHeader: View,
     SheetTitle: View,
+    SheetDescription: View,
   };
 });
 
@@ -105,6 +106,8 @@ jest.mock('@/features/clients/hooks', () => ({
   useClientNotes: mockHook('useClientNotes'),
   useClientAppointments: mockHook('useClientAppointments'),
   useAddClientNote: mockMutation,
+  useDeleteClientNote: mockMutation,
+  useUpdateClient: mockMutation,
 }));
 jest.mock('@/features/catalog/hooks', () => ({
   useServices: mockHook('useServices'),
@@ -484,7 +487,7 @@ describe('Clients', () => {
     expect(json).toContain('James Wilson');
     expect(json).toContain('VIP');
     expect(json).toContain('No visits yet');
-    expect(json).toContain('Load more clients');
+    expect(json).toContain('Show more clients');
   });
 
   it('shows an empty state when no clients match', () => {
@@ -492,7 +495,7 @@ describe('Clients', () => {
       ...success({ pages: [[]] }),
       hasNextPage: false,
     });
-    expect(render(<ClientsRoute />)).toContain('No clients found');
+    expect(render(<ClientsRoute />)).toContain('No clients yet');
   });
 
   it('renders a client profile with contact, notes, stats and history', () => {
@@ -502,8 +505,8 @@ describe('Clients', () => {
     expect(json).toContain('+27 82 123 4567');
     expect(json).toContain('olivia@example.com');
     expect(json).toContain('Allergic to PPD.');
-    expect(json).toContain('R2.2k');
-    expect(json).toContain('50%');
+    expect(json).toContain('1 visit');
+    expect(json).toContain('2,200 spent');
     expect(json).toContain("Women's Haircut");
   });
 });
@@ -575,12 +578,13 @@ describe('Add booking', () => {
 describe('Settings', () => {
   it('shows the profile, role, settings links and WhatsApp status', () => {
     const json = render(<SettingsRoute />);
-    expect(json).toContain('Kobus Krieg');
-    expect(json).toContain('Ashgrove Hair & Beauty • Owner');
-    expect(json).toContain('Operating Hours');
-    expect(json).toContain('Staff Management');
+    expect(json).toContain('Ashgrove Hair & Beauty');
+    expect(json).toContain('Owner');
+    expect(json).toContain('Hours');
+    expect(json).toContain('Team');
+    expect(json).toContain('Booking rules');
     expect(json).toContain('Connected · +27 21 555 0199');
-    expect(json).toContain('Log Out');
+    expect(json).toContain('Sign out');
   });
 
   it('prefills business details from the database', () => {

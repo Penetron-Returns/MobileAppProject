@@ -1,26 +1,22 @@
 import { useRouter } from 'expo-router';
-import { ChevronDown, Clock } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
-import { ErrorState, LoadingRows } from '@/components/States';
-import { Icon } from '@/components/ui/icon';
+import { Group, GroupRow, SectionTitle } from '@/components/Group';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import { formatDuration, formatMoney, formatMoneyCompact } from '@/lib/format';
-import {
-  formatTime,
-  MONTHS_SHORT,
-  WEEKDAYS_SHORT,
-  zonedParts,
-} from '@/lib/time';
-import { cn } from '@/lib/utils';
+import { useDepth } from '@/hooks/useDepth';
+import { formatMoney } from '@/lib/format';
+import { formatDateShort, formatTime, businessDate } from '@/lib/time';
 
 import { useClientAppointments, type ClientAppointment } from '../hooks';
-import { clientStats, historyStatus, type HistoryStatus } from '../logic';
+import { clientStats, upcomingAppointments, visitCadenceWeeks } from '../logic';
 
 const COLLAPSED_COUNT = 3;
 
+/** Stats line, "Up next" and the collapsible visit history. */
 export function ClientHistory({
   clientId,
   timezone,
@@ -31,204 +27,118 @@ export function ClientHistory({
   currency: string;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
+  const depth = useDepth();
   const history = useClientAppointments(clientId);
   const [expanded, setExpanded] = React.useState(false);
 
-  if (history.isPending) return <LoadingRows count={3} />;
+  if (history.isPending) {
+    return (
+      <View className="mx-5 mt-5 gap-3">
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-14 w-full" />
+      </View>
+    );
+  }
   if (history.isError) {
     return (
-      <ErrorState
-        error={history.error}
-        onRetry={() => void history.refetch()}
-      />
+      <Pressable
+        onPress={() => void history.refetch()}
+        accessibilityRole="button"
+        className="mx-5 mt-5 min-h-11 justify-center"
+      >
+        <Text style={{ color: depth.colors.tint }} className="text-title">
+          {t('clients.profile.historyFailed')}
+        </Text>
+      </Pressable>
     );
   }
 
-  const stats = clientStats(history.data);
-  const rows = expanded ? history.data : history.data.slice(0, COLLAPSED_COUNT);
   const now = new Date();
+  const stats = clientStats(history.data);
+  const upcoming = upcomingAppointments(history.data, now);
+  const past = history.data.filter((a) => !upcoming.includes(a));
+  const cadence = visitCadenceWeeks(
+    history.data
+      .filter((a) => a.status === 'completed')
+      .map((a) => a.starts_at),
+  );
+  const rows = expanded ? past : past.slice(0, COLLAPSED_COUNT);
+  const statsLine = [
+    t('clients.profile.visits', { count: stats.visits }),
+    t('clients.profile.spent', {
+      amount: formatMoney(stats.spentCents, currency, { decimals: false }),
+    }),
+    cadence ? t('clients.profile.cadence', { count: cadence }) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const line = (a: ClientAppointment) =>
+    `${formatDateShort(businessDate(a.starts_at, timezone))} · ${formatTime(a.starts_at, timezone)} · ${a.staff.name}`;
 
   return (
     <>
-      <View className="flex-row flex-wrap gap-3">
-        <StatTile
-          label={t('clientProfile.stats.visits')}
-          value={String(stats.visits)}
-          accent
-        />
-        <StatTile
-          label={t('clientProfile.stats.spent')}
-          value={formatMoneyCompact(stats.spentCents, currency)}
-          accent
-        />
-        <StatTile
-          label={t('clientProfile.stats.avgSpend')}
-          value={formatMoneyCompact(stats.avgSpendCents, currency)}
-        />
-        <StatTile
-          label={t('clientProfile.stats.cancellations')}
-          value={`${Math.round(stats.cancellationRate * 100)}%`}
-        />
-      </View>
+      <Text className="mx-5 mt-4 text-title text-muted-foreground">
+        {statsLine}
+      </Text>
 
-      <View className="bg-card border-border overflow-hidden rounded-2xl border shadow-sm">
-        <View className="border-border flex-row items-center justify-between border-b p-5">
-          <View className="flex-row items-center gap-2">
-            <Icon as={Clock} size={20} className="text-primary" />
-            <Text className="text-foreground text-lg font-bold">
-              {t('clientProfile.history')}
-            </Text>
-          </View>
-        </View>
-        {history.data.length === 0 ? (
-          <Text className="text-muted-foreground p-5 text-sm">
-            {t('clientProfile.noHistory')}
+      {upcoming.length > 0 ? (
+        <>
+          <SectionTitle>{t('clients.profile.upNext')}</SectionTitle>
+          <Group>
+            {upcoming.map((a, i) => (
+              <GroupRow
+                key={a.id}
+                showSeparator={i > 0}
+                title={a.service.name}
+                subtitle={line(a)}
+                onPress={() => router.push(`/bookings/${a.id}` as never)}
+                accessibilityLabel={t('clients.profile.openBooking', {
+                  service: a.service.name,
+                  when: line(a),
+                })}
+              />
+            ))}
+          </Group>
+        </>
+      ) : null}
+
+      <SectionTitle>{t('clients.profile.history')}</SectionTitle>
+      <Group>
+        {past.length === 0 ? (
+          <Text className="px-4 py-5 text-title text-muted-foreground">
+            {t('clients.profile.noHistory')}
           </Text>
         ) : (
-          rows.map((item, index) => (
-            <HistoryRow
-              key={item.id}
-              item={item}
-              status={historyStatus(item, now)}
-              timezone={timezone}
-              currency={currency}
-              isLast={index === rows.length - 1}
+          rows.map((a, i) => (
+            <GroupRow
+              key={a.id}
+              showSeparator={i > 0}
+              title={a.service.name}
+              subtitle={`${line(a)}${a.status === 'completed' ? '' : ` · ${t(`clients.profile.status.${a.status}`)}`}`}
+              detail={formatMoney(a.price_cents, currency, { decimals: false })}
+              onPress={() => router.push(`/bookings/${a.id}` as never)}
             />
           ))
         )}
-        {!expanded && history.data.length > COLLAPSED_COUNT ? (
-          <Pressable
-            onPress={() => setExpanded(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t('clientProfile.loadMoreHistory')}
-            className="bg-muted/30 active:bg-muted/60 border-border min-h-[44px] flex-row items-center justify-center gap-1.5 border-t py-3"
-          >
-            <Text className="text-primary text-xs font-semibold">
-              {t('clientProfile.loadMoreHistory')}
-            </Text>
-            <Icon as={ChevronDown} size={16} className="text-primary" />
-          </Pressable>
-        ) : null}
-      </View>
-    </>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
-  return (
-    <View className="bg-card border-border min-w-[45%] flex-1 items-center justify-center rounded-2xl border p-4 shadow-sm">
-      <Text className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
-        {label}
-      </Text>
-      <Text
-        className={cn(
-          'mt-1 text-2xl font-bold',
-          accent ? 'text-primary' : 'text-foreground',
-        )}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-const STATUS_STYLE: Record<HistoryStatus, { box: string; text: string }> = {
-  upcoming: {
-    box: 'bg-success/15 border-success/30 border',
-    text: 'text-success',
-  },
-  confirmed: { box: 'bg-primary/10', text: 'text-primary' },
-  completed: { box: 'bg-muted', text: 'text-muted-foreground' },
-  cancelled: {
-    box: 'bg-destructive/15 border-destructive/30 border',
-    text: 'text-destructive',
-  },
-  no_show: { box: 'bg-status-pending-soft', text: 'text-status-pending' },
-};
-
-function HistoryRow({
-  item,
-  status,
-  timezone,
-  currency,
-  isLast,
-}: {
-  item: ClientAppointment;
-  status: HistoryStatus;
-  timezone: string;
-  currency: string;
-  isLast: boolean;
-}) {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const parts = zonedParts(item.starts_at, timezone);
-  const isCancelled = status === 'cancelled';
-  const details = [
-    `${WEEKDAYS_SHORT[parts.weekday]}, ${formatTime(item.starts_at, timezone, true)}`,
-    formatDuration(item.duration_minutes),
-    t('clientProfile.withStaff', { name: item.staff.name }),
-  ].join(' • ');
-  const style = STATUS_STYLE[status];
-
-  return (
-    <Pressable
-      onPress={() => router.push(`/bookings/${item.id}` as never)}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.service.name}, ${t(`clientProfile.status.${status}`)}`}
-      className={cn(
-        'relative flex-row items-center gap-3.5 p-4 active:opacity-75',
-        !isLast && 'border-border border-b',
-        isCancelled && 'opacity-70',
-      )}
-    >
-      {status === 'upcoming' ? (
-        <View className="bg-success absolute bottom-0 left-0 top-0 w-1 rounded-r" />
-      ) : null}
-      <View className="bg-muted border-border h-14 w-14 items-center justify-center rounded-xl border">
-        <Text className="text-primary text-[10px] font-bold uppercase">
-          {MONTHS_SHORT[parts.month - 1]}
-        </Text>
-        <Text className="text-foreground text-base font-bold leading-none">
-          {String(parts.day).padStart(2, '0')}
-        </Text>
-      </View>
-      <View className="min-w-0 flex-1">
-        <View className="mb-0.5 flex-row items-center gap-2">
-          <Text
-            numberOfLines={1}
-            className={cn(
-              'text-foreground shrink text-base font-semibold',
-              isCancelled && 'text-muted-foreground line-through',
-            )}
-          >
-            {item.service.name}
+      </Group>
+      {!expanded && past.length > COLLAPSED_COUNT ? (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={t('clients.profile.showAll', {
+            count: past.length,
+          })}
+          className="mx-5 min-h-12 flex-row items-center gap-1 px-1 active:opacity-50"
+        >
+          <Text style={{ color: depth.colors.tint }} className="text-title">
+            {t('clients.profile.showAll', { count: past.length })}
           </Text>
-          <View className={cn('rounded-full px-2 py-0.5', style.box)}>
-            <Text className={cn('text-[10px] font-bold uppercase', style.text)}>
-              {t(`clientProfile.status.${status}`)}
-            </Text>
-          </View>
-        </View>
-        <Text numberOfLines={1} className="text-muted-foreground text-xs">
-          {details}
-        </Text>
-      </View>
-      <Text
-        className={cn(
-          'text-foreground text-sm font-semibold',
-          isCancelled && 'text-muted-foreground line-through',
-        )}
-      >
-        {formatMoney(item.price_cents, currency, { decimals: false })}
-      </Text>
-    </Pressable>
+          <ChevronDown size={16} strokeWidth={2.4} color={depth.colors.tint} />
+        </Pressable>
+      ) : null}
+    </>
   );
 }
