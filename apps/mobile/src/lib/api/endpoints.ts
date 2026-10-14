@@ -12,6 +12,7 @@ import type {
   CreateClientRequest,
   CreateOverrideRequest,
   CreateServiceRequest,
+  CreateInvitationRequest,
   CreateStaffRequest,
   ManualConnectRequest,
   MeDTO,
@@ -24,10 +25,14 @@ import type {
   ServiceDTO,
   SetAppointmentStatusRequest,
   StaffDTO,
+  TeamDTO,
+  TeamInvitationDTO,
+  TeamMemberDTO,
   TestMessageRequest,
   UpdateAppointmentRequest,
   UpdateBusinessRequest,
   UpdateClientRequest,
+  UpdateMemberRoleRequest,
   UpdateServiceRequest,
   UpdateStaffRequest,
   WhatsAppChannelDTO,
@@ -94,6 +99,29 @@ export const api = {
       undefined,
       key,
     ),
+
+  // team (owner only): Clerk organisation members and invitations
+  team: () => get<TeamDTO>('/v1/team'),
+  createInvitation: (b: CreateInvitationRequest, key: string) =>
+    send<CreateInvitationRequest, TeamInvitationDTO>(
+      'POST',
+      '/v1/team/invitations',
+    )(b, key),
+  revokeInvitation: (id: string, key: string) =>
+    send<undefined, { id: string; revoked: true }>(
+      'DELETE',
+      `/v1/team/invitations/${enc(id)}`,
+    )(undefined, key),
+  updateMemberRole: (userId: string, b: UpdateMemberRoleRequest, key: string) =>
+    send<UpdateMemberRoleRequest, TeamMemberDTO>(
+      'PATCH',
+      `/v1/team/members/${enc(userId)}`,
+    )(b, key),
+  removeMember: (userId: string, key: string) =>
+    send<undefined, { user_id: string; removed: true }>(
+      'DELETE',
+      `/v1/team/members/${enc(userId)}`,
+    )(undefined, key),
 
   // clients
   createClient: (b: CreateClientRequest, key: string) =>

@@ -51,7 +51,7 @@ export function Switch({
     >
       <View
         style={[
-          depth.knob,
+          depth.thumb,
           {
             position: 'absolute',
             top: 2,
