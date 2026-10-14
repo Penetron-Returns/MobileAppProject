@@ -4,8 +4,9 @@
  * out-of-order delivery (membership before organisation) are safe.
  */
 import type { MemberRole, UUID } from '../../../../packages/shared/api.ts';
-import type { BookingRepository } from './repository.ts';
-import type { BusinessRow } from './rows.ts';
+import { AppError } from '../lib/errors.ts';
+import type { BookingRepository, StaffValues } from './repository.ts';
+import type { BusinessRow, StaffRow } from './rows.ts';
 
 export interface ClerkEvent {
   type: string;
@@ -32,6 +33,7 @@ interface ClerkUser {
 
 interface ClerkMembership {
   role?: string;
+  public_metadata?: Record<string, unknown> | null;
   organization?: ClerkOrganization;
   public_user_data?: {
     user_id?: string;
@@ -120,12 +122,63 @@ export interface MemberInput {
   email?: string | null;
   displayName?: string | null;
   avatarUrl?: string | null;
+  /** Staff row named by the accepted invitation's public metadata (preferred link target) */
+  staffId?: UUID | null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const sameEmail = (a: string | null, b: string | null | undefined) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** Links the login to an existing unlinked staff row. Returns false when the row is taken or gone. */
+async function linkStaff(repo: BookingRepository, businessId: UUID, staff: StaffRow, m: MemberInput): Promise<boolean> {
+  try {
+    const patch: Partial<StaffValues> = { user_id: m.userId };
+    if (!staff.email && m.email) patch.email = m.email;
+    return (await repo.updateStaff(businessId, staff.id, patch)) !== null;
+  } catch (err) {
+    // Lost a race: the login already got a staff row (staff_business_user_key).
+    if (err instanceof AppError && err.code === 'VALIDATION_FAILED' && (await repo.findStaffByUserId(businessId, m.userId))) return true;
+    throw err;
+  }
+}
+
+/**
+ * Gives a login its calendar person: the staff row named by the invitation metadata,
+ * else an unlinked active row with the same email (case-insensitive), else a new row.
+ */
+async function linkOrCreateStaff(repo: BookingRepository, business: BusinessRow, m: MemberInput) {
+  if (await repo.findStaffByUserId(business.id, m.userId)) return;
+  if (m.staffId && UUID_RE.test(m.staffId)) {
+    const hinted = await repo.getStaff(business.id, m.staffId);
+    if (hinted && !hinted.user_id && (await linkStaff(repo, business.id, hinted, m))) return;
+  }
+  if (m.email) {
+    const byEmail = (await repo.listStaff(business.id)).find((s) => !s.user_id && s.is_active && sameEmail(s.email, m.email));
+    if (byEmail && (await linkStaff(repo, business.id, byEmail, m))) return;
+  }
+  try {
+    await repo.insertStaff(business.id, {
+      user_id: m.userId,
+      name: m.displayName ?? m.email?.split('@')[0] ?? 'Staff member',
+      title: null,
+      photo_url: m.avatarUrl ?? null,
+      phone: null,
+      email: m.email ?? null,
+      color: null,
+      is_active: true,
+      accepts_bookings: true,
+      sort_order: 0,
+    });
+  } catch (err) {
+    if (err instanceof AppError && err.code === 'VALIDATION_FAILED' && (await repo.findStaffByUserId(business.id, m.userId))) return;
+    throw err;
+  }
 }
 
 /**
  * Links a user to a business and makes sure a staff row exists for them.
- * Shared by the Clerk membership webhook and in-app onboarding so both
- * converge on the same rows.
+ * Shared by the Clerk membership webhook, the session sync in requireAuth and in-app
+ * onboarding so all converge on the same rows.
  */
 export async function ensureMember(
   repo: BookingRepository,
@@ -141,20 +194,7 @@ export async function ensureMember(
     ...(m.displayName ? { display_name: m.displayName } : {}),
     ...(m.avatarUrl ? { avatar_url: m.avatarUrl } : {}),
   });
-  if (opts.createStaff && !(await repo.findStaffByUserId(business.id, m.userId))) {
-    await repo.insertStaff(business.id, {
-      user_id: m.userId,
-      name: m.displayName ?? m.email?.split('@')[0] ?? 'Staff member',
-      title: null,
-      photo_url: m.avatarUrl ?? null,
-      phone: null,
-      email: m.email ?? null,
-      color: null,
-      is_active: true,
-      accepts_bookings: true,
-      sort_order: 0,
-    });
-  }
+  if (opts.createStaff) await linkOrCreateStaff(repo, business, m);
 }
 
 async function upsertMembership(repo: BookingRepository, m: ClerkMembership, created: boolean): Promise<ClerkEventResult> {
@@ -171,6 +211,7 @@ async function upsertMembership(repo: BookingRepository, m: ClerkMembership, cre
       email: identifier?.includes('@') ? identifier : null,
       displayName: fullName(m.public_user_data?.first_name, m.public_user_data?.last_name),
       avatarUrl: m.public_user_data?.image_url ?? null,
+      staffId: typeof m.public_metadata?.staff_id === 'string' ? m.public_metadata.staff_id : null,
     },
     { createStaff: created },
   );
