@@ -74,6 +74,8 @@ export function useThreadMessages(conversationId: string) {
 /** Realtime: any change to conversations, messages or escalations refreshes the inbox queries. */
 export function useInboxRealtime(enabled: boolean) {
   const queryClient = useQueryClient();
+  // supabase-js reuses a channel per topic and refuses `.on` after subscribe, so each caller needs its own topic.
+  const topic = `inbox-changes-${React.useId()}`;
   React.useEffect(() => {
     if (!enabled) return;
     const refresh = () => {
@@ -81,7 +83,7 @@ export function useInboxRealtime(enabled: boolean) {
       void queryClient.invalidateQueries({ queryKey: ['messages'] });
       void queryClient.invalidateQueries({ queryKey: ['escalations'] });
     };
-    let channel = supabase.channel('inbox-changes');
+    let channel = supabase.channel(topic);
     for (const table of ['conversations', 'messages', 'escalations']) {
       channel = channel.on(
         'postgres_changes',
@@ -93,7 +95,7 @@ export function useInboxRealtime(enabled: boolean) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [enabled, queryClient]);
+  }, [enabled, queryClient, topic]);
 }
 
 const INBOX_KEYS = [qk.conversations, ['messages'], ['escalations']];

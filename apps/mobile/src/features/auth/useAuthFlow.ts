@@ -169,7 +169,10 @@ export function useAuthFlow(): AuthFlow {
     await run(async () => {
       const result = await startSSOFlow({ strategy: 'oauth_google' });
       if (result.createdSessionId && result.setActive) {
-        await result.setActive({ session: result.createdSessionId });
+        await result.setActive({
+          session: result.createdSessionId,
+          navigate: async () => {},
+        });
         goHome();
         return true;
       }
