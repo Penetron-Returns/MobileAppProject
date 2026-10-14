@@ -2,7 +2,8 @@ import { createBookingService } from './booking/index.ts';
 import { getEnv, type Env } from './env.ts';
 import { getDb, type Db } from './lib/db.ts';
 import { createNotificationService } from './notifications/index.ts';
-import type { BookingService, NotificationService } from './ports.ts';
+import { createEntitlementService } from './plans/entitlements.ts';
+import type { BookingService, EntitlementService, NotificationService } from './ports.ts';
 
 /**
  * Composition root. Built once per warm function instance.
@@ -13,12 +14,14 @@ export interface Container {
   db: Db;
   booking: BookingService;
   notifications: NotificationService;
+  entitlements: EntitlementService;
 }
 
 export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const notifications = createNotificationService({ env, db });
   const booking = createBookingService({ env, db, notifications });
-  return { env, db, booking, notifications };
+  const entitlements = createEntitlementService({ db });
+  return { env, db, booking, notifications, entitlements };
 }
 
 let cached: Container | undefined;

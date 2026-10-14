@@ -15,6 +15,7 @@ import type {
   CreateOverrideRequest,
   CreateServiceRequest,
   CreateStaffRequest,
+  EntitlementsDTO,
   MeDTO,
   MemberRole,
   ServiceDTO,
@@ -103,6 +104,7 @@ const unique = <T>(values: T[]) => [...new Set(values)];
 export async function getMe(
   repo: BookingRepository,
   auth: { userId: string; businessId: UUID; role: MemberRole },
+  entitlements: EntitlementsDTO,
 ): Promise<MeDTO> {
   const [user, business] = await Promise.all([repo.getUser(auth.userId), requireBusiness(repo, auth.businessId)]);
   return {
@@ -115,6 +117,8 @@ export async function getMe(
     business: toBusinessDTO(business),
     // The session token is authoritative; the users row is a webhook mirror that may lag.
     role: auth.role,
+    plan: entitlements.plan,
+    features: entitlements.features,
   };
 }
 
