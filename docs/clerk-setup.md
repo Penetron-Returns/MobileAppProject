@@ -21,12 +21,12 @@ Dashboard → **Organizations** → enable Organizations.
 - One business = one Clerk organisation (`businesses.clerk_org_id`, see `docs/database.md`). The API
   reads the role from the org membership, never from a separate column.
 
-## 2. Sign-up restricted to invitations
+## 2. Sign-up mode
 
-Dashboard → **User & authentication** → restrict sign-up so accounts are only created by invitation
-(owner invites staff from inside a Clerk organisation; there is no public sign-up route in this app —
-`AuthView` is rendered with `mode="signIn"`). Turn off any sign-up strategy that doesn't go through an
-organisation invitation.
+Dashboard → **User & authentication**. Sign-up is `public` on the dev instance, and the app's `AuthView`
+is rendered with `mode="signInOrUp"` (web `<SignIn />` links to sign-up), so users can create their own
+account. Staff can still be invited from inside a Clerk organisation. Review the sign-up mode before
+production.
 
 ## 3. Session token (v2)
 
