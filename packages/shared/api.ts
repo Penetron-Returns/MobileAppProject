@@ -230,6 +230,42 @@ export interface CreateOverrideRequest {
   reason?: string | null;
 }
 
+// ---------- team (Clerk organisation members) ----------
+/** A login in the business's Clerk organisation. `staff_id` = the calendar person it is linked to. */
+export interface TeamMemberDTO {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  role: MemberRole;
+  staff_id: UUID | null;
+  is_self: boolean;
+}
+
+/** A pending Clerk organisation invitation. */
+export interface TeamInvitationDTO {
+  id: string;
+  email: string;
+  role: MemberRole;
+  /** Staff row the invited login will be linked to when it joins */
+  staff_id: UUID | null;
+  created_at: ISODateTime;
+}
+
+export interface TeamDTO {
+  members: TeamMemberDTO[];
+  invitations: TeamInvitationDTO[];
+}
+
+export interface CreateInvitationRequest {
+  email: string;
+  role: MemberRole;
+  staff_id?: UUID | null;
+}
+
+export interface UpdateMemberRoleRequest {
+  role: MemberRole;
+}
+
 // ---------- clients ----------
 export interface ClientDTO {
   id: UUID;

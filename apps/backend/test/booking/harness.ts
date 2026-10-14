@@ -6,6 +6,7 @@ import type { Db } from '../../src/lib/db.ts';
 import type { Logger } from '../../src/lib/logger.ts';
 import type { ClerkClaims } from '../../src/middleware/auth.ts';
 import type { AccountEventsPort, AppointmentChangedEvent } from '../../src/ports.ts';
+import { createFakeClerkAdmin, type FakeClerkAdmin } from '../fakes/clerkAdmin.ts';
 import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
 import { NOW, seed, type Seed } from './fixtures.ts';
 
@@ -17,6 +18,8 @@ const CLAIMS: Record<string, ClerkClaims> = {
   noorg: { sub: 'user_lonely' },
   newowner: { sub: 'user_new', org_id: 'org_new', org_role: 'org:admin' },
   newstaff: { sub: 'user_member', org_id: 'org_new', org_role: 'org:member' },
+  owner2: { sub: 'user_owner2', org_id: 'org_test', org_role: 'org:admin' },
+  invitee: { sub: 'user_invitee', org_id: 'org_test', org_role: 'org:member' },
   otherowner: { sub: 'user_other', org_id: 'org_other', org_role: 'org:admin' },
 };
 
@@ -40,6 +43,7 @@ export interface RequestOptions {
 export interface Harness extends Seed {
   app: ReturnType<typeof createApp>;
   events: AppointmentChangedEvent[];
+  clerk: FakeClerkAdmin;
   call(method: string, path: string, opts?: RequestOptions): Promise<{ status: number; body: any; headers: Headers }>;
 }
 
@@ -48,6 +52,7 @@ let keySeq = 0;
 export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEventsPort } = {}): Harness {
   const s = seed();
   const events: AppointmentChangedEvent[] = [];
+  const clerk = createFakeClerkAdmin();
   const booking = createBookingServiceFromRepository({
     repository: s.repo,
     notifications: { appointmentChanged: async (e) => void events.push(e) },
@@ -58,6 +63,7 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
     ...testContainer({
       booking,
       db: authDb(s.business.id),
+      clerkAdmin: clerk,
       env: { ...TEST_ENV, ...opts.env },
       ...(opts.nerovaEvents ? { nerovaEvents: opts.nerovaEvents } : {}),
     }),
@@ -90,5 +96,5 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
     return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
   }
 
-  return { ...s, app, events, call };
+  return { ...s, app, events, clerk, call };
 }

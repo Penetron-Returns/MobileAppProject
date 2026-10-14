@@ -3,6 +3,8 @@ import { TokenVerificationError, TokenVerificationErrorReason } from '@clerk/bac
 import type { Context, MiddlewareHandler } from 'hono';
 
 import type { MemberRole } from '../../../../packages/shared/api.ts';
+import { getBookingRepository } from '../booking/index.ts';
+import { syncSessionMember, type SessionMember } from '../booking/memberSync.ts';
 import { AppError } from '../lib/errors.ts';
 import { normalizePem } from '../lib/pem.ts';
 import type { AppEnv } from '../types.ts';
@@ -71,6 +73,19 @@ export function requireOrgOwnerSession(
   };
 }
 
+/**
+ * Mirrors the caller into users + staff on first contact (role from the token, staff link from invitation
+ * metadata, then email, then a new row). Best effort: a sync failure is logged and retried on the next request.
+ */
+async function mirrorMember(c: Context<AppEnv>, member: SessionMember) {
+  const container = c.get('container');
+  try {
+    await syncSessionMember({ repo: getBookingRepository(container), clerk: container.clerkAdmin, logger: c.get('logger') }, member);
+  } catch (err) {
+    c.get('logger').error('member_sync_failed', { error: err instanceof Error ? err.message : 'unknown' });
+  }
+}
+
 /** Verifies the Clerk session JWT and resolves the caller's business. */
 export function requireAuth(
   verify: (token: string) => Promise<ClerkClaims> = defaultVerifier,
@@ -92,6 +107,7 @@ export function requireAuth(
 
     c.set('auth', { userId: claims.sub, orgId, role, businessId: businessId.id });
     c.set('logger', c.get('logger').child({ business_id: businessId.id, user_id: claims.sub }));
+    await mirrorMember(c, { userId: claims.sub, orgId, role, businessId: businessId.id });
     await next();
   };
 }
