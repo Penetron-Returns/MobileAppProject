@@ -19,13 +19,17 @@ businessRoutes.get('/me', async (c) => {
 businessRoutes.patch('/business', requireOwner, async (c) => {
   const { repo, auth } = deps(c);
   const body = await parseJson(c, updateBusinessSchema);
-  return c.json({ data: await updateBusiness(repo, auth.businessId, body) });
+  const business = await updateBusiness(repo, auth.businessId, body);
+  await c.get('container').nerovaEvents.accountChanged(auth.businessId, 'account.updated');
+  return c.json({ data: business });
 });
 
 businessRoutes.put('/business/hours', requireOwner, async (c) => {
   const { repo, auth } = deps(c);
   const { hours } = await parseJson(c, replaceHoursSchema);
-  return c.json({ data: { hours: await replaceBusinessHours(repo, auth.businessId, hours) } });
+  const saved = await replaceBusinessHours(repo, auth.businessId, hours);
+  await c.get('container').nerovaEvents.accountChanged(auth.businessId, 'account.updated');
+  return c.json({ data: { hours: saved } });
 });
 
 businessRoutes.post('/devices', async (c) => {

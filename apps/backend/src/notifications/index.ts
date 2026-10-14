@@ -42,7 +42,7 @@ export async function notifyAppointmentChanged(deps: OutboundDeps, event: Appoin
   const business = appt ? await deps.repo.getBusinessBrief(event.businessId) : null;
   if (!appt || !business) return 'skipped';
 
-  if (event.actor.type === 'customer') {
+  if (event.actor.type === 'customer' || event.actor.type === 'nerova') {
     await deps.push.toBusiness(event.businessId, staffPush(event.kind, appt, business));
   }
   if (!event.notifyCustomer) return 'skipped';

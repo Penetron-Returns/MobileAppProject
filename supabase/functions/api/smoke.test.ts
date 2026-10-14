@@ -4,6 +4,12 @@ Deno.env.set('SUPABASE_URL', 'http://127.0.0.1:54321');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
 Deno.env.set('WHATSAPP_VERIFY_TOKEN', 'verify-token');
+// Nerova connector: only the SHA-256 of the bearer token is configured.
+const connectorToken = 'deno-smoke-connector-token';
+const connectorHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(connectorToken)))]
+  .map((b) => b.toString(16).padStart(2, '0'))
+  .join('');
+Deno.env.set('NEROVA_CONNECTOR_TOKEN_HASHES', connectorHash);
 
 // Throwaway Flows key pair. The container caches env on first use, so it must be set before the import below.
 const flowKeys = await crypto.subtle.generateKey(
@@ -92,4 +98,20 @@ Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on
     assertEquals(layout.includes('"name":"complete"'), true, `${def.name} terminal uses complete`);
     assertEquals(layout.includes('data_exchange'), false, `${def.name} terminal has no data_exchange`);
   }
+});
+
+Deno.test('nerova connector rejects a bad token and lists the ten tools under Deno', async () => {
+  const rpc = (token: string | null) =>
+    server.request('/api/connector/nerova/mcp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+  assertEquals((await rpc(null)).status, 401, 'missing token status');
+  assertEquals((await rpc('wrong')).status, 401, 'wrong token status');
+  const ok = await rpc(connectorToken);
+  assertEquals(ok.status, 200, 'status');
+  const { result } = await ok.json();
+  assertEquals(result.tools.length, 10, 'tool count');
+  assertEquals(result.tools[0].name, 'accounts_list', 'first tool');
 });

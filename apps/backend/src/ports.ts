@@ -7,6 +7,7 @@ import type {
   ActorType,
   AppointmentDTO,
   AppointmentSource,
+  AppointmentStatus,
   AvailableSlotsResponse,
   BusinessDTO,
   EntitlementsDTO,
@@ -70,6 +71,8 @@ export interface RescheduleAppointmentInput {
   notifyCustomer?: boolean;
   /** When the customer reschedules, availability + lead time + cancellation window are enforced */
   allowOutsideHours?: boolean;
+  /** Hold a non-customer actor (Nerova acting for a customer) to the cancellation window too */
+  enforceCancellationWindow?: boolean;
   now?: Date;
 }
 
@@ -79,7 +82,22 @@ export interface CancelAppointmentInput {
   actor: Actor;
   reason?: string | null;
   notifyCustomer?: boolean;
+  /** Hold a non-customer actor (Nerova acting for a customer) to the cancellation window too */
+  enforceCancellationWindow?: boolean;
   now?: Date;
+}
+
+export interface AppointmentWindowQuery {
+  businessId: UUID;
+  /** Appointments starting in [from, to) */
+  from: ISODateTime;
+  to: ISODateTime;
+  staffId?: UUID;
+  clientId?: UUID;
+  status?: AppointmentStatus;
+  /** Keyset cursor: continue after this (starts_at, id) */
+  after?: { startsAt: ISODateTime; id: UUID };
+  limit: number;
 }
 
 export interface BookingService {
@@ -95,6 +113,8 @@ export interface BookingService {
   rescheduleAppointment(input: RescheduleAppointmentInput): Promise<AppointmentDTO>;
   cancelAppointment(input: CancelAppointmentInput): Promise<AppointmentDTO>;
   getAppointment(businessId: UUID, appointmentId: UUID): Promise<AppointmentDTO | null>;
+  /** Appointments starting in a window, ordered by (starts_at, id); `limit` rows at most */
+  listAppointments(query: AppointmentWindowQuery): Promise<AppointmentDTO[]>;
   /** Confirmed appointments starting after `now`, ascending */
   listUpcomingForClient(businessId: UUID, clientId: UUID, now?: Date): Promise<AppointmentDTO[]>;
 }
@@ -119,4 +139,16 @@ export interface NotificationService {
 export interface EntitlementService {
   getEntitlements(businessId: UUID): Promise<EntitlementsDTO>;
   hasFeature(businessId: UUID, feature: FeatureKey): Promise<boolean>;
+  /** Businesses whose plan unlocks `feature`, ordered by id, strictly after `after` */
+  listBusinessIdsWithFeature(feature: FeatureKey, opts: { after?: UUID; limit: number }): Promise<UUID[]>;
+}
+
+export type AccountEventType = 'account.created' | 'account.updated' | 'account.removed';
+
+/**
+ * Tells Nerova (the AI companion platform) that a business changed so it re-reads
+ * the account. Best effort: must never throw, and is a no-op unless events are enabled.
+ */
+export interface AccountEventsPort {
+  accountChanged(businessId: UUID, type: AccountEventType): Promise<void>;
 }
