@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["apps/mobile/src/*"],
+      "@booking/types": ["packages/types/api.ts"],
+      "@booking/types/*": ["packages/types/*"],
+      "@booking/database": ["packages/database/database.types.ts"],
+      "@booking/features/*": ["packages/features/*"],
+      "@booking/companion/*": ["packages/companion/*"],
+      "@booking/app-store/*": ["packages/app-store/*"],
+      "@booking/testing/*": ["packages/testing/*"],
+      "@booking/ui": ["packages/ui/src/index.ts"],
+      "@booking/ui/*": ["packages/ui/src/*"]
+    }
+  }
+}

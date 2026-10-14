@@ -24,10 +24,13 @@
     "check:mobile": "npm run lint -w apps/mobile && npm run typecheck -w apps/mobile && npm run test:no-watch -w apps/mobile && npm run lint -w packages/ui && npm run typecheck -w packages/ui",
     "check:api": "npm --prefix apps/api run typecheck && npm --prefix apps/api test && npm --prefix apps/api run check:edge && npm --prefix apps/api run test:edge",
     "check:db": "scripts/db/test.sh",
-    "check": "npm run check:mobile && npm run check:api",
-    "format": "prettier --write ."
+    "check": "npm run check:mobile && npm run check:api && npm run check:boundaries && npm run check:imports",
+    "format": "prettier --write .",
+    "check:boundaries": "depcruise --config .dependency-cruiser.cjs apps/api/src apps/api/test apps/mobile/src packages",
+    "check:imports": "node scripts/check-import-maps.mjs"
   },
   "devDependencies": {
+    "dependency-cruiser": "^18.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
     "prettier": "3.9.9"
