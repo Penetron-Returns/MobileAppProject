@@ -148,6 +148,7 @@ DTO shapes live in `packages/shared/api.ts`.
 | --- | --- | --- | --- |
 | GET | `/health` | public | |
 | GET | `/v1/me` | member | `{ user, business, role, plan, features }` (`features` = `FeatureEntitlementDTO[]`, see *Plans and entitlements*) |
+| POST | `/v1/onboarding` | org owner (no business needed) | `OnboardingRequest` → `MeDTO`. Auth is the verified Clerk token only: active org id from the token, role `org:admin`, else `NO_BUSINESS` 403 / `FORBIDDEN` 403. Upserts the business (`clerkSync.upsertBusiness`), owner user and owner staff row (`ensureMember`), then applies hours, services (every bookable staff member qualified) and team. Idempotent: a business that already has hours, services or extra staff is returned unchanged, so a late Clerk webhook (or a retry with a new key) merges instead of duplicating. Config rows are audited by the `audit_log` triggers |
 | PATCH | `/v1/business` | owner | details + `booking_rules` (partial merge) |
 | PUT | `/v1/business/hours` | owner | full week replace `{ hours: BusinessHoursRow[] }` |
 | POST/PATCH/DELETE | `/v1/services[/:id]` | owner | DELETE = soft (is_active=false) if referenced |

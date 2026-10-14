@@ -17,5 +17,7 @@ export interface AppEnv {
     container: Container;
     /** Set by requireAuth() on /v1/** */
     auth: AuthContext;
+    /** Set by requireOrgOwnerSession() on /v1/onboarding (no business yet) */
+    session: { userId: string; orgId: string };
   };
 }
