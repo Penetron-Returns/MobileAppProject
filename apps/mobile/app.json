@@ -9,14 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.neighborhoodpicks.app"
+      "bundleIdentifier": "si.nerova.booking.dev"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.neighborhoodpicks.app"
+      "package": "si.nerova.booking.dev"
     },
     "web": {
       "bundler": "metro",
