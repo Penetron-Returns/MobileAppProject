@@ -45,12 +45,16 @@ export function ScheduleSection({
             {summary}
           </Text>
         </View>
-        <ChevronRight
-          size={14}
-          strokeWidth={2.8}
-          color={depth.colors.secondary}
+        <View
+          importantForAccessibility="no-hide-descendants"
           style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}
-        />
+        >
+          <ChevronRight
+            size={14}
+            strokeWidth={2.8}
+            color={depth.colors.secondary}
+          />
+        </View>
       </Pressable>
       {open ? (
         <View className="px-4 pb-2">
