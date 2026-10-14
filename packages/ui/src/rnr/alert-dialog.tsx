@@ -48,7 +48,7 @@ function AlertDialogOverlay({
             .delay(50)
             .reduceMotion(ReduceMotion.System)}
           exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
-          as="Pressable"
+          as="View"
         >
           <>{children}</>
         </NativeOnlyAnimatedView>
