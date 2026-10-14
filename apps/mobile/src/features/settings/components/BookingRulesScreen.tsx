@@ -40,8 +40,7 @@ function formatReminders(t: Translate, offsets: number[]): string {
 
 type NumericKey = keyof typeof RULE_OPTIONS;
 type Picker =
-  | { kind: 'number'; key: NumericKey; days?: boolean }
-  | { kind: 'reminders' };
+  { kind: 'number'; key: NumericKey; days?: boolean } | { kind: 'reminders' };
 
 /** Booking rules as plain sentences; tap a value to change it. */
 export function BookingRulesScreen() {

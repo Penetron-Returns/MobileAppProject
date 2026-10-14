@@ -25,8 +25,7 @@ async function obtainPushToken(): Promise<string | null> {
     current.granted || (await Notifications.requestPermissionsAsync()).granted;
   if (!granted) return null;
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as
-    | string
-    | undefined;
+    string | undefined;
   const token = await Notifications.getExpoPushTokenAsync(
     projectId ? { projectId } : undefined,
   );

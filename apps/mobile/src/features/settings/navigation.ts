@@ -1,10 +1,5 @@
 export type SettingsItem =
-  | 'businessDetails'
-  | 'hours'
-  | 'services'
-  | 'team'
-  | 'rules'
-  | 'notifications';
+  'businessDetails' | 'hours' | 'services' | 'team' | 'rules' | 'notifications';
 
 export interface SettingsGroup {
   id: 'business' | 'account';
