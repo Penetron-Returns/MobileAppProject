@@ -1,4 +1,4 @@
-import type { MemberRole, UUID } from '../../../packages/shared/api.ts';
+import type { MemberRole, UUID } from '@booking/types';
 import type { Container } from './container.ts';
 import type { Logger } from './lib/logger.ts';
 
