@@ -106,7 +106,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     }
     if (!client.phone) throw invalidRequest('client.phone (E.164) or client.externalClientId is required');
     if (!tryNormalizePhone(client.phone)) throw invalidRequest('client.phone is not a valid phone number');
-    const row = await upsertClient(repo, businessId, { phone: client.phone, name: client.name, email: client.email });
+    const row = await upsertClient(repo, businessId, { phone: client.phone, name: client.name, email: client.email }, { onlyFillBlank: true });
     return row.id;
   }
 
