@@ -1,5 +1,5 @@
 // Deno smoke test: proves the backend graph resolves and boots under the Edge runtime.
-// Run: cd backend && npm run test:edge
+// Run: cd apps/api && npm run test:edge
 Deno.env.set('SUPABASE_URL', 'http://127.0.0.1:54321');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
@@ -23,7 +23,7 @@ const flowPem = ['-----BEGIN PRIVATE KEY-----', btoa(String.fromCharCode(...flow
 Deno.env.set('WHATSAPP_FLOW_PRIVATE_KEY', flowPem.replaceAll('\n', '\\n'));
 
 const { Hono } = await import('hono');
-const { createApp } = await import('../../../apps/backend/src/app.ts');
+const { createApp } = await import('../../../../../apps/api/src/app.ts');
 const server = new Hono().route('/api', createApp());
 
 function assertEquals(actual: unknown, expected: unknown, label: string) {
@@ -49,7 +49,7 @@ Deno.test('cron routes require the shared secret', async () => {
 });
 
 Deno.test('node:crypto AES-GCM secrets round-trip under Deno', async () => {
-  const { encryptSecret, decryptSecret } = await import('../../../apps/backend/src/lib/crypto.ts');
+  const { encryptSecret, decryptSecret } = await import('../../../../../apps/api/src/lib/crypto.ts');
   const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
   assertEquals(decryptSecret(encryptSecret('EAAG-token', key), key), 'EAAG-token', 'round trip');
 });
@@ -88,7 +88,7 @@ Deno.test('flows endpoint decrypts a ping and answers with the inverted IV under
 
 // Published Flows are immutable, so the names the backend looks up must stay in step with the JSON it ships.
 Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on a complete action', async () => {
-  const { FLOW_DEFINITIONS } = await import('../../../apps/backend/src/whatsapp/assets.ts');
+  const { FLOW_DEFINITIONS } = await import('../../../../../apps/api/src/whatsapp/assets.ts');
   assertEquals(FLOW_DEFINITIONS.booking.name, 'booking_v2', 'booking name');
   assertEquals(FLOW_DEFINITIONS.reschedule.name, 'reschedule_v2', 'reschedule name');
   for (const def of Object.values(FLOW_DEFINITIONS)) {
