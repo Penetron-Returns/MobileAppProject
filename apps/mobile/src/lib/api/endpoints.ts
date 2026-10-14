@@ -36,7 +36,7 @@ import type {
   UpdateServiceRequest,
   UpdateStaffRequest,
   WhatsAppChannelDTO,
-} from '@shared/api';
+} from '@booking/types';
 
 import { enc, get, send } from './client';
 

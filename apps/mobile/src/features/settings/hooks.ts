@@ -1,4 +1,4 @@
-import type { BookingRules } from '@shared/api';
+import type { BookingRules } from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { useUpdateBusiness } from '@/features/business/hooks';

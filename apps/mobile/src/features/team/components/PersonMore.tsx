@@ -11,7 +11,7 @@ import {
   Text,
   type SystemColorKey,
 } from '@booking/ui';
-import type { MemberRole } from '@shared/api';
+import type { MemberRole } from '@booking/types';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';

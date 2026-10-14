@@ -1,4 +1,4 @@
-import type { WhatsAppAccountStatus } from '@shared/api';
+import type { WhatsAppAccountStatus } from '@booking/types';
 
 export type WhatsAppStateKey = WhatsAppAccountStatus | 'none';
 

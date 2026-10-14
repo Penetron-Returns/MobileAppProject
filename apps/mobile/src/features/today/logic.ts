@@ -1,4 +1,4 @@
-import type { Database } from '@shared/database.types';
+import type { Database } from '@booking/database';
 
 import {
   MONTHS,

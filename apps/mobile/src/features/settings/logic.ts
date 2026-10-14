@@ -1,4 +1,4 @@
-import type { BusinessHoursRow } from '@shared/api';
+import type { BusinessHoursRow } from '@booking/types';
 
 import { minutesToTime, timeToMinutes, toHHmm } from '@/lib/time';
 

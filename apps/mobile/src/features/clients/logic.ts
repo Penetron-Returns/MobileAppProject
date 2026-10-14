@@ -1,4 +1,4 @@
-import type { AppointmentStatus } from '@shared/api';
+import type { AppointmentStatus } from '@booking/types';
 
 import { businessDate, type ISODate } from '@/lib/time';
 

@@ -4,14 +4,17 @@
     "strict": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../../packages/shared/*"],
+      "@booking/types": ["../../packages/types/api.ts"],
+      "@booking/types/*": ["../../packages/types/*"],
+      "@booking/database": ["../../packages/database/database.types.ts"],
       "@booking/ui": ["../../packages/ui/src/index.ts"],
       "@booking/ui/*": ["../../packages/ui/src/*"]
     }
   },
   "include": [
     "src/**/*",
-    "../../packages/shared/**/*",
+    "../../packages/types/**/*",
+    "../../packages/database/database.types.ts",
     "../../packages/ui/**/*",
     "**/*.ts",
     "**/*.tsx",

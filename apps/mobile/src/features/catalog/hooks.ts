@@ -3,7 +3,7 @@ import type {
   CreateStaffRequest,
   UpdateServiceRequest,
   UpdateStaffRequest,
-} from '@shared/api';
+} from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';

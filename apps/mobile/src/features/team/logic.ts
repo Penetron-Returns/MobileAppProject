@@ -3,7 +3,7 @@ import type {
   TeamDTO,
   TeamInvitationDTO,
   TeamMemberDTO,
-} from '@shared/api';
+} from '@booking/types';
 import { z } from 'zod';
 
 import { staffStatus, joinMeta } from '@/features/settings/lists';

@@ -3,7 +3,7 @@ import type {
   CreateAppointmentRequest,
   RescheduleAppointmentRequest,
   SetAppointmentStatusRequest,
-} from '@shared/api';
+} from '@booking/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

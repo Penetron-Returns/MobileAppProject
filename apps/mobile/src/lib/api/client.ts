@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 
-import type { ApiErrorBody, ApiErrorCode } from '@shared/api';
+import type { ApiErrorBody, ApiErrorCode } from '@booking/types';
 
 import { getAuthToken } from '../auth-token';
 import { env } from '../env';

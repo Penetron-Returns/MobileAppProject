@@ -1,4 +1,4 @@
-import type { FeatureEntitlementDTO, FeatureKey } from '@shared/api';
+import type { FeatureEntitlementDTO, FeatureKey } from '@booking/types';
 
 /** Whether the plan's feature list unlocks `feature`. Fails closed on missing data. */
 export function hasFeature(

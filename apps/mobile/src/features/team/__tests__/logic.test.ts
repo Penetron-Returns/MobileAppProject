@@ -1,4 +1,4 @@
-import type { TeamDTO } from '@shared/api';
+import type { TeamDTO } from '@booking/types';
 
 import { ApiError } from '@/lib/api';
 

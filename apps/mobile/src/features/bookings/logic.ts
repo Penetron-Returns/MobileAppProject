@@ -4,7 +4,7 @@ import type {
   CreateAppointmentRequest,
   RescheduleAppointmentRequest,
   SlotDTO,
-} from '@shared/api';
+} from '@booking/types';
 
 import { addDays, toDate, type ISODate } from '@/lib/time';
 

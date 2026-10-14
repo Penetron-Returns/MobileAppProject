@@ -1,4 +1,4 @@
-import type { FeatureEntitlementDTO } from '@shared/api';
+import type { FeatureEntitlementDTO } from '@booking/types';
 
 import { hasFeature, monthlyLimit } from '../logic';
 
