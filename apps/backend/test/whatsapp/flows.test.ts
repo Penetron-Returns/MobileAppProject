@@ -48,13 +48,13 @@ function decryptResponse(b64: string, aesKey: Buffer, iv: Buffer): unknown {
 }
 
 describe('flow crypto', () => {
-  it('round-trips a request and answers with the inverted IV', () => {
+  it('round-trips a request and answers with the inverted IV', async () => {
     const { request, aesKey, iv } = encryptRequest({ action: 'ping', version: '3.0' });
     const key = loadFlowPrivateKey(keys.privatePem);
-    const decrypted = decryptFlowRequest(request, key);
+    const decrypted = await decryptFlowRequest(request, key);
     expect(decrypted.payload).toEqual({ action: 'ping', version: '3.0' });
     expect(decrypted.aesKey.equals(aesKey)).toBe(true);
-    const response = encryptFlowResponse({ data: { status: 'active' } }, decrypted.aesKey, decrypted.iv);
+    const response = await encryptFlowResponse({ data: { status: 'active' } }, decrypted.aesKey, decrypted.iv);
     expect(decryptResponse(response, aesKey, iv)).toEqual({ data: { status: 'active' } });
   });
 
@@ -62,7 +62,7 @@ describe('flow crypto', () => {
     expect([...invertIv(Buffer.from([0x00, 0xff, 0x0f]))]).toEqual([0xff, 0x00, 0xf0]);
   });
 
-  it('accepts a PEM with escaped newlines and a passphrase', () => {
+  it('accepts a PEM with escaped newlines and a passphrase', async () => {
     const pair = generateKeyPairSync('rsa', {
       modulusLength: 2048,
       publicKeyEncoding: { type: 'spki', format: 'pem' },
@@ -70,16 +70,16 @@ describe('flow crypto', () => {
     });
     const key = loadFlowPrivateKey(pair.privateKey.replace(/\n/g, '\\n'), 'pw');
     const { request } = encryptRequest({ ok: 1 }, pair.publicKey);
-    expect(decryptFlowRequest(request, key).payload).toEqual({ ok: 1 });
+    expect((await decryptFlowRequest(request, key)).payload).toEqual({ ok: 1 });
   });
 
   it.each([
     ['a tampered body', (r: Record<string, string>) => ({ ...r, encrypted_flow_data: Buffer.from('x'.repeat(40)).toString('base64') })],
     ['a key for someone else', () => encryptRequest({ a: 1 }, generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ type: 'spki', format: 'pem' }).toString()).request],
     ['garbage', () => ({ encrypted_flow_data: '', encrypted_aes_key: 'AAAA', initial_vector: '' })],
-  ])('rejects %s', (_label, mutate) => {
+  ])('rejects %s', async (_label, mutate) => {
     const { request } = encryptRequest({ a: 1 });
-    expect(() => decryptFlowRequest(mutate(request as unknown as Record<string, string>) as never, loadFlowPrivateKey(keys.privatePem))).toThrow(
+    await expect(decryptFlowRequest(mutate(request as unknown as Record<string, string>) as never, loadFlowPrivateKey(keys.privatePem))).rejects.toThrow(
       FlowDecryptError,
     );
   });
