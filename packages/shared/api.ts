@@ -22,6 +22,27 @@ export type AppointmentStatus =
   | 'no_show';
 export type AppointmentSource = 'whatsapp' | 'app' | 'web';
 export type ActorType = 'customer' | 'staff' | 'system';
+
+// ---------- plans / entitlements ----------
+/** Internal plan ids (display names and prices are not part of the contract). */
+export type PlanKey = 'free' | 'starter' | 'growth' | 'pro';
+/** Entitlement keys. Code gates on these, never on a plan name. */
+export type FeatureKey =
+  | 'whatsapp_menu'
+  | 'inbox'
+  | 'companion'
+  | 'desktop_app'
+  | 'extensions'
+  | 'assistant_bookings';
+export interface FeatureEntitlementDTO {
+  feature: FeatureKey;
+  /** Monthly cap; null = unlimited / not capped */
+  monthly_limit: number | null;
+}
+export interface EntitlementsDTO {
+  plan: PlanKey;
+  features: FeatureEntitlementDTO[];
+}
 export type WhatsAppAccountStatus =
   | 'pending'
   | 'live'
@@ -59,6 +80,7 @@ export type ApiErrorCode =
   | 'WINDOW_CLOSED'
   | 'IDEMPOTENCY_KEY_REUSED'
   | 'RULE_VIOLATION'
+  | 'FEATURE_NOT_IN_PLAN'
   | 'RATE_LIMITED'
   | 'UPSTREAM_META_ERROR'
   | 'INTERNAL';
@@ -127,6 +149,9 @@ export interface MeDTO {
   };
   business: BusinessDTO;
   role: MemberRole;
+  /** The business's plan and the features it unlocks (see EntitlementsDTO) */
+  plan: PlanKey;
+  features: FeatureEntitlementDTO[];
 }
 
 // ---------- services & staff ----------

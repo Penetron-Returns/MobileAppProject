@@ -5,6 +5,7 @@
 import { Hono, type Context } from 'hono';
 
 import { requireOwner } from '../../middleware/auth.ts';
+import { requireFeature } from '../../middleware/feature.ts';
 import { parseJson } from '../../lib/validation.ts';
 import type { AppEnv } from '../../types.ts';
 import { getWaDeps } from '../../whatsapp/deps.ts';
@@ -21,6 +22,9 @@ import {
 import { embeddedSignupSchema, manualConnectSchema, testMessageSchema } from './schemas.ts';
 
 export const v1WhatsAppRoutes = new Hono<AppEnv>();
+
+// Our own deterministic WhatsApp integration: Free-plan feature only (Nerova owns WhatsApp on paid plans).
+v1WhatsAppRoutes.use('*', requireFeature('whatsapp_menu'));
 
 const waDeps = (c: Context<AppEnv>) => getWaDeps(c.get('container'), c.get('logger'));
 

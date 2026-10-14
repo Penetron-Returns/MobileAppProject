@@ -8,6 +8,7 @@ import type {
   AppointmentDTO,
   BookingRules,
   BusinessDTO,
+  PlanKey,
   ServiceDTO,
   SlotDTO,
   StaffDTO,
@@ -38,7 +39,7 @@ import {
   type WaRepo,
 } from '../../src/whatsapp/repo.ts';
 import { signMetaBody } from '../../src/whatsapp/signature.ts';
-import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
+import { fakeEntitlements, memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
 
 // ---------------------------------------------------------------- fixed ids
 
@@ -736,7 +737,7 @@ export interface Harness {
   clock: { now: Date };
 }
 
-export function harness(opts: { world?: World; account?: Partial<WaAccountRow> | null } = {}): Harness {
+export function harness(opts: { world?: World; account?: Partial<WaAccountRow> | null; plan?: PlanKey } = {}): Harness {
   const world = opts.world ?? makeWorld();
   const repo = memoryRepo(world);
   if (opts.account !== null) repo.db.accounts.push(liveAccount(opts.account ?? {}));
@@ -749,6 +750,7 @@ export function harness(opts: { world?: World; account?: Partial<WaAccountRow> |
     env: { ...TEST_ENV, META_APP_ID: 'app-id', WHATSAPP_REGISTRATION_PIN: '123456' },
     repo,
     booking,
+    entitlements: fakeEntitlements(opts.plan ?? 'free'),
     graph: graph.factory,
     push: {
       async toBusiness(businessId, m) {
@@ -796,11 +798,11 @@ export interface AppHarness extends Harness {
 
 let keySeq = 0;
 
-export function appHarness(opts: { world?: World; account?: Partial<WaAccountRow> | null; env?: Partial<Env> & Record<string, string | undefined> } = {}): AppHarness {
+export function appHarness(opts: { world?: World; account?: Partial<WaAccountRow> | null; plan?: PlanKey; env?: Partial<Env> & Record<string, string | undefined> } = {}): AppHarness {
   const h = harness(opts);
   if (opts.env) h.deps.env = { ...h.deps.env, ...opts.env };
   const container: WaContainer = {
-    ...testContainer({ booking: h.booking, db: authDb(BIZ), env: h.deps.env }),
+    ...testContainer({ booking: h.booking, db: authDb(BIZ), env: h.deps.env, entitlements: h.deps.entitlements }),
     whatsapp: h.deps,
   };
   const store = memoryIdempotencyStore();

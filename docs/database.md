@@ -100,7 +100,7 @@ select id, status_code, error_msg, created from net._http_response order by crea
 
 **Access model**
 - `anon` has no access to anything.
-- `authenticated` has SELECT on its own business's rows only. It has no access to `webhook_events` or `idempotency_keys`, and it can EXECUTE `dashboard_summary` and nothing else.
+- `authenticated` has SELECT on its own business's rows only. It has no access to `webhook_events` or `idempotency_keys`, and it can EXECUTE `dashboard_summary` and `business_features` and nothing else.
 - `service_role` has full access.
 
 **Reading appointments**
@@ -146,6 +146,12 @@ The `RULE` codes in use are:
 - For plain table writes, attach headers instead: `db.from('services').update(...).setHeader('x-actor-id', userId).setHeader('x-request-id', requestId)`. Optionally add `x-actor-type: customer|staff|system`.
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
 - Updates that only touch `updated_at` (or `clients.last_seen_at`) are not audited.
+
+**Plans and entitlements** (migration `20261014000001_plan_flags`)
+- `businesses.plan` (`plan_key`, default `free`) says which plan a business is on. Only the service role writes it (future billing webhook). Clients have SELECT only and there is no API route for it.
+- `plan_features(plan, feature, monthly_limit)` is the catalogue, seeded in the migration. RLS is on, `authenticated` can SELECT it and only the service role writes. Feature keys: `whatsapp_menu`, `inbox`, `companion`, `desktop_app`, `extensions`, `assistant_bookings`. `monthly_limit` is null (uncapped) everywhere until the paid-tier caps are decided.
+- `business_features(p_business_id default null)` returns `(plan, feature, monthly_limit)` rows. It is SECURITY INVOKER, so RLS limits an `authenticated` caller to their own business.
+- Tests: `supabase/tests/11_plan_flags.sql`. Demo seed: Ashgrove is on `free`, Harbour Barbers (`10000000-0000-4000-8000-000000000002`) is a bare `growth` business.
 
 **`dashboard_summary(p_date)`**
 - The month is the calendar month containing `p_date`, in `businesses.timezone`.
