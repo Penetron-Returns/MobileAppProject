@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { AppError } from '../../src/lib/errors.ts';
+import type { BookingService } from '../../src/ports.ts';
 import { sast } from '../booking/fixtures.ts';
 import { nerovaHarness, type NerovaHarness } from './harness.ts';
 
@@ -182,13 +184,16 @@ describe('appointments_reschedule', () => {
     expect(code(await move(h, a.externalAppointmentId, { newStartTime: sast('10:00'), newExternalStaffId: 'nope' }))).toBe('not_found');
   });
 
-  it('holds customer-facing channels to the cancellation window, but not owner-directed changes', async () => {
+  it('holds every change to the cancellation window unless the origin says the owner is directing Pip', async () => {
     const h = nerovaHarness();
     // "now" is Monday 08:00 SAST and the window is 24h: Monday 15:00 is 7h away
     const soon = await h.ok('appointments_create', createArgs(h, { startTime: sast('15:00', '2026-09-28'), origin: undefined }));
     const viaCustomer = await move(h, soon.externalAppointmentId, { newStartTime: sast('16:00', '2026-09-28'), origin: { source: 'nerova', channel: 'whatsapp' } });
     expect(code(viaCustomer)).toBe('conflict');
-    const viaOwner = await move(h, soon.externalAppointmentId, { newStartTime: sast('16:00', '2026-09-28') });
+    // no origin, or a source without a channel, is not proof of the owner: the window applies
+    expect(code(await move(h, soon.externalAppointmentId, { newStartTime: sast('16:00', '2026-09-28') }))).toBe('conflict');
+    expect(code(await move(h, soon.externalAppointmentId, { newStartTime: sast('16:00', '2026-09-28'), origin: { source: 'nerova' } }))).toBe('conflict');
+    const viaOwner = await move(h, soon.externalAppointmentId, { newStartTime: sast('16:00', '2026-09-28'), origin: { source: 'nerova', channel: 'owner_chat' } });
     expect(viaOwner.isError).toBeUndefined();
   });
 });
@@ -218,7 +223,8 @@ describe('appointments_cancel', () => {
     const late = await h.tool('appointments_cancel', { accountId: h.business.id, appointmentId: soon.externalAppointmentId, origin: { source: 'nerova', channel: 'whatsapp' } });
     expect(code(late)).toBe('conflict');
     expect(h.repo.tables.appointments[0]!.status).toBe('confirmed');
-    const owner = await h.tool('appointments_cancel', { accountId: h.business.id, appointmentId: soon.externalAppointmentId });
+    expect(code(await h.tool('appointments_cancel', { accountId: h.business.id, appointmentId: soon.externalAppointmentId }))).toBe('conflict');
+    const owner = await h.tool('appointments_cancel', { accountId: h.business.id, appointmentId: soon.externalAppointmentId, origin: { source: 'nerova', channel: 'owner_chat' } });
     expect(owner.structuredContent.status).toBe('Cancelled');
   });
 
@@ -231,5 +237,59 @@ describe('appointments_cancel', () => {
     const res = await h.tool('appointments_cancel', { accountId: second, appointmentId: a.externalAppointmentId });
     expect(code(res)).toBe('not_found');
     expect(h.repo.tables.appointments[0]!.status).toBe('confirmed');
+  });
+});
+
+describe('appointments_create client details', () => {
+  it('never overwrites the stored name or email of an existing client', async () => {
+    const h = nerovaHarness();
+    await h.ok('appointments_create', createArgs(h));
+    await h.ok(
+      'appointments_create',
+      createArgs(h, { idempotencyKey: 'create-other', startTime: sast('11:00'), client: { name: 'Mallory', phone: '+27820000000', email: 'm@example.com' } }),
+    );
+    const client = h.repo.tables.clients.find((c) => c.phone_e164 === '+27820000000')!;
+    expect(client.name).toBe('Ada Lovelace');
+    expect(client.email).toBe('ada@example.com');
+  });
+});
+
+describe('instant arguments', () => {
+  it.each(['2026-10-20T10:00', '2026-10-20T10:00:00', '2026-10-20', '2026-10-20 10:00Z'])('rejects %s (no explicit offset)', async (value) => {
+    const h = nerovaHarness();
+    expect(code(await h.tool('appointments_create', createArgs(h, { startTime: value })))).toBe('invalid_request');
+    expect(h.repo.tables.appointments).toHaveLength(0);
+  });
+
+  it.each(['2026-10-20T10:00:00Z', '2026-10-20T10:00:00+02:00', '2026-10-20T10:00:00.000Z'])('accepts %s', async (value) => {
+    const h = nerovaHarness();
+    expect(code(await h.tool('appointments_create', createArgs(h, { startTime: value })))).not.toBe('invalid_request');
+  });
+});
+
+describe('appointments_create racing on the same idempotencyKey', () => {
+  it('returns the winner instead of a conflict when the slot is taken by the same key', async () => {
+    let winner: Awaited<ReturnType<BookingService['createAppointment']>> | undefined;
+    const h = nerovaHarness({
+      wrapBooking: (real) => ({
+        ...real,
+        // the concurrent twin commits first, then this call trips the exclusion constraint
+        async createAppointment(input) {
+          winner = await real.createAppointment(input);
+          throw new AppError('SLOT_UNAVAILABLE', 'That time slot is no longer available');
+        },
+      }),
+    });
+    const result = await h.tool('appointments_create', createArgs(h));
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent.externalAppointmentId).toBe(winner!.id);
+    expect(h.repo.tables.appointments).toHaveLength(1);
+  });
+
+  it('still answers conflict when the slot is taken by a different booking', async () => {
+    const h = nerovaHarness();
+    await h.ok('appointments_create', createArgs(h));
+    const other = await h.tool('appointments_create', createArgs(h, { idempotencyKey: 'create-other', client: { name: 'Bo', phone: '+27821111111' } }));
+    expect(code(other)).toBe('conflict');
   });
 });

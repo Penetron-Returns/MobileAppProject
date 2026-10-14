@@ -25,7 +25,7 @@ const payload = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const post = (body: unknown, opts: { token?: 'newowner' | 'newstaff' | 'noorg' | 'owner' | 'bad' | null; key?: string | null } = {}) =>
+const post = (body: unknown, opts: { token?: 'newowner' | 'otherowner' | 'newstaff' | 'noorg' | 'owner' | 'bad' | null; key?: string | null } = {}) =>
   h.call('POST', '/v1/onboarding', { token: opts.token === undefined ? 'newowner' : opts.token, body, ...(opts.key !== undefined ? { key: opts.key } : {}) });
 
 const mine = () => h.repo.tables.businesses.find((b) => b.clerk_org_id === 'org_new');
@@ -132,5 +132,74 @@ describe('POST /v1/onboarding', () => {
     const res = await post(payload({ team: [], services: [] }));
     expect(res.status).toBe(200);
     expect(h.repo.tables.staff.filter((s) => s.business_id === mine()!.id)).toHaveLength(1);
+  });
+});
+
+describe('onboarding atomicity', () => {
+  const countsFor = (businessId: string) => ({
+    staff: h.repo.tables.staff.filter((s) => s.business_id === businessId).length,
+    services: h.repo.tables.services.filter((s) => s.business_id === businessId).length,
+    hours: h.repo.tables.business_hours.filter((r) => r.business_id === businessId).length,
+  });
+
+  it('retry after a failed attempt completes the setup instead of leaving it half done', async () => {
+    const original = h.repo.completeOnboarding;
+    h.repo.completeOnboarding = async () => {
+      throw new Error('connection lost');
+    };
+    const failed = await post(payload());
+    expect(failed.status).toBeGreaterThanOrEqual(500);
+    h.repo.completeOnboarding = original;
+
+    const retry = await post(payload(), { key: 'onboard-retry-0001' });
+    expect(retry.status).toBe(200);
+    expect(countsFor(mine()!.id)).toEqual({ staff: 2, services: 2, hours: 2 });
+  });
+
+  it('applies nothing when any part of the setup is invalid, then completes on a valid retry', async () => {
+    const fresh = { ...h.business, id: h.repo.nextId(), clerk_org_id: 'org_fresh', slug: 'fresh' };
+    h.repo.tables.businesses.push(fresh);
+    const input = {
+      businessId: fresh.id,
+      userId: 'user_fresh',
+      ownerName: 'Fresh Owner',
+      hours: [{ weekday: 2, opens_at: '09:00', closes_at: '10:00' }],
+      team: [{ name: 'Extra', title: null }],
+      services: [{ name: 'Bad', duration_minutes: 0, price_cents: 0 }],
+    };
+    await expect(h.repo.completeOnboarding(input)).rejects.toThrow();
+    expect(countsFor(fresh.id)).toEqual({ staff: 0, services: 0, hours: 0 });
+
+    const valid = { ...input, services: [{ name: 'Good', duration_minutes: 30, price_cents: 1 }] };
+    expect(await h.repo.completeOnboarding(valid)).toBe(true);
+    expect(countsFor(fresh.id)).toEqual({ staff: 2, services: 1, hours: 1 });
+    // marker written: a second call is a no-op
+    expect(await h.repo.completeOnboarding({ ...valid, services: [{ name: 'Again', duration_minutes: 30, price_cents: 1 }] })).toBe(false);
+    expect(countsFor(fresh.id)).toEqual({ staff: 2, services: 1, hours: 1 });
+  });
+
+  it('a concurrent double submit with different keys does not duplicate staff or services', async () => {
+    const [a, b] = await Promise.all([post(payload(), { key: 'onboard-race-0001' }), post(payload(), { key: 'onboard-race-0002' })]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(h.repo.tables.businesses.filter((x) => x.clerk_org_id === 'org_new')).toHaveLength(1);
+    expect(countsFor(mine()!.id)).toEqual({ staff: 2, services: 2, hours: 2 });
+    expect(h.repo.tables.staff.filter((s) => s.user_id === 'user_new')).toHaveLength(1);
+  });
+});
+
+describe('onboarding idempotency scope', () => {
+  it('does not replay one organisation\'s response to another that reuses the same key', async () => {
+    const first = await post(payload(), { token: 'newowner', key: 'shared-key-0001' });
+    const second = await post(payload({ business: { name: 'Other Salon' } }), { token: 'otherowner', key: 'shared-key-0001' });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.headers.get('idempotent-replay')).toBeNull();
+    expect(second.body.data.business.name).toBe('Other Salon');
+    expect(h.repo.tables.businesses.some((b) => b.clerk_org_id === 'org_other')).toBe(true);
+    // each caller still replays its own response
+    const again = await post(payload(), { token: 'newowner', key: 'shared-key-0001' });
+    expect(again.headers.get('idempotent-replay')).toBe('true');
+    expect(again.body).toEqual(first.body);
   });
 });

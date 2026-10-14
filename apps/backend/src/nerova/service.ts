@@ -41,6 +41,22 @@ const DAY_MS = 86_400_000;
 const MAX_WINDOW_DAYS = 31;
 const DEFAULT_PAGE = 50;
 const EXCEPTION_HORIZON_DAYS = 180;
+/** Days of availability computed at once: each one is several queries, and a window can span 31 days. */
+const AVAILABILITY_CONCURRENCY = 4;
+
+/** Like Promise.all(items.map(fn)) but with at most `limit` calls in flight; results keep the input order. */
+async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
 
 const isUuid = (value: string | undefined): value is UUID => !!value && UUID_RE.test(value);
 
@@ -63,8 +79,14 @@ function nerovaActor(origin?: { conversationId?: string }): Actor {
   return { type: 'nerova', id: origin?.conversationId ? `nerova:${origin.conversationId}` : 'nerova' };
 }
 
-/** Customer-facing channels are held to the owner's cancellation window; owner-directed changes are not. */
-const holdToWindow = (origin?: { channel?: string }) => !!origin?.channel;
+/** Origin channels that mean the owner is directing Pip (Nerova's `owner_chat` widget session). */
+const OWNER_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_chat']);
+
+/**
+ * Changes are held to the cancellation window by default: only an origin that positively says the owner is
+ * directing Pip skips it, so a missing or vague origin can never bypass the owner's rule for a customer.
+ */
+const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && OWNER_CHANNELS.has(origin.channel));
 
 export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
@@ -106,7 +128,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     }
     if (!client.phone) throw invalidRequest('client.phone (E.164) or client.externalClientId is required');
     if (!tryNormalizePhone(client.phone)) throw invalidRequest('client.phone is not a valid phone number');
-    const row = await upsertClient(repo, businessId, { phone: client.phone, name: client.name, email: client.email });
+    const row = await upsertClient(repo, businessId, { phone: client.phone, name: client.name, email: client.email }, { onlyFillBlank: true });
     return row.id;
   }
 
@@ -161,8 +183,8 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       const { timezone } = await booking.getBusiness(businessId);
       const dates = dateRange(dateInZone(new Date(start), timezone), dateInZone(new Date(end - 1), timezone));
       const now = deps.clock();
-      const days = await Promise.all(
-        dates.map((date) => booking.listAvailableSlots({ businessId, serviceId: args.serviceId, staffId: args.staffId, date, now })),
+      const days = await mapWithConcurrency(dates, AVAILABILITY_CONCURRENCY, (date) =>
+        booking.listAvailableSlots({ businessId, serviceId: args.serviceId, staffId: args.staffId, date, now }),
       );
       const data = days
         .flatMap((day) => day.slots)
@@ -236,21 +258,30 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       if (!isUuid(args.externalStaffId)) throw connectorNotFound('Staff');
       const clientId = await resolveClient(businessId, args.client);
       const notes = [args.notes, args.reason ? `Reason: ${args.reason}` : undefined].filter(Boolean).join('\n') || null;
-      const appointment = await booking.createAppointment({
-        businessId,
-        clientId,
-        serviceId: args.externalServiceId,
-        staffId: args.externalStaffId,
-        startsAt: args.startTime,
-        source: 'nerova',
-        idempotencyKey,
-        actor: nerovaActor(args.origin),
-        notes,
-        // Pip talks to the customer itself; our WhatsApp menu is not part of paid plans.
-        notifyCustomer: false,
-        now: deps.clock(),
-      });
-      return toAppointment(appointment);
+      try {
+        const appointment = await booking.createAppointment({
+          businessId,
+          clientId,
+          serviceId: args.externalServiceId,
+          staffId: args.externalStaffId,
+          startsAt: args.startTime,
+          source: 'nerova',
+          idempotencyKey,
+          actor: nerovaActor(args.origin),
+          notes,
+          // Pip talks to the customer itself; our WhatsApp menu is not part of paid plans.
+          notifyCustomer: false,
+          now: deps.clock(),
+        });
+        return toAppointment(appointment);
+      } catch (error) {
+        // A retry racing its twin loses on the exclusion constraint; the twin's booking is the answer, not a conflict.
+        if (error instanceof AppError && error.code === 'SLOT_UNAVAILABLE') {
+          const winner = await repo.findAppointmentByIdempotencyKey(businessId, idempotencyKey);
+          if (winner) return toAppointment(await appointmentOf(businessId, winner.id));
+        }
+        throw error;
+      }
     },
 
     async appointmentsReschedule(args: ToolArgs<'appointments_reschedule'>) {

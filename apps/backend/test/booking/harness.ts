@@ -17,6 +17,7 @@ const CLAIMS: Record<string, ClerkClaims> = {
   noorg: { sub: 'user_lonely' },
   newowner: { sub: 'user_new', org_id: 'org_new', org_role: 'org:admin' },
   newstaff: { sub: 'user_member', org_id: 'org_new', org_role: 'org:member' },
+  otherowner: { sub: 'user_other', org_id: 'org_other', org_role: 'org:admin' },
 };
 
 /** Minimal Db for requireAuth's businesses lookup (org → business id). */

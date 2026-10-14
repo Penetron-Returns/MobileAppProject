@@ -54,7 +54,14 @@ const TAG_BYTES = 16;
 const bytes = (b: Uint8Array): Uint8Array<ArrayBuffer> => Uint8Array.from(b);
 
 function rsaKey(privateKey: FlowPrivateKey): Promise<CryptoKey> {
-  privateKey.cryptoKey ??= crypto.subtle.importKey('pkcs8', bytes(privateKey.pkcs8), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+  if (!privateKey.cryptoKey) {
+    const pending = crypto.subtle.importKey('pkcs8', bytes(privateKey.pkcs8), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt']);
+    privateKey.cryptoKey = pending;
+    // A rejected import must not stay cached: every later request would fail until the isolate restarts.
+    pending.catch(() => {
+      if (privateKey.cryptoKey === pending) privateKey.cryptoKey = undefined;
+    });
+  }
   return privateKey.cryptoKey;
 }
 

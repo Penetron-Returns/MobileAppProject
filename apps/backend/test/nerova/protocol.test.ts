@@ -163,3 +163,32 @@ describe('tools/call envelope', () => {
     expect(JSON.stringify(result)).not.toContain('secret');
   });
 });
+
+describe('request size limit', () => {
+  const post = (h: ReturnType<typeof nerovaHarness>, body: string, headers: Record<string, string> = {}) =>
+    h.app.request(ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${CONNECTOR_TOKEN}`, ...headers },
+      body,
+    });
+
+  it('counts bytes, not characters: multi-byte text over the limit is refused', async () => {
+    const h = nerovaHarness();
+    // 150k characters of 2-byte "é" is 300 KB, but only 150k string units
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { pad: 'é'.repeat(150_000) } });
+    expect(body.length).toBeLessThan(256 * 1024);
+    expect((await post(h, body)).status).toBe(413);
+  });
+
+  it('refuses on a declared Content-Length before reading the body', async () => {
+    const h = nerovaHarness();
+    const res = await post(h, '{}', { 'content-length': String(10 * 1024 * 1024) });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toMatchObject({ code: 'invalid_request', status: 413 });
+  });
+
+  it('still accepts a normal message', async () => {
+    const h = nerovaHarness();
+    expect((await post(h, JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }))).status).toBe(200);
+  });
+});

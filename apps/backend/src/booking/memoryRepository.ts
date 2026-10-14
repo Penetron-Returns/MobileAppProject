@@ -5,9 +5,9 @@
  * status transitions. Ids are deterministic (counter based).
  */
 import type { UUID } from '../../../../packages/shared/api.ts';
-import { mapDbError } from '../lib/errors.ts';
+import { AppError, mapDbError } from '../lib/errors.ts';
 import { rangeBounds } from '../lib/time.ts';
-import type { BookingRepository, BusyRow } from './repository.ts';
+import type { BookingRepository, BusyRow, StaffValues } from './repository.ts';
 import {
   DEFAULT_BOOKING_RULES,
   type AppointmentRow,
@@ -91,6 +91,8 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     device_push_tokens: [],
   };
 
+  const onboarded = new Set<UUID>();
+
   const inBusiness = <T extends { business_id: UUID }>(list: T[], businessId: UUID) =>
     list.filter((r) => r.business_id === businessId);
   const find = <T extends { id: UUID; business_id: UUID }>(list: T[], businessId: UUID, id: UUID) =>
@@ -169,6 +171,44 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     async replaceBusinessHours(businessId, hours) {
       tables.business_hours = tables.business_hours.filter((h) => h.business_id !== businessId);
       tables.business_hours.push(...hours.map((h) => ({ business_id: businessId, ...h })));
+    },
+
+    async completeOnboarding(input) {
+      const { businessId } = input;
+      if (!tables.businesses.some((b) => b.id === businessId)) throw notFound('Business');
+      if (onboarded.has(businessId)) return false;
+      // Validate everything before touching a table: the real RPC is one transaction, so a bad row applies nothing.
+      const badName = [...input.team, ...input.services].some((x) => x.name.trim().length === 0);
+      const badService = input.services.some((s) => s.duration_minutes <= 0 || s.duration_minutes > 720 || s.price_cents < 0);
+      const badHours = input.hours.some((h) => h.weekday < 0 || h.weekday > 6 || h.closes_at <= h.opens_at);
+      if (badName || badService || badHours) throw new AppError('VALIDATION_FAILED', 'Invalid onboarding data');
+
+      const staffValues = (name: string, title: string | null, sort_order: number, user_id: string | null): StaffValues => ({
+        user_id, name, title, photo_url: null, phone: null, email: null, color: null, is_active: true, accepts_bookings: true, sort_order,
+      });
+      let owner = tables.staff.find((s) => s.business_id === businessId && s.user_id === input.userId);
+      if (!owner) {
+        owner = { id: nextId(), business_id: businessId, ...staffValues(input.ownerName.trim() || 'Owner', null, 0, input.userId) };
+        tables.staff.push(owner);
+      }
+      tables.business_hours = tables.business_hours.filter((h) => h.business_id !== businessId);
+      tables.business_hours.push(...input.hours.map((h) => ({ business_id: businessId, ...h })));
+      const staffIds = [owner.id];
+      for (const [i, m] of input.team.entries()) {
+        const row: StaffRow = { id: nextId(), business_id: businessId, ...staffValues(m.name, m.title, i + 1, null) };
+        tables.staff.push(row);
+        staffIds.push(row.id);
+      }
+      for (const [i, s] of input.services.entries()) {
+        const row: ServiceRow = {
+          id: nextId(), business_id: businessId, name: s.name, description: null, category: null,
+          duration_minutes: s.duration_minutes, price_cents: s.price_cents, deposit_cents: 0, is_active: true, sort_order: i,
+        };
+        tables.services.push(row);
+        for (const staff_id of staffIds) tables.staff_services.push({ business_id: businessId, staff_id, service_id: row.id });
+      }
+      onboarded.add(businessId);
+      return true;
     },
 
     async listServices(businessId, o = {}) {

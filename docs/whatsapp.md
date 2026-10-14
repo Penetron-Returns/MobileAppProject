@@ -207,7 +207,7 @@ For each inbound message (`engine/index.ts`):
 
 - **Idempotency keys** for `BookingService`:
   - `wa:<wamid>` for list-path creates.
-  - `wa-flow:<flow token>:<start instant>` for Flow bookings (created by the engine on the nfm_reply).
+  - `wa-flow:<attempt id>:<start instant>` for Flow bookings (created by the engine on the nfm_reply).
   - Reschedule (including the reschedule Flow's nfm_reply) and cancel have no key and are idempotent by state: moving to the current start, or cancelling a cancelled booking, changes nothing.
 - **Outbound messages** are all stored in `messages` (`queued` → `sent` with the wamid, or `failed` with `{kind, code}`).
   - Booking confirmations carry a dedupe key (`confirm:<id>:created`, `confirm:<id>:rescheduled:<starts_at>`, `confirm:<id>:cancelled`). The engine, the Flow completion and `NotificationService` therefore never confirm the same change twice.
@@ -251,7 +251,7 @@ For each inbound message (`engine/index.ts`):
     - `continue` `{service_slug, time}` → the slot is re-validated live, then SUMMARY (`summary_text` markdown, `service_slug`, `start_time_iso`, `duration_minutes`, `timezone`). If the time was just taken, DATETIME is re-rendered with fresh chips and the heading reads "Sorry, that time was just taken…".
   - `service_slug` carries the service **id** (uuid). An unknown id, an unknown trigger or malformed data restarts at SERVICE.
   - DATETIME has `refresh_on_back`, so `BACK` re-renders it fresh (grid hidden). `BACK` without state restarts at SERVICE.
-  - **Booking happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` with the payload plus `flow_token`. The engine verifies the token and conversation, then books through `BookingService` (`create_booking`, key `wa-flow:<flow token>:<start instant>`, source `whatsapp`, staff = any). A time taken in between closes the attempt as `failed` (`SLOT_UNAVAILABLE`) and shows the menu with a fixed message. A completion for an attempt that is no longer open books nothing and sends "That booking session has ended…".
+  - **Booking happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` with the payload plus `flow_token`. The engine verifies the token and conversation, then books through `BookingService` (`create_booking`, key `wa-flow:<attempt id>:<start instant>`, source `whatsapp`, staff = any). A time taken in between closes the attempt as `failed` (`SLOT_UNAVAILABLE`) and shows the menu with a fixed message. A completion for an attempt that is no longer open books nothing and sends "That booking session has ended…".
   - Staff selection and intake fields (name, email) are not in this Flow. The customer is the client row created from the WhatsApp number.
 - **Reschedule Flow** (`reschedule.json`, name `reschedule_v2`, Flow JSON `7.3`, same components and copy style as the booking Flow): DATETIME → SUMMARY (terminal, `complete`). Code: `src/whatsapp/flows/rescheduleFlow.ts`. The first version (`reschedule_v1`: DATE → SLOT → SUMMARY with a `data_exchange` terminal screen) was rejected by Meta and is no longer looked up.
   - The service and staff member are always the appointment's own, read from the token's appointment (never from the payload). A cancelled, past or foreign appointment answers 427, which closes the Flow.
