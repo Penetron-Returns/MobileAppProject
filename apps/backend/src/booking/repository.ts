@@ -197,9 +197,21 @@ export interface ClientRepository {
   deleteClientNote(businessId: UUID, clientId: UUID, noteId: UUID): Promise<boolean>;
 }
 
+export interface AuditEntry {
+  businessId: UUID;
+  actorId: string;
+  action: 'insert' | 'update' | 'delete';
+  entity: string;
+  entityId: string;
+  diff?: Record<string, unknown>;
+  requestId?: string;
+}
+
 export interface MemberRepository {
   getUser(userId: string): Promise<UserRow | null>;
   upsertDeviceToken(businessId: UUID, userId: string, token: string, platform: string): Promise<void>;
+  /** RPC record_audit_event: audit_log entry for changes the row triggers cannot see (Clerk membership) */
+  recordAudit(entry: AuditEntry): Promise<void>;
 }
 
 export interface AttemptRepository {
@@ -610,6 +622,20 @@ export function createSupabaseRepository(db: Db): BookingRepository {
           { business_id: businessId, user_id: userId, token, platform },
           { onConflict: 'token' },
         ),
+      );
+    },
+
+    async recordAudit(e) {
+      check(
+        await db.rpc('record_audit_event', {
+          p_business_id: e.businessId,
+          p_actor_id: e.actorId,
+          p_action: e.action,
+          p_entity: e.entity,
+          p_entity_id: e.entityId,
+          ...(e.diff ? { p_diff: e.diff as Json } : {}),
+          ...(e.requestId ? { p_request_id: e.requestId } : {}),
+        }),
       );
     },
 

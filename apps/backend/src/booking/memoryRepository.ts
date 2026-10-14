@@ -7,7 +7,7 @@
 import type { UUID } from '../../../../packages/shared/api.ts';
 import { AppError, mapDbError } from '../lib/errors.ts';
 import { rangeBounds } from '../lib/time.ts';
-import type { BookingRepository, BusyRow, StaffValues } from './repository.ts';
+import type { AuditEntry, BookingRepository, BusyRow, StaffValues } from './repository.ts';
 import {
   DEFAULT_BOOKING_RULES,
   type AppointmentRow,
@@ -42,6 +42,7 @@ export interface MemoryTables {
   webhook_events: WebhookEventRow[];
   idempotency_keys: { key: string; expires_at: string }[];
   device_push_tokens: { business_id: UUID; user_id: string; token: string; platform: string }[];
+  audit_events: AuditEntry[];
 }
 
 export interface MemoryRepository extends BookingRepository {
@@ -89,6 +90,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     webhook_events: [],
     idempotency_keys: [],
     device_push_tokens: [],
+    audit_events: [],
   };
 
   const onboarded = new Set<UUID>();
@@ -102,6 +104,13 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     Object.assign(row, patch);
     return clone(row);
   };
+
+  /** staff_business_user_key: one staff row per login per business */
+  function assertUniqueStaffLogin(businessId: UUID, userId: string | null | undefined, exceptId?: UUID) {
+    if (userId && tables.staff.some((s) => s.business_id === businessId && s.user_id === userId && s.id !== exceptId)) {
+      throw pgError('23505', 'duplicate key value violates unique constraint "staff_business_user_key"');
+    }
+  }
 
   function assertUniqueSlug(slug: string, exceptId?: UUID) {
     if (tables.businesses.some((b) => b.slug.toLowerCase() === slug.toLowerCase() && b.id !== exceptId)) {
@@ -252,11 +261,13 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       return clone(tables.staff.find((s) => s.business_id === businessId && s.user_id === userId) ?? null);
     },
     async insertStaff(businessId, values) {
+      assertUniqueStaffLogin(businessId, values.user_id);
       const row: StaffRow = { id: nextId(), business_id: businessId, ...values };
       tables.staff.push(row);
       return clone(row);
     },
     async updateStaff(businessId, id, patch) {
+      if (patch.user_id) assertUniqueStaffLogin(businessId, patch.user_id, id);
       return patchRow(find(tables.staff, businessId, id), patch);
     },
     async deleteStaff(businessId, id) {
@@ -476,6 +487,9 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     },
 
     // ----- members -----
+    async recordAudit(entry) {
+      tables.audit_events.push(clone(entry));
+    },
     async getUser(userId) {
       return clone(tables.users.find((u) => u.id === userId) ?? null);
     },

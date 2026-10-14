@@ -3,6 +3,7 @@ import type { Env } from '../src/env.ts';
 import type { Db } from '../src/lib/db.ts';
 import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
 import type { BookingService, EntitlementService, NotificationService } from '../src/ports.ts';
+import { createFakeClerkAdmin } from './fakes/clerkAdmin.ts';
 import type { FeatureKey, PlanKey } from '../../../packages/shared/api.ts';
 
 export const TEST_ENV: Env = {
@@ -81,6 +82,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     // Free plan = the WhatsApp menu + inbox, which is what the existing suites exercise.
     entitlements: fakeEntitlements('free'),
     nerovaEvents: { accountChanged: async () => {} },
+    clerkAdmin: createFakeClerkAdmin(),
     clock: () => new Date(),
     ...overrides,
   };

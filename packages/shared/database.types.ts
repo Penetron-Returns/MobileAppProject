@@ -1438,6 +1438,18 @@ export type Database = {
         }
         Returns: Json
       }
+      record_audit_event: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_business_id: string
+          p_diff?: Json
+          p_entity: string
+          p_entity_id: string
+          p_request_id?: string
+        }
+        Returns: undefined
+      }
       replace_business_hours: {
         Args: {
           p_business_id: string
