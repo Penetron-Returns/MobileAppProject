@@ -5,6 +5,17 @@ Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
 Deno.env.set('WHATSAPP_VERIFY_TOKEN', 'verify-token');
 
+// Throwaway Flows key pair. The container caches env on first use, so it must be set before the import below.
+const flowKeys = await crypto.subtle.generateKey(
+  { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+  true,
+  ['encrypt', 'decrypt'],
+);
+const flowPkcs8 = new Uint8Array(await crypto.subtle.exportKey('pkcs8', flowKeys.privateKey));
+const flowPem = ['-----BEGIN PRIVATE KEY-----', btoa(String.fromCharCode(...flowPkcs8)), '-----END PRIVATE KEY-----', ''].join('\n');
+// Env vars carry the PEM on one line with literal \n escapes.
+Deno.env.set('WHATSAPP_FLOW_PRIVATE_KEY', flowPem.replaceAll('\n', '\\n'));
+
 const { Hono } = await import('hono');
 const { createApp } = await import('../../../apps/backend/src/app.ts');
 const server = new Hono().route('/api', createApp());
@@ -46,4 +57,25 @@ Deno.test('webhook verify handshake returns the challenge under Deno', async () 
   assertEquals(await res.text(), '12345', 'challenge');
   const bad = await server.request('/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1');
   assertEquals(bad.status, 403, 'bad token status');
+});
+
+// Regression: node:crypto privateDecrypt rejected the parsed key ("Invalid key type") on the
+// Edge runtime, so Meta's Flows health check got 421. Encrypts exactly like Meta's client.
+Deno.test('flows endpoint decrypts a ping and answers with the inverted IV under Deno', async () => {
+  const aesKeyRaw = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(16));
+  const aesKey = await crypto.subtle.importKey('raw', aesKeyRaw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  const body = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(JSON.stringify({ action: 'ping', version: '3.0' })));
+  const wrapped = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, flowKeys.publicKey, aesKeyRaw);
+  const b64 = (buf: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+  const res = await server.request('/api/flows/whatsapp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ encrypted_flow_data: b64(body), encrypted_aes_key: b64(wrapped), initial_vector: b64(iv) }),
+  });
+  assertEquals(res.status, 200, 'status');
+  const sealed = Uint8Array.from(atob(await res.text()), (c) => c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv.map((b) => ~b & 0xff) }, aesKey, sealed);
+  assertEquals(new TextDecoder().decode(plain), JSON.stringify({ version: '3.0', data: { status: 'active' } }), 'response');
 });
