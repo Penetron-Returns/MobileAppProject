@@ -1,4 +1,4 @@
-import type { BusinessHoursRow, UpdateBusinessRequest } from '@shared/api';
+import type { BusinessHoursRow, UpdateBusinessRequest } from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';

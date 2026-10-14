@@ -1,4 +1,4 @@
-import type { FeatureKey } from '@shared/api';
+import type { FeatureKey } from '@booking/types';
 import * as React from 'react';
 
 import { useEntitlements } from '../hooks';

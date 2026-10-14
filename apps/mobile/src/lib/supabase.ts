@@ -2,7 +2,7 @@ import 'react-native-url-polyfill/auto';
 
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
 
-import type { Database } from '@shared/database.types';
+import type { Database } from '@booking/database';
 
 import { getAuthToken } from './auth-token';
 import { env } from './env';

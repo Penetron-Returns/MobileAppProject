@@ -1,4 +1,4 @@
-import type { BookingRules } from '@shared/api';
+import type { BookingRules } from '@booking/types';
 
 /** Defaults from docs/BUILD_PLAN.md §3, used when the stored JSON lacks a key. */
 export const DEFAULT_RULES: BookingRules = {

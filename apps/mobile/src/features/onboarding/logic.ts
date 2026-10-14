@@ -1,4 +1,4 @@
-import type { OnboardingRequest } from '@shared/api';
+import type { OnboardingRequest } from '@booking/types';
 
 /** Pure onboarding flow logic (design: Onboarding.dc.html). No React, no I/O. */
 

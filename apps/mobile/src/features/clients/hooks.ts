@@ -1,4 +1,7 @@
-import type { CreateClientNoteRequest, UpdateClientRequest } from '@shared/api';
+import type {
+  CreateClientNoteRequest,
+  UpdateClientRequest,
+} from '@booking/types';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';

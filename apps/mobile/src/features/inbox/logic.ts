@@ -1,4 +1,4 @@
-import type { Json } from '@shared/database.types';
+import type { Json } from '@booking/database';
 
 export type InboxView = 'needs' | 'all';
 

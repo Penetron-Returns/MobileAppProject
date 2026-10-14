@@ -1,4 +1,4 @@
-import type { DashboardSummary } from '@shared/api';
+import type { DashboardSummary } from '@booking/types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

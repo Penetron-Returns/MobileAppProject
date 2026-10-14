@@ -2,7 +2,7 @@ import type {
   CreateServiceRequest,
   CreateStaffRequest,
   UpdateBusinessRequest,
-} from '@shared/api';
+} from '@booking/types';
 import { z } from 'zod';
 
 import { parseMoneyToCents } from '@/lib/format';

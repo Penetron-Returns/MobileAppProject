@@ -13,7 +13,13 @@ export default [
         {
           patterns: [
             {
-              group: ['@/*', '@shared/*', '**/apps/**', '@booking/ui'],
+              group: [
+                '@/*',
+                '@booking/types',
+                '@booking/database',
+                '**/apps/**',
+                '@booking/ui',
+              ],
               message:
                 'The design system is self-contained: no imports from the app or from its own entry point. Use relative imports.',
             },

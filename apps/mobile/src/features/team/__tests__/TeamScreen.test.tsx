@@ -1,6 +1,6 @@
 import '@/lib/i18n';
 
-import type { TeamDTO } from '@shared/api';
+import type { TeamDTO } from '@booking/types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as React from 'react';
 import renderer, {

@@ -5,7 +5,7 @@ import type {
   PublicBookingResponse,
   PublicBusinessResponse,
   StartAttemptResponse,
-} from '@shared/api';
+} from '@booking/types';
 
 import { enc, get, send } from './client';
 

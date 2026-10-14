@@ -1,4 +1,4 @@
-import type { FeatureKey, PlanKey } from '@shared/api';
+import type { FeatureKey, PlanKey } from '@booking/types';
 import * as React from 'react';
 
 import { useMe } from '@/features/business/me';

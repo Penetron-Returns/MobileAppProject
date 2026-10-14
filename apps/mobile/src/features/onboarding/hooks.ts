@@ -1,5 +1,5 @@
 import { useAuth, useOrganization, useOrganizationList } from '@clerk/expo';
-import type { MeDTO, OnboardingRequest } from '@shared/api';
+import type { MeDTO, OnboardingRequest } from '@booking/types';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 

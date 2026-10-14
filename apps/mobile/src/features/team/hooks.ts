@@ -1,4 +1,4 @@
-import type { MemberRole, TeamDTO } from '@shared/api';
+import type { MemberRole, TeamDTO } from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { useCanManage } from '@/features/business/me';
