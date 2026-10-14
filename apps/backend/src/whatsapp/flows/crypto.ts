@@ -12,6 +12,7 @@
  */
 import { Buffer } from 'node:buffer';
 import { createPrivateKey, createPublicKey } from 'node:crypto';
+import { normalizePem } from '../../lib/pem.ts';
 
 export interface EncryptedFlowRequest {
   encrypted_flow_data: string;
@@ -35,7 +36,7 @@ export interface FlowPrivateKey {
 
 /** Accepts a PEM with real newlines or with `\n` escapes (env vars). */
 export function loadFlowPrivateKey(pem: string, passphrase?: string): FlowPrivateKey {
-  const normalised = pem.includes('\\n') ? pem.replace(/\\n/g, '\n') : pem;
+  const normalised = normalizePem(pem);
   const keyObject = createPrivateKey({ key: normalised, format: 'pem', ...(passphrase ? { passphrase } : {}) });
   return {
     pkcs8: new Uint8Array(keyObject.export({ type: 'pkcs8', format: 'der' })),
