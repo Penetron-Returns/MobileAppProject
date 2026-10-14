@@ -11,6 +11,8 @@ export const COPY = {
 
   flowBookBody: 'Tap below to choose a service, date and time.',
   flowBookCta: 'Book now',
+  flowStale: 'That booking session has ended, so nothing was booked. Tap Book to start again.',
+  slotTakenFlow: 'Sorry, that time was just taken. Tap Book to choose another time.',
   flowReschedBody: 'Tap below to pick a new date and time.',
   flowReschedCta: 'Pick a new time',
 

@@ -44,7 +44,7 @@ describe('onboarding: manual connect with a system-user token', () => {
     ]);
     const flows = h.graph.calls.filter((c) => c.method === 'createFlow').map((c) => c.args[1] as { name: string; endpointUri: string; publish: boolean });
     expect(flows).toEqual([
-      expect.objectContaining({ name: 'booking_v1', endpointUri: `${API_BASE}/flows/whatsapp`, publish: true }),
+      expect.objectContaining({ name: 'booking_v2', endpointUri: `${API_BASE}/flows/whatsapp`, publish: true }),
       expect.objectContaining({ name: 'reschedule_v1', endpointUri: `${API_BASE}/flows/whatsapp`, publish: true }),
     ]);
     const upload = h.graph.calls.find((c) => c.method === 'uploadFlowPublicKey')!;
@@ -58,7 +58,7 @@ describe('onboarding: manual connect with a system-user token', () => {
       quality_rating: 'GREEN',
       messaging_limit: 'TIER_1K',
       last_error: null,
-      flows: { booking: 'flow-booking_v1', reschedule: 'flow-reschedule_v1' },
+      flows: { booking: 'flow-booking_v2', reschedule: 'flow-reschedule_v1' },
     });
     expect(r.body.data.templates.map((t: { name: string; status: string }) => [t.name, t.status])).toEqual(
       TEMPLATE_DEFINITIONS.map((t) => [t.name, 'submitted']),
@@ -159,7 +159,7 @@ describe('onboarding: manual connect with a system-user token', () => {
 
   it('publishes an existing draft flow instead of creating a new one', async () => {
     const h = setup();
-    h.graph.flows.push({ id: 'draft-1', name: 'booking_v1', status: 'DRAFT' });
+    h.graph.flows.push({ id: 'draft-1', name: 'booking_v2', status: 'DRAFT' });
     await h.call('POST', '/v1/whatsapp/connect', { body: connectBody });
     expect(methods(h)).toEqual(expect.arrayContaining(['updateFlowJson', 'updateFlowMetadata', 'publishFlow']));
     expect(h.repo.db.accounts[0]!.flow_ids).toEqual({ booking: 'draft-1', reschedule: 'flow-reschedule_v1' });

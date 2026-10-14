@@ -302,7 +302,7 @@ export async function ensureFlows(
     const def = FLOW_DEFINITIONS[kind];
     const flowJson = JSON.stringify(def.json);
     const found =
-      existing.find((f) => f.id === current[kind] && f.status !== 'DEPRECATED') ??
+      existing.find((f) => f.id === current[kind] && f.name === def.name && f.status !== 'DEPRECATED') ??
       existing.find((f) => f.name === def.name && f.status !== 'DEPRECATED');
     if (!found) {
       const created = await graph.createFlow(wabaId, { name: def.name, categories: [...def.categories], flowJson, endpointUri, publish: true });

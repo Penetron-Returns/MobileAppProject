@@ -77,6 +77,13 @@ export type EngineInput =
       /** Attempt id from the token (booking flows) */
       attemptId: string | null;
       appointmentId: string | null;
+      /**
+       * Booking Flow `complete` payload (SUMMARY): the engine books it. Absent
+       * for a reschedule Flow, which is already written when it completes.
+       */
+      booking?: { serviceId: string; startsAt: string } | null;
+      /** The verified flow token, used in the booking idempotency key */
+      flowToken?: string | null;
     }
   | { kind: 'booking_result'; op: BookingOp; ok: true; appointment: AppointmentDTO }
   | { kind: 'booking_result'; op: BookingOp; ok: false; code: 'SLOT_UNAVAILABLE' | 'CANCELLATION_WINDOW' | 'ERROR'; detail?: string };

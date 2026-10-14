@@ -549,6 +549,57 @@ describe('transition: flows, blocked clients', () => {
     expect(only(t, 'send')).toHaveLength(1);
   });
 
+  const completion = (over: Partial<Extract<EngineInput, { kind: 'flow_completed' }>> = {}): EngineInput => ({
+    kind: 'flow_completed',
+    valid: true,
+    flow: 'booking',
+    attemptId: ATTEMPT,
+    appointmentId: null,
+    booking: { serviceId: SVC_CUT, startsAt: '2026-10-05T07:00:00.000Z' },
+    flowToken: 'v1.token',
+    ...over,
+  });
+
+  it('books a completed booking Flow through the port with a deterministic key', () => {
+    const t = run(makeWorld(), { state: 'flow_booking', context: { attemptId: ATTEMPT } }, completion());
+    expect(t.state).toBe('flow_booking');
+    expect(t.context.busySince).toBe(NOW.toISOString());
+    expect(only(t, 'create_booking')).toEqual([
+      { type: 'create_booking', serviceId: SVC_CUT, staffId: null, startsAt: '2026-10-05T07:00:00.000Z', idempotencyKey: 'wa-flow:v1.token:2026-10-05T07:00:00.000Z' },
+    ]);
+  });
+
+  it.each([
+    ['another attempt', { state: 'flow_booking' as const, context: { attemptId: NEW_ATTEMPT } }],
+    ['a conversation that moved on', { state: 'menu' as const, context: {} }],
+    ['an escalated conversation', { state: 'escalated' as const, context: { ackSent: true } }],
+  ])('does not book a stale completion for %s', (_l, snap) => {
+    const t = run(makeWorld(), snap, completion());
+    expect(only(t, 'create_booking')).toEqual([]);
+    expect(t.state).toBe(snap.state);
+    expect(bodyOf(sends(t)[0])).toBe(COPY.flowStale);
+  });
+
+  it.each([
+    ['an invalid token', completion({ valid: false, flowToken: null })],
+    ['a missing payload', completion({ booking: null })],
+  ])('never books %s', (_l, input) => {
+    const t = run(makeWorld(), { state: 'flow_booking', context: { attemptId: ATTEMPT } }, input);
+    expect(only(t, 'create_booking')).toEqual([]);
+  });
+
+  it('closes the attempt and offers a fresh start when the Flow time is taken', () => {
+    const t = run(makeWorld(), { state: 'flow_booking', context: { attemptId: ATTEMPT, busySince: NOW.toISOString() } }, {
+      kind: 'booking_result',
+      op: 'create',
+      ok: false,
+      code: 'SLOT_UNAVAILABLE',
+    });
+    expect(t.state).toBe('menu');
+    expect(only(t, 'attempt_finish')[0]).toMatchObject({ outcome: 'failed', errorCode: 'SLOT_UNAVAILABLE' });
+    expect(bodyOf(sends(t)[0])).toContain(COPY.slotTakenFlow);
+  });
+
   it('sends blocked clients one fixed notice per 24h and nothing else', () => {
     const t = run(makeWorld(), { state: 'idle' }, btn('menu:book'), { clientBlocked: true });
     expect(sends(t).map(bodyOf)).toEqual([COPY.blocked]);

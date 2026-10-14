@@ -15,7 +15,7 @@ export interface TemplateDefinition {
 export const TEMPLATE_DEFINITIONS = templates.templates as TemplateDefinition[];
 
 export const FLOW_DEFINITIONS = {
-  booking: { name: 'booking_v1', categories: ['APPOINTMENT_BOOKING'], json: bookingFlow },
+  booking: { name: 'booking_v2', categories: ['APPOINTMENT_BOOKING'], json: bookingFlow },
   reschedule: { name: 'reschedule_v1', categories: ['APPOINTMENT_BOOKING'], json: rescheduleFlow },
 } as const;
 
