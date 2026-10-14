@@ -26,8 +26,7 @@ contract this implements and `docs/clerk-setup.md` for the Clerk dashboard side.
 
 ## Dev builds (not Expo Go)
 
-Clerk's native components (`AuthView`, `UserButton`, `UserProfileView`, used everywhere auth-related)
-require a **development build**, not Expo Go and not a browser:
+Clerk's native components (`UserButton`, `UserProfileView`) require a **development build**, not Expo Go and not a browser:
 
 ```bash
 cd apps/mobile
@@ -52,7 +51,7 @@ placeholders.
 apps/mobile/src/
   app/                 Expo Router routes (thin — no business logic in a route file)
     _layout.tsx        ClerkProvider → QueryClientProvider → ThemeProvider → Slot/Toaster/PortalHost
-    (auth)/            public: sign-in / sign-up (Clerk prebuilt UI)
+    (auth)/            public: welcome / email / code (custom UI on Clerk's headless hooks, `features/auth/`)
     (app)/             protected: requires sign-in + an active organisation; the tab bar
     (dev)/gallery.tsx  every ui/ + composite component, redirects away when `__DEV__` is false
     book/[slug].tsx     public web-booking comparator placeholder
@@ -139,7 +138,7 @@ bottom padding on the top-level tab screens (`isTabRootPath`); screens that opt 
 
 | Route | Group | Notes |
 | --- | --- | --- |
-| `/sign-in` | `(auth)` | native `AuthView` (`mode="signInOrUp"`) / web `<SignIn />`; redirects to `/` if already signed in |
+| `/sign-in` | `(auth)` | custom welcome → email → code screens (`features/auth`, `useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used) / web `<SignIn />`; redirects to `/` if already signed in |
 | `/` | `(app)` (tabs) | Today (`features/today`): today's `appointments` (business timezone), Up next hero + check-in, Later today, expected total; loading / empty / error / offline states |
 | `/inbox` | `(app)` (hidden tab) | Stub: opened from the floating Inbox dome; conversations and escalations come later |
 | `/calendar` | `(app)` (tabs) | Day/week/month from `appointments` + `business_hours` (breaks = gaps between shifts) |
