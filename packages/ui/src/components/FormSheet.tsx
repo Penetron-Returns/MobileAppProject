@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur';
 import * as React from 'react';
 import {
   KeyboardAvoidingView,
+  Platform,
   Modal,
   Pressable as RNPressable,
   ScrollView,
@@ -14,6 +15,7 @@ import { KEYBOARD_AVOIDING_BEHAVIOR } from '../lib/keyboard';
 import { Pressable } from '../primitives/Pressable';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
+import { withAlpha } from '../tokens/depth';
 import { useDsText } from '../lib/strings';
 
 /** The sheet stops 8pt above the status bar's bottom edge (board: top 54 on a 62pt inset). */
@@ -117,7 +119,8 @@ export function FormSheet({
               contentContainerStyle={{
                 paddingTop: 8,
                 paddingHorizontal: 20,
-                paddingBottom: (footer ? FOOTER_HEIGHT : 0) + 34,
+                paddingBottom:
+                  (footer ? FOOTER_HEIGHT + insets.bottom : 0) + 34,
               }}
             >
               {children}
@@ -126,6 +129,16 @@ export function FormSheet({
               <View
                 style={[
                   depth.sheetFade,
+                  // Blur is unreliable behind scrolling content on Android: sit on the
+                  // opaque ground there so rows never show through. A hairline
+                  // separates the footer from the list on both.
+                  Platform.OS === 'ios'
+                    ? null
+                    : { backgroundColor: depth.ground.backgroundColor },
+                  {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: withAlpha(depth.colors.label, 0.12),
+                  },
                   {
                     position: 'absolute',
                     left: 0,

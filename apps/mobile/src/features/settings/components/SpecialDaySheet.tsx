@@ -104,6 +104,12 @@ export function SpecialDaySheet({
     onClose();
     router.push(`/bookings/${id}` as never);
   };
+  // With suggestions listed, tapping one adds it at once; the button below only
+  // saves the custom form, so it says so.
+  const saveLabel =
+    day === null && upcoming.length > 0
+      ? t('hours.special.addCustom')
+      : t('common.save');
   const busy = save.isPending || addMany.isPending || conflicts.checking;
 
   return (
@@ -119,9 +125,9 @@ export function SpecialDaySheet({
             haptic={false}
             onPress={submit}
             loading={busy}
-            accessibilityLabel={t('common.save')}
+            accessibilityLabel={saveLabel}
           >
-            <Text>{busy ? t('common.saving') : t('common.save')}</Text>
+            <Text>{busy ? t('common.saving') : saveLabel}</Text>
           </Button>
         )
       }
