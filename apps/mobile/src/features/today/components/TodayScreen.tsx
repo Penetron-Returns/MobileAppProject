@@ -1,10 +1,10 @@
 import {
+  AnimatedNumber,
   IconButton,
   OfflineBanner,
   Page,
   Reveal,
   Surface,
-  Text,
 } from '@booking/ui';
 import { Bell } from 'lucide-react-native';
 import * as React from 'react';
@@ -103,11 +103,15 @@ function TodaySummary({
   return (
     <View className="mx-5 mt-5">
       <Surface variant="engrave" className="h-0.5" />
-      <Text className="pt-3.5 text-subtitle text-muted-foreground">
-        {t('today.expected', {
-          amount: formatMoney(expectedCents, currency, { decimals: false }),
-        })}
-      </Text>
+      <AnimatedNumber
+        value={expectedCents}
+        format={(cents) =>
+          t('today.expected', {
+            amount: formatMoney(cents, currency, { decimals: false }),
+          })
+        }
+        className="pt-3.5 text-subtitle text-muted-foreground"
+      />
     </View>
   );
 }
