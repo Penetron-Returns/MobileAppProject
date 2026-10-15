@@ -11,15 +11,20 @@ import {
   mergeSpans,
   nowMinute,
   shiftAnchor,
+  staffBlocks,
   staffWindows,
   timelineWindow,
   weekDates,
   weekStrip,
   weekSummary,
+  type BreakRow,
   type HoursRow,
   type OverrideRow,
   type RuleRow,
+  type SpecialDayRow,
+  type TimeOffRow,
 } from '../logic';
+import type { CalendarSchedule } from '../config';
 
 const TZ = 'Africa/Johannesburg';
 
@@ -31,11 +36,30 @@ const HOURS: HoursRow[] = [
 ];
 
 const override = (o: Partial<OverrideRow>): OverrideRow => ({
-  staff_id: null,
+  staff_id: 's1',
   date: '2026-10-12',
   is_closed: false,
   start_time: null,
   end_time: null,
+  ...o,
+});
+
+const special = (o: Partial<SpecialDayRow>): SpecialDayRow => ({
+  date: '2026-10-12',
+  name: 'Staff day',
+  is_closed: true,
+  start_time: null,
+  end_time: null,
+  ...o,
+});
+
+const schedule = (o: Partial<CalendarSchedule> = {}): CalendarSchedule => ({
+  hours: HOURS,
+  specialDays: [],
+  rules: [],
+  overrides: [],
+  breaks: [],
+  timeOff: [],
   ...o,
 });
 
@@ -136,20 +160,36 @@ describe('businessWindows', () => {
     expect(businessWindows('2026-10-18', HOURS, [])).toEqual([]);
   });
 
-  it('lets a business-wide closed override win', () => {
-    expect(
-      businessWindows('2026-10-12', HOURS, [override({ is_closed: true })]),
-    ).toEqual([]);
+  it('lets a closed special day win', () => {
+    expect(businessWindows('2026-10-12', HOURS, [special({})])).toEqual([]);
   });
 
-  it('replaces the hours with a business-wide window and ignores other dates and staff', () => {
-    const overrides = [
-      override({ start_time: '10:00:00', end_time: '12:00:00' }),
-      override({ date: '2026-10-13', is_closed: true }),
-      override({ staff_id: 's1', is_closed: true }),
+  it('replaces the hours with the special hours and ignores other dates', () => {
+    const days = [
+      special({
+        is_closed: false,
+        name: 'Short day',
+        start_time: '10:00:00',
+        end_time: '12:00:00',
+      }),
+      special({ date: '2026-10-13' }),
     ];
-    expect(businessWindows('2026-10-12', HOURS, overrides)).toEqual([
+    expect(businessWindows('2026-10-12', HOURS, days)).toEqual([
       { startMin: 600, endMin: 720 },
+    ]);
+  });
+
+  it('lets special hours open a day that is normally closed', () => {
+    const days = [
+      special({
+        date: '2026-10-18',
+        is_closed: false,
+        start_time: '09:00:00',
+        end_time: '13:00:00',
+      }),
+    ];
+    expect(businessWindows('2026-10-18', HOURS, days)).toEqual([
+      { startMin: 540, endMin: 780 },
     ]);
   });
 });
@@ -169,7 +209,12 @@ describe('staffWindows', () => {
       end_time: '20:00:00',
     },
   ];
-  const base = { date: '2026-10-12', staffId: 's1', hours: HOURS };
+  const base = {
+    date: '2026-10-12',
+    staffId: 's1',
+    hours: HOURS,
+    specialDays: [] as SpecialDayRow[],
+  };
 
   it('clips the staff rules to business hours', () => {
     expect(staffWindows({ ...base, rules, overrides: [] })).toEqual([
@@ -184,6 +229,17 @@ describe('staffWindows', () => {
     expect(
       staffWindows({ ...base, staffId: 's2', rules, overrides: [] }),
     ).toEqual(businessWindows('2026-10-12', HOURS, []));
+  });
+
+  it('is off on a closed special day whatever the rules say', () => {
+    expect(
+      staffWindows({
+        ...base,
+        specialDays: [special({})],
+        rules,
+        overrides: [],
+      }),
+    ).toEqual([]);
   });
 
   it('is off on a weekday where they have rules for other days only', () => {
@@ -325,9 +381,7 @@ describe('buildDayColumns', () => {
         appt('a', 's1', '2026-10-12T07:00:00.000Z'), // 09:00
         appt('b', 's2', '2026-10-12T18:00:00.000Z'), // 20:00, after closing
       ],
-      hours: HOURS,
-      rules: [],
-      overrides: [],
+      schedule: schedule(),
     });
     expect(columns.map((c) => c.appointments.map((a) => a.id))).toEqual([
       ['a'],
@@ -350,8 +404,7 @@ describe('weekSummary', () => {
         at('2026-10-12T09:00:00.000Z'),
         at('2026-10-13T07:00:00.000Z'),
       ],
-      hours: HOURS,
-      overrides: [],
+      schedule: schedule(),
     });
     expect(summary.total).toBe(3);
     expect(summary.days.map((d) => d.count)).toEqual([2, 1, 0, 0, 0, 0, 0]);
@@ -375,12 +428,50 @@ describe('weekSummary', () => {
       today: '2026-10-14',
       timezone: TZ,
       appointments: [at('2026-10-18T07:00:00.000Z')],
-      hours: HOURS,
-      overrides: [override({ date: '2026-10-13', is_closed: true })],
+      schedule: schedule({
+        specialDays: [special({ date: '2026-10-13', name: 'Heritage Day' })],
+      }),
     });
     expect(summary.days[6].isClosed).toBe(false);
     expect(summary.days[1].isClosed).toBe(true);
+    expect(summary.days[1].closedName).toBe('Heritage Day');
     expect(summary.days[0].isClosed).toBe(false);
+  });
+
+  it('notes who is off, and can limit the notes to one person', () => {
+    const timeOff: TimeOffRow[] = [
+      {
+        staff_id: 's1',
+        starts_on: '2026-10-13',
+        ends_on: '2026-10-14',
+        start_time: null,
+        end_time: null,
+        reason: 'leave',
+        note: null,
+      },
+      {
+        staff_id: 's2',
+        starts_on: '2026-10-14',
+        ends_on: '2026-10-14',
+        start_time: '09:00:00',
+        end_time: '12:00:00',
+        reason: 'training',
+        note: null,
+      },
+    ];
+    const base = {
+      anchor: '2026-10-12',
+      today: '2026-10-12',
+      timezone: TZ,
+      appointments: [],
+      schedule: schedule({ timeOff }),
+    };
+    expect(weekSummary(base).days.map((d) => d.off.length)).toEqual([
+      0, 1, 2, 0, 0, 0, 0,
+    ]);
+    expect(
+      weekSummary({ ...base, staffId: 's2' }).days.map((d) => d.off.length),
+    ).toEqual([0, 0, 1, 0, 0, 0, 0]);
   });
 
   it('never divides by zero on an empty week', () => {
@@ -389,10 +480,154 @@ describe('weekSummary', () => {
       today: '2026-10-14',
       timezone: TZ,
       appointments: [],
-      hours: HOURS,
-      overrides: [],
+      schedule: schedule(),
     });
     expect(summary.days.every((d) => d.fullness === 0)).toBe(true);
+  });
+});
+
+describe('staffBlocks', () => {
+  const lunch: BreakRow = {
+    staff_id: 's1',
+    label: 'Lunch',
+    start_time: '13:00:00',
+    end_time: '14:00:00',
+    weekdays: [],
+  };
+  const leave = (o: Partial<TimeOffRow> = {}): TimeOffRow => ({
+    staff_id: 's1',
+    starts_on: '2026-10-12',
+    ends_on: '2026-10-12',
+    start_time: null,
+    end_time: null,
+    reason: 'leave',
+    note: null,
+    ...o,
+  });
+  const working = [{ startMin: 540, endMin: 1080 }];
+  const base = { date: '2026-10-12', staffId: 's1', working };
+
+  it('draws a break inside the working hours with its label', () => {
+    expect(staffBlocks({ ...base, breaks: [lunch], timeOff: [] })).toEqual([
+      { startMin: 780, endMin: 840, kind: 'break', label: 'Lunch' },
+    ]);
+  });
+
+  it('draws a break only on its weekdays', () => {
+    const tuesdays = { ...lunch, weekdays: [2] };
+    expect(staffBlocks({ ...base, breaks: [tuesdays], timeOff: [] })).toEqual(
+      [],
+    );
+    expect(
+      staffBlocks({
+        ...base,
+        date: '2026-10-13',
+        breaks: [tuesdays],
+        timeOff: [],
+      }),
+    ).toHaveLength(1);
+  });
+
+  it('covers the whole working day for all-day time off, labelled by its reason', () => {
+    expect(staffBlocks({ ...base, breaks: [], timeOff: [leave()] })).toEqual([
+      { startMin: 540, endMin: 1080, kind: 'time_off', label: 'leave' },
+    ]);
+  });
+
+  it('applies timed time off on every date of a range, and not outside it', () => {
+    const training = leave({
+      starts_on: '2026-10-12',
+      ends_on: '2026-10-14',
+      start_time: '14:00:00',
+      end_time: '17:00:00',
+      reason: 'training',
+    });
+    expect(
+      staffBlocks({
+        ...base,
+        date: '2026-10-14',
+        breaks: [],
+        timeOff: [training],
+      }),
+    ).toEqual([
+      { startMin: 840, endMin: 1020, kind: 'time_off', label: 'training' },
+    ]);
+    expect(
+      staffBlocks({
+        ...base,
+        date: '2026-10-15',
+        breaks: [],
+        timeOff: [training],
+      }),
+    ).toEqual([]);
+  });
+
+  it('ignores other people and days they do not work', () => {
+    expect(
+      staffBlocks({
+        ...base,
+        staffId: 's2',
+        breaks: [lunch],
+        timeOff: [leave()],
+      }),
+    ).toEqual([]);
+    expect(
+      staffBlocks({
+        ...base,
+        working: [],
+        breaks: [lunch],
+        timeOff: [leave()],
+      }),
+    ).toEqual([]);
+  });
+
+  it('clips a block to the working hours', () => {
+    expect(
+      staffBlocks({
+        ...base,
+        working: [{ startMin: 540, endMin: 780 }],
+        breaks: [{ ...lunch, start_time: '12:30:00' }],
+        timeOff: [],
+      }),
+    ).toEqual([{ startMin: 750, endMin: 780, kind: 'break', label: 'Lunch' }]);
+  });
+});
+
+describe('buildDayColumns blocks and holidays', () => {
+  const staff = [{ id: 's1', is_active: true }];
+
+  it('adds the breaks of each column and reports a closed holiday', () => {
+    const open = buildDayColumns({
+      date: '2026-10-13',
+      timezone: TZ,
+      staff,
+      appointments: [],
+      schedule: schedule({
+        breaks: [
+          {
+            staff_id: 's1',
+            label: 'Lunch',
+            start_time: '12:00:00',
+            end_time: '13:00:00',
+            weekdays: [],
+          },
+        ],
+      }),
+    });
+    expect(open.closedDay).toBeNull();
+    expect(open.columns[0].blocks.map((b) => b.label)).toEqual(['Lunch']);
+
+    const closed = buildDayColumns({
+      date: '2026-10-13',
+      timezone: TZ,
+      staff,
+      appointments: [],
+      schedule: schedule({
+        specialDays: [special({ date: '2026-10-13', name: 'Christmas Day' })],
+      }),
+    });
+    expect(closed.closedDay?.name).toBe('Christmas Day');
+    expect(closed.columns[0].working).toEqual([]);
   });
 });
 

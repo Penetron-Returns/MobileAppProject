@@ -1,4 +1,10 @@
-import { Text, useAppColorScheme, useDepth } from '@booking/ui';
+import {
+  Surface,
+  Text,
+  useAppColorScheme,
+  useDepth,
+  withAlpha,
+} from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -36,7 +42,7 @@ export function DayView({
   const vertical = React.useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const { columns, window, timezone, now } = view;
+  const { columns, window, timezone, now, closedDay } = view;
   const colWidth = columnWidth(width - GUTTER, columns.length);
   const height = minutesToPx(window.endMin - window.startMin);
   const nowMin = nowMinute(now, timezone, date, window);
@@ -172,12 +178,34 @@ export function DayView({
                   height={height}
                   window={window}
                   working={c.working}
+                  blocks={c.blocks}
+                  closed={closedDay !== null}
                   appointments={c.appointments}
                   timezone={timezone}
                   hasDivider={index > 0}
                 />
               ))}
               <HourLines hours={hours} window={window} />
+              {closedDay ? (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    backgroundColor: withAlpha(depth.colors.label, 0.05),
+                  }}
+                  className="absolute inset-0 items-center pt-[120px]"
+                >
+                  <Surface
+                    variant="knob"
+                    radius={18}
+                    accessibilityRole="alert"
+                    className="min-h-[38px] justify-center px-4"
+                  >
+                    <Text className="text-title font-semibold text-muted-foreground">
+                      {t('calendar.closedDay', { name: closedDay.name })}
+                    </Text>
+                  </Surface>
+                </View>
+              ) : null}
               {nowMin !== null ? (
                 <View
                   pointerEvents="none"

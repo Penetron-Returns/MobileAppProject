@@ -20,12 +20,42 @@ export interface RuleRow {
   end_time: string;
 }
 
+/** A per-staff day override (business-wide days are special days now). */
 export interface OverrideRow {
-  staff_id: string | null;
+  staff_id: string;
   date: string;
   is_closed: boolean;
   start_time: string | null;
   end_time: string | null;
+}
+
+/** A business-wide date that is closed or has its own single range. */
+export interface SpecialDayRow {
+  date: string;
+  name: string;
+  is_closed: boolean;
+  start_time: string | null;
+  end_time: string | null;
+}
+
+export interface BreakRow {
+  staff_id: string;
+  label: string;
+  start_time: string;
+  end_time: string;
+  /** Empty = every day the person works. */
+  weekdays: number[];
+}
+
+export interface TimeOffRow {
+  staff_id: string;
+  starts_on: string;
+  ends_on: string;
+  /** Both null = all day on every date of the range. */
+  start_time: string | null;
+  end_time: string | null;
+  reason: 'leave' | 'sick' | 'training' | 'other';
+  note: string | null;
 }
 
 // ---------- working hours ----------
@@ -95,16 +125,31 @@ export function overrideSpans(overrides: OverrideRow[]): MinuteSpan[] | null {
   );
 }
 
-/** Business windows for a date: a business-wide override decides, else the weekly hours. */
+/** The special day of a date, if there is one. */
+export function specialDayOn(
+  date: ISODate,
+  specialDays: SpecialDayRow[],
+): SpecialDayRow | null {
+  return specialDays.find((d) => d.date === date) ?? null;
+}
+
+/** Business windows for a date: a special day decides, else the weekly hours. */
 export function businessWindows(
   date: ISODate,
   hours: HoursRow[],
-  overrides: OverrideRow[],
+  specialDays: SpecialDayRow[],
 ): MinuteSpan[] {
-  const override = overrideSpans(
-    overrides.filter((o) => o.staff_id === null && o.date === date),
-  );
-  if (override) return override;
+  const special = specialDayOn(date, specialDays);
+  if (special) {
+    return special.is_closed || !special.start_time || !special.end_time
+      ? []
+      : mergeSpans([
+          {
+            startMin: timeToMinutes(special.start_time),
+            endMin: timeToMinutes(special.end_time),
+          },
+        ]);
+  }
   const weekday = weekdayOf(date);
   return mergeSpans(
     hours
@@ -119,17 +164,19 @@ export function businessWindows(
 /**
  * When one staff member works on a date (docs/booking-core.md): a staff
  * override decides, else their weekly rules, else (no rules at all) the
- * business windows. Always clipped to the business windows.
+ * business windows. Always clipped to the business windows (which a special
+ * day replaces). Breaks and time off are separate blocks, see `staffBlocks`.
  */
 export function staffWindows(opts: {
   date: ISODate;
   staffId: string;
   hours: HoursRow[];
+  specialDays: SpecialDayRow[];
   rules: RuleRow[];
   overrides: OverrideRow[];
 }): MinuteSpan[] {
-  const { date, staffId, hours, rules, overrides } = opts;
-  const business = businessWindows(date, hours, overrides);
+  const { date, staffId, hours, specialDays, rules, overrides } = opts;
+  const business = businessWindows(date, hours, specialDays);
   const own = overrideSpans(
     overrides.filter((o) => o.staff_id === staffId && o.date === date),
   );
@@ -160,4 +207,66 @@ export function timelineWindow(spans: MinuteSpan[]): MinuteSpan {
       Math.max(Math.ceil(end / 60) * 60, Math.floor(start / 60) * 60 + 60),
     ),
   };
+}
+
+export type BlockKind = 'break' | 'time_off';
+
+/** A stretch of a working day that cannot be booked: a break or time off. */
+export interface BlockedSpan extends MinuteSpan {
+  kind: BlockKind;
+  /** The break's name, or the time off's reason key (the view translates it). */
+  label: string;
+}
+
+/**
+ * The breaks and time off of one person on a date, clipped to when they work
+ * (a break on a day off, or time off outside their hours, is not drawn).
+ * Time off with no times covers the whole working day.
+ */
+export function staffBlocks(opts: {
+  date: ISODate;
+  staffId: string;
+  working: MinuteSpan[];
+  breaks: BreakRow[];
+  timeOff: TimeOffRow[];
+}): BlockedSpan[] {
+  const { date, staffId, working, breaks, timeOff } = opts;
+  const weekday = weekdayOf(date);
+  const sources: { span: MinuteSpan; kind: BlockKind; label: string }[] = [
+    ...breaks
+      .filter(
+        (b) =>
+          b.staff_id === staffId &&
+          (b.weekdays.length === 0 || b.weekdays.includes(weekday)),
+      )
+      .map((b) => ({
+        kind: 'break' as const,
+        label: b.label,
+        span: {
+          startMin: timeToMinutes(b.start_time),
+          endMin: timeToMinutes(b.end_time),
+        },
+      })),
+    ...timeOff
+      .filter(
+        (t) =>
+          t.staff_id === staffId && t.starts_on <= date && date <= t.ends_on,
+      )
+      .map((t) => ({
+        kind: 'time_off' as const,
+        label: t.reason,
+        span:
+          t.start_time && t.end_time
+            ? {
+                startMin: timeToMinutes(t.start_time),
+                endMin: timeToMinutes(t.end_time),
+              }
+            : { startMin: 0, endMin: 24 * 60 },
+      })),
+  ];
+  return sources
+    .flatMap(({ span, kind, label }) =>
+      intersectSpans([span], working).map((s) => ({ ...s, kind, label })),
+    )
+    .sort((x, y) => x.startMin - y.startMin);
 }

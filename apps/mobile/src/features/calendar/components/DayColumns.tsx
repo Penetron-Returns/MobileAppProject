@@ -1,10 +1,12 @@
 import { Text, useDepth, withAlpha } from '@booking/ui';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import { minutesToTime } from '@/lib/time';
 import {
   appointmentSpan,
   complementSpans,
   minutesToPx,
+  type BlockedSpan,
   type MinuteSpan,
 } from '../logic';
 import { AppointmentBlock } from './AppointmentBlock';
@@ -44,6 +46,8 @@ export function Column({
   height,
   window,
   working,
+  blocks,
+  closed,
   appointments,
   timezone,
   hasDivider,
@@ -52,6 +56,10 @@ export function Column({
   height: number;
   window: MinuteSpan;
   working: MinuteSpan[];
+  /** Breaks and time off inside the working hours. */
+  blocks: BlockedSpan[];
+  /** A closed holiday: the day banner explains it, so no "Not working" here. */
+  closed: boolean;
   appointments: Ready['columns'][number]['appointments'];
   timezone: string;
   hasDivider: boolean;
@@ -87,7 +95,16 @@ export function Column({
           </View>
         );
       })}
-      {working.length === 0 ? (
+      {blocks.map((block) => (
+        <UnavailableBlock
+          key={`${block.kind}-${block.startMin}-${block.label}`}
+          block={block}
+          top={top(block.startMin) + 1}
+          width={width - 6}
+          height={minutesToPx(block.endMin - block.startMin) - 2}
+        />
+      ))}
+      {working.length === 0 && !closed ? (
         <Text
           style={{ position: 'absolute', top: 12, left: 0, right: 0 }}
           className="text-center text-meta font-semibold text-muted-foreground"
@@ -118,6 +135,68 @@ export function Column({
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * A break or time off (CalendarDay board): a dashed, hatched rounded block
+ * labelled "Lunch · 13:00" or with the reason ("Leave"). Read only.
+ */
+function UnavailableBlock({
+  block,
+  top,
+  width,
+  height,
+}: {
+  block: BlockedSpan;
+  top: number;
+  width: number;
+  height: number;
+}) {
+  const { t } = useTranslation();
+  const depth = useDepth();
+  const label =
+    block.kind === 'time_off'
+      ? t(`team.timeOff.reasons.${block.label}`)
+      : `${block.label} · ${minutesToTime(block.startMin)}`;
+  return (
+    <View
+      accessible
+      accessibilityLabel={t('calendar.blockedLabel', {
+        label,
+        start: minutesToTime(block.startMin),
+        end: minutesToTime(block.endMin),
+      })}
+      style={{
+        position: 'absolute',
+        left: 3,
+        top,
+        width,
+        height,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: withAlpha(depth.colors.label, 0.3),
+        backgroundColor: withAlpha(depth.colors.label, 0.05),
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{ position: 'absolute', left: 0, top: 0 }}
+        pointerEvents="none"
+      >
+        <Hatch width={width} height={height} />
+      </View>
+      <Text
+        numberOfLines={1}
+        style={{ color: depth.colors.secondary }}
+        className="px-2 text-meta font-semibold"
+      >
+        {label}
+      </Text>
     </View>
   );
 }

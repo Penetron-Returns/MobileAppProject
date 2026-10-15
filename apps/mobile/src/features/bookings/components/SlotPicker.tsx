@@ -11,6 +11,8 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { useAvailabilityConfig } from '@/features/availability/hooks';
+import { closedDays } from '@/features/availability/specialDays';
 import {
   useAvailableDays,
   useAvailableSlots,
@@ -18,6 +20,8 @@ import {
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import {
+  addDays,
+  formatWeekdayDayMonth,
   WEEKDAYS,
   WEEKDAYS_SHORT,
   formatDateLong,
@@ -77,6 +81,25 @@ export function SlotPicker({
     to: range.to,
     staffId,
   });
+  // Why a date is missing from the chips: a holiday that closes the business.
+  const config = useAvailabilityConfig(
+    range.from,
+    range.to < addDays(range.from, 365) ? range.to : addDays(range.from, 365),
+  );
+  const closed = closedDays(
+    config.data?.special_days ?? [],
+    range.from,
+    range.to,
+  ).slice(0, 3);
+  const closedNote = closed.length ? (
+    <Text className="text-subtitle text-muted-foreground">
+      {t('slots.closedOn', {
+        days: closed
+          .map((d) => `${d.name}, ${formatWeekdayDayMonth(d.date)}`)
+          .join('; '),
+      })}
+    </Text>
+  ) : null;
   const dayList = React.useMemo(() => days.data?.days ?? [], [days.data]);
   const dayTiles = React.useMemo(() => dayList.map(toSlotDay), [dayList]);
   const shown = pickDay(dayList, date);
@@ -118,9 +141,12 @@ export function SlotPicker({
   if (days.isPending) return <SlotSkeleton label={t('slots.loading')} />;
   if (dayList.length === 0) {
     return (
-      <Text className="text-subtitle text-muted-foreground">
-        {t('slots.noDays')}
-      </Text>
+      <View className="gap-2">
+        <Text className="text-subtitle text-muted-foreground">
+          {t('slots.noDays')}
+        </Text>
+        {closedNote}
+      </View>
     );
   }
 
@@ -160,6 +186,7 @@ export function SlotPicker({
           }}
         />
       )}
+      {closedNote}
     </View>
   );
 }

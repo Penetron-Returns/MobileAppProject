@@ -11,6 +11,10 @@ import { filterByStaff, weekSummary } from '../logic';
 
 type Ready = Extract<CalendarWeekView, { status: 'ready' }>;
 
+function firstName(name: string | undefined): string {
+  return name?.trim().split(/s+/)[0] ?? '';
+}
+
 /** Read-only week overview: one row per day, tap a day to open it. */
 export function WeekView({
   view,
@@ -29,8 +33,8 @@ export function WeekView({
     today: view.today,
     timezone: view.timezone,
     appointments: filterByStaff(view.appointments, staffId),
-    hours: view.hours,
-    overrides: view.overrides,
+    schedule: view.schedule,
+    staffId,
   });
   const staffName = view.staff.find((s) => s.id === staffId)?.name;
 
@@ -67,10 +71,16 @@ export function WeekView({
             WEEKDAYS[new Date(`${day.date}T00:00:00Z`).getUTCDay()];
           const num = Number(day.date.slice(8, 10));
           const label = day.isClosed
-            ? t('calendar.weekDayClosed', {
-                day: weekday,
-                date: formatDateLong(day.date),
-              })
+            ? t(
+                day.closedName
+                  ? 'calendar.weekDayClosedNamed'
+                  : 'calendar.weekDayClosed',
+                {
+                  day: weekday,
+                  date: formatDateLong(day.date),
+                  name: day.closedName,
+                },
+              )
             : t('calendar.weekDayLabel', {
                 day: weekday,
                 date: formatDateLong(day.date),
@@ -111,13 +121,32 @@ export function WeekView({
               </View>
               {day.isClosed ? (
                 <Text className="flex-1 text-title text-muted-foreground">
-                  {t('calendar.closed')}
+                  {day.closedName
+                    ? t('calendar.closedNamed', { name: day.closedName })
+                    : t('calendar.closed')}
                 </Text>
               ) : (
                 <View className="min-w-0 flex-1">
                   <Text className="text-title">
                     {t('calendar.bookingCount', { count: day.count })}
                   </Text>
+                  {day.off.length ? (
+                    <Text
+                      numberOfLines={1}
+                      className="text-subtitle text-muted-foreground"
+                    >
+                      {day.off
+                        .map((o) =>
+                          t('calendar.offNote', {
+                            name: firstName(
+                              view.staff.find((s) => s.id === o.staffId)?.name,
+                            ),
+                            reason: t(`team.timeOff.reasons.${o.reason}`),
+                          }),
+                        )
+                        .join(', ')}
+                    </Text>
+                  ) : null}
                   <Surface
                     variant="inset"
                     radius={4}
