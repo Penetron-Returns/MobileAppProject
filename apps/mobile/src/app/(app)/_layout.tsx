@@ -1,9 +1,11 @@
-import { CenteredSpinner, DURATION, useDepth } from '@booking/ui';
+import { DURATION, useDepth } from '@booking/ui';
 import { useAuth, useClerk, useSession, useUser } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ClovieLoading } from '@/features/brand/ClovieLoading';
+import { useHideSplashWhen } from '@/features/brand/useHideSplash';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
@@ -129,6 +131,8 @@ export default function AppLayout() {
     inOnboarding,
   });
 
+  useHideSplashWhen(route.kind !== 'splash' && route.kind !== 'activate-org');
+
   const activateOrgId = route.kind === 'activate-org' ? route.orgId : null;
   React.useEffect(() => {
     // `navigate` is explicit: routing is driven by this layout, not by Clerk.
@@ -146,7 +150,7 @@ export default function AppLayout() {
   switch (route.kind) {
     case 'splash':
     case 'activate-org':
-      return <CenteredSpinner />;
+      return <ClovieLoading />;
     case 'signed-out':
       return <Redirect href="/sign-in" />;
     case 'join':
