@@ -2,31 +2,148 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <style>
-      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
-        font: 16px/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #fff; }
-      /* Placeholder visual: a bottom glow that rises with the mic level. The real design replaces this file's look, not its API. */
-      #glow { position: fixed; left: 0; right: 0; bottom: 0; height: 100%; opacity: 0;
-        background: radial-gradient(120% 100% at 50% 100%, rgba(56,189,248,.95) 0%, rgba(99,102,241,.6) 38%, rgba(99,102,241,0) 72%);
-        transform-origin: 50% 100%; transform: scaleY(.25); transition: opacity .25s ease; }
-      body[data-state='listening'] #glow, body[data-state='processing'] #glow, body[data-state='done'] #glow { opacity: 1; }
-      body[data-state='error'] #glow { opacity: 1; filter: hue-rotate(150deg); }
-      body[data-state='processing'] #glow { animation: pulse 1s ease-in-out infinite; }
-      @keyframes pulse { 50% { transform: scaleY(.55); } }
-      #panel { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 20px 28px; text-align: center; }
-      #label { font-weight: 600; font-size: 15px; letter-spacing: .02em; opacity: .9; }
-      #text { margin-top: 6px; font-size: 20px; font-weight: 600; text-shadow: 0 1px 8px rgba(0,0,0,.45); word-break: break-word; }
-      #action { display: none; margin: 14px auto 0; padding: 12px 22px; border: 0; border-radius: 999px;
-        background: #fff; color: #1e1b4b; font: inherit; font-weight: 700; }
-      @media (prefers-reduced-motion: reduce) { #glow { transition: none; animation: none !important; } }
+      /* Ported from design VoiceWake.dc.html (placement "left"). The window is transparent: the glow sits over the app below. */
+      html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+      body[data-theme='dark'] { --text: #fff; --sub: rgba(235,245,252,.82); --shadow: 0 1px 12px rgba(4,12,24,.55);
+        --scrim: linear-gradient(to top, rgba(6,16,32,.78) 0%, rgba(6,16,32,.68) 38%, rgba(6,16,32,0) 100%);
+        --blend: screen; --glass: rgba(24,34,54,.55); --hair: rgba(255,255,255,.16); --top: rgba(255,255,255,.18);
+        --rim: linear-gradient(90deg, rgba(227,243,251,0), #E3F3FB 18%, #2AA1D6 50%, #E3F3FB 82%, rgba(227,243,251,0));
+        --beam: linear-gradient(90deg, rgba(227,243,251,0), #fff 50%, rgba(227,243,251,0));
+        --c1: 16,120,175; --c2: 42,161,214; --c3: 157,217,245; --c4: 94,207,201; --c5: 16,120,175; }
+      body[data-theme='light'] { --text: #0A4E75; --sub: rgba(10,78,117,.82); --shadow: 0 1px 10px rgba(255,255,255,.7);
+        --scrim: linear-gradient(to top, rgba(255,255,255,.72) 0%, rgba(255,255,255,.4) 45%, rgba(255,255,255,0) 100%);
+        --blend: normal; --glass: rgba(255,255,255,.72); --hair: rgba(29,27,46,.1); --top: rgba(255,255,255,.9);
+        --rim: linear-gradient(90deg, rgba(42,161,214,0), #2AA1D6 18%, #1078AF 50%, #2AA1D6 82%, rgba(42,161,214,0));
+        --beam: linear-gradient(90deg, rgba(31,160,218,0), #1FA0DA 50%, rgba(31,160,218,0));
+        --c1: 16,120,175; --c2: 42,161,214; --c3: 124,198,234; --c4: 94,207,201; --c5: 16,120,175; }
+
+      /* Glow: rises from the bottom edge. The top fades out so the window edge never shows. */
+      .vw-glow { --s: .7; position: fixed; left: 0; right: 0; bottom: 0; top: 0; overflow: hidden; pointer-events: none; isolation: isolate;
+        -webkit-mask-image: linear-gradient(to top, #000 62%, transparent); mask-image: linear-gradient(to top, #000 62%, transparent);
+        opacity: 0; }
+      .vw-on { opacity: 1; animation: vw-lift .18s ease-out both; }
+      #scrim { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: var(--scrim); }
+      #swell { position: absolute; left: 0; right: 0; top: 0; bottom: 0; transform-origin: 50% 100%; transform: scaleY(var(--lv, .9)); }
+      .vw-blob { position: absolute; bottom: -130px; height: 560px; border-radius: 50%; filter: blur(46px); transform-origin: 50% 100%;
+        transform: scaleY(var(--s)); opacity: var(--o, .92); mix-blend-mode: var(--blend);
+        background: radial-gradient(closest-side, rgba(var(--c),1) 0%, rgba(var(--c),.8) 38%, rgba(var(--c),.27) 72%, rgba(var(--c),0) 100%); }
+      #floor { position: absolute; left: 0; right: 0; bottom: 0; height: 120px; background: linear-gradient(to top, rgba(42,161,214,.36), rgba(42,161,214,0)); opacity: .25; }
+      #rim { position: absolute; left: 14px; right: 14px; bottom: 0; height: 3px; border-radius: 2px; background: var(--rim);
+        box-shadow: 0 0 14px 2px rgba(157,217,245,.5), 0 0 36px 8px rgba(42,161,214,.3); opacity: .55; }
+      .vw-beam { position: absolute; left: 50%; margin-left: -75px; bottom: 0; width: 150px; height: 130px; display: none; }
+      .vw-beam-glow { position: absolute; left: -60px; right: -60px; bottom: -50px; height: 190px; border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(157,217,245,.6), rgba(42,161,214,.3) 55%, rgba(42,161,214,0)); filter: blur(10px); }
+      .vw-beam-core { position: absolute; left: 6px; right: 6px; bottom: 26px; height: 6px; border-radius: 4px; background: var(--beam);
+        box-shadow: 0 0 18px 4px rgba(157,217,245,.7), 0 0 60px 18px rgba(42,161,214,.45), 0 0 110px 34px rgba(16,120,175,.3); }
+
+      .vw-st-listening { --s: .74; }
+      .vw-st-listening .vw-blob { animation: vw-a var(--d,4s) ease-in-out var(--dl,0s) infinite alternate, vw-drift var(--dd,8s) ease-in-out var(--dl,0s) infinite alternate; }
+      .vw-st-processing { --s: .05; }
+      .vw-st-processing .vw-blob { animation: vw-gather 1.2s cubic-bezier(.4,0,.2,1) forwards; }
+      .vw-st-processing .vw-beam { display: block; animation: vw-fadein .9s ease-out .6s both, vw-travel 3.5s ease-in-out .6s infinite alternate; }
+      .vw-st-processing #floor { opacity: 1; } .vw-st-processing #rim { opacity: .2; }
+      .vw-st-done { --s: .2; }
+      .vw-st-done .vw-blob { animation: vw-out 3.2s cubic-bezier(.3,.1,.3,1) forwards; }
+      .vw-st-done #floor { opacity: .7; } .vw-st-done #rim { opacity: .3; }
+      .vw-st-request { --s: .5; }
+      .vw-st-request .vw-blob { animation: vw-breath 4.2s ease-in-out var(--dl,0s) infinite alternate, vw-drift var(--dd,8s) ease-in-out var(--dl,0s) infinite alternate; }
+      .vw-st-request #floor { opacity: .6; } .vw-st-request #rim { opacity: .35; }
+      .vw-st-error { --s: .2; filter: saturate(.3); }
+      .vw-st-error .vw-blob { animation: vw-sag 2.4s ease-out forwards; }
+      .vw-st-error #floor { opacity: .5; } .vw-st-error #rim { opacity: .15; }
+
+      /* Clovie on the left (72pt), rising out of the light */
+      #halo { position: fixed; left: -8px; bottom: 24px; width: 118px; height: 52px; border-radius: 50%; opacity: 0; pointer-events: none;
+        background: radial-gradient(closest-side, rgba(227,243,251,.95), rgba(157,217,245,.55) 45%, rgba(42,161,214,0)); filter: blur(5px); }
+      body:not([data-state='idle']) #halo { opacity: .85; animation: vw-halo 4s ease-in-out infinite alternate; }
+      body[data-state='processing'] #halo { opacity: .55; }
+      body[data-state='error'] #halo { opacity: .35; }
+      #clov { position: fixed; left: 14px; bottom: 46px; width: 72px; height: 73px; transform-origin: 50% 100%; pointer-events: none; opacity: 0; }
+      body:not([data-state='idle']) #clov { opacity: 1; }
+      body[data-state='done'] #clov { animation: vw-nod 1.1s ease-in-out 1; }
+      body[data-state='error'] #clov { transform: rotate(-9deg); animation: vw-tiltin .7s ease-out 1; }
+      #clov > * { filter: drop-shadow(0 6px 8px rgba(10,78,117,.45)) drop-shadow(0 0 18px rgba(157,217,245,.55)); }
+      #still { position: absolute; left: 3px; top: 8px; width: 66px; height: 66px; object-fit: contain; display: block; }
+      #still.gone { opacity: 0; transition: opacity .16s ease-out; }
+      #live { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .16s ease-out; }
+      #live.ready { opacity: 1; }
+      #root { flex: none; transform: scale(.7692); }
+
+      /* Status, transcript and result */
+      #panel { position: fixed; left: 94px; right: 14px; bottom: 54px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+        text-align: left; color: var(--text); text-shadow: var(--shadow); opacity: 0; }
+      body:not([data-state='idle']) #panel { opacity: 1; }
+      #label { display: flex; align-items: center; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: .1px; color: var(--sub); }
+      #line { font-size: 23px; line-height: 28px; font-weight: 600; letter-spacing: -.3px; color: var(--text);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+      body[data-state='processing'] #line { opacity: .62; }
+      #line:empty { display: none; }
+      body[data-state='listening'] #line:not(:empty)::after { content: ''; display: inline-block; width: 3px; height: .85em; margin-left: 3px;
+        vertical-align: -.08em; border-radius: 2px; background: #2AA1D6; animation: vw-blink 1s steps(2,start) infinite; }
+      #pill { display: none; align-items: center; gap: 10px; box-sizing: border-box; min-height: 48px; padding: 6px 14px 6px 7px; border-radius: 24px;
+        background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        box-shadow: inset 0 1px 0 var(--top), inset 0 0 0 .5px var(--hair), 0 10px 24px -10px rgba(10,78,117,.45); animation: vw-pop .3s ease-out both; }
+      body[data-state='done'] #pill { display: flex; }
+      #pill .tick { flex: none; width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(180deg, #46C6B8, #23A89B);
+        display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+      #pill .tick path { stroke-dasharray: 24; stroke-dashoffset: 0; animation: vw-check .5s ease-out .1s both; }
+      #msg { font-size: 16px; line-height: 22px; font-weight: 600; color: var(--text); text-shadow: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+      #action { display: none; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; height: 50px; padding: 0 24px; border: 0; border-radius: 25px;
+        font: inherit; font-size: 17px; line-height: 22px; font-weight: 600; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.14);
+        background: linear-gradient(180deg, #2A94C9 0%, #1078AF 55%, #0C6A9C 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(0,0,0,.14), 0 1px 2px rgba(16,120,175,.4), 0 10px 22px -6px rgba(16,120,175,.6); }
+      #action:active { transform: translateY(1px); filter: brightness(.96); }
+      body[data-state='request'] #action.on { display: flex; }
+
+      @keyframes vw-lift { 0% { transform: translateY(48px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+      @keyframes vw-a { 0% { transform: scaleY(.54); } 100% { transform: scaleY(.94); } }
+      @keyframes vw-drift { 0% { translate: calc(var(--dx,12px) * -1) 0; } 100% { translate: var(--dx,12px) 0; } }
+      @keyframes vw-gather { 0% { transform: scaleY(.8); opacity: .9; } 100% { transform: scaleY(.05); opacity: 0; } }
+      @keyframes vw-out { 0% { transform: scaleY(.66); opacity: .95; } 40% { transform: scaleY(.5); opacity: .7; } 100% { transform: scaleY(.12); opacity: .22; } }
+      @keyframes vw-breath { 0% { transform: scaleY(.38); } 100% { transform: scaleY(.56); } }
+      @keyframes vw-sag { 0% { transform: scaleY(.7); opacity: .9; } 100% { transform: scaleY(.2); opacity: .5; } }
+      @keyframes vw-travel { 0% { transform: translateX(-120px); } 100% { transform: translateX(120px); } }
+      @keyframes vw-fadein { 0% { opacity: 0; } 100% { opacity: 1; } }
+      @keyframes vw-halo { 0% { transform: scale(.9); opacity: .7; } 100% { transform: scale(1.12); opacity: 1; } }
+      @keyframes vw-nod { 0%,100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(4px) rotate(-5deg); } 65% { transform: translateY(-3px) rotate(3deg); } }
+      @keyframes vw-tiltin { 0% { transform: rotate(0); } 100% { transform: rotate(-9deg); } }
+      @keyframes vw-blink { 0% { opacity: 1; } 100% { opacity: 0; } }
+      @keyframes vw-check { 0% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
+      @keyframes vw-pop { 0% { transform: scale(.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .vw-on, .vw-blob, .vw-beam, #halo, #clov, #pill, #pill .tick path, #line::after { animation: none !important; }
+        .vw-st-processing .vw-beam { opacity: 1; }
+        body[data-state='error'] #clov { transform: rotate(-9deg); }
+      }
     </style>
   </head>
-  <body data-state="idle">
-    <div id="glow"></div>
+  <body data-state="idle" data-theme="dark">
+    <div id="glow" class="vw-glow vw-st-idle" aria-hidden="true">
+      <div id="scrim"></div>
+      <div id="swell">
+        <div class="vw-blob" style="--c:var(--c1); left:-27.4vw; width:74.6vw; --d:3.4s; --dl:-1s; --o:.7; --dx:14px; --dd:9s"></div>
+        <div class="vw-blob" style="--c:var(--c2); left:5vw; width:72.1vw; --d:3.2s; --dl:-2.6s; --o:.8; --dx:-12px; --dd:7.5s"></div>
+        <div class="vw-blob" style="--c:var(--c3); left:17.4vw; width:67.2vw; --d:4.2s; --dl:-.4s; --o:.75; --dx:10px; --dd:8.5s"></div>
+        <div class="vw-blob" style="--c:var(--c4); left:37.3vw; width:62.2vw; --d:3.8s; --dl:-3.4s; --o:.3; --dx:-16px; --dd:10s"></div>
+        <div class="vw-blob" style="--c:var(--c5); left:52.7vw; width:74.6vw; --d:3.6s; --dl:-1.8s; --o:.75; --dx:12px; --dd:8s"></div>
+      </div>
+      <div id="floor"></div>
+      <div id="rim"></div>
+      <div class="vw-beam"><div class="vw-beam-glow"></div><div class="vw-beam-core"></div></div>
+    </div>
+    <div id="halo" aria-hidden="true"></div>
+    <div id="clov" aria-hidden="true">
+      <img id="still" alt="" src="__CLOVIE_STILL__" />
+      <div id="live"><div id="root"></div></div>
+    </div>
     <div id="panel" role="status" aria-live="polite">
       <div id="label"></div>
-      <div id="text"></div>
+      <div id="line"></div>
+      <div id="pill"><div class="tick"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div><span id="msg"></span></div>
       <button id="action" type="button"></button>
     </div>
     <!--SCRIPT-->
