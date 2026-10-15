@@ -18,7 +18,9 @@ const FEATURE_NOT_IN_PLAN = 'FEATURE_NOT_IN_PLAN';
 
 describe('plan catalogue', () => {
   it('keeps the test fake identical to the migration seed', () => {
-    const sql = readFileSync(new URL('../../../../packages/database/supabase/migrations/20261014000001_plan_flags.sql', import.meta.url), 'utf8');
+    const sql = ['20261014000001_plan_flags.sql', '20261019000001_companion_usage.sql']
+      .map((file) => readFileSync(new URL(`../../../../packages/database/supabase/migrations/${file}`, import.meta.url), 'utf8'))
+      .join(' ');
     const seeded: Record<string, string[]> = {};
     for (const m of sql.matchAll(/\('(\w+)',\s+'(\w+)',\s+(null|\d+)\)/g)) {
       (seeded[m[1]!] ??= []).push(m[2]!);
@@ -40,9 +42,11 @@ describe('plan catalogue', () => {
     const has = (plan: PlanKey, f: FeatureKey) => PLAN_FEATURES[plan].includes(f);
     expect(has('free', 'whatsapp_menu') && has('free', 'inbox')).toBe(true);
     expect(has('free', 'companion')).toBe(false);
+    expect(has('free', 'reports')).toBe(false);
     for (const plan of ['starter', 'growth', 'pro'] as const) {
       expect(has(plan, 'companion')).toBe(true);
       expect(has(plan, 'desktop_app')).toBe(true);
+      expect(has(plan, 'reports')).toBe(true);
       expect(has(plan, 'whatsapp_menu')).toBe(false);
       expect(has(plan, 'inbox')).toBe(false);
     }

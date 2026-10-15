@@ -30,7 +30,8 @@ export type FeatureKey =
   | 'companion'
   | 'desktop_app'
   | 'extensions'
-  | 'assistant_bookings';
+  | 'assistant_bookings'
+  | 'reports';
 export interface FeatureEntitlementDTO {
   feature: FeatureKey;
   /** Monthly cap; null = unlimited / not capped */
@@ -71,6 +72,8 @@ export type ApiErrorCode =
   | 'FEATURE_NOT_IN_PLAN'
   | 'RATE_LIMITED'
   | 'UPSTREAM_META_ERROR'
+  | 'COMPANION_NOT_READY'
+  | 'UPSTREAM_COMPANION_ERROR'
   | 'INTERNAL';
 
 export interface ApiErrorBody {
@@ -615,4 +618,121 @@ export interface ResolveEscalationRequest {
 export interface RegisterDeviceRequest {
   token: string;
   platform: 'ios' | 'android' | 'web';
+}
+
+// ---------- plans, usage, companion, reports ----------
+/** Month key in the business timezone, `YYYY-MM` */
+export type MonthKey = string;
+
+/** `normal` below 80% of the included jobs, `near` from 80% up to and including 100%, `over` beyond it. Never a cut-off. */
+export type UsageState = 'normal' | 'near' | 'over';
+
+/** GET /v1/billing/usage?month=YYYY-MM (member). Free plans have no allowance: included_jobs/usage_percent are null. */
+export interface BillingUsageDTO {
+  plan: PlanKey;
+  month: MonthKey;
+  /** Appointments that ended in the month (business timezone) and are neither cancelled nor no-show */
+  completed_jobs: number;
+  included_jobs: number | null;
+  /** Whole percent of the allowance used (floored), null without an allowance */
+  usage_percent: number | null;
+  usage_state: UsageState;
+  /** Completed jobs beyond the allowance, billed at month end */
+  extra_jobs: number;
+  extra_cost_cents: number;
+  /** First day of the next month: when the count resets */
+  resets_on: ISODate;
+}
+
+export interface PlanDTO {
+  id: PlanKey;
+  name: string;
+  price_cents: number;
+  currency: string;
+  /** Completed jobs per month; null on Free (no AI companion) */
+  included_jobs: number | null;
+  /** Price of each completed job beyond the allowance; null on Free */
+  extra_job_cents: number | null;
+  has_companion: boolean;
+  is_current: boolean;
+  /** Purchase stays on the web for now: always null */
+  checkout_url: string | null;
+}
+
+/** GET /v1/plans (member) */
+export interface PlansDTO {
+  current_plan: PlanKey;
+  plans: PlanDTO[];
+}
+
+export type CompanionColorMode = 'light' | 'dark';
+
+/** POST /v1/companion/session (member, feature `companion`) */
+export interface CreateCompanionSessionRequest {
+  color_mode: CompanionColorMode;
+}
+
+export interface CompanionSessionDTO {
+  /** Frame this URL; it carries the session secret and expires at expires_at (15 minutes) */
+  url: string;
+  expires_at: ISODateTime;
+}
+
+/** `details.reason` of COMPANION_NOT_READY (HTTP 409) */
+export type CompanionNotReadyReason =
+  'account_not_found' | 'not_provisioned' | 'setup_incomplete' | 'unavailable';
+
+export interface CompanionNotReadyDetails {
+  reason: CompanionNotReadyReason;
+  /** Nerova's companion setup `nextStep` when known, e.g. `connect_whatsapp` */
+  next_step?: string;
+}
+
+/** Where a booking came from. The app's own bookings (walk-in, phone) are `manual`; `companion` is Nerova. */
+export interface BookingsBySourceDTO {
+  whatsapp: number;
+  companion: number;
+  manual: number;
+  web: number;
+}
+
+export interface BusiestSlotDTO {
+  /** 0 = Sunday */
+  weekday: number;
+  /** 0-23, business timezone */
+  hour: number;
+}
+
+export interface WeeklyJobsDTO {
+  /** Monday of the week (business timezone). Weeks at the month edges only count the month's jobs. */
+  week_start: ISODate;
+  completed_jobs: number;
+}
+
+/** What the companion did this (UTC) month, from Nerova's outcome summary. Counts only. */
+export interface CompanionOutcomesDTO {
+  bookings_created: number;
+  bookings_rescheduled: number;
+  bookings_cancelled: number;
+  conversations_handled: number;
+}
+
+/** GET /v1/reports/summary?month=YYYY-MM (member, feature `reports`) */
+export interface ReportsSummaryDTO {
+  month: MonthKey;
+  currency: string;
+  completed_jobs: number;
+  /** Sum of price_cents over the completed jobs */
+  revenue_cents: number;
+  /** Bookings created in the month (any status) */
+  bookings_created: BookingsBySourceDTO;
+  /** Appointments starting in the month */
+  no_shows: number;
+  cancellations: number;
+  /** Over the completed jobs; null when there are none */
+  busiest: BusiestSlotDTO | null;
+  weekly: WeeklyJobsDTO[];
+  /** null when Nerova is unavailable or the account is not linked; the rest of the report is still valid */
+  companion: CompanionOutcomesDTO | null;
+  usage: BillingUsageDTO;
 }
