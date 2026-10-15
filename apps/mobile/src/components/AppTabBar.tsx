@@ -11,17 +11,17 @@ type BarProps = React.ComponentProps<typeof FloatingTabBar>;
 
 /**
  * The floating bar wired to the plan: Free keeps "+" and the Inbox dome;
- * paid plans get Reports and the companion dome. Entitlements come from
+ * paid plans get Reports as a fifth tab and the companion dome. Entitlements come from
  * `/v1/me`, so the bar never shows a dome the plan lacks.
  */
 export function AppTabBar(props: BarProps) {
   const mode = useAppMode();
-  const { center, centerRoute } = tabBarActions(mode);
+  const { tabs, addRoute } = tabBarActions(mode);
   return (
     <FloatingTabBar
       {...props}
-      center={center}
-      onCenter={() => router.push(centerRoute as never)}
+      tabs={tabs}
+      onAdd={addRoute ? () => router.push(addRoute as never) : undefined}
       dome={mode === 'ai' ? <CompanionEntryDome /> : <InboxEntryDome />}
     />
   );

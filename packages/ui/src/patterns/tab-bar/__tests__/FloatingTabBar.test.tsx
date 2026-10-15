@@ -10,15 +10,22 @@ jest.mock('lucide-react-native', () => {
   return new Proxy({}, { get: () => View });
 });
 
-const NAMES = ['index', 'calendar', 'clients', 'settings', 'bookings/[id]'];
+const NAMES = [
+  'index',
+  'calendar',
+  'reports',
+  'clients',
+  'settings',
+  'bookings/[id]',
+];
 
 function renderBar(
   activeName: string,
   options: {
     hidden?: boolean;
     dome?: React.ReactNode;
-    center?: 'add' | 'reports';
-    onCenter?: () => void;
+    tabs?: React.ComponentProps<typeof FloatingTabBar>['tabs'];
+    onAdd?: () => void;
   } = {},
 ) {
   const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
@@ -49,8 +56,8 @@ function renderBar(
         navigation,
       } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
       dome={options.dome}
-      center={options.center}
-      onCenter={options.onCenter}
+      tabs={options.tabs}
+      onAdd={options.onAdd}
     />,
   );
   return { tree, navigation };
@@ -58,7 +65,7 @@ function renderBar(
 
 describe('FloatingTabBar', () => {
   it('renders the four tabs and the centre plus', () => {
-    const { tree } = renderBar('index');
+    const { tree } = renderBar('index', { onAdd: jest.fn() });
     const labels = tree.root
       .findAll((n) => n.props.accessibilityLabel !== undefined)
       .map((n) => n.props.accessibilityLabel);
@@ -85,20 +92,45 @@ describe('FloatingTabBar', () => {
     expect([...new Set(selected)]).toEqual(['Clients']);
   });
 
-  it('calls onCenter from the centre plus without switching tabs', () => {
-    const onCenter = jest.fn();
-    const { tree, navigation } = renderBar('index', { onCenter });
+  it('calls onAdd from the centre plus without switching tabs', () => {
+    const onAdd = jest.fn();
+    const { tree, navigation } = renderBar('index', { onAdd });
     act(() => pressable(tree, 'New booking').props.onPress());
-    expect(onCenter).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledTimes(1);
     expect(navigation.navigate).not.toHaveBeenCalled();
   });
 
-  it('swaps the centre plus for Reports on the paid variant', () => {
-    const onCenter = jest.fn();
-    const { tree } = renderBar('index', { center: 'reports', onCenter });
+  it('shows no plus and no Reports tab by default', () => {
+    const { tree } = renderBar('index');
     expect(byLabel(tree, 'New booking')).toHaveLength(0);
-    act(() => pressable(tree, 'Reports').props.onPress());
-    expect(onCenter).toHaveBeenCalledTimes(1);
+    expect(byLabel(tree, 'Reports')).toHaveLength(0);
+  });
+
+  it('shows Reports as an ordinary tab in the given order on the paid variant', () => {
+    const { tree, navigation } = renderBar('reports', {
+      tabs: ['index', 'calendar', 'reports', 'clients', 'settings'],
+    });
+    const tabs = tree.root
+      .findAll((n) => n.props.accessibilityRole === 'tab')
+      .map((n) => n.props.accessibilityLabel);
+    expect([...new Set(tabs)]).toEqual([
+      'Today',
+      'Calendar',
+      'Reports',
+      'Clients',
+      'Settings',
+    ]);
+    expect(byLabel(tree, 'New booking')).toHaveLength(0);
+    const selected = tree.root
+      .findAll(
+        (n) =>
+          n.props.accessibilityRole === 'tab' &&
+          n.props.accessibilityState?.selected,
+      )
+      .map((n) => n.props.accessibilityLabel);
+    expect([...new Set(selected)]).toEqual(['Reports']);
+    act(() => pressable(tree, 'Clients').props.onPress());
+    expect(navigation.navigate).toHaveBeenCalledWith('clients');
   });
 
   it('navigates to a tab and emits tabPress first', () => {

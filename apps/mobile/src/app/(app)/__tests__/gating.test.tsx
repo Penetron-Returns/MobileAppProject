@@ -4,7 +4,7 @@ import { mount, text } from '@/testing/render';
 
 import CompanionRoute from '../companion';
 import ConversationRoute from '../inbox/[id]';
-import ReportsRoute from '../reports';
+import ReportsRoute from '../(tabs)/reports';
 import InboxRoute from '../(tabs)/inbox';
 
 const mockRedirect = jest.fn();
