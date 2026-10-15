@@ -3,6 +3,7 @@ import {
   BlockedActionSheet,
   Button,
   CenteredSpinner,
+  CompanionDome,
   EmptyState,
   ErrorState,
   FlowCaption,
@@ -29,7 +30,7 @@ import { View } from 'react-native';
 
 import { Row, Section, Specimen } from './Specimen';
 
-const TAB_NAMES = ['index', 'calendar', 'clients', 'settings'];
+const TAB_NAMES = ['index', 'calendar', 'reports', 'clients', 'settings'];
 const TAB_STATE = {
   index: 0,
   routes: TAB_NAMES.map((name) => ({ key: `${name}-key`, name })),
@@ -213,7 +214,7 @@ export function PatternsGallery() {
         <BlockedActionSheet {...guard.sheetProps} />
       </Section>
 
-      <Section title="Tab bar and Inbox dome">
+      <Section title="Tab bar: Free (plus, Inbox dome) and paid (Reports tab, companion dome)">
         <Stage height={170}>
           <FloatingTabBar
             {...({
@@ -221,10 +222,29 @@ export function PatternsGallery() {
               descriptors: TAB_DESCRIPTORS,
               navigation: TAB_NAVIGATION,
             } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
+            onAdd={() => {}}
             dome={
               <InboxDome
                 count={3}
                 label="Inbox, 3 need a reply"
+                onPress={() => {}}
+              />
+            }
+          />
+        </Stage>
+        <Stage height={170}>
+          <FloatingTabBar
+            {...({
+              state: { ...TAB_STATE, index: 2 },
+              descriptors: TAB_DESCRIPTORS,
+              navigation: TAB_NAVIGATION,
+            } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
+            tabs={['index', 'calendar', 'reports', 'clients', 'settings']}
+            dome={
+              <CompanionDome
+                character={require('@/assets/images/companion-default.png')}
+                count={2}
+                label="Open your companion, 2 need your attention"
                 onPress={() => {}}
               />
             }

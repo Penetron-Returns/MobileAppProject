@@ -20,15 +20,22 @@ export function tabBarClearance(safeAreaBottom: number): number {
 /** Extra space for a screen whose last row sits under the floating Inbox dome. */
 export const INBOX_DOME_CLEARANCE = INBOX_DOME_SIZE + INBOX_DOME_GAP;
 
-/** Route names, in display order, that sit either side of the centre "+". */
-export const LEFT_TABS = ['index', 'calendar'] as const;
-export const RIGHT_TABS = ['clients', 'settings'] as const;
+/** Every route the bar can show as a tab. */
 export type TabRouteName =
-  (typeof LEFT_TABS)[number] | (typeof RIGHT_TABS)[number];
+  'index' | 'calendar' | 'reports' | 'clients' | 'settings';
+
+/** Free plan tabs, in display order; the centre "+" sits between the halves. */
+export const DEFAULT_TABS: readonly TabRouteName[] = [
+  'index',
+  'calendar',
+  'clients',
+  'settings',
+];
 
 const TAB_ROOT_PATHS = new Set([
   '/',
   '/calendar',
+  '/reports',
   '/clients',
   '/settings',
   '/inbox',

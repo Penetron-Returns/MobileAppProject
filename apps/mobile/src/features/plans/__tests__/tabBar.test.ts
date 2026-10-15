@@ -1,16 +1,16 @@
 import { tabBarActions } from '../tabBar';
 
 describe('tabBarActions', () => {
-  it('keeps the plus and New booking on Free', () => {
+  it('keeps the plus and New booking on Free, without Reports', () => {
     expect(tabBarActions('free')).toEqual({
-      center: 'add',
-      centerRoute: '/new-booking',
+      tabs: ['index', 'calendar', 'clients', 'settings'],
+      addRoute: '/new-booking',
     });
   });
-  it('opens Reports from the centre on paid plans', () => {
+  it('shows Reports as an ordinary tab, with no plus, on paid plans', () => {
     expect(tabBarActions('ai')).toEqual({
-      center: 'reports',
-      centerRoute: '/reports',
+      tabs: ['index', 'calendar', 'reports', 'clients', 'settings'],
+      addRoute: null,
     });
   });
 });

@@ -24,11 +24,7 @@ import { WeeklyChart } from './WeeklyChart';
 export function ReportsScreen() {
   const { t } = useTranslation();
   return (
-    <Page
-      title={t('reports.title')}
-      backLabel={t('tabs.today')}
-      backFallback="/"
-    >
+    <Page title={t('reports.title')} isTab>
       <BusinessGate>
         {(business) => (
           <ReportsBody
