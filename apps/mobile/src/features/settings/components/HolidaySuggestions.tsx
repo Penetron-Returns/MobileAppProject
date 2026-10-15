@@ -6,6 +6,9 @@ import { View } from 'react-native';
 
 import { formatWeekdayDayMonth } from '@/lib/time';
 
+/** How many of the next holidays are listed; "add all" covers every one. */
+const NEXT_SHOWN = 5;
+
 /** Upcoming South African public holidays not yet added: tap one to close that day. */
 export function HolidaySuggestions({
   suggestions,
@@ -34,7 +37,7 @@ export function HolidaySuggestions({
       ) : (
         <>
           <Group radius={22} className="mx-0">
-            {suggestions.map((s, i) => {
+            {suggestions.slice(0, NEXT_SHOWN).map((s, i) => {
               const date = formatWeekdayDayMonth(s.date);
               return (
                 <GroupRow
@@ -61,7 +64,7 @@ export function HolidaySuggestions({
           </Group>
           <TintLink
             icon={Plus}
-            label={t('hours.special.addAll')}
+            label={t('hours.special.addAll', { count: suggestions.length })}
             onPress={onAddAll}
             className="ml-1 mt-1"
           />

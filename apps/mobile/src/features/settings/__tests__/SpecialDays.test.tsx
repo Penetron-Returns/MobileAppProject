@@ -237,7 +237,7 @@ describe('Holidays and special days', () => {
     const tree = mount();
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
-    await pressAsync(tree, 'Add all upcoming public holidays');
+    await pressAsync(tree, 'Add all upcoming public holidays (2)');
     expect(mockCheck).toHaveBeenCalledWith([
       { from: '2026-12-16', mode: 'closed' },
       { from: '2027-01-01', mode: 'closed' },

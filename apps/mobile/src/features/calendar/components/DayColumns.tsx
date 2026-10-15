@@ -181,7 +181,9 @@ function UnavailableBlock({
         backgroundColor: withAlpha(depth.colors.label, 0.05),
         overflow: 'hidden',
         alignItems: 'center',
-        justifyContent: 'center',
+        // A tall block (a day of leave) labels its top, not its middle.
+        justifyContent: height > 160 ? 'flex-start' : 'center',
+        paddingTop: height > 160 ? 12 : 0,
       }}
     >
       <View

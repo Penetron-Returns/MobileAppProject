@@ -12,7 +12,7 @@ import { filterByStaff, weekSummary } from '../logic';
 type Ready = Extract<CalendarWeekView, { status: 'ready' }>;
 
 function firstName(name: string | undefined): string {
-  return name?.trim().split(/s+/)[0] ?? '';
+  return name?.trim().split(/\s+/)[0] ?? '';
 }
 
 /** Read-only week overview: one row per day, tap a day to open it. */

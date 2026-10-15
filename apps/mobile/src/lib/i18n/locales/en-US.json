@@ -658,7 +658,7 @@
       "open": "Open",
       "custom": "Custom day",
       "suggestions": "Public holidays",
-      "addAll": "Add all upcoming public holidays",
+      "addAll": "Add all upcoming public holidays ({{count}})",
       "addHoliday": "Add {{name}}, {{date}}, as a closed day",
       "observed": "{{date}}, moved from {{sunday}}",
       "loading": "Loading public holidays",
