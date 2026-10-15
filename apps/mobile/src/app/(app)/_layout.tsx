@@ -12,6 +12,7 @@ import * as React from 'react';
 import { NoBusinessScreen } from '@/components/NoBusinessScreen';
 import { CenteredSpinner } from '@/components/States';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
+import { useCalendarBusyRealtime } from '@/features/calendar-sync/hooks';
 import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 
 /**
@@ -34,6 +35,7 @@ export default function AppLayout() {
   });
   const { colors } = useAppColorScheme();
   useAppointmentsRealtime(Boolean(isSignedIn && organization));
+  useCalendarBusyRealtime(Boolean(isSignedIn && organization));
 
   const memberships = userMemberships.data;
   const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
@@ -160,6 +162,13 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="settings/staff-management"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings/google-calendar"
         options={{
           href: null,
           tabBarStyle: { display: 'none' },

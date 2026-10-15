@@ -487,6 +487,186 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_busy_blocks: {
+        Row: {
+          business_id: string
+          busy: unknown
+          connection_id: string
+          created_at: string
+          external_event_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          busy: unknown
+          connection_id: string
+          created_at?: string
+          external_event_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          busy?: unknown
+          connection_id?: string
+          created_at?: string
+          external_event_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_busy_blocks_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_busy_blocks_connection_fkey"
+            columns: ["business_id", "connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connections"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      calendar_connections: {
+        Row: {
+          account_email: string | null
+          business_id: string
+          calendar_id: string
+          channel_expires_at: string | null
+          channel_id: string | null
+          channel_resource_id: string | null
+          connected_by: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          last_full_sync_at: string | null
+          last_synced_at: string | null
+          provider: string
+          refresh_token_ciphertext: string
+          status: Database["public"]["Enums"]["calendar_sync_status"]
+          sync_token: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_email?: string | null
+          business_id: string
+          calendar_id?: string
+          channel_expires_at?: string | null
+          channel_id?: string | null
+          channel_resource_id?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_full_sync_at?: string | null
+          last_synced_at?: string | null
+          provider?: string
+          refresh_token_ciphertext: string
+          status?: Database["public"]["Enums"]["calendar_sync_status"]
+          sync_token?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_email?: string | null
+          business_id?: string
+          calendar_id?: string
+          channel_expires_at?: string | null
+          channel_id?: string | null
+          channel_resource_id?: string | null
+          connected_by?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_full_sync_at?: string | null
+          last_synced_at?: string | null
+          provider?: string
+          refresh_token_ciphertext?: string
+          status?: Database["public"]["Enums"]["calendar_sync_status"]
+          sync_token?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_connections_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_syncs: {
+        Row: {
+          appointment_id: string
+          appointment_version: string | null
+          attempts: number
+          business_id: string
+          connection_id: string
+          created_at: string
+          external_etag: string | null
+          external_event_id: string
+          is_deleted: boolean
+          last_error: string | null
+          needs_push: boolean
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          appointment_version?: string | null
+          attempts?: number
+          business_id: string
+          connection_id: string
+          created_at?: string
+          external_etag?: string | null
+          external_event_id: string
+          is_deleted?: boolean
+          last_error?: string | null
+          needs_push?: boolean
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          appointment_version?: string | null
+          attempts?: number
+          business_id?: string
+          connection_id?: string
+          created_at?: string
+          external_etag?: string | null
+          external_event_id?: string
+          is_deleted?: boolean
+          last_error?: string | null
+          needs_push?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_syncs_appointment_fkey"
+            columns: ["business_id", "appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "calendar_event_syncs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_syncs_connection_fkey"
+            columns: ["business_id", "connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connections"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
       client_notes: {
         Row: {
           body: string
@@ -1572,6 +1752,7 @@ export type Database = {
       appointment_status: "confirmed" | "cancelled" | "completed" | "no_show"
       attempt_outcome: "in_progress" | "completed" | "abandoned" | "failed"
       booking_channel: "whatsapp" | "web" | "app"
+      calendar_sync_status: "live" | "needs_reauth"
       escalation_status: "open" | "resolved"
       member_role: "owner" | "staff"
       message_direction: "in" | "out"

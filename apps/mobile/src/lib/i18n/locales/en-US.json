@@ -29,6 +29,7 @@
       "RULE_VIOLATION": "That breaks one of the booking rules.",
       "RATE_LIMITED": "Too many requests. Please wait a moment.",
       "UPSTREAM_META_ERROR": "WhatsApp couldn't be reached. Please try again.",
+      "UPSTREAM_GOOGLE_ERROR": "Google Calendar couldn't be reached. Please try again.",
       "INTERNAL": "Something went wrong on our end.",
       "NETWORK_ERROR": "Could not reach the server. Check your connection.",
       "BAD_RESPONSE": "The server returned an unexpected response.",
@@ -125,7 +126,9 @@
       "day": "Next day",
       "week": "Next week",
       "month": "Next month"
-    }
+    },
+    "busy": "Busy",
+    "busyLabel": "Busy in Google Calendar, {{time}}"
   },
   "clients": {
     "title": "Clients",
@@ -290,6 +293,16 @@
         "disconnected": "Disconnected",
         "paused": "Paused"
       }
+    },
+    "googleCalendar": {
+      "title": "Google Calendar",
+      "loading": "Checking connection...",
+      "notConnected": "Not connected",
+      "status": {
+        "live": "Syncing · {{email}}",
+        "liveNoEmail": "Syncing",
+        "needs_reauth": "Needs to be reconnected"
+      }
     }
   },
   "businessDetails": {
@@ -387,6 +400,40 @@
       "description": "They are removed from the team directory. Their existing bookings are kept.",
       "confirm": "Yes, remove",
       "keep": "Keep staff"
+    }
+  },
+  "googleCalendar": {
+    "title": "Google Calendar",
+    "intro": "Keep your Google Calendar and this app in step.",
+    "howItWorks": {
+      "push": "Every booking from WhatsApp, the web page or this app is added to Google Calendar, and moved or removed when it changes.",
+      "pull": "Busy time in Google Calendar blocks those times for online booking, for every staff member.",
+      "walkIns": "Walk-ins added here can still be booked over Google busy time."
+    },
+    "connectedAs": "Connected as {{email}}",
+    "connected": "Connected",
+    "notConnected": "No calendar connected",
+    "needsReauth": "Google access was revoked or expired. Reconnect to resume syncing.",
+    "lastSynced": "Last synced {{date}} at {{time}}",
+    "neverSynced": "Not synced yet",
+    "lastError": "Last problem: {{error}}",
+    "connect": "Connect Google Calendar",
+    "reconnect": "Reconnect",
+    "syncNow": "Sync now",
+    "disconnect": "Disconnect",
+    "ownerOnly": "Only the business owner can connect or disconnect Google Calendar.",
+    "result": {
+      "connected": "Google Calendar connected.",
+      "cancelled": "Google sign-in was cancelled.",
+      "error": "Google Calendar could not be connected ({{reason}}).",
+      "synced": "Sync complete.",
+      "disconnected": "Google Calendar disconnected."
+    },
+    "disconnectDialog": {
+      "title": "Disconnect Google Calendar?",
+      "description": "Busy time from Google stops blocking bookings. Events already added to Google Calendar stay there.",
+      "confirm": "Disconnect",
+      "keep": "Keep syncing"
     }
   }
 }

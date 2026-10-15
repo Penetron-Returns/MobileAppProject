@@ -42,6 +42,8 @@ export interface MemoryTables {
   webhook_events: WebhookEventRow[];
   idempotency_keys: { key: string; expires_at: string }[];
   device_push_tokens: { business_id: UUID; user_id: string; token: string; platform: string }[];
+  /** Google Calendar busy time; `busy` is a tstzrange literal */
+  calendar_busy_blocks: { business_id: UUID; busy: string }[];
 }
 
 export interface MemoryRepository extends BookingRepository {
@@ -89,6 +91,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     webhook_events: [],
     idempotency_keys: [],
     device_push_tokens: [],
+    calendar_busy_blocks: [],
   };
 
   const inBusiness = <T extends { business_id: UUID }>(list: T[], businessId: UUID) =>
@@ -270,6 +273,12 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       return inBusiness(tables.appointments, businessId)
         .filter((a) => staffIds.includes(a.staff_id) && a.status !== 'cancelled' && overlaps(a.blocked, window))
         .map((a): BusyRow => ({ id: a.id, staff_id: a.staff_id, blocked: a.blocked }));
+    },
+    async listCalendarBusy(businessId, fromIso, toIso) {
+      const window = toPgRange(Date.parse(fromIso), Date.parse(toIso));
+      return inBusiness(tables.calendar_busy_blocks, businessId)
+        .filter((b) => overlaps(b.busy, window))
+        .map((b) => rangeBounds(b.busy));
     },
     async getAppointment(businessId, id) {
       return clone(find(tables.appointments, businessId, id));

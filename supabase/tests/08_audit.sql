@@ -87,7 +87,7 @@ begin
     (select array_agg(c.relname::text order by c.relname)
        from pg_trigger t join pg_class c on c.oid = t.tgrelid
       where t.tgname = 'audit_row_change'),
-    array['availability_overrides', 'availability_rules', 'business_hours', 'businesses', 'clients',
+    array['availability_overrides', 'availability_rules', 'business_hours', 'businesses', 'calendar_connections', 'clients',
           'services', 'staff', 'staff_services'],
     'audit trigger installed on exactly the configured tables');
 end

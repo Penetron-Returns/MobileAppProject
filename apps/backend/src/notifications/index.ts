@@ -37,6 +37,17 @@ export function createNotificationService(input: NotificationDeps): Notification
   };
 }
 
+/** Delivers every appointment change to each service in order; one failing never stops the rest. */
+export function fanOutNotifications(services: NotificationService[]): NotificationService {
+  return {
+    async appointmentChanged(event) {
+      for (const service of services) {
+        await service.appointmentChanged(event).catch(() => undefined);
+      }
+    },
+  };
+}
+
 export async function notifyAppointmentChanged(deps: OutboundDeps, event: AppointmentChangedEvent): Promise<NotifyOutcome> {
   const appt = await deps.repo.getAppointmentBrief(event.businessId, event.appointmentId);
   const business = appt ? await deps.repo.getBusinessBrief(event.businessId) : null;

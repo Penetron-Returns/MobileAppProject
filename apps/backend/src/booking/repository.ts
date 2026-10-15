@@ -21,7 +21,7 @@ import type { Db } from '../lib/db.ts';
 
 type TableName = keyof Database['public']['Tables'];
 import { AppError, mapDbError, type PostgrestLikeError } from '../lib/errors.ts';
-import { serializeTsRange } from '../lib/time.ts';
+import { rangeBounds, serializeTsRange } from '../lib/time.ts';
 import type {
   ActorRef,
   AppointmentRow,
@@ -143,6 +143,8 @@ export interface CatalogRepository {
 export interface AppointmentRepository {
   /** Non-cancelled appointments of `staffIds` whose blocked range overlaps [from, to) */
   listBusy(businessId: UUID, staffIds: UUID[], fromIso: string, toIso: string): Promise<BusyRow[]>;
+  /** Google Calendar busy blocks (business-wide) overlapping [fromIso, toIso), as ISO bounds */
+  listCalendarBusy(businessId: UUID, fromIso: string, toIso: string): Promise<{ start: string; end: string }[]>;
   getAppointment(businessId: UUID, appointmentId: UUID): Promise<AppointmentRow | null>;
   findAppointmentByIdempotencyKey(businessId: UUID, key: string): Promise<AppointmentRow | null>;
   /** Confirmed, starting strictly after `nowIso`, ascending */
@@ -409,6 +411,15 @@ export function createSupabaseRepository(db: Db): BookingRepository {
           .neq('status', 'cancelled')
           .overlaps('blocked', serializeTsRange(fromIso, toIso)),
       );
+    },
+    async listCalendarBusy(businessId, fromIso, toIso) {
+      const blocks = rows<{ busy: string }>(
+        await t('calendar_busy_blocks')
+          .select('busy')
+          .eq('business_id', businessId)
+          .overlaps('busy', serializeTsRange(fromIso, toIso)),
+      );
+      return blocks.map((b) => rangeBounds(b.busy));
     },
     async getAppointment(businessId, appointmentId) {
       return maybe(

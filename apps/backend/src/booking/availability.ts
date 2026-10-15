@@ -38,6 +38,12 @@ export interface BusyRange {
   end: string;
 }
 
+/** Busy time from the business's external calendar (Google). Blocks every staff member. */
+export interface BusinessBusyRange {
+  start: string;
+  end: string;
+}
+
 export interface EngineRules {
   lead_time_minutes: number;
   buffer_minutes: number;
@@ -53,6 +59,8 @@ export interface AvailabilityInput {
   /** Candidate staff: already filtered to active, bookable and qualified */
   staff: StaffSchedule[];
   busy: BusyRange[];
+  /** Google Calendar busy time; absent = none. Ignored by staff walk-ins (`freeStaffIgnoringHours`). */
+  businessBusy?: BusinessBusyRange[];
   durationMinutes: number;
   now: Date;
 }
@@ -142,11 +150,15 @@ export function bookableDateRange(input: Pick<AvailabilityInput, 'timezone' | 'r
 
 interface BusyIndex {
   ranges: Map<UUID, EpochWindow[]>;
+  /** Business-wide external busy time */
+  business: EpochWindow[];
   /** staff id → date → appointment count (by appointment start date) */
   counts: Map<UUID, Map<ISODate, number>>;
 }
 
-function indexBusy(busy: BusyRange[], timezone: string): BusyIndex {
+function indexBusy(input: Pick<AvailabilityInput, 'busy' | 'businessBusy' | 'timezone'>): BusyIndex {
+  const { busy, timezone } = input;
+  const business = (input.businessBusy ?? []).map((b): EpochWindow => [Date.parse(b.start), Date.parse(b.end)]);
   const ranges = new Map<UUID, EpochWindow[]>();
   const counts = new Map<UUID, Map<ISODate, number>>();
   for (const b of busy) {
@@ -159,12 +171,16 @@ function indexBusy(busy: BusyRange[], timezone: string): BusyIndex {
     const perDay = counts.get(b.staff_id)!;
     perDay.set(day, (perDay.get(day) ?? 0) + 1);
   }
-  return { ranges, counts };
+  return { ranges, business, counts };
 }
 
 function overlapsBusy(index: BusyIndex, staffId: UUID, start: number, end: number): boolean {
   const ranges = index.ranges.get(staffId);
   return !!ranges && ranges.some(([bs, be]) => start < be && bs < end);
+}
+
+function overlapsBusinessBusy(index: BusyIndex, start: number, end: number): boolean {
+  return index.business.some(([bs, be]) => start < be && bs < end);
 }
 
 /**
@@ -193,7 +209,7 @@ function toEpochWindows(windows: MinuteWindow[], date: ISODate, timezone: string
  * sorted by start. Each slot lists the staff free for it in tie-break order.
  */
 export function computeSlots(input: AvailabilityInput, date: ISODate): SlotDTO[] {
-  return computeSlotsIndexed(input, date, indexBusy(input.busy, input.timezone));
+  return computeSlotsIndexed(input, date, indexBusy(input));
 }
 
 function computeSlotsIndexed(input: AvailabilityInput, date: ISODate, index: BusyIndex): SlotDTO[] {
@@ -212,6 +228,7 @@ function computeSlotsIndexed(input: AvailabilityInput, date: ISODate, index: Bus
       // Step in elapsed time from the window start (DST-safe: no duplicate or skipped instants).
       for (let t = ws; t + duration <= we; t += interval) {
         if (t < earliest) continue;
+        if (overlapsBusinessBusy(index, t, t + blockedLength)) continue;
         if (overlapsBusy(index, staff.id, t, t + blockedLength)) continue;
         if (!byStart.has(t)) byStart.set(t, []);
         byStart.get(t)!.push(staff.id);
@@ -234,7 +251,7 @@ export function listAvailableDays(input: AvailabilityInput, from: ISODate, to: I
   const { first, last } = bookableDateRange(input);
   const start = from < first ? first : from;
   const end = to > last ? last : to;
-  const index = indexBusy(input.busy, input.timezone);
+  const index = indexBusy(input);
   return dateRange(start, end).filter((d) => computeSlotsIndexed(input, d, index).length > 0);
 }
 
@@ -247,11 +264,12 @@ export function findSlot(input: AvailabilityInput, startsAt: string): SlotDTO | 
 
 /**
  * Staff (from `input.staff`) with no busy overlap for [startsAt, +duration+buffer),
- * ignoring hours, lead time and horizon. Used for staff walk-ins
+ * ignoring hours, lead time, horizon and Google Calendar busy time (staff
+ * are deliberately overriding the schedule). Used for staff walk-ins
  * (`allowOutsideHours`), ordered by the same tie-break.
  */
 export function freeStaffIgnoringHours(input: AvailabilityInput, startsAt: string): UUID[] {
-  const index = indexBusy(input.busy, input.timezone);
+  const index = indexBusy({ ...input, businessBusy: [] });
   const start = Date.parse(startsAt);
   const end = start + (input.durationMinutes + Math.max(0, input.rules.buffer_minutes)) * MINUTE;
   const date = dateInZone(new Date(start), input.timezone);

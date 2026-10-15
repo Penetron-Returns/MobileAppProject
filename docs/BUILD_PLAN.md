@@ -70,6 +70,7 @@ Schemas: tables live in `public`. Helpers (`current_business_id()`, audit trigge
 - `escalation_status`: `open | resolved`
 - `booking_channel`: `whatsapp | web | app`
 - `attempt_outcome`: `in_progress | completed | abandoned | failed`
+- `calendar_sync_status`: `live | needs_reauth`
 
 ### Tables
 All have `id uuid pk default gen_random_uuid()` (unless noted) and `created_at timestamptz not null default now()`. Mutable tables also have `updated_at` maintained by a trigger. Every business-owned table has `business_id uuid not null references businesses on delete cascade`.
@@ -93,11 +94,14 @@ All have `id uuid pk default gen_random_uuid()` (unless noted) and `created_at t
 | `message_templates` | `whatsapp_account_id uuid not null`, `name text`, `category text`, `language text not null default 'en'`, `meta_template_id text`, `status template_status not null default 'draft'`, `rejection_reason text`, `components jsonb` | unique(whatsapp_account_id, name, language) |
 | `conversations` | `client_id uuid not null`, `state text not null default 'idle'` (check in the list in §5), `context jsonb not null default '{}'`, `version int not null default 0` (optimistic lock), `invalid_input_count int not null default 0`, `window_expires_at timestamptz`, `last_inbound_at timestamptz`, `last_message_at timestamptz` | unique(business_id, client_id): one thread per client |
 | `messages` | `conversation_id uuid not null`, `direction message_direction`, `wa_message_id text unique`, `type message_type`, `body jsonb not null`, `status message_status not null`, `error jsonb`, `sent_by text` (staff user id), `sent_at`, `delivered_at`, `read_at` | |
-| `webhook_events` | `source text not null` (`whatsapp`/`clerk`), `event_key text not null`, `whatsapp_account_id uuid null`, `payload jsonb not null`, `received_at timestamptz default now()`, `processed_at timestamptz`, `error text`, `attempts int default 0` | unique(source, event_key) for dedupe and replay. No business_id (nullable via account). Service role only |
+| `webhook_events` | `source text not null` (`whatsapp`/`clerk`/`google_calendar`), `event_key text not null`, `whatsapp_account_id uuid null`, `payload jsonb not null`, `received_at timestamptz default now()`, `processed_at timestamptz`, `error text`, `attempts int default 0` | unique(source, event_key) for dedupe and replay. No business_id (nullable via account). Service role only |
 | `escalations` | `conversation_id uuid not null`, `client_id uuid not null`, `reason text not null` (`customer_requested`/`unrecognised_input`/`unlinked_number`/`delivery_failed`/`flow_error`/`cancellation_window`), `status escalation_status not null default 'open'`, `assigned_user_id text`, `note text`, `resolved_at`, `resolved_by text` | partial unique: one open per conversation |
 | `idempotency_keys` | `key text pk`, `business_id uuid null`, `endpoint text not null`, `request_hash text not null`, `status_code int`, `response jsonb`, `expires_at timestamptz not null default now()+'7 days'` | service role only |
 | `booking_attempts` | `channel booking_channel`, `client_id uuid null`, `conversation_id uuid null`, `session_key text` (flow token / web session), `started_at timestamptz not null default now()`, `completed_at timestamptz`, `step_count int not null default 0`, `outcome attempt_outcome not null default 'in_progress'`, `appointment_id uuid null`, `error_code text`, `steps jsonb not null default '[]'` (`[{step, at}]`) | FR21 research instrumentation |
 | `device_push_tokens` | `user_id text not null`, `token text unique not null`, `platform text` | Expo push for new bookings/escalations |
+| `calendar_connections` | `business_id unique`, `provider text default 'google'`, `account_email text`, `calendar_id text not null default 'primary'`, `refresh_token_ciphertext text not null`, `sync_token text`, `last_full_sync_at`, `channel_id text unique`, `channel_resource_id text`, `channel_expires_at`, `status calendar_sync_status not null default 'live'`, `last_synced_at`, `last_error text`, `connected_by text` | One Google Calendar per business (docs/calendar-sync.md). **The app can read only** id/business_id/provider/account_email/calendar_id/status/last_synced_at/last_full_sync_at/last_error/connected_by/created_at/updated_at (column grants). Audited without secrets |
+| `calendar_busy_blocks` | `connection_id uuid not null` (composite FK, cascade), `external_event_id text not null`, `busy tstzrange not null` (`[)`, non-empty) | unique(connection_id, external_event_id). Busy time mirrored from Google, no titles. **Blocks availability for every staff member** |
+| `calendar_event_syncs` | `appointment_id uuid pk` (composite FK to appointments, cascade), `connection_id uuid not null`, `external_event_id text`, `appointment_version timestamptz`, `external_etag text`, `is_deleted bool`, `needs_push bool`, `attempts int`, `last_error text` | Push bookkeeping: which appointment version Google has |
 
 Default `booking_rules`:
 ```json
@@ -110,7 +114,7 @@ Default `booking_rules`:
 - `private.current_org_id()` = `coalesce(auth.jwt()->>'org_id', auth.jwt()->'o'->>'id')` (Clerk v1 and v2 session tokens).
 - `private.current_business_id()` = business whose `clerk_org_id` = current org (security definer, stable).
 - Every table has RLS enabled. `authenticated` gets a **SELECT** policy `business_id = private.current_business_id()` (for `businesses`, `id = …`). There are no insert/update/delete policies for `authenticated`. `webhook_events` and `idempotency_keys` have no policies (service role only).
-- Realtime publication: `appointments`, `conversations`, `messages`, `escalations`, `clients`.
+- Realtime publication: `appointments`, `conversations`, `messages`, `escalations`, `clients`, `calendar_busy_blocks`.
 
 ### RPCs (WS-A writes, WS-B/C call via service role)
 All raise with SQLSTATE-coded errors that the API maps:
@@ -128,7 +132,7 @@ All raise with SQLSTATE-coded errors that the API maps:
 10. `set_request_context(p_actor_id text, p_request_id text)` sets the `app.*` GUCs for the audit trigger (the API calls it inside RPCs where it matters; triggers fall back to `system`).
 
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
-`reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
+`reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30 · `calendar-sync` every 5 min.
 
 ## 4. API contract (apps/backend/, Hono on Supabase Edge Functions)
 
@@ -136,7 +140,7 @@ Base URL: `https://<project-ref>.supabase.co/functions/v1/api` (the paths below 
 
 Envelope: success `{ "data": … }`. Error `{ "error": { "code", "message", "details"?, "request_id" } }`.
 Headers: `Authorization: Bearer <Clerk session JWT>` on `/v1/**`. `Idempotency-Key: <uuid>` is **required** on every mutating `/v1/**` and `/public/**` call. Every response carries `x-request-id`.
-Error codes: `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `INTERNAL 500`.
+Error codes: `VALIDATION_FAILED 400`, `IDEMPOTENCY_KEY_REQUIRED 400`, `UNAUTHENTICATED 401`, `FORBIDDEN 403` (includes staff hitting owner-only routes), `NO_BUSINESS 403`, `NOT_FOUND 404`, `SLOT_UNAVAILABLE 409`, `WINDOW_CLOSED 409`, `IDEMPOTENCY_KEY_REUSED 422`, `RULE_VIOLATION 422` (with `details.rule`), `RATE_LIMITED 429`, `UPSTREAM_META_ERROR 502`, `UPSTREAM_GOOGLE_ERROR 502`, `INTERNAL 500`.
 
 DTO shapes live in `packages/shared/api.ts`.
 
@@ -191,6 +195,18 @@ DTO shapes live in `packages/shared/api.ts`.
 | POST | `/v1/escalations/:id/resolve` | member | `{ note? }` |
 | POST | `/cron/reminders` · `/cron/conversation-expiry` · `/cron/waba-health` · `/cron/token-refresh` | cron secret | |
 
+**Google Calendar sync** (two-way, one calendar per business; docs/calendar-sync.md)
+| Method | Path | Who | Notes |
+| --- | --- | --- | --- |
+| POST | `/v1/calendar/google/connect` | owner | `{ return_url }` (app scheme or a `CLERK_AUTHORIZED_PARTIES` origin) → `{ auth_url }` with a signed 10-min `state` |
+| GET | `/oauth/google/callback` | Google redirect, signed state | exchanges the code, stores the refresh token encrypted, runs the first sync, 302 → `return_url?calendar=connected\|error&reason=…` |
+| POST | `/v1/calendar/google/sync` | member | sync now → `CalendarSyncResultDTO`. `RULE_VIOLATION rule=CALENDAR_NEEDS_REAUTH` when access was revoked |
+| POST | `/v1/calendar/google/disconnect` | owner | stops the channel, revokes the grant, deletes the connection and its mirror |
+| POST | `/webhooks/google-calendar` | Google, `X-Goog-Channel-Token` | per-channel HMAC token, deduped in `webhook_events`, triggers an incremental pull |
+| POST | `/cron/calendar-sync` | cron secret | renew channels, pull changes, push appointments Google is missing |
+
+Availability treats `calendar_busy_blocks` as busy time for every staff member (`[t, t+duration+buffer)` must not overlap), except for staff walk-ins (`allow_outside_hours`). Every appointment change is pushed to Google after the response (`EdgeRuntime.waitUntil`) as event id `bk<appointment uuid hex>`; the cron job retries anything missed.
+
 ## 5. Deterministic conversation engine (WS-C)
 
 States (the `conversations.state` check constraint must list exactly these):
@@ -208,13 +224,13 @@ States (the `conversations.state` check constraint must list exactly these):
 
 ## 6. Mobile app (WS-D)
 
-Screens from the mockups (§5 of the spec) plus architecture §6: Sign-in · Dashboard (monthly revenue sparkline, today's bookings by status, next appointment + Check-in, today's schedule) · Calendar (Day/Week/Month) · Booking detail (message / reschedule / cancel, status actions) · Add booking (existing/new client, service, date, time from live slots, staff/no preference, notes, WhatsApp confirmation toggle) · Clients (search, All/Recent/VIP filters, paging) · Client profile (message, call, book, contact, notes, history) · Settings (profile, dark mode, push toggle, Business details, Operating hours, Services, Staff management, WhatsApp integration) · Inbox (conversations + escalations, thread, reply, release) · Public web booking comparator `/book/[slug]` (web target, instrumented).
+Screens from the mockups (§5 of the spec) plus architecture §6: Sign-in · Dashboard (monthly revenue sparkline, today's bookings by status, next appointment + Check-in, today's schedule) · Calendar (Day/Week/Month) · Booking detail (message / reschedule / cancel, status actions) · Add booking (existing/new client, service, date, time from live slots, staff/no preference, notes, WhatsApp confirmation toggle) · Clients (search, All/Recent/VIP filters, paging) · Client profile (message, call, book, contact, notes, history) · Settings (profile, dark mode, push toggle, Business details, Operating hours, Services, Staff management, WhatsApp integration, Google Calendar) · Inbox (conversations + escalations, thread, reply, release) · Public web booking comparator `/book/[slug]` (web target, instrumented).
 
 Stack: NativeWind v4 + react-native-reusables components in `apps/mobile/src/components/ui`, lucide-react-native icons, `@clerk/clerk-expo` auth, TanStack Query for server state, Supabase JS (`accessToken` from Clerk) for reads and Realtime, and `apps/mobile/src/lib/api.ts` for writes (bearer + Idempotency-Key). Env: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 
 ## 7. Backend environment
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push).
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push), `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (optional, Google Calendar sync; the refresh token is encrypted with `TOKEN_ENCRYPTION_KEY`).
 
 ## 8. Workstreams and sequencing
 

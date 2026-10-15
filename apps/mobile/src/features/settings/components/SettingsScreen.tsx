@@ -2,6 +2,7 @@ import { useClerk, useOrganization, useUser } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import {
   Building2,
+  CalendarDays,
   ChevronRight,
   Clock,
   LogOut,
@@ -22,6 +23,7 @@ import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { useWhatsAppAccount } from '@/features/business/hooks';
+import { useCalendarConnection } from '@/features/calendar-sync/hooks';
 import { useMe } from '@/features/business/me';
 import { useAppColorScheme } from '@/hooks/useAppColorScheme';
 import { formatPhone } from '@/lib/format';
@@ -85,6 +87,7 @@ export function SettingsScreen() {
         </Card>
         <Card title={t('settings.integrations')}>
           <WhatsAppStatus />
+          <GoogleCalendarStatus />
         </Card>
         <Pressable
           onPress={() => void signOut()}
@@ -218,5 +221,60 @@ function WhatsAppStatus() {
         </View>
       </View>
     </View>
+  );
+}
+
+function GoogleCalendarStatus() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const connection = useCalendarConnection();
+  const status = connection.data?.status ?? null;
+  const detail = connection.isPending
+    ? t('settings.googleCalendar.loading')
+    : status === 'live'
+      ? connection.data?.account_email
+        ? t('settings.googleCalendar.status.live', {
+            email: connection.data.account_email,
+          })
+        : t('settings.googleCalendar.status.liveNoEmail')
+      : status
+        ? t(`settings.googleCalendar.status.${status}`)
+        : t('settings.googleCalendar.notConnected');
+  return (
+    <Pressable
+      onPress={() => router.push('/settings/google-calendar' as never)}
+      accessibilityRole="button"
+      accessibilityLabel={t('settings.googleCalendar.title')}
+      className="px-4 pb-4"
+    >
+      <View className="border-border bg-muted/30 active:bg-muted/60 flex-row items-center gap-3 rounded-xl border p-4">
+        <View className="bg-primary/10 h-12 w-12 items-center justify-center rounded-full">
+          <Icon as={CalendarDays} size={24} className="text-primary" />
+        </View>
+        <View className="flex-1">
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-foreground text-base font-semibold">
+              {t('settings.googleCalendar.title')}
+            </Text>
+            <View
+              className={cn(
+                'h-2 w-2 rounded-full',
+                status === 'live'
+                  ? 'bg-success'
+                  : status
+                    ? 'bg-destructive'
+                    : 'bg-muted-foreground/40',
+              )}
+            />
+          </View>
+          <Text className="text-muted-foreground text-xs">{detail}</Text>
+        </View>
+        <Icon
+          as={ChevronRight}
+          size={20}
+          className="text-muted-foreground/60"
+        />
+      </View>
+    </Pressable>
   );
 }

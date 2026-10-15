@@ -11,6 +11,7 @@ Supabase Postgres schema for the booking platform: the tables, RLS, RPCs, realti
 | `supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
 | `supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
 | `supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
+| `supabase/migrations/20261013000001_google_calendar.sql` | Google Calendar sync: `calendar_connections`, `calendar_busy_blocks`, `calendar_event_syncs`, RLS + column grants, audit, realtime, `calendar-sync` cron job (see `docs/calendar-sync.md`) |
 | `supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
 | `supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
 | `supabase/config.toml` | local CLI config with Clerk third-party auth |
@@ -73,7 +74,7 @@ The app sends Clerk session tokens straight to Supabase. RLS reads the organisat
 
 ## Vault secrets for cron
 
-Migration 7 schedules five jobs. Each one runs `select private.invoke_cron_job('<job>')`, which reads two Vault secrets **at run time**, then POSTs to `<api_base_url>/cron/<job>` with the header `x-cron-secret`. If either secret is missing, the job logs a warning and does nothing, so the secrets can be added after the migration.
+Migrations 7 and 8 schedule six jobs. Each one runs `select private.invoke_cron_job('<job>')`, which reads two Vault secrets **at run time**, then POSTs to `<api_base_url>/cron/<job>` with the header `x-cron-secret`. If either secret is missing, the job logs a warning and does nothing, so the secrets can be added after the migration.
 
 ```sql
 select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/api', 'api_base_url');
@@ -95,6 +96,7 @@ select id, status_code, error_msg, created from net._http_response order by crea
 | `api-waba-health` | `0 * * * *` | `/cron/waba-health` |
 | `api-token-refresh` | `0 3 * * *` (05:00 SAST) | `/cron/token-refresh` |
 | `api-cleanup` | `30 3 * * *` (05:30 SAST) | `/cron/cleanup` |
+| `api-calendar-sync` | `*/5 * * * *` | `/cron/calendar-sync` |
 
 ## Notes for the API and app workstreams
 

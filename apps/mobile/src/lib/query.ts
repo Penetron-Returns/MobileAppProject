@@ -51,6 +51,10 @@ export const qk = {
   availabilityDays: ['availability', 'days'] as const,
   availabilitySlots: ['availability', 'slots'] as const,
   whatsapp: ['whatsapp'] as const,
+  calendarConnection: ['calendar-connection'] as const,
+  calendarBusy: ['calendar-busy'] as const,
+  calendarBusyRange: (from: string, to: string) =>
+    ['calendar-busy', from, to] as const,
   conversations: ['conversations'] as const,
   conversation: (id: string) => ['conversations', 'one', id] as const,
   messages: (conversationId: string) => ['messages', conversationId] as const,

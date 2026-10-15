@@ -29,6 +29,10 @@ const EnvSchema = z.object({
   API_BASE_URL: optional,
   PUBLIC_WEB_BOOKING_URL: optional,
   EXPO_ACCESS_TOKEN: optional,
+
+  /** Google OAuth web client for Calendar sync (redirect: API_BASE_URL + /oauth/google/callback) */
+  GOOGLE_CLIENT_ID: optional,
+  GOOGLE_CLIENT_SECRET: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -355,3 +355,55 @@ describe('BookingService', () => {
     });
   });
 });
+
+describe('BookingService with Google Calendar busy time', () => {
+  function setup() {
+    const s = seed();
+    s.repo.tables.calendar_busy_blocks.push({
+      business_id: s.business.id,
+      busy: `["${sast('10:00')}","${sast('11:00')}")`,
+    });
+    const booking = createBookingServiceFromRepository({
+      repository: s.repo,
+      notifications: { appointmentChanged: async () => {} },
+      logger: silentLogger,
+      clock: () => NOW,
+    });
+    const create = (over: Partial<CreateAppointmentInput> = {}) =>
+      booking.createAppointment({
+        businessId: s.business.id,
+        clientId: s.client.id,
+        serviceId: s.cut.id,
+        startsAt: sast('10:00'),
+        source: 'whatsapp',
+        idempotencyKey: `k-${Math.random()}`,
+        actor: { type: 'customer', id: s.client.id },
+        ...over,
+      });
+    return { s, booking, create };
+  }
+
+  it('hides slots that overlap busy time for every staff member', async () => {
+    const { s, booking } = setup();
+    const { slots } = await booking.listAvailableSlots({ businessId: s.business.id, serviceId: s.cut.id, date: WED });
+    const startTimes = slots.map((slot) => slot.starts_at);
+    expect(startTimes).toContain(sast('09:00'));
+    expect(startTimes).not.toContain(sast('09:30'));
+    expect(startTimes).not.toContain(sast('10:00'));
+    expect(startTimes).not.toContain(sast('10:30'));
+    expect(startTimes).toContain(sast('11:00'));
+  });
+
+  it('rejects a booking that overlaps busy time, even with a staff preference', async () => {
+    const { s, create } = setup();
+    await expectAppError(create(), 'SLOT_UNAVAILABLE');
+    await expectAppError(create({ staffId: s.sipho.id }), 'SLOT_UNAVAILABLE');
+  });
+
+  it('ignores busy time of another business', async () => {
+    const { s, booking } = setup();
+    s.repo.tables.calendar_busy_blocks[0]!.business_id = '99999999-0000-4000-8000-000000000000';
+    const { slots } = await booking.listAvailableSlots({ businessId: s.business.id, serviceId: s.cut.id, date: WED });
+    expect(slots.map((slot) => slot.starts_at)).toContain(sast('10:00'));
+  });
+});

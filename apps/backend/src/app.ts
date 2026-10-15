@@ -6,6 +6,7 @@ import { AppError } from './lib/errors.ts';
 import { requireAuth, type ClerkClaims } from './middleware/auth.ts';
 import { baseContext, errorHandler, requireCronSecret } from './middleware/common.ts';
 import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';
+import { calendarWebhookRoutes, googleOAuthRoutes, v1CalendarRoutes } from './routes/calendar.ts';
 import { clerkWebhookRoutes } from './routes/clerk.ts';
 import { cronRoutes } from './routes/cron.ts';
 import { publicRoutes } from './routes/public.ts';
@@ -44,6 +45,7 @@ export function createApp(options: AppOptions = {}) {
   // Owner/staff API (Clerk JWT)
   app.use('/v1/*', requireAuth(options.verifyToken), idem);
   app.route('/v1/whatsapp', v1WhatsAppRoutes);
+  app.route('/v1/calendar', v1CalendarRoutes);
   app.route('/v1', v1InboxRoutes);
   app.route('/v1', v1Routes);
 
@@ -55,6 +57,10 @@ export function createApp(options: AppOptions = {}) {
   app.route('/webhooks/clerk', clerkWebhookRoutes);
   app.route('/webhooks/whatsapp', whatsappWebhookRoutes);
   app.route('/flows/whatsapp', whatsappFlowRoutes);
+  app.route('/webhooks/google-calendar', calendarWebhookRoutes);
+
+  // OAuth redirect targets (signed state, no session)
+  app.route('/oauth/google', googleOAuthRoutes);
 
   // Scheduled jobs (pg_cron via pg_net)
   app.use('/cron/*', requireCronSecret);

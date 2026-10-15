@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Utensils } from 'lucide-react-native';
+import { CalendarX2, Utensils } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
@@ -46,12 +46,15 @@ export function TimelineColumn({
   window,
   shifts,
   appointments,
+  busy = [],
   timezone,
   compact,
 }: {
   window: MinuteSpan;
   shifts: MinuteSpan[];
   appointments: AppointmentListItem[];
+  /** Google Calendar busy time for this day */
+  busy?: MinuteSpan[];
   timezone: string;
   compact?: boolean;
 }) {
@@ -105,6 +108,19 @@ export function TimelineColumn({
         </View>
       ))}
 
+      {busy.map((b) => (
+        <BusyBlock
+          key={`${b.startMin}-${b.endMin}`}
+          span={b}
+          top={top(Math.max(b.startMin, window.startMin))}
+          height={minutesToPx(
+            Math.min(b.endMin, window.endMin) -
+              Math.max(b.startMin, window.startMin),
+          )}
+          compact={compact}
+        />
+      ))}
+
       {blocks.map(({ item, span, lane, lanes }) => (
         <View
           key={item.id}
@@ -123,6 +139,41 @@ export function TimelineColumn({
           />
         </View>
       ))}
+    </View>
+  );
+}
+
+function BusyBlock({
+  span,
+  top,
+  height,
+  compact,
+}: {
+  span: MinuteSpan;
+  top: number;
+  height: number;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  if (height <= 0) return null;
+  const time = `${minutesToTime(span.startMin)} - ${minutesToTime(span.endMin)}`;
+  return (
+    <View
+      className="bg-muted/60 border-muted-foreground/30 absolute left-1 right-1 flex-row items-start gap-1.5 overflow-hidden rounded-xl border border-dashed px-2 py-1"
+      style={{ top, height }}
+      accessible
+      accessibilityLabel={t('calendar.busyLabel', { time })}
+    >
+      <Icon
+        as={CalendarX2}
+        size={12}
+        className="text-muted-foreground mt-0.5"
+      />
+      {compact ? null : (
+        <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+          {t('calendar.busy')}
+        </Text>
+      )}
     </View>
   );
 }

@@ -8,6 +8,7 @@ import type {
   AvailableSlotsResponse,
   AvailabilityRuleInput,
   BusinessDTO,
+  CalendarSyncResultDTO,
   CancelAppointmentRequest,
   ClientDTO,
   ClientNoteDTO,
@@ -17,6 +18,8 @@ import type {
   CreateOverrideRequest,
   CreateServiceRequest,
   CreateStaffRequest,
+  GoogleCalendarConnectRequest,
+  GoogleCalendarConnectResponse,
   ManualConnectRequest,
   MeDTO,
   PublicBookingRequest,
@@ -45,7 +48,9 @@ import { env } from './env';
 
 /** Client-side codes for failures that never reached the API. */
 export type ClientErrorCode =
-  'NETWORK_ERROR' | 'BAD_RESPONSE' | 'NOT_CONFIGURED';
+  | 'NETWORK_ERROR'
+  | 'BAD_RESPONSE'
+  | 'NOT_CONFIGURED';
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode | ClientErrorCode;
@@ -366,6 +371,23 @@ export const api = {
       b,
       key,
     ),
+
+  // Google Calendar sync
+  googleCalendarConnect: (b: GoogleCalendarConnectRequest, key: string) =>
+    send<GoogleCalendarConnectRequest, GoogleCalendarConnectResponse>(
+      'POST',
+      '/v1/calendar/google/connect',
+    )(b, key),
+  googleCalendarSync: (key: string) =>
+    send<Record<string, never>, CalendarSyncResultDTO>(
+      'POST',
+      '/v1/calendar/google/sync',
+    )({}, key),
+  googleCalendarDisconnect: (key: string) =>
+    send<Record<string, never>, { disconnected: boolean }>(
+      'POST',
+      '/v1/calendar/google/disconnect',
+    )({}, key),
 
   // inbox
   sendStaffMessage: (

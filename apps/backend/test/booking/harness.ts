@@ -1,5 +1,6 @@
 import { createApp } from '../../src/app.ts';
 import type { BookingContainer } from '../../src/booking/index.ts';
+import type { CalendarDeps } from '../../src/calendar/deps.ts';
 import { createBookingServiceFromRepository } from '../../src/booking/service.ts';
 import type { Env } from '../../src/env.ts';
 import type { Db } from '../../src/lib/db.ts';
@@ -42,7 +43,7 @@ export interface Harness extends Seed {
 
 let keySeq = 0;
 
-export function harness(opts: { env?: Partial<Env> } = {}): Harness {
+export function harness(opts: { env?: Partial<Env>; calendar?: Partial<CalendarDeps> } = {}): Harness {
   const s = seed();
   const events: AppointmentChangedEvent[] = [];
   const booking = createBookingServiceFromRepository({
@@ -51,9 +52,10 @@ export function harness(opts: { env?: Partial<Env> } = {}): Harness {
     logger: silentLogger,
     clock: () => NOW,
   });
-  const container: BookingContainer = {
+  const container: BookingContainer & { calendar?: Partial<CalendarDeps> } = {
     ...testContainer({ booking, db: authDb(s.business.id), env: { ...TEST_ENV, ...opts.env } }),
     bookingRepository: s.repo,
+    calendar: opts.calendar,
   };
   const store = memoryIdempotencyStore();
   const app = createApp({

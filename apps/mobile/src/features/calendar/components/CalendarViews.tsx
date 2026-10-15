@@ -4,6 +4,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import type { AppointmentListItem } from '@/features/appointments/hooks';
+import { busySpansForDate } from '@/features/calendar-sync/logic';
+import type { InstantRange } from '@/lib/range';
 import {
   businessDate,
   parseISODate,
@@ -34,6 +36,8 @@ interface ViewProps {
   anchor: ISODate;
   today: ISODate;
   appointments: AppointmentListItem[];
+  /** Google Calendar busy time in the visible period */
+  busy: InstantRange[];
   hours: HoursRow[];
   timezone: string;
   onOpenDay: (date: ISODate) => void;
@@ -48,8 +52,15 @@ function byDate(appointments: AppointmentListItem[], timezone: string) {
   return map;
 }
 
-export function DayView({ anchor, appointments, hours, timezone }: ViewProps) {
+export function DayView({
+  anchor,
+  appointments,
+  busy,
+  hours,
+  timezone,
+}: ViewProps) {
   const shifts = shiftsForWeekday(hours, weekdayOf(anchor));
+  const busySpans = busySpansForDate(busy, anchor, timezone);
   const window = timelineWindow([
     ...shifts,
     ...appointments.map((a) => appointmentSpan(a, timezone)),
@@ -64,6 +75,7 @@ export function DayView({ anchor, appointments, hours, timezone }: ViewProps) {
           window={window}
           shifts={shifts}
           appointments={appointments}
+          busy={busySpans}
           timezone={timezone}
         />
       </View>
@@ -77,6 +89,7 @@ export function WeekView({
   anchor,
   today,
   appointments,
+  busy,
   hours,
   timezone,
   onOpenDay,
@@ -167,6 +180,7 @@ export function WeekView({
                   window={window}
                   shifts={shiftsForWeekday(hours, weekdayOf(date))}
                   appointments={grouped.get(date) ?? []}
+                  busy={busySpansForDate(busy, date, timezone)}
                   timezone={timezone}
                   compact
                 />

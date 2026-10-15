@@ -1,7 +1,9 @@
 import { createBookingService } from './booking/index.ts';
+import { buildCalendarDeps, type CalendarDeps } from './calendar/deps.ts';
+import { createCalendarNotifier } from './calendar/notifier.ts';
 import { getEnv, type Env } from './env.ts';
 import { getDb, type Db } from './lib/db.ts';
-import { createNotificationService } from './notifications/index.ts';
+import { createNotificationService, fanOutNotifications } from './notifications/index.ts';
 import type { BookingService, NotificationService } from './ports.ts';
 
 /**
@@ -16,7 +18,11 @@ export interface Container {
 }
 
 export function createContainer(env: Env, db: Db = getDb(env)): Container {
-  const notifications = createNotificationService({ env, db });
+  let calendar: CalendarDeps | undefined;
+  const notifications = fanOutNotifications([
+    createNotificationService({ env, db }),
+    createCalendarNotifier(() => (calendar ??= buildCalendarDeps({ env, db }))),
+  ]);
   const booking = createBookingService({ env, db, notifications });
   return { env, db, booking, notifications };
 }

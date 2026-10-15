@@ -61,6 +61,7 @@ export type ApiErrorCode =
   | 'RULE_VIOLATION'
   | 'RATE_LIMITED'
   | 'UPSTREAM_META_ERROR'
+  | 'UPSTREAM_GOOGLE_ERROR'
   | 'INTERNAL';
 
 export interface ApiErrorBody {
@@ -400,4 +401,27 @@ export interface ResolveEscalationRequest {
 export interface RegisterDeviceRequest {
   token: string;
   platform: 'ios' | 'android' | 'web';
+}
+
+// ---------- Google Calendar sync (docs/calendar-sync.md) ----------
+// Connection status is read in the app from `calendar_connections` (RLS, safe columns only).
+
+export interface GoogleCalendarConnectRequest {
+  /** Deep link the OAuth callback redirects back to (app scheme or an authorised web origin) */
+  return_url: string;
+}
+
+export interface GoogleCalendarConnectResponse {
+  /** Google consent screen URL to open in an auth session */
+  auth_url: string;
+}
+
+export interface CalendarSyncResultDTO {
+  /** Busy blocks added or changed from Google */
+  busy_upserted: number;
+  /** Busy blocks removed (event deleted, cancelled or marked free in Google) */
+  busy_removed: number;
+  /** Appointments written to or removed from Google */
+  pushed: number;
+  push_failed: number;
 }

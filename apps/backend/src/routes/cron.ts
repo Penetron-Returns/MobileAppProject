@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import { runCleanupJob } from '../booking/jobs.ts';
+import { runCalendarSyncJob } from '../calendar/jobs.ts';
 import type { Container } from '../container.ts';
 import { AppError } from '../lib/errors.ts';
 import type { AppEnv } from '../types.ts';
@@ -19,6 +20,7 @@ export const CRON_JOBS: Record<string, Job> = {
   'waba-health': runWabaHealthJob,
   'token-refresh': runTokenRefreshJob,
   cleanup: runCleanupJob,
+  'calendar-sync': runCalendarSyncJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

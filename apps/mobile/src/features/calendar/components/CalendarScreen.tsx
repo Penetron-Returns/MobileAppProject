@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useAppointmentsBetween } from '@/features/appointments/hooks';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
+import { useCalendarBusyBetween } from '@/features/calendar-sync/hooks';
 import {
   useBusinessHours,
   type BusinessSummary,
@@ -80,10 +81,11 @@ function CalendarContent({ business }: { business: BusinessSummary }) {
   }, [params.view, params.t, tz]);
 
   const range = periodRange(view, anchor);
-  const appointments = useAppointmentsBetween(
-    zonedTimeToUtc(range.from, '00:00', tz).toISOString(),
-    zonedTimeToUtc(range.to, '00:00', tz).toISOString(),
-  );
+  const from = zonedTimeToUtc(range.from, '00:00', tz).toISOString();
+  const to = zonedTimeToUtc(range.to, '00:00', tz).toISOString();
+  const appointments = useAppointmentsBetween(from, to);
+  // Google busy time is supplementary: the calendar still renders if it fails.
+  const busy = useCalendarBusyBetween(from, to);
   const hours = useBusinessHours();
   const openDay = (date: ISODate) => {
     setAnchor(date);
@@ -117,6 +119,7 @@ function CalendarContent({ business }: { business: BusinessSummary }) {
           anchor={anchor}
           today={today}
           appointments={appointments.data}
+          busy={busy.data ?? []}
           hours={hours.data}
           timezone={tz}
           onOpenDay={openDay}

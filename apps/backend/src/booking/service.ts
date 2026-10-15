@@ -98,11 +98,12 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     const windowStart = new Date(dayBoundsInZone(args.from, tz).start).toISOString();
     // One extra day covers buffers that spill past midnight.
     const windowEnd = new Date(dayBoundsInZone(addDays(args.to, 1), tz).end).toISOString();
-    const [hours, rules, overrides, busy] = await Promise.all([
+    const [hours, rules, overrides, busy, calendarBusy] = await Promise.all([
       repo.listBusinessHours(business.id),
       repo.listAvailabilityRules(business.id, ids),
       repo.listOverrides(business.id, args.from, args.to),
       repo.listBusy(business.id, ids, windowStart, windowEnd),
+      repo.listCalendarBusy(business.id, windowStart, windowEnd),
     ]);
     return {
       timezone: tz,
@@ -125,6 +126,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       busy: busy
         .filter((b) => b.id !== args.excludeAppointmentId)
         .map((b) => ({ staff_id: b.staff_id, ...rangeBounds(b.blocked) })),
+      businessBusy: calendarBusy,
       durationMinutes: args.durationMinutes,
       now: args.now,
     };

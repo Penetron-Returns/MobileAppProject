@@ -86,6 +86,17 @@ jest.mock('@/features/business/me', () => ({
   useMe: mockHook('useMe'),
   useCanManage: () => true,
 }));
+jest.mock('@/features/calendar-sync/hooks', () => ({
+  useCalendarConnection: mockHook('useCalendarConnection'),
+  useCalendarBusyBetween: mockHook('useCalendarBusyBetween'),
+  useConnectGoogleCalendar: mockMutation,
+  useSyncGoogleCalendar: mockMutation,
+  useDisconnectGoogleCalendar: mockMutation,
+}));
+jest.mock('expo-web-browser', () => ({
+  maybeCompleteAuthSession: jest.fn(),
+  openAuthSessionAsync: jest.fn(),
+}));
 jest.mock('@/features/dashboard/hooks', () => ({
   useDashboardSummary: mockHook('useDashboardSummary'),
   useDaySchedule: mockHook('useDaySchedule'),
@@ -362,6 +373,13 @@ beforeEach(() => {
       verified_name: 'Ashgrove',
     }),
     useMe: success({ role: 'owner' }),
+    useCalendarConnection: success({
+      status: 'live',
+      account_email: 'owner@ashgrove.example',
+      last_synced_at: '2026-10-13T08:00:00Z',
+      last_error: null,
+    }),
+    useCalendarBusyBetween: success([]),
     useDashboardSummary: success(SUMMARY),
     useDaySchedule: success(SCHEDULE),
     useAppointmentsBetween: success(APPOINTMENTS),
@@ -397,6 +415,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setCalendarViewMode } from '@/features/calendar/navigation';
+import { todayISO, zonedTimeToUtc } from '@/lib/time';
 
 import AddBookingRoute from '../add';
 import BookingDetailRoute from '../bookings/[id]';
@@ -405,6 +424,7 @@ import ClientsRoute from '../clients';
 import ClientProfileRoute from '../clients/[id]';
 import DashboardRoute from '../index';
 import SettingsRoute from '../settings';
+import GoogleCalendarRoute from '../settings/google-calendar';
 import BusinessDetailsRoute from '../settings/business-details';
 import OperatingHoursRoute from '../settings/operating-hours';
 import ServicesRoute from '../settings/services';
@@ -500,6 +520,31 @@ describe('Calendar', () => {
     expect(toJson(tree)).toContain('Month view');
     act(() => setCalendarViewMode('day'));
     expect(toJson(tree)).toContain('Break');
+  });
+
+  it('shows Google Calendar busy time on the day timeline', () => {
+    const today = todayISO(BUSINESS.timezone);
+    mockHooks.useCalendarBusyBetween.mockReturnValue(
+      success([
+        {
+          start: zonedTimeToUtc(
+            today,
+            '15:00',
+            BUSINESS.timezone,
+          ).toISOString(),
+          end: zonedTimeToUtc(today, '16:00', BUSINESS.timezone).toISOString(),
+        },
+      ]),
+    );
+    const json = render(<CalendarRoute />);
+    expect(json).toContain('Busy in Google Calendar, 15:00 - 16:00');
+  });
+
+  it('still renders the calendar when Google busy time fails to load', () => {
+    mockHooks.useCalendarBusyBetween.mockReturnValue(
+      failure(new Error('down')),
+    );
+    expect(render(<CalendarRoute />)).toContain('Balayage & Toner');
   });
 
   it('shows an error when appointments fail to load', () => {
@@ -613,7 +658,41 @@ describe('Settings', () => {
     expect(json).toContain('Operating Hours');
     expect(json).toContain('Staff Management');
     expect(json).toContain('Connected · +27 21 555 0199');
+    expect(json).toContain('Syncing · owner@ashgrove.example');
     expect(json).toContain('Log Out');
+  });
+
+  it('shows the connected Google account with sync and disconnect actions', () => {
+    const json = render(<GoogleCalendarRoute />);
+    expect(json).toContain('Connected as owner@ashgrove.example');
+    expect(json).toContain('Last synced');
+    expect(json).toContain('Sync now');
+    expect(json).toContain('Disconnect');
+    expect(json).not.toContain('Connect Google Calendar');
+  });
+
+  it('offers to connect when no Google Calendar is linked', () => {
+    mockHooks.useCalendarConnection.mockReturnValue(success(null));
+    const json = render(<GoogleCalendarRoute />);
+    expect(json).toContain('No calendar connected');
+    expect(json).toContain('Connect Google Calendar');
+    expect(json).not.toContain('Sync now');
+  });
+
+  it('asks to reconnect when Google access was revoked', () => {
+    mockHooks.useCalendarConnection.mockReturnValue(
+      success({
+        status: 'needs_reauth',
+        account_email: 'owner@ashgrove.example',
+        last_synced_at: null,
+        last_error: 'token_invalid (400): Token has been expired or revoked.',
+      }),
+    );
+    const json = render(<GoogleCalendarRoute />);
+    expect(json).toContain('Reconnect');
+    expect(json).toContain('Google access was revoked or expired');
+    expect(json).toContain('Last problem: token_invalid');
+    expect(json).not.toContain('Sync now');
   });
 
   it('prefills business details from the database', () => {

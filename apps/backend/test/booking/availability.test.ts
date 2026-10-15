@@ -373,3 +373,41 @@ describe('findSlot / freeStaffIgnoringHours', () => {
     expect(freeStaffIgnoringHours(i, sast('19:00'))).toEqual([C, B]);
   });
 });
+
+describe('Google Calendar busy time (businessBusy)', () => {
+  const twoStaff = { staff: [staff(A, 1), staff(B, 2)] };
+
+  it('removes overlapping slots for every staff member', () => {
+    const i = input({ ...twoStaff, businessBusy: [{ start: sast('10:00'), end: sast('10:30') }] });
+    expect(starts(i)).toEqual(['09:00', '10:30', '11:00']);
+  });
+
+  it('treats busy ranges as half-open, so a slot may end exactly when busy time starts', () => {
+    const i = input({ businessBusy: [{ start: sast('11:00'), end: sast('12:00') }] });
+    expect(starts(i)).toEqual(['09:00', '09:30', '10:00']);
+  });
+
+  it('blocks the buffer after the service as well', () => {
+    const i = input({ rules: rules({ buffer_minutes: 15 }), businessBusy: [{ start: sast('11:00'), end: sast('11:30') }] });
+    expect(starts(i)).toEqual(['09:00', '09:30']);
+  });
+
+  it('removes a day from listAvailableDays when busy time covers it', () => {
+    const i = input({ businessBusy: [{ start: sast('00:00'), end: sast('00:00', '2026-10-01') }] });
+    expect(listAvailableDays(i, '2026-09-29', '2026-10-01')).toEqual(['2026-09-29', '2026-10-01']);
+  });
+
+  it('does not change the per-staff tie-break counts', () => {
+    const i = input({
+      ...twoStaff,
+      busy: [{ staff_id: A, start: sast('09:00'), end: sast('10:00') }],
+      businessBusy: [{ start: sast('11:00'), end: sast('12:00') }],
+    });
+    expect(computeSlots(i, WED).find((s) => s.starts_at === sast('10:00'))?.staff_ids).toEqual([B, A]);
+  });
+
+  it('is ignored for staff walk-ins outside hours', () => {
+    const i = input({ ...twoStaff, businessBusy: [{ start: sast('18:00'), end: sast('19:00') }] });
+    expect(freeStaffIgnoringHours(i, sast('18:00'))).toEqual([A, B]);
+  });
+});
