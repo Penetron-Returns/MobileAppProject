@@ -33,6 +33,11 @@ export function monthLabel(month: MonthKey): string {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
+/** The current month and the ones before it, newest first (the month menu). */
+export function recentMonths(current: MonthKey, count = 12): MonthKey[] {
+  return Array.from({ length: count }, (_, i) => shiftMonth(current, -i));
+}
+
 /** Reports never look into the future: the switcher stops at the current month. */
 export function canGoNext(month: MonthKey, currentMonth: MonthKey): boolean {
   return month < currentMonth;

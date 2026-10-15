@@ -8,12 +8,13 @@ import {
   ListSkeleton,
   Presenter,
   SectionTitle,
+  SwipeableRow,
   Text,
   TintLink,
   Reveal,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Sparkles } from 'lucide-react-native';
+import { Plus, Sparkles, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -90,19 +91,32 @@ export function ServicesScreen() {
                       !service.is_active && t('services.hidden'),
                     );
                     return (
-                      <GroupRow
+                      <SwipeableRow
                         key={service.id}
-                        showSeparator={i > 0}
-                        title={service.name}
-                        subtitle={meta}
-                        onPress={
-                          canManage ? () => setEditing(service) : undefined
-                        }
-                        accessibilityLabel={t('settings.servicesList.open', {
-                          name: service.name,
-                          meta,
-                        })}
-                      />
+                        enabled={canManage}
+                        trailing={[
+                          {
+                            key: 'delete',
+                            label: t('common.delete'),
+                            role: 'destructive',
+                            icon: Trash2,
+                            onPress: () => setDeleting(service),
+                          },
+                        ]}
+                      >
+                        <GroupRow
+                          showSeparator={i > 0}
+                          title={service.name}
+                          subtitle={meta}
+                          onPress={
+                            canManage ? () => setEditing(service) : undefined
+                          }
+                          accessibilityLabel={t('settings.servicesList.open', {
+                            name: service.name,
+                            meta,
+                          })}
+                        />
+                      </SwipeableRow>
                     );
                   })}
                 </Group>

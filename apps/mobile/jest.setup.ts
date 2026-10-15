@@ -39,3 +39,10 @@ jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy({}, { get: () => View });
 });
+
+// The swipeable row needs the native gesture handler. Under Jest it is a plain
+// view that renders the row and its trailing actions side by side, so tests
+// can find and press the actions; the real swipe is a device concern.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () =>
+  require('./jest.swipeable-mock'),
+);
