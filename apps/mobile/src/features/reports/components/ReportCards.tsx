@@ -3,7 +3,7 @@ import type {
   BusiestSlotDTO,
   CompanionOutcomesDTO,
 } from '@booking/types';
-import { Surface, Text, useDepth } from '@booking/ui';
+import { AnimatedNumber, Surface, Text, useDepth } from '@booking/ui';
 import {
   CalendarCheck,
   CalendarClock,
@@ -195,12 +195,10 @@ export function StatsCard({
             <Text className="text-subtitle text-muted-foreground">
               {t(`reports.stats.${key}`)}
             </Text>
-            <Text
-              style={{ fontVariant: ['tabular-nums'] }}
+            <AnimatedNumber
+              value={value}
               className="text-[28px] font-bold leading-[34px]"
-            >
-              {value}
-            </Text>
+            />
           </View>
         ))}
       </View>
