@@ -12,6 +12,11 @@ import {
   notReadyKey,
   parseWidgetMessage,
   refreshDelayMs,
+  draftScript,
+  frameOrigin,
+  isDraftSentMessage,
+  MAX_DRAFT_CHARS,
+  truncateDraft,
 } from '../logic';
 
 describe('notReadyKey', () => {
@@ -69,14 +74,23 @@ describe('parseWidgetMessage', () => {
       msg({ type: 'nerova:widget', event: 'error', reason: 'load-timeout' }),
       { kind: 'error' },
     ],
+    [msg({ type: 'nerova:widget', event: 'busy' }), { kind: 'busy' }],
+    [msg({ type: 'nerova:widget', event: 'reply' }), { kind: 'reply' }],
+    [msg({ type: 'nerova:widget', event: 'idle' }), { kind: 'idle' }],
     [
-      msg({ type: 'nerova:widget', event: 'reply_started' }),
-      { kind: 'reply_started' },
+      msg({
+        type: 'nerova:widget',
+        version: 1,
+        widget: 'owner-chat',
+        sessionId: 's1',
+        event: 'busy',
+      }),
+      { kind: 'busy' },
     ],
-    [
-      msg({ type: 'nerova:widget', event: 'reply_finished' }),
-      { kind: 'reply_finished' },
-    ],
+    [msg({ type: 'nerova:widget', widget: 'other-chat', event: 'busy' }), null],
+    [msg({ type: 'nerova:widget', event: 'reply_started' }), null],
+    [msg({ type: 'nerova:widget', event: 'reply_finished' }), null],
+    [msg({ type: 'nerova:widget', kind: 'ready' }), null],
     [msg({ type: 'other', event: 'ready' }), null],
     [msg({ type: 'nerova:widget', event: 'mystery' }), null],
     ['not json', null],
@@ -103,6 +117,29 @@ describe('buildEmbedHtml', () => {
     expect(html).toContain('nerova:widget');
     expect(html).toContain('ReactNativeWebView.postMessage');
   });
+  it('only trusts messages from the frame origin and its own window', () => {
+    const page = buildEmbedHtml('https://chat.nerova.example/s/abc?x=1');
+    expect(page).toContain('var origin="https://chat.nerova.example"');
+    expect(page).toContain('e.origin!==origin');
+    expect(page).toContain('e.source!==frame.contentWindow');
+    // The origin check comes before anything is relayed.
+    expect(page.indexOf('e.origin!==origin')).toBeLessThan(
+      page.indexOf('bridge({type:d.type'),
+    );
+  });
+  it('posts drafts to the exact frame origin and only after ready', () => {
+    const page = buildEmbedHtml('https://chat.nerova.example/s/abc');
+    expect(page).toContain("type:'nerova:widget-draft'");
+    expect(page).toContain('draftText:draft},origin)');
+    expect(page).not.toContain("},'*')");
+    // flush() refuses to post until ready; ready is what triggers the flush.
+    expect(page).toContain('if(!ready||!has||!origin');
+    expect(page).toContain("if(d.event==='ready'){ready=true;flush()}");
+    expect(page).toContain('window.__clovieSetDraft=');
+  });
+  it('drops every message and draft when the URL has no usable origin', () => {
+    expect(buildEmbedHtml('not a url')).toContain('var origin=null');
+  });
 });
 
 describe('reduceActivity', () => {
@@ -114,27 +151,40 @@ describe('reduceActivity', () => {
   });
   it.each<[string, ChatActivity, WidgetEvent, ChatActivity]>([
     [
-      'starts thinking',
+      'starts thinking on busy',
       IDLE_ACTIVITY,
-      { kind: 'reply_started' },
+      { kind: 'busy' },
       at500('thinking'),
     ],
     [
       'restarts thinking after a reply',
       replied,
-      { kind: 'reply_started' },
+      { kind: 'busy' },
       at500('thinking'),
     ],
     [
-      'replies after thinking',
+      'keeps thinking on a duplicate busy',
       thinking,
-      { kind: 'reply_finished' },
+      { kind: 'busy' },
+      thinking,
+    ],
+    ['replies after busy', thinking, { kind: 'reply' }, at500('replied')],
+    [
+      'replies without a busy first',
+      IDLE_ACTIVITY,
+      { kind: 'reply' },
       at500('replied'),
     ],
     [
-      'ignores a finish with nothing started',
+      'goes idle after busy with no reply',
+      thinking,
+      { kind: 'idle' },
+      at500('idle'),
+    ],
+    [
+      'stays idle (no bounce) on idle',
       IDLE_ACTIVITY,
-      { kind: 'reply_finished' },
+      { kind: 'idle' },
       IDLE_ACTIVITY,
     ],
     ['goes idle on error', thinking, { kind: 'error' }, at500('idle')],
@@ -259,5 +309,66 @@ describe('maskConnectedPhone', () => {
     [undefined, ''],
   ])('masks %s as %s', (raw, expected) => {
     expect(maskConnectedPhone(raw)).toBe(expected);
+  });
+});
+
+describe('frameOrigin', () => {
+  it.each([
+    ['https://chat.nerova.example/s/abc?t=1#x', 'https://chat.nerova.example'],
+    ['http://localhost:3000/s', 'http://localhost:3000'],
+    ['https://chat.example:8443/s', 'https://chat.example:8443'],
+    ['javascript:alert(1)', null],
+    ['not a url', null],
+    ['', null],
+  ])('reads %s as %s', (url, expected) => {
+    expect(frameOrigin(url)).toBe(expected);
+  });
+});
+
+describe('truncateDraft', () => {
+  it('keeps short text and the empty string', () => {
+    expect(truncateDraft('')).toBe('');
+    expect(truncateDraft('hello')).toBe('hello');
+  });
+  it('keeps exactly the limit', () => {
+    const text = 'a'.repeat(MAX_DRAFT_CHARS);
+    expect(truncateDraft(text)).toBe(text);
+  });
+  it('cuts to the limit', () => {
+    expect(truncateDraft('a'.repeat(MAX_DRAFT_CHARS + 50))).toHaveLength(
+      MAX_DRAFT_CHARS,
+    );
+  });
+  it('does not split a surrogate pair at the cut', () => {
+    const text = 'a'.repeat(MAX_DRAFT_CHARS - 1) + '😀';
+    expect(truncateDraft(text)).toBe('a'.repeat(MAX_DRAFT_CHARS - 1));
+  });
+});
+
+describe('draftScript', () => {
+  it('passes the text as a JSON string literal, not as code', () => {
+    const hostile = 'x");alert(1);(" </script>  ';
+    const script = draftScript(hostile);
+    expect(script).toBe(
+      'window.__clovieSetDraft&&window.__clovieSetDraft(' +
+        JSON.stringify(hostile) +
+        ');true;',
+    );
+  });
+  it('truncates long text', () => {
+    const script = draftScript('a'.repeat(MAX_DRAFT_CHARS + 10));
+    expect(script).toContain('a'.repeat(MAX_DRAFT_CHARS));
+    expect(script).not.toContain('a'.repeat(MAX_DRAFT_CHARS + 1));
+  });
+});
+
+describe('isDraftSentMessage', () => {
+  it.each([
+    [JSON.stringify({ type: 'clovie:draft-sent' }), true],
+    [JSON.stringify({ type: 'nerova:widget', event: 'ready' }), false],
+    ['not json', false],
+    ['null', false],
+  ])('reads %s as %s', (raw, expected) => {
+    expect(isDraftSentMessage(raw)).toBe(expected);
   });
 });

@@ -7,8 +7,8 @@ import { View } from 'react-native';
 import { toast } from '@/lib/toast';
 
 /**
- * What the owner said to "Hey Clovie", shown above the chat. Nerova's widget
- * cannot take prefilled text yet, so the owner copies it into the chat.
+ * Fallback for what the owner said to "Hey Clovie": shown only when the chat
+ * widget never reported ready to take it as a draft, so the owner can copy it.
  */
 export function HeardBanner({ text }: { text: string }) {
   const { t } = useTranslation();
