@@ -1,11 +1,11 @@
-import { DURATION, FloatingTabBar, useDepth } from '@booking/ui';
-import { router, Tabs } from 'expo-router';
+import { DURATION, useDepth } from '@booking/ui';
+import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
+import { AppTabBar } from '@/components/AppTabBar';
 
 /**
- * The four tabs (the centre + opens the New booking modal instead of a tab). Detail pages (booking, client, settings sub-pages) live in
+ * The four tabs (the centre button opens New booking on Free and Reports on paid plans instead of a tab). Detail pages (booking, client, settings sub-pages) live in
  * the parent stack so they slide over the tab bar instead of hiding it.
  */
 export default function TabsLayout() {
@@ -14,14 +14,8 @@ export default function TabsLayout() {
   return (
     <Tabs
       backBehavior="history"
-      // The floating capsule draws itself (icons, labels and the centre "+").
-      tabBar={(props) => (
-        <FloatingTabBar
-          {...props}
-          inbox={<InboxEntryDome />}
-          onAdd={() => router.push('/new-booking' as never)}
-        />
-      )}
+      // The floating capsule draws itself (icons, labels and the centre button).
+      tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         // A quick cross-fade between tabs; the scene needs the ground behind it.

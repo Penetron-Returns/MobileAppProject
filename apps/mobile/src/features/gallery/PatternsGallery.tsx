@@ -221,7 +221,7 @@ export function PatternsGallery() {
               descriptors: TAB_DESCRIPTORS,
               navigation: TAB_NAVIGATION,
             } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
-            inbox={
+            dome={
               <InboxDome
                 count={3}
                 label="Inbox, 3 need a reply"

@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { act, byLabel, pressable, render } from '../../../testing/render';
 import { FloatingTabBar } from '../FloatingTabBar';
+import { CompanionDome } from '../CompanionDome';
 import { InboxDome } from '../InboxDome';
 
 jest.mock('lucide-react-native', () => {
@@ -15,8 +16,9 @@ function renderBar(
   activeName: string,
   options: {
     hidden?: boolean;
-    inbox?: React.ReactNode;
-    onAdd?: () => void;
+    dome?: React.ReactNode;
+    center?: 'add' | 'reports';
+    onCenter?: () => void;
   } = {},
 ) {
   const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
@@ -46,8 +48,9 @@ function renderBar(
         descriptors,
         navigation,
       } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
-      inbox={options.inbox}
-      onAdd={options.onAdd}
+      dome={options.dome}
+      center={options.center}
+      onCenter={options.onCenter}
     />,
   );
   return { tree, navigation };
@@ -82,12 +85,20 @@ describe('FloatingTabBar', () => {
     expect([...new Set(selected)]).toEqual(['Clients']);
   });
 
-  it('calls onAdd from the centre plus without switching tabs', () => {
-    const onAdd = jest.fn();
-    const { tree, navigation } = renderBar('index', { onAdd });
+  it('calls onCenter from the centre plus without switching tabs', () => {
+    const onCenter = jest.fn();
+    const { tree, navigation } = renderBar('index', { onCenter });
     act(() => pressable(tree, 'New booking').props.onPress());
-    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onCenter).toHaveBeenCalledTimes(1);
     expect(navigation.navigate).not.toHaveBeenCalled();
+  });
+
+  it('swaps the centre plus for Reports on the paid variant', () => {
+    const onCenter = jest.fn();
+    const { tree } = renderBar('index', { center: 'reports', onCenter });
+    expect(byLabel(tree, 'New booking')).toHaveLength(0);
+    act(() => pressable(tree, 'Reports').props.onPress());
+    expect(onCenter).toHaveBeenCalledTimes(1);
   });
 
   it('navigates to a tab and emits tabPress first', () => {
@@ -101,7 +112,7 @@ describe('FloatingTabBar', () => {
 
   it('shows whatever Inbox entry the app passes in', () => {
     const { tree } = renderBar('index', {
-      inbox: (
+      dome: (
         <InboxDome
           count={2}
           label="Inbox, 2 need a reply"
@@ -126,6 +137,47 @@ describe('FloatingTabBar', () => {
     expect(
       tree.root.findAll((n) => n.props.accessibilityRole === 'tab'),
     ).toHaveLength(0);
+  });
+});
+
+describe('CompanionDome', () => {
+  const character = { uri: 'companion.png' };
+
+  it('shows the count badge only when something needs attention', () => {
+    const withCount = render(
+      <CompanionDome
+        character={character}
+        count={3}
+        label="Companion"
+        onPress={jest.fn()}
+      />,
+    );
+    const without = render(
+      <CompanionDome
+        character={character}
+        count={0}
+        label="Companion"
+        onPress={jest.fn()}
+      />,
+    );
+    const hasBadge = (t: ReturnType<typeof render>) =>
+      t.root.findAll((n) => n.children.includes('3')).length > 0;
+    expect(hasBadge(withCount)).toBe(true);
+    expect(hasBadge(without)).toBe(false);
+  });
+
+  it('opens through onPress', () => {
+    const onPress = jest.fn();
+    const tree = render(
+      <CompanionDome
+        character={character}
+        count={0}
+        label="Open your companion"
+        onPress={onPress}
+      />,
+    );
+    act(() => pressable(tree, 'Open your companion').props.onPress());
+    expect(onPress).toHaveBeenCalled();
   });
 });
 

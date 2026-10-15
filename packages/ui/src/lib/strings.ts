@@ -29,6 +29,7 @@ export const DS_STRINGS = {
   'tabs.today': 'Today',
   'tabs.calendar': 'Calendar',
   'tabs.add': 'New booking',
+  'tabs.reports': 'Reports',
   'tabs.clients': 'Clients',
   'tabs.settings': 'Settings',
 } as const;
