@@ -25,7 +25,7 @@
       .vw-glow { --s: .7; position: fixed; left: 0; right: 0; bottom: 0; top: 0; overflow: hidden; pointer-events: none; isolation: isolate;
         -webkit-mask-image: linear-gradient(to top, #000 62%, transparent); mask-image: linear-gradient(to top, #000 62%, transparent);
         opacity: 0; }
-      .vw-on { opacity: 1; animation: vw-lift .18s ease-out both; }
+      .vw-on { opacity: 1; }
       #scrim { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: var(--scrim); }
       #swell { position: absolute; left: 0; right: 0; top: 0; bottom: 0; transform-origin: 50% 100%; transform: scaleY(var(--lv, .9)); }
       .vw-blob { position: absolute; bottom: -130px; height: 560px; border-radius: 50%; filter: blur(46px); transform-origin: 50% 100%;
@@ -63,10 +63,10 @@
       body[data-state='processing'] #halo { opacity: .55; }
       body[data-state='error'] #halo { opacity: .35; }
       #clov { position: fixed; left: 14px; bottom: 46px; width: 72px; height: 73px; transform-origin: 50% 100%; pointer-events: none; opacity: 0; }
-      body:not([data-state='idle']) #clov { opacity: 1; }
-      body[data-state='done'] #clov { animation: vw-nod 1.1s ease-in-out 1; }
-      body[data-state='error'] #clov { transform: rotate(-9deg); animation: vw-tiltin .7s ease-out 1; }
-      #clov > * { filter: drop-shadow(0 6px 8px rgba(10,78,117,.45)) drop-shadow(0 0 18px rgba(157,217,245,.55)); }
+      #clov-in { position: absolute; left: 0; right: 0; top: 0; bottom: 0; transform-origin: 50% 100%; }
+      body[data-state='done'] #clov-in { animation: vw-nod 1.1s ease-in-out 1; }
+      body[data-state='error'] #clov-in { transform: rotate(-9deg); animation: vw-tiltin .7s ease-out 1; }
+      #clov-in > * { filter: drop-shadow(0 6px 8px rgba(10,78,117,.45)) drop-shadow(0 0 18px rgba(157,217,245,.55)); }
       #still { position: absolute; left: 3px; top: 8px; width: 66px; height: 66px; object-fit: contain; display: block; }
       #still.gone { opacity: 0; transition: opacity .16s ease-out; }
       #live { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .16s ease-out; }
@@ -114,10 +114,61 @@
       @keyframes vw-blink { 0% { opacity: 1; } 100% { opacity: 0; } }
       @keyframes vw-check { 0% { stroke-dashoffset: 24; } 100% { stroke-dashoffset: 0; } }
       @keyframes vw-pop { 0% { transform: scale(.96); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+      /* ---- Cinematic entrance and exit (play('enter') / play('exit')). Transforms and opacity only. ---- */
+      .vw-rise { position: absolute; top: 0; bottom: 0; transform: translateY(340px); }
+      .vw-rise .vw-blob { left: 0; width: 100%; }
+      #spark { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; opacity: 0; transform: scaleX(0); transform-origin: 50px 50%;
+        background: radial-gradient(ellipse 60% 100% at 50px 50%, #fff 0%, #E3F3FB 10%, #9DD9F5 30%, #2AA1D6 60%, rgba(42,161,214,0) 100%);
+        box-shadow: 0 0 10px 2px rgba(157,217,245,.8), 0 0 28px 6px rgba(42,161,214,.45); }
+      #spark-core { position: absolute; left: 0; right: 0; top: 1px; height: 1px; background: radial-gradient(ellipse 50% 100% at 50px 50%, #fff 0%, rgba(255,255,255,0) 100%); }
+      #bloom { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; opacity: 0; transform-origin: 50% 100%;
+        background: linear-gradient(to top, rgba(157,217,245,.5), rgba(42,161,214,.16) 55%, rgba(42,161,214,0)); }
+      #burst { position: fixed; left: -14px; bottom: 6px; width: 128px; height: 128px; border-radius: 50%; opacity: 0; pointer-events: none;
+        background: radial-gradient(closest-side, rgba(227,243,251,.95), rgba(157,217,245,.5) 45%, rgba(42,161,214,0)); }
+      #halo-wrap { position: fixed; left: 0; right: 0; bottom: 0; top: 0; pointer-events: none; }
+
+      body.vw-enter .vw-rise { animation: vw-rise .62s cubic-bezier(.22,.7,.3,1) calc(.15s + var(--i) * .07s) both; }
+      body.vw-enter #scrim { animation: vw-from0 .4s ease-out backwards; }
+      body.vw-enter #spark { animation: vw-spread .35s cubic-bezier(.12,.8,.2,1) 0s both, vw-spark-off .4s ease-in .35s forwards; }
+      body.vw-enter #bloom { animation: vw-bloom .38s ease-out .06s both; }
+      body.vw-enter #rim { animation: vw-from0 .4s ease-out .3s backwards; }
+      body.vw-enter #floor { animation: vw-from0 .5s ease-out .3s backwards; }
+      body.vw-enter #clov { animation: vw-arrive .55s cubic-bezier(.2,.9,.3,1) .25s both; }
+      body.vw-enter #halo-wrap { animation: vw-from0 .45s ease-out .3s backwards; }
+      body.vw-enter #burst { animation: vw-burst .55s ease-out .55s both; }
+      body.vw-enter #label { animation: vw-text .4s ease-out .45s backwards; }
+
+      body.vw-exit .vw-rise { animation: vw-sink .42s cubic-bezier(.5,0,.8,.45) calc((4 - var(--i)) * .03s) both; }
+      body.vw-exit #clov { animation: vw-dip .4s ease-in both; }
+      body.vw-exit #panel, body.vw-exit #halo-wrap, body.vw-exit #floor { animation: vw-fadeout .28s ease-in both; }
+      body.vw-exit #rim { animation: vw-retract .45s cubic-bezier(.5,0,.7,.4) both; transform-origin: 50px 50%; }
+      body.vw-exit #glow { animation: vw-fadeout .2s ease-in .25s both; }
+      body.vw-exit #scrim { animation: vw-fadeout .4s ease-in .05s both; }
+
+      @keyframes vw-rise { 0% { transform: translateY(340px); } 68% { transform: translateY(-16px); } 100% { transform: translateY(0); } }
+      @keyframes vw-sink { 0% { transform: translateY(0); } 100% { transform: translateY(340px); } }
+      @keyframes vw-from0 { from { opacity: 0; } }
+      @keyframes vw-fadeout { to { opacity: 0; } }
+      @keyframes vw-spread { 0% { transform: scaleX(.01); opacity: 1; } 100% { transform: scaleX(1); opacity: 1; } }
+      @keyframes vw-spark-off { to { opacity: 0; } }
+      @keyframes vw-bloom { 0% { opacity: 0; transform: scaleY(.3); } 30% { opacity: .42; transform: scaleY(1); } 100% { opacity: 0; transform: scaleY(1.1); } }
+      @keyframes vw-arrive { 0% { transform: translateY(96px) scale(.6); opacity: 0; } 25% { opacity: 1; } 62% { transform: translateY(-7px) scale(1.04); } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+      @keyframes vw-dip { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(70px) scale(.8); opacity: 0; } }
+      @keyframes vw-burst { 0% { transform: scale(.4); opacity: 0; } 30% { opacity: .85; } 100% { transform: scale(1.6); opacity: 0; } }
+      @keyframes vw-text { from { opacity: 0; transform: translateY(8px); } }
+      @keyframes vw-retract { 0% { transform: scaleX(1); opacity: .55; } 100% { transform: scaleX(.02); opacity: 0; } }
       @media (prefers-reduced-motion: reduce) {
-        .vw-on, .vw-blob, .vw-beam, #halo, #clov, #pill, #pill .tick path, #line::after { animation: none !important; }
+        .vw-blob, .vw-beam, #halo, #clov-in, #pill, #pill .tick path, #line::after { animation: none !important; }
         .vw-st-processing .vw-beam { opacity: 1; }
-        body[data-state='error'] #clov { transform: rotate(-9deg); }
+        body[data-state='error'] #clov-in { transform: rotate(-9deg); }
+        /* Reduced motion: a plain 200 ms fade in and out. No flash, bloom, spark or tide. */
+        .vw-rise, body.vw-enter .vw-rise, body.vw-exit .vw-rise { transform: none !important; animation: none !important; }
+        #spark, #bloom, #burst { display: none !important; }
+        body.vw-enter #scrim, body.vw-enter #rim, body.vw-enter #floor, body.vw-enter #halo-wrap, body.vw-enter #label { animation: none !important; }
+        body.vw-enter #glow, body.vw-enter #clov, body.vw-enter #panel, body.vw-enter #halo-wrap { animation: vw-fadein .2s linear both !important; }
+        body.vw-exit #glow, body.vw-exit #clov, body.vw-exit #panel, body.vw-exit #halo-wrap { animation: vw-fadeout .2s linear both !important; }
+        body.vw-exit #rim, body.vw-exit #scrim, body.vw-exit #floor { animation: none !important; }
       }
     </style>
   </head>
@@ -125,21 +176,24 @@
     <div id="glow" class="vw-glow vw-st-idle" aria-hidden="true">
       <div id="scrim"></div>
       <div id="swell">
-        <div class="vw-blob" style="--c:var(--c1); left:-27.4vw; width:74.6vw; --d:3.4s; --dl:-1s; --o:.7; --dx:14px; --dd:9s"></div>
-        <div class="vw-blob" style="--c:var(--c2); left:5vw; width:72.1vw; --d:3.2s; --dl:-2.6s; --o:.8; --dx:-12px; --dd:7.5s"></div>
-        <div class="vw-blob" style="--c:var(--c3); left:17.4vw; width:67.2vw; --d:4.2s; --dl:-.4s; --o:.75; --dx:10px; --dd:8.5s"></div>
-        <div class="vw-blob" style="--c:var(--c4); left:37.3vw; width:62.2vw; --d:3.8s; --dl:-3.4s; --o:.3; --dx:-16px; --dd:10s"></div>
-        <div class="vw-blob" style="--c:var(--c5); left:52.7vw; width:74.6vw; --d:3.6s; --dl:-1.8s; --o:.75; --dx:12px; --dd:8s"></div>
+        <div class="vw-rise" style="left:-27.4vw; width:74.6vw; --i:0"><div class="vw-blob" style="--c:var(--c1); --d:3.4s; --dl:-1s; --o:.7; --dx:14px; --dd:9s"></div></div>
+        <div class="vw-rise" style="left:5vw; width:72.1vw; --i:1"><div class="vw-blob" style="--c:var(--c2); --d:3.2s; --dl:-2.6s; --o:.8; --dx:-12px; --dd:7.5s"></div></div>
+        <div class="vw-rise" style="left:17.4vw; width:67.2vw; --i:2"><div class="vw-blob" style="--c:var(--c3); --d:4.2s; --dl:-.4s; --o:.75; --dx:10px; --dd:8.5s"></div></div>
+        <div class="vw-rise" style="left:37.3vw; width:62.2vw; --i:3"><div class="vw-blob" style="--c:var(--c4); --d:3.8s; --dl:-3.4s; --o:.3; --dx:-16px; --dd:10s"></div></div>
+        <div class="vw-rise" style="left:52.7vw; width:74.6vw; --i:4"><div class="vw-blob" style="--c:var(--c5); --d:3.6s; --dl:-1.8s; --o:.75; --dx:12px; --dd:8s"></div></div>
       </div>
+      <div id="bloom"></div>
       <div id="floor"></div>
       <div id="rim"></div>
+      <div id="spark"><div id="spark-core"></div></div>
       <div class="vw-beam"><div class="vw-beam-glow"></div><div class="vw-beam-core"></div></div>
     </div>
-    <div id="halo" aria-hidden="true"></div>
-    <div id="clov" aria-hidden="true">
+    <div id="burst" aria-hidden="true"></div>
+    <div id="halo-wrap" aria-hidden="true"><div id="halo"></div></div>
+    <div id="clov" aria-hidden="true"><div id="clov-in">
       <img id="still" alt="" src="__CLOVIE_STILL__" />
       <div id="live"><div id="root"></div></div>
-    </div>
+    </div></div>
     <div id="panel" role="status" aria-live="polite">
       <div id="label"></div>
       <div id="line"></div>

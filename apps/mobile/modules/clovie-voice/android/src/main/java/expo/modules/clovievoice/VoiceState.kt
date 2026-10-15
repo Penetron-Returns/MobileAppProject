@@ -8,6 +8,8 @@ object VoiceStatus {
   const val NOT_CONFIGURED = "not_configured"
   const val STARTING = "starting"
   const val LISTENING = "listening"
+  /** Hands-free is on but outside its conditions (hours, charger, pause): the microphone is closed. */
+  const val STANDBY = "standby"
   /** The wake word was heard and the owner's command is being captured. */
   const val BUSY = "busy"
   const val ERROR = "error"

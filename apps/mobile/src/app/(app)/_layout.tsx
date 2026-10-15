@@ -20,6 +20,7 @@ import {
   type MeStatus,
   type SessionTaskKey,
 } from '@/features/auth/appRoute';
+import { useVoiceScheduleSync } from '@/features/voice/scheduleSync';
 import { isApiError } from '@/lib/api';
 
 function toInvitationsInput(
@@ -110,6 +111,7 @@ export default function AppLayout() {
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
   useAppointmentsRealtime(hasOrg);
+  useVoiceScheduleSync(hasOrg);
 
   const route = resolveAppRoute({
     authLoaded,

@@ -46,6 +46,7 @@ class WakeWordListener(
       main.post { onError(VoiceError.AUDIO_FAILED) }
       return
     }
+    val speechGate = SpeechGate()
     val ring = ShortArray(RING_SAMPLES)
     val chunk = ShortArray(HOP_SAMPLES)
     var write = 0
@@ -68,7 +69,10 @@ class WakeWordListener(
         }
         filled = minOf(filled + n, RING_SAMPLES)
         reads++
-        if (filled < RING_SAMPLES || reads % READS_PER_PREDICTION != 0) continue
+        // The voice gate keeps the three models idle while nothing is being said. The ring buffer
+        // keeps filling either way, so the start of the phrase is already in it when the gate opens.
+        val isSpeechLikely = speechGate.update(chunk, n, SystemClock.elapsedRealtime())
+        if (!isSpeechLikely || filled < RING_SAMPLES || reads % READS_PER_PREDICTION != 0) continue
 
         try {
           val score = engine.score(chronological(ring, write))

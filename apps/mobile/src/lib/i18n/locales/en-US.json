@@ -518,7 +518,7 @@
       "whatsapp": "WhatsApp",
       "companion": "Companion",
       "plan": "Plan",
-      "voice": "Hey Clovie"
+      "voice": "Clovie voice"
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -1337,10 +1337,22 @@
       "copyLabel": "Copy what you said",
       "copied": "Copied. Paste it in the chat.",
       "dismiss": "Dismiss what you said"
+    },
+    "whatsapp": {
+      "label": "Connect WhatsApp",
+      "title": "Connect WhatsApp so Clovie can message your clients",
+      "hint": "Use your business number. You finish in your browser, then come back here.",
+      "connect": "Connect WhatsApp",
+      "starting": "Getting things ready",
+      "waiting": "Finish connecting in your browser. Clovie will pick it up here.",
+      "reopen": "Open again",
+      "errorTitle": "Couldn't start connecting",
+      "connected": "WhatsApp connected",
+      "connectedWithPhone": "WhatsApp connected · {{phone}}"
     }
   },
   "voice": {
-    "title": "Hey Clovie",
+    "title": "Clovie voice",
     "toggle": "Hey Clovie",
     "working": "Handling what you said",
     "status": {
@@ -1387,6 +1399,61 @@
       "missing": "Off: Clovie will answer with a notification instead",
       "allow": "Allow",
       "hint": "Clovie shows a panel at the bottom of the screen while you talk. Android needs your permission to show it over other apps."
+    },
+    "oneTap": {
+      "section": "Talk to Clovie",
+      "intro": "Tap, say what you need, done. The microphone is open only while you speak.",
+      "tile": {
+        "title": "Quick Settings tile",
+        "hint": "Swipe down and tap Clovie.",
+        "hintManual": "Open Quick Settings, tap Edit and drag Talk to Clovie in.",
+        "add": "Add tile",
+        "added": "Added",
+        "already": "Already added"
+      },
+      "widget": {
+        "title": "Home screen button",
+        "hint": "Touch and hold the home screen, choose Widgets, then Clovie."
+      },
+      "shortcut": {
+        "title": "App icon shortcut",
+        "hint": "Touch and hold the Clovie icon, then tap Talk to Clovie."
+      },
+      "sideKey": {
+        "title": "Side key",
+        "toggle": "Show a Clovie Voice icon",
+        "hint": "On Samsung, set Settings > Advanced features > Side button > Double press > Open app > Clovie Voice."
+      },
+      "tryIt": {
+        "title": "Try it now",
+        "hint": "Say \"client has arrived\", or ask anything."
+      },
+      "privacy": "Nothing is recorded or sent until you speak. Your phone turns the command into text, and Clovie runs it."
+    },
+    "hf": {
+      "section": "Hands-free",
+      "toggle": "Hey Clovie",
+      "intro": "Say \"Hey Clovie\" any time, even with the phone locked. The microphone listens on this phone for the wake word only.",
+      "conditions": "When to listen",
+      "hours": {
+        "title": "Only during opening hours",
+        "hint": "Follows your business hours and special days."
+      },
+      "charging": {
+        "title": "Only while charging",
+        "hint": "Saves battery."
+      },
+      "status": {
+        "off": "Off",
+        "onDuty": "On duty",
+        "onDutyUntil": "On duty until {{time}}",
+        "offUntil": "Off until opening at {{time}}",
+        "offNoOpening": "Off until the next opening. Open Clovie to refresh.",
+        "waitingCharger": "Waiting for the charger",
+        "pausedUntil": "Paused until {{time}}",
+        "pausedNoTime": "Paused"
+      },
+      "consent": "While it listens, Android shows the microphone indicator and a \"Clovie is on duty\" notification with Pause and Stop. It uses some battery. Outside your conditions the microphone is fully off. Nothing is recorded or sent until you speak after \"Hey Clovie\"."
     }
   },
   "reports": {

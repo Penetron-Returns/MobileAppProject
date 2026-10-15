@@ -1,13 +1,20 @@
 package expo.modules.clovievoice
 
 import android.Manifest
+import android.app.StatusBarManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -24,10 +31,26 @@ class StartOptions : Record {
   val threshold: Float? = null
 }
 
+class HandsFreeOptions : Record {
+  @Field
+  val useOpeningHours: Boolean? = null
+
+  @Field
+  val onlyWhileCharging: Boolean? = null
+
+  /** Business timezone (IANA), used to print times in the notification. */
+  @Field
+  val timezone: String? = null
+
+  /** Opening windows for the next days as [start0, end0, start1, end1, ...] in epoch ms. */
+  @Field
+  val windows: List<Double>? = null
+}
+
 /**
- * JS surface of "Hey Clovie". The work happens in `VoiceService`; this module starts and stops
- * it and forwards status changes. `start` must be called while the app is on screen: Android
- * does not let a background app start a microphone foreground service.
+ * JS surface of "Clovie voice". The work happens in `VoiceService`; this module starts and stops it,
+ * stores the hands-free settings and forwards status changes. `start` and `startTalk` must be called
+ * while the app is on screen: Android does not let a background app start a microphone service.
  */
 class ClovieVoiceModule : Module() {
   private val onStatus: (VoiceSnapshot) -> Unit = { sendEvent("onStatusChange", toMap(currentSnapshot())) }
@@ -39,7 +62,10 @@ class ClovieVoiceModule : Module() {
     Name("ClovieVoice")
     Events("onStatusChange")
 
-    OnCreate { VoiceState.addListener(onStatus) }
+    OnCreate {
+      VoiceState.addListener(onStatus)
+      publishShortcut()
+    }
     OnDestroy { VoiceState.removeListener(onStatus) }
 
     // Foreground services of type microphone need API 29+ behaviour; notification channels need 26.
@@ -47,9 +73,43 @@ class ClovieVoiceModule : Module() {
 
     Function("getStatus") { toMap(currentSnapshot()) }
 
+    // Hands-free (the wake word). Turns it on; the service decides from the conditions whether to listen now.
     AsyncFunction("start") { options: StartOptions ->
       start(options)
       toMap(currentSnapshot())
+    }
+
+    Function("stop") {
+      stop()
+      toMap(currentSnapshot())
+    }
+
+    // One-tap: listen for one command now, no wake word.
+    AsyncFunction("startTalk") {
+      startTalk()
+      toMap(currentSnapshot())
+    }
+
+    Function("configureHandsFree") { options: HandsFreeOptions -> configureHandsFree(options) }
+
+    Function("getHandsFree") { handsFreeMap() }
+
+    // Quick Settings tile (Android 13+ can ask the system to add it with one tap).
+    AsyncFunction("requestAddTile") { promise: Promise -> requestAddTile(promise) }
+
+    // A second launcher icon ("Clovie Voice"): a target for Samsung's side key and other launchers.
+    Function("setLauncherIconEnabled") { enabled: Boolean ->
+      context.packageManager.setComponentEnabledSetting(
+        ComponentName(context, "expo.modules.clovievoice.ClovieVoiceLauncher"),
+        if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+        PackageManager.DONT_KILL_APP,
+      )
+    }
+
+    Function("isLauncherIconEnabled") {
+      context.packageManager.getComponentEnabledSetting(
+        ComponentName(context, "expo.modules.clovievoice.ClovieVoiceLauncher"),
+      ) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     }
 
     // "Display over other apps": the overlay (the voice UI) needs it; without it results come as notifications.
@@ -70,11 +130,6 @@ class ClovieVoiceModule : Module() {
 
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
-
-    Function("stop") {
-      stop()
-      toMap(currentSnapshot())
-    }
   }
 
   /** "Not configured" is derived, not stored: it depends on which model files were bundled. */
@@ -95,6 +150,9 @@ class ClovieVoiceModule : Module() {
     "wakePhrase" to VoiceConfig.read(context).wakePhrase,
   )
 
+  private fun hasMicrophone(ctx: Context) =
+    ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
   private fun start(options: StartOptions) {
     val ctx = context
     val config = VoiceConfig.read(ctx)
@@ -103,13 +161,14 @@ class ClovieVoiceModule : Module() {
       VoiceState.update(VoiceStatus.NOT_CONFIGURED)
       return
     }
-    if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+    if (!hasMicrophone(ctx)) {
       VoiceState.update(VoiceStatus.ERROR, VoiceError.PERMISSION_DENIED)
       return
     }
     val status = VoiceState.snapshot.status
-    if (status == VoiceStatus.STARTING || status == VoiceStatus.LISTENING || status == VoiceStatus.BUSY) return
+    if (status == VoiceStatus.STARTING || status == VoiceStatus.LISTENING || status == VoiceStatus.BUSY || status == VoiceStatus.STANDBY) return
 
+    HandsFreePolicy(ctx).isEnabled = true
     VoiceState.update(VoiceStatus.STARTING)
     val intent = Intent(ctx, VoiceService::class.java)
       .setAction(VoiceService.ACTION_START)
@@ -119,6 +178,7 @@ class ClovieVoiceModule : Module() {
       ContextCompat.startForegroundService(ctx, intent)
     } catch (e: Exception) {
       // ForegroundServiceStartNotAllowedException (API 31+): the app was not on screen.
+      HandsFreePolicy(ctx).isEnabled = false
       VoiceState.update(
         VoiceStatus.ERROR,
         if (e is SecurityException) VoiceError.PERMISSION_DENIED else VoiceError.BACKGROUND_START_BLOCKED,
@@ -128,8 +188,94 @@ class ClovieVoiceModule : Module() {
 
   private fun stop() {
     val ctx = context
+    HandsFreePolicy(ctx).isEnabled = false
+    HandsFreeController.cancel(ctx)
     ctx.stopService(Intent(ctx, VoiceService::class.java))
     // The service reports OFF from onDestroy; cover the case where it never started.
     VoiceState.update(VoiceStatus.OFF)
+  }
+
+  private fun startTalk() {
+    val ctx = context
+    if (!hasMicrophone(ctx)) {
+      VoiceState.update(VoiceStatus.ERROR, VoiceError.PERMISSION_DENIED)
+      return
+    }
+    try {
+      ContextCompat.startForegroundService(ctx, Intent(ctx, VoiceService::class.java).setAction(VoiceService.ACTION_TALK))
+    } catch (e: Exception) {
+      VoiceState.update(
+        VoiceStatus.ERROR,
+        if (e is SecurityException) VoiceError.PERMISSION_DENIED else VoiceError.BACKGROUND_START_BLOCKED,
+      )
+    }
+  }
+
+  private fun configureHandsFree(options: HandsFreeOptions) {
+    val ctx = context
+    val policy = HandsFreePolicy(ctx)
+    options.useOpeningHours?.let { policy.useOpeningHours = it }
+    options.onlyWhileCharging?.let { policy.onlyWhileCharging = it }
+    options.timezone?.let { policy.timezone = it }
+    options.windows?.let { flat ->
+      policy.windows = flat.chunked(2).filter { it.size == 2 }.map { DutyWindow(it[0].toLong(), it[1].toLong()) }
+    }
+    if (!policy.isEnabled) return
+    HandsFreeController.schedule(ctx, policy)
+    if (VoiceService.isRunning) HandsFreeController.reevaluate(ctx)
+  }
+
+  private fun handsFreeMap(): Map<String, Any?> {
+    val ctx = context
+    val policy = HandsFreePolicy(ctx)
+    val duty = policy.evaluate(System.currentTimeMillis(), HandsFreeController.isCharging(ctx))
+    return mapOf(
+      "enabled" to policy.isEnabled,
+      "useOpeningHours" to policy.useOpeningHours,
+      "onlyWhileCharging" to policy.onlyWhileCharging,
+      "duty" to duty.state,
+      "untilMs" to duty.untilMs?.toDouble(),
+      "windowsUntilMs" to policy.windows.maxOfOrNull { it.end }?.toDouble(),
+    )
+  }
+
+  private fun requestAddTile(promise: Promise) {
+    val ctx = context
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+      promise.resolve("unsupported")
+      return
+    }
+    val manager = ctx.getSystemService(StatusBarManager::class.java)
+    manager.requestAddTileService(
+      ComponentName(ctx, VoiceTileService::class.java),
+      ctx.getString(R.string.clovie_talk_label),
+      Icon.createWithResource(ctx, R.drawable.ic_clovie_tile),
+      ContextCompat.getMainExecutor(ctx),
+    ) { result ->
+      promise.resolve(
+        when (result) {
+          StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "added"
+          StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "already"
+          StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> "dismissed"
+          else -> "error"
+        },
+      )
+    }
+  }
+
+  /** The "Talk to Clovie" shortcut when long-pressing the app icon. */
+  private fun publishShortcut() {
+    val ctx = appContext.reactContext ?: return
+    try {
+      val shortcut = ShortcutInfoCompat.Builder(ctx, "talk")
+        .setShortLabel(ctx.getString(R.string.clovie_talk_label))
+        .setLongLabel(ctx.getString(R.string.clovie_talk_label))
+        .setIcon(IconCompat.createWithResource(ctx, R.drawable.ic_clovie_color))
+        .setIntent(Intent(ctx, VoiceTalkActivity::class.java).setAction(Intent.ACTION_VIEW))
+        .build()
+      ShortcutManagerCompat.pushDynamicShortcut(ctx, shortcut)
+    } catch (_: Exception) {
+      // Shortcuts are a convenience; never fail the module over them.
+    }
   }
 }

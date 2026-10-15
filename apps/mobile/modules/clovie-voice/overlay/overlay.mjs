@@ -6,6 +6,7 @@
  *   setTranscript(text)   what the owner said
  *   setMessage(text)      the outcome ("Checked in Sipho"), or the reason for an error
  *   setAction(label|null) the "Open Clovie" pill (request state); a tap calls ClovieOverlayBridge.onAction()
+ *   play('enter' | 'exit')  cinematic entrance when the window appears, exit before it goes
  *   setTheme('dark'|'light')  defaults to the system theme
  * Clovie is the real bot-avatars character, as in the app (see scripts/clovie-embed-entry.mjs).
  */
@@ -85,6 +86,15 @@ window.setAction = (value) => {
     actionButton.append(arrow);
   }
   render();
+};
+// The cinematic entrance and exit run in CSS (body.vw-enter / body.vw-exit). Native calls play('enter')
+// the moment the window is attached, so the first visible frame is the ignition.
+window.play = (name) => {
+  const body = document.body;
+  body.classList.remove('vw-enter', 'vw-exit');
+  void body.offsetWidth; // restart the animations
+  body.classList.add(name === 'exit' ? 'vw-exit' : 'vw-enter');
+  if (name === 'enter' && state === 'idle') window.setState('listening');
 };
 window.setTheme = (theme) => {
   document.body.dataset.theme = theme === 'light' ? 'light' : 'dark';
