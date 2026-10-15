@@ -11,8 +11,12 @@ import { KEYBOARD_AVOIDING_BEHAVIOR } from '../lib/keyboard';
 import { Ground } from '../primitives/Ground';
 import { Text } from '../primitives/Text';
 import { useAppColorScheme } from '../theme/useAppColorScheme';
+import { useDepth } from '../theme/useDepth';
 import { BackPill } from './BackPill';
 import { INBOX_DOME_CLEARANCE, tabBarClearance } from './tab-bar/layout';
+
+/** Fade height below the status bar: clear of the 34pt title that rests under it. */
+const NAV_FADE_EXTRA = 8;
 
 export interface PageProps {
   /** Large title under the (optional) back pill. */
@@ -50,6 +54,7 @@ export function Page({
 }: PageProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useAppColorScheme();
+  const depth = useDepth();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const handleRefresh = React.useCallback(async () => {
@@ -116,6 +121,23 @@ export function Page({
         </ScrollView>
         {footer}
       </KeyboardAvoidingView>
+      {/* The board's glass nav fade: scrolled content dissolves under the status bar
+          instead of sliding under it. Stops short of the resting large title. */}
+      <View
+        pointerEvents="none"
+        importantForAccessibility="no-hide-descendants"
+        testID="page-nav-fade"
+        style={[
+          depth.navFade,
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top + NAV_FADE_EXTRA,
+          },
+        ]}
+      />
     </Ground>
   );
 }

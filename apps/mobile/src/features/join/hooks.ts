@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { qk } from '@/lib/query';
 
+import type { NameInput } from './name';
+
 /** What the join screen shows of a Clerk invitation. */
 export interface PendingInvitation {
   id: string;
@@ -51,14 +53,24 @@ export function usePendingInvitations(enabled: boolean) {
 
 /**
  * Accepts an invitation and makes its organisation the active one. The API
- * links the new login to the invited staff row on its first call, so `/v1/me`
- * is dropped and fetched again as soon as the organisation is active.
+ * links the new login to the invited staff row on its first call, and names a
+ * new staff row from the Clerk name, so a nameless person saves their name to
+ * Clerk before accepting. `/v1/me` is dropped and fetched again as soon as the
+ * organisation is active.
  */
 export function useAcceptInvitation() {
   const { setActive } = useClerk();
+  const { user } = useUser();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (invitation: PendingInvitation) => {
+    mutationFn: async ({
+      invitation,
+      name,
+    }: {
+      invitation: PendingInvitation;
+      name?: NameInput;
+    }) => {
+      if (name) await user?.update(name);
       await invitation.accept();
       // `navigate` is explicit: routing is driven by the (app) layout.
       await setActive({

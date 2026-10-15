@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react-native';
 import * as React from 'react';
+import { View } from 'react-native';
 
 import { cn } from '../lib/cn';
 import { Pressable } from '../primitives/Pressable';
@@ -35,12 +36,13 @@ export function Disclosure({
       <Text style={{ color: depth.colors.tint }} className="text-title">
         {label}
       </Text>
-      <ChevronDown
-        size={14}
-        strokeWidth={3}
-        color={depth.colors.tint}
+      {/* The turn is on a View: a transform on the SVG icon itself drops it on Android. */}
+      <View
+        importantForAccessibility="no-hide-descendants"
         style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-      />
+      >
+        <ChevronDown size={14} strokeWidth={3} color={depth.colors.tint} />
+      </View>
     </Pressable>
   );
 }

@@ -71,6 +71,7 @@ function SheetOverlay({
             ReduceMotion.System,
           )}
           as="Pressable"
+          accessible={false}
         >
           <NativeOnlyAnimatedView
             entering={SlideInDown.duration(MOTION.sheetIn).reduceMotion(
