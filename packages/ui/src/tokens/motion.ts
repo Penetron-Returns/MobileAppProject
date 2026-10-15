@@ -1,6 +1,83 @@
+import { Easing, ReduceMotion } from 'react-native-reanimated';
+
 /**
- * Motion durations, in milliseconds. Animations pass `ReduceMotion.System`
- * so they are skipped when the OS asks for reduced motion.
+ * Motion tokens: the single source for every animation in the app. Every
+ * Reanimated animation passes `reduceMotion: ReduceMotion.System`, so the OS
+ * "reduce motion" setting makes it instant (see `timingConfig`/`springConfig`).
+ */
+
+/** Durations in milliseconds. */
+export const DURATION = {
+  /** Press feedback (scale, shadow): the design's 120ms ease. */
+  press: 120,
+  /** Small state changes: chevron turn, switch track colour, fades. */
+  quick: 180,
+  /** Indicator slides, list entrances, toasts. */
+  standard: 250,
+  /** Screen transitions and the presenting-screen scale. */
+  page: 300,
+} as const;
+
+/** Cubic-bezier control points, for APIs that want data (CSS-like). */
+export const BEZIER = {
+  /** CSS `ease`, the design's press curve. */
+  standard: [0.25, 0.1, 0.25, 1],
+  /** Decelerate: things arriving. */
+  out: [0, 0, 0.2, 1],
+  /** Accelerate then decelerate: things moving across the screen. */
+  inOut: [0.4, 0, 0.2, 1],
+} as const;
+
+/** Reanimated easing functions built from `BEZIER`. */
+export const EASING = {
+  standard: Easing.bezier(...BEZIER.standard),
+  out: Easing.bezier(...BEZIER.out),
+  inOut: Easing.bezier(...BEZIER.inOut),
+} as const;
+
+/** Spring configs (Reanimated `withSpring`). */
+export const SPRING = {
+  /** Quick, nearly critically damped: pills, switch thumbs, press-back. */
+  snappy: { damping: 20, stiffness: 320, mass: 0.8 },
+  /** Softer with a hint of overshoot: toasts, sheets, success marks. */
+  gentle: { damping: 16, stiffness: 180, mass: 1 },
+} as const;
+
+/** Scale values for press and pop feedback. */
+export const SCALE = {
+  /** Small controls and rows while pressed. */
+  pressed: 0.97,
+  /** Large round buttons (the + button, the Inbox dome) while pressed. */
+  pressedLarge: 0.94,
+  /** Peak of the tab icon pop. */
+  pop: 1.12,
+} as const;
+
+/** `withTiming` config that honours the OS reduce-motion setting. */
+export function timingConfig(
+  duration: number = DURATION.standard,
+  easing: (typeof EASING)[keyof typeof EASING] = EASING.standard,
+) {
+  return { duration, easing, reduceMotion: ReduceMotion.System } as const;
+}
+
+/** `withSpring` config that honours the OS reduce-motion setting. */
+export function springConfig(spring: keyof typeof SPRING = 'snappy') {
+  return { ...SPRING[spring], reduceMotion: ReduceMotion.System } as const;
+}
+
+/** Stagger between list rows, and the most rows that get a delay. */
+export const STAGGER = { step: 40, maxIndex: 8 } as const;
+
+/** Entrance delay of the row at `index`: capped so long lists never wait. */
+export function staggerDelay(index: number): number {
+  const capped = Math.min(Math.max(0, Math.floor(index)), STAGGER.maxIndex);
+  return capped * STAGGER.step;
+}
+
+/**
+ * Legacy overlay durations (Sheet, Toast, scrims); kept so existing call
+ * sites read from one table. Prefer `DURATION` for new code.
  */
 export const MOTION = {
   /** Overlay fade out. */
