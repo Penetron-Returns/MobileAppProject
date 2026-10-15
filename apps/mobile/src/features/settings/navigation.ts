@@ -1,3 +1,5 @@
+import type { AppMode } from '@/features/plans/logic';
+
 export type SettingsItem =
   | 'businessDetails'
   | 'hours'
@@ -5,6 +7,8 @@ export type SettingsItem =
   | 'team'
   | 'rules'
   | 'whatsapp'
+  | 'companion'
+  | 'plan'
   | 'notifications';
 
 export interface SettingsGroup {
@@ -16,12 +20,15 @@ export interface SettingsGroup {
 
 /**
  * What Settings lists, per the board (Settings.dc.html). Owners get "Your
- * business", "Customize" (WhatsApp, behind the `whatsapp_menu` gate in the
- * screen) and "Account"; staff only an untitled group with Notifications (the
- * API refuses the rest anyway). Extensions, connected apps, plan and Help are
- * not in v1 (docs/v1-scope.md).
+ * business", "Customize" and "Account"; staff only an untitled group with
+ * Notifications (the API refuses the rest anyway). Customize holds WhatsApp
+ * on Free and the Companion on paid plans (`mode`); Account leads with Plan.
+ * Extensions, connected apps and Help are not in v1 (docs/v1-scope.md).
  */
-export function settingsGroups(isOwner: boolean): SettingsGroup[] {
+export function settingsGroups(
+  isOwner: boolean,
+  mode: AppMode = 'free',
+): SettingsGroup[] {
   if (!isOwner) {
     return [{ id: 'account', items: ['notifications'], titled: false }];
   }
@@ -31,8 +38,12 @@ export function settingsGroups(isOwner: boolean): SettingsGroup[] {
       items: ['businessDetails', 'hours', 'services', 'team', 'rules'],
       titled: true,
     },
-    { id: 'customize', items: ['whatsapp'], titled: true },
-    { id: 'account', items: ['notifications'], titled: true },
+    {
+      id: 'customize',
+      items: [mode === 'ai' ? 'companion' : 'whatsapp'],
+      titled: true,
+    },
+    { id: 'account', items: ['plan', 'notifications'], titled: true },
   ];
 }
 

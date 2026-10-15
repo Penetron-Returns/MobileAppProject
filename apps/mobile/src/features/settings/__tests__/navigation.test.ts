@@ -17,6 +17,11 @@ describe('settingsGroups', () => {
       'rules',
     ]);
     expect(groups[1].items).toEqual(['whatsapp']);
+    expect(groups[2].items).toEqual(['plan', 'notifications']);
+  });
+
+  it('swaps WhatsApp for the Companion on paid plans', () => {
+    expect(settingsGroups(true, 'ai')[1].items).toEqual(['companion']);
   });
 
   it('gives staff one untitled group with only notifications', () => {
