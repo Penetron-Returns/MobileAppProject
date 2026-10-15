@@ -9,17 +9,18 @@ import {
   Text,
   useAppColorScheme,
 } from '@booking/ui';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBusiness } from '@/features/business/hooks';
+import { useAppMode } from '@/features/plans/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { todayISO, type ISODate } from '@/lib/time';
 import { useCalendarDay, useCalendarWeek } from '../hooks';
-import { shiftAnchor } from '../logic';
+import { newBookingHref, shiftAnchor, type NewBookingPrefill } from '../logic';
 import {
   subscribeCalendarViewMode,
   type CalendarViewMode,
@@ -79,6 +80,13 @@ function CalendarContent({ timezone }: { timezone: string }) {
   const params = useLocalSearchParams<{ view?: string; t?: string }>();
   const [view, setView] = React.useState<CalendarViewMode>('day');
   const [anchor, setAnchor] = React.useState<ISODate>(() => todayISO(timezone));
+  // Paid plans have Reports where Free has "+": manual booking stays a quiet action here.
+  const canCreate = useAppMode() === 'ai';
+  const openNewBooking = React.useCallback(
+    (prefill: NewBookingPrefill) =>
+      router.push(newBookingHref(prefill) as never),
+    [],
+  );
 
   React.useEffect(
     () =>
@@ -103,9 +111,15 @@ function CalendarContent({ timezone }: { timezone: string }) {
         onViewChange={setView}
         onAnchor={setAnchor}
         onShift={(dir) => setAnchor((a) => shiftAnchor(view, a, dir))}
+        onNewBooking={
+          canCreate ? () => openNewBooking({ date: anchor }) : undefined
+        }
       />
       {view === 'day' ? (
-        <DayBody date={anchor} />
+        <DayBody
+          date={anchor}
+          onCreateAt={canCreate ? openNewBooking : undefined}
+        />
       ) : (
         <WeekBody
           anchor={anchor}
@@ -124,7 +138,13 @@ function useBottomInset() {
   return tabBarClearance(insets.bottom) + INBOX_DOME_CLEARANCE;
 }
 
-function DayBody({ date }: { date: ISODate }) {
+function DayBody({
+  date,
+  onCreateAt,
+}: {
+  date: ISODate;
+  onCreateAt?: (prefill: NewBookingPrefill) => void;
+}) {
   const { t } = useTranslation();
   const view = useCalendarDay(date);
   const bottomInset = useBottomInset();
@@ -148,7 +168,12 @@ function DayBody({ date }: { date: ISODate }) {
           {t('calendar.noStaff')}
         </Text>
       ) : (
-        <DayView view={view} date={date} bottomInset={bottomInset} />
+        <DayView
+          view={view}
+          date={date}
+          bottomInset={bottomInset}
+          onCreateAt={onCreateAt}
+        />
       )}
     </View>
   );

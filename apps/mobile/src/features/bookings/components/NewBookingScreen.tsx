@@ -47,6 +47,7 @@ import {
   hasUnsavedInput,
   toCreateRequest,
 } from '../logic';
+import { whenFromPrefill, type BookingPrefill } from '../prefill';
 import { ClientStep, type ClientChoice } from './ClientStep';
 import { WhenStep, type WhenState } from './WhenStep';
 
@@ -55,13 +56,6 @@ const EMPTY_CLIENT: ClientChoice = {
   client: null,
   newName: '',
   newPhone: '',
-};
-const EMPTY_WHEN: WhenState = {
-  staffId: null,
-  date: null,
-  picked: null,
-  notes: '',
-  sendWhatsApp: true,
 };
 
 /** Closes the sheet, falling back to Today when opened from a deep link. */
@@ -74,9 +68,12 @@ const closeSheet = () => goBack('/');
 export function NewBookingScreen({
   initialClientId,
   startWithNewClient,
+  prefill,
 }: {
   initialClientId?: string;
   startWithNewClient?: boolean;
+  /** Staff, day and time from a long-press on the calendar. */
+  prefill?: BookingPrefill;
 }) {
   return (
     <BusinessGate>
@@ -85,6 +82,7 @@ export function NewBookingScreen({
           business={business}
           initialClientId={initialClientId}
           startWithNewClient={startWithNewClient}
+          prefill={prefill}
         />
       )}
     </BusinessGate>
@@ -95,10 +93,12 @@ function NewBookingFlow({
   business,
   initialClientId,
   startWithNewClient,
+  prefill,
 }: {
   business: BusinessSummary;
   initialClientId?: string;
   startWithNewClient?: boolean;
+  prefill?: BookingPrefill;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -111,7 +111,8 @@ function NewBookingFlow({
     mode: startWithNewClient ? 'new' : 'existing',
   });
   const [serviceId, setServiceId] = React.useState<string | null>(null);
-  const [when, setWhen] = React.useState<WhenState>(EMPTY_WHEN);
+  const startWhen = React.useMemo(() => whenFromPrefill(prefill), [prefill]);
+  const [when, setWhen] = React.useState<WhenState>(startWhen);
   const [takenAt, setTakenAt] = React.useState<string | null>(null);
   const [booked, setBooked] = React.useState<{
     id: string;
@@ -141,6 +142,13 @@ function NewBookingFlow({
     links.data ?? [],
     serviceId,
   );
+  // A staff member who cannot do the chosen service falls back to "Any".
+  React.useEffect(() => {
+    if (!staff.data || !links.data) return;
+    if (when.staffId && !staffOptions.some((s) => s.id === when.staffId)) {
+      setWhen((w) => ({ ...w, staffId: null, picked: null }));
+    }
+  }, [when.staffId, staffOptions, staff.data, links.data]);
 
   const create = useCreateAppointment({
     onSuccess: (id) => {
@@ -326,7 +334,7 @@ function NewBookingFlow({
           serviceId={serviceId}
           onService={(id) => {
             setServiceId(id);
-            setWhen(EMPTY_WHEN);
+            setWhen(startWhen);
           }}
           currency={business.currency}
         />
@@ -340,6 +348,7 @@ function NewBookingFlow({
           today={todayISO(tz)}
           horizonDays={bookingHorizonDays(rules.data)}
           firstName={firstName}
+          preferredTime={prefill?.time ?? null}
           takenAt={takenAt}
           onTakenDismiss={() => setTakenAt(null)}
         />

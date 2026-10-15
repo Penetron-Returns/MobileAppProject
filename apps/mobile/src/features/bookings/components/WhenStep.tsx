@@ -33,6 +33,7 @@ export function WhenStep({
   today,
   horizonDays,
   firstName,
+  preferredTime,
   takenAt,
   onTakenDismiss,
 }: {
@@ -44,6 +45,8 @@ export function WhenStep({
   today: ISODate;
   horizonDays: number;
   firstName: string;
+  /** `HH:mm` from a calendar long-press: picked once when that slot is free. */
+  preferredTime?: string | null;
   /** The start that was just booked by someone else, if the last attempt hit a conflict. */
   takenAt: string | null;
   onTakenDismiss: () => void;
@@ -102,6 +105,7 @@ export function WhenStep({
           onDateChange={(date) => onChange({ date })}
           selected={state.picked?.startsAt ?? null}
           onSelect={(picked) => onChange({ picked })}
+          preferredTime={preferredTime}
         />
       </View>
 
