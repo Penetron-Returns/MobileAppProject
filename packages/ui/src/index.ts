@@ -34,6 +34,7 @@ export {
   MOTION,
   SCALE,
   SPRING,
+  TIMING,
   STAGGER,
   TOAST_TTL,
   springConfig,
