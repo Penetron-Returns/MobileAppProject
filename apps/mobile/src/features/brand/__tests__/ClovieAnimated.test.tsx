@@ -16,8 +16,10 @@ jest.mock('@booking/ui', () => ({
 }));
 
 beforeEach(() => {
+  jest.useFakeTimers();
   mockReduce = false;
 });
+afterEach(() => jest.useRealTimers());
 
 const web = (tree: ReturnType<typeof mount>) =>
   tree.root.findAllByProps({ testID: 'clovie-webview' });
@@ -28,7 +30,7 @@ const opacity = (tree: ReturnType<typeof mount>, id: string) =>
     .find((s: { opacity?: number }) => s && 'opacity' in s).opacity;
 
 describe('ClovieAnimated', () => {
-  it('shows the still until the page reports ready, then cross-fades to the live canvas', () => {
+  it('keeps the still at full opacity until ready, then fades the live layer in over it', () => {
     const tree = mount(<ClovieAnimated state="working" size={140} />);
     expect(web(tree)[0].props.source.html).toContain('"state":"working"');
     expect(opacity(tree, 'clovie-still-layer')).toBe(1);
@@ -37,8 +39,39 @@ describe('ClovieAnimated', () => {
     act(() => {
       web(tree)[0].props.onMessage({ nativeEvent: { data: 'ready' } });
     });
-    expect(opacity(tree, 'clovie-still-layer')).toBe(0);
+    // Live is fading in; the still has not started to fade yet.
     expect(opacity(tree, 'clovie-live-layer')).toBe(1);
+    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(opacity(tree, 'clovie-live-layer')).toBe(1);
+    expect(opacity(tree, 'clovie-still-layer')).toBe(0);
+  });
+
+  it('loads the still without a fade', () => {
+    const tree = mount(<ClovieAnimated size={120} />);
+    expect(
+      tree.root.findByProps({ testID: 'clovie-still' }).props.fadeDuration,
+    ).toBe(0);
+  });
+
+  it('brings the still back and remounts the WebView when its process dies', () => {
+    const tree = mount(<ClovieAnimated size={120} />);
+    act(() => {
+      web(tree)[0].props.onMessage({ nativeEvent: { data: 'ready' } });
+    });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(opacity(tree, 'clovie-still-layer')).toBe(0);
+    act(() => {
+      web(tree)[0].props.onRenderProcessGone({});
+    });
+    expect(web(tree).length).toBeGreaterThan(0);
+    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(opacity(tree, 'clovie-live-layer')).toBe(0);
   });
 
   it('calls onReady once the page reports its first paint', () => {
