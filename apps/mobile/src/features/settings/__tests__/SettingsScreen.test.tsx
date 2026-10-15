@@ -43,8 +43,13 @@ jest.mock('@clerk/expo', () => ({
   useOrganization: () => ({ organization: { name: 'Ashgrove Hair & Beauty' } }),
 }));
 
-const mockMe: { data: { role: string } | undefined; isPending: boolean } = {
-  data: { role: 'owner' },
+const mockMe: {
+  data:
+    | { role: string; plan?: string; features?: { feature: string }[] }
+    | undefined;
+  isPending: boolean;
+} = {
+  data: { role: 'owner', plan: 'free', features: [] },
   isPending: false,
 };
 jest.mock('@/features/business/me', () => ({
@@ -101,7 +106,7 @@ const labelled = (tree: ReactTestRenderer, label: string) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMe.data = { role: 'owner' };
+  mockMe.data = { role: 'owner', plan: 'free', features: [] };
   mockMe.isPending = false;
 });
 
@@ -143,6 +148,32 @@ describe('Settings as owner', () => {
     const tree = mount(<SettingsScreen />);
     act(() => labelled(tree, 'Ashgrove Hair & Beauty, Owner')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/business-details');
+  });
+});
+
+describe('Settings by plan', () => {
+  it('Free keeps the WhatsApp row and shows the plan as Free', () => {
+    const out = text(mount(<SettingsScreen />));
+    expect(out).toContain('WhatsApp');
+    expect(out).not.toContain('Companion');
+    expect(out).toContain('Plan | Free');
+  });
+
+  it('paid swaps WhatsApp for the Companion row and shows the plan name', () => {
+    mockMe.data = {
+      role: 'owner',
+      plan: 'growth',
+      features: [{ feature: 'companion' }, { feature: 'reports' }],
+    };
+    const tree = mount(<SettingsScreen />);
+    const out = text(tree);
+    expect(out).toContain('Companion');
+    expect(out).not.toContain('WhatsApp');
+    expect(out).toContain('Plan | Growth');
+    act(() => labelled(tree, 'Companion')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/companion');
+    act(() => labelled(tree, 'Plan, Growth')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/settings/plan');
   });
 });
 

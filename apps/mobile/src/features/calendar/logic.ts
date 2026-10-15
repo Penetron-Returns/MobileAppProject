@@ -245,3 +245,36 @@ export function blockTone(a: {
   if (a.status === 'completed') return 'done';
   return a.checked_in_at ? 'arrived' : 'upcoming';
 }
+
+/** Press positions snap to this many minutes (the slot grid of the booking rules' default). */
+export const PRESS_SNAP_MINUTES = 15;
+
+/**
+ * The time a long-press on an empty part of a staff column stands for:
+ * `y` px from the column top, snapped down to the quarter hour and kept
+ * inside the visible window. Returns minutes since midnight.
+ */
+export function minuteAtOffset(
+  y: number,
+  window: MinuteSpan,
+  step: number = PRESS_SNAP_MINUTES,
+): number {
+  const raw = window.startMin + (y / PX_PER_HOUR) * 60;
+  const snapped = Math.floor(raw / step) * step;
+  return Math.min(Math.max(snapped, window.startMin), window.endMin - step);
+}
+
+/** Route params for New booking opened from the calendar; staff and time are optional. */
+export interface NewBookingPrefill {
+  staffId?: string;
+  date: ISODate;
+  /** `HH:mm` in the business timezone. */
+  time?: string;
+}
+
+export function newBookingHref(prefill: NewBookingPrefill) {
+  const params: Record<string, string> = { date: prefill.date };
+  if (prefill.staffId) params.staffId = prefill.staffId;
+  if (prefill.time) params.time = prefill.time;
+  return { pathname: '/new-booking', params } as const;
+}

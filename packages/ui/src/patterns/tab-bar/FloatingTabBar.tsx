@@ -1,6 +1,7 @@
 import type { Tabs } from 'expo-router';
 import {
   CalendarDays,
+  ChartNoAxesColumn,
   Plus,
   SlidersHorizontal,
   Sun,
@@ -47,6 +48,9 @@ import {
 import { useDsText } from '../../lib/strings';
 import { usePressBounce } from './usePressBounce';
 
+/** What the middle button of the bar does. */
+export type CenterAction = 'add' | 'reports';
+
 const TAB_ICONS: Record<TabRouteName, LucideIcon> = {
   index: Sun,
   calendar: CalendarDays,
@@ -69,9 +73,11 @@ interface TabFrame {
 const BAR_PAD = 4;
 
 /**
- * The floating tab bar of the iPhone design: Today, Calendar, +, Clients,
- * Settings in one raised capsule, a tactile centre "+" that calls `onAdd`
- * (the app opens New booking as a modal), and the Inbox dome above the right-hand end. Hidden on screens
+ * The floating tab bar of the iPhone design: Today, Calendar, a centre
+ * action, Clients, Settings in one raised capsule, and a dome above the
+ * right-hand end. Free plans get the "+" (the app opens New booking as a
+ * modal) and the Inbox dome; paid plans get Reports and the Companion dome.
+ * The app picks which through `center` and `dome`. Hidden on screens
  * that opt out through `tabBarStyle: { display: 'none' }`. The selected pill
  * slides between tabs, the tapped icon pops and a light haptic confirms the
  * change.
@@ -80,13 +86,16 @@ export function FloatingTabBar({
   state,
   descriptors,
   navigation,
-  inbox,
-  onAdd,
+  center = 'add',
+  onCenter,
+  dome,
 }: TabBarProps & {
-  /** Opens New booking; a modal route, so the bar has no "add" tab to switch to. */
-  onAdd?: () => void;
-  /** The Inbox dome (or nothing) shown above the right-hand end of the bar. */
-  inbox?: React.ReactNode;
+  /** The centre action: `add` (New booking, Free) or `reports` (paid plans). */
+  center?: CenterAction;
+  /** Runs the centre action; both open a route, so the bar has no tab to switch to. */
+  onCenter?: () => void;
+  /** The Inbox or Companion dome (or nothing) shown above the right-hand end of the bar. */
+  dome?: React.ReactNode;
 }) {
   const t = useDsText();
   const depth = useDepth();
@@ -184,7 +193,7 @@ export function FloatingTabBar({
         pointerEvents="box-none"
         className="absolute right-5 top-0 items-end"
       >
-        {inbox}
+        {dome}
       </View>
       <View
         accessibilityRole="tablist"
@@ -219,10 +228,12 @@ export function FloatingTabBar({
         <Pressable
           onPress={() => {
             haptics.light();
-            onAdd?.();
+            onCenter?.();
           }}
           accessibilityRole="button"
-          accessibilityLabel={t('tabs.add')}
+          accessibilityLabel={t(
+            center === 'reports' ? 'tabs.reports' : 'tabs.add',
+          )}
           {...addBounce.handlers}
           className="w-[60px] items-center justify-center"
         >
@@ -235,7 +246,15 @@ export function FloatingTabBar({
               ]}
               className="h-[52px] w-[52px] items-center justify-center rounded-full"
             >
-              <Plus size={26} strokeWidth={2.4} color={depth.colors.onFill} />
+              {center === 'reports' ? (
+                <ChartNoAxesColumn
+                  size={26}
+                  strokeWidth={2.2}
+                  color={depth.colors.onFill}
+                />
+              ) : (
+                <Plus size={26} strokeWidth={2.4} color={depth.colors.onFill} />
+              )}
             </Animated.View>
           )}
         </Pressable>

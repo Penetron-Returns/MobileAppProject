@@ -1,9 +1,12 @@
 import type { FeatureKey, PlanKey } from '@booking/types';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { useMe } from '@/features/business/me';
+import { api } from '@/lib/api';
+import { qk } from '@/lib/query';
 
-import { hasFeature, monthlyLimit } from './logic';
+import { appMode, hasFeature, monthlyLimit, type AppMode } from './logic';
 
 export interface Entitlements {
   /** null until the session is loaded or if loading failed */
@@ -32,4 +35,22 @@ export function useEntitlements(): Entitlements {
     }),
     [me.data?.plan, features, me.isPending, me.isError],
   );
+}
+
+/** Free (the research app) or paid (companion and reports), from the same `/v1/me` entitlements. */
+export function useAppMode(): AppMode {
+  return appMode(useMe().data?.features);
+}
+
+/** Plans and prices for the Plan page, in catalogue order. */
+export function usePlans() {
+  return useQuery({ queryKey: qk.plans, queryFn: api.plans });
+}
+
+/** Completed jobs against the allowance; the current month when `month` is omitted. */
+export function useBillingUsage(month?: string) {
+  return useQuery({
+    queryKey: qk.billingUsage(month ?? null),
+    queryFn: () => api.billingUsage(month),
+  });
 }

@@ -16,7 +16,9 @@ import {
 } from 'react-native';
 import { minutesToTime, type ISODate } from '@/lib/time';
 import { columnWidth, minutesToPx, nowMinute } from '../logic';
+import { haptics } from '@booking/ui';
 import { Column, HourLines, type Ready } from './DayColumns';
+import type { NewBookingPrefill } from '../logic';
 
 const GUTTER = 52;
 const HEADER = 56;
@@ -29,10 +31,13 @@ export function DayView({
   view,
   date,
   bottomInset,
+  onCreateAt,
 }: {
   view: Ready;
   date: ISODate;
   bottomInset: number;
+  /** Long-press on an empty slot opens New booking with that staff and time. */
+  onCreateAt?: (prefill: NewBookingPrefill) => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
@@ -183,6 +188,18 @@ export function DayView({
                   appointments={c.appointments}
                   timezone={timezone}
                   hasDivider={index > 0}
+                  onLongPressEmpty={
+                    onCreateAt
+                      ? (minutes) => {
+                          haptics.light();
+                          onCreateAt({
+                            staffId: c.staff.id,
+                            date,
+                            time: minutesToTime(minutes),
+                          });
+                        }
+                      : undefined
+                  }
                 />
               ))}
               <HourLines hours={hours} window={window} />

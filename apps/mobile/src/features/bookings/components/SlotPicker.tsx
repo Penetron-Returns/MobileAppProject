@@ -26,6 +26,8 @@ import {
   WEEKDAYS_SHORT,
   formatDateLong,
   formatTime,
+  minutesSinceMidnight,
+  minutesToTime,
   parseISODate,
   weekdayOf,
   type ISODate,
@@ -62,6 +64,7 @@ export function SlotPicker({
   onDateChange,
   selected,
   onSelect,
+  preferredTime,
 }: {
   serviceId: string | null;
   staffId: string | null;
@@ -72,6 +75,8 @@ export function SlotPicker({
   onDateChange: (date: ISODate) => void;
   selected: string | null;
   onSelect: (slot: PickedSlot) => void;
+  /** `HH:mm` to pick once when that time is free (from a calendar long-press). */
+  preferredTime?: string | null;
 }) {
   const { t } = useTranslation();
   const range = dayRange(today, horizonDays);
@@ -118,6 +123,20 @@ export function SlotPicker({
       })),
     [slots.data, timezone],
   );
+
+  // Pick the time the owner long-pressed, once, if it is still free.
+  const appliedPreferred = React.useRef(false);
+  React.useEffect(() => {
+    if (!preferredTime || appliedPreferred.current || selected) return;
+    const slot = slots.data?.slots.find(
+      (s) =>
+        minutesToTime(minutesSinceMidnight(s.starts_at, timezone)) ===
+        preferredTime,
+    );
+    if (!slot) return;
+    appliedPreferred.current = true;
+    onSelect({ startsAt: slot.starts_at, staffIds: slot.staff_ids });
+  }, [preferredTime, selected, slots.data, timezone, onSelect]);
 
   if (!serviceId) {
     return (

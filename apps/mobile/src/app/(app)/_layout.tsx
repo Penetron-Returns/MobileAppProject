@@ -206,6 +206,15 @@ export default function AppLayout() {
           fullScreenGestureEnabled: false,
         }}
       />
+      {/* The companion sheet draws its own dim and slides itself in. */}
+      <Stack.Screen
+        name="companion"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'none',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
     </Stack>
   );
 }
