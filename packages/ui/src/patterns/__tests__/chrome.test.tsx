@@ -1,6 +1,14 @@
 import * as React from 'react';
+import { StyleSheet } from 'react-native';
 
-import { act, byLabel, pressable, render, textOf } from '../../testing/render';
+import {
+  act,
+  byLabel,
+  host,
+  pressable,
+  render,
+  textOf,
+} from '../../testing/render';
 import { BackPill } from '../BackPill';
 import { FlowCaption, FlowFooter, FlowHeading, FlowTopBar } from '../Flow';
 import { Page } from '../Page';
@@ -111,6 +119,13 @@ describe('Page', () => {
     ]) {
       expect(text).toContain(part);
     }
+  });
+
+  it('fades scrolled content under the status bar without blocking touches', () => {
+    const tree = render(<Page title="Today">{null}</Page>);
+    const fade = host(tree, 'page-nav-fade');
+    expect(fade.props.pointerEvents).toBe('none');
+    expect(StyleSheet.flatten(fade.props.style).position).toBe('absolute');
   });
 
   it('shows the back pill only for pushed screens', () => {

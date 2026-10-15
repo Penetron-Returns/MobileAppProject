@@ -35,7 +35,7 @@ export function InboxDome({ count, label, onPress }: InboxDomeProps) {
           borderRadius: INBOX_DOME_SIZE / 2,
         },
       ]}
-      className="items-center justify-center"
+      className="h-14 w-14 items-center justify-center rounded-full"
     >
       <Inbox size={26} strokeWidth={1.8} color={depth.colors.label} />
       {count > 0 ? (
