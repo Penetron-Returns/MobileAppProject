@@ -24,7 +24,7 @@ export interface Seed {
 }
 
 /**
- * One business open Mon–Fri 09:00–17:00 (lunch 12:00–13:00), two bookable
+ * One business open Mon–Fri 09:00–17:00 (staff lunch break 12:00–13:00), two bookable
  * staff qualified for "Cut" (60 min), one of them for "Colour" (90 min).
  */
 export function seed(rules: Partial<BookingRules> = {}): Seed {
@@ -44,10 +44,7 @@ export function seed(rules: Partial<BookingRules> = {}): Seed {
   };
   repo.tables.businesses.push(business);
   for (const weekday of [1, 2, 3, 4, 5]) {
-    repo.tables.business_hours.push(
-      { business_id: business.id, weekday, opens_at: '09:00:00', closes_at: '12:00:00' },
-      { business_id: business.id, weekday, opens_at: '13:00:00', closes_at: '17:00:00' },
-    );
+    repo.tables.business_hours.push({ business_id: business.id, weekday, opens_at: '09:00:00', closes_at: '17:00:00' });
   }
   const service = (name: string, duration_minutes: number, is_active = true): ServiceRow => {
     const row: ServiceRow = {
@@ -115,6 +112,12 @@ export function seed(rules: Partial<BookingRules> = {}): Seed {
   link(off, cut);
   link(thandi, colour);
   link(thandi, inactive);
+  // Lunch is a staff break (every working day), not a gap in the opening hours.
+  for (const s of [thandi, sipho]) {
+    repo.tables.staff_breaks.push({
+      id: repo.nextId(), business_id: business.id, staff_id: s.id, label: 'Lunch', start_time: '12:00:00', end_time: '13:00:00', weekdays: [],
+    });
+  }
 
   return {
     repo,

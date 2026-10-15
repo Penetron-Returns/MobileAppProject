@@ -67,6 +67,28 @@ describe('GET /public/b/:slug', () => {
 });
 
 describe('public availability', () => {
+  it('applies breaks, time off and special days like the app does', async () => {
+    const slots = async () =>
+      ((await pub('GET', `/b/salon/availability/slots?service_id=${h.cut.id}&date=${WED}`)).body.data.slots as { starts_at: string }[]).map(
+        (s) => s.starts_at,
+      );
+    expect(await slots()).not.toContain(sast('12:00')); // everyone lunches 12:00-13:00
+    h.repo.tables.staff_time_off.push(
+      ...[h.thandi, h.sipho].map((s) => ({
+        id: h.repo.nextId(), business_id: h.business.id, staff_id: s.id, starts_on: WED, ends_on: WED,
+        start_time: '14:00:00', end_time: '16:00:00', reason: 'other' as const, note: null,
+      })),
+    );
+    expect(await slots()).not.toContain(sast('14:30'));
+    h.repo.tables.business_special_days.push({
+      id: h.repo.nextId(), business_id: h.business.id, date: WED, name: 'Closed', kind: 'closure',
+      is_closed: true, start_time: null, end_time: null,
+    });
+    expect(await slots()).toEqual([]);
+    const days = await pub('GET', `/b/salon/availability/days?service_id=${h.cut.id}&from=2026-09-29&to=2026-10-01`);
+    expect(days.body.data.days).not.toContain(WED);
+  });
+
   it('serves the same slots as v1', async () => {
     const res = await pub('GET', `/b/salon/availability/slots?service_id=${h.cut.id}&date=${WED}`);
     expect(res.status).toBe(200);
