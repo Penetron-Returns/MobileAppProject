@@ -42,6 +42,7 @@ export function TeamScreen() {
   const links = useStaffServices();
   const rules = useAvailabilityRules();
   const businessHours = useBusinessHours();
+  const [presenting, setPresenting] = React.useState(false);
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<StaffRow | 'new' | null>(null);
   const [deleting, setDeleting] = React.useState<StaffRow | null>(null);
@@ -83,6 +84,9 @@ export function TeamScreen() {
           (rules.data ?? []).filter((r) => r.staff_id === id),
           businessHours.data ?? [],
         )}
+        rules={(rules.data ?? []).filter((r) => r.staff_id === id)}
+        businessHours={businessHours.data ?? []}
+        onPresentChange={setPresenting}
         serviceCount={id ? serviceIdsFor(id).length : 0}
         onEdit={() => id && setEditing(staffRow(id))}
         onGone={() => setSelectedKey(null)}
@@ -108,7 +112,7 @@ export function TeamScreen() {
   }
 
   return (
-    <Presenter active={editing !== null}>
+    <Presenter active={editing !== null || presenting}>
       <GlassPage
         title={selected ? firstName(selected.name) : t('team.title')}
         backLabel={selected ? t('team.title') : t('tabs.settings')}

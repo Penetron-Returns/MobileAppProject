@@ -13,12 +13,11 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { dayHours, workingDaysSummary, type WorkingDay } from '../schedule';
-import { weekdayName } from '../schedule';
+import type { BusinessHoursRule, WorkingDay } from '../schedule';
 import type { TeamPerson } from '../logic';
 import { InviteCard } from './InviteCard';
 import { PersonMore } from './PersonMore';
-import { ScheduleSection } from './ScheduleSection';
+import { PersonSchedule } from './PersonSchedule';
 
 /**
  * A person's page per the Team board: ringed portrait, name and job, a card
@@ -29,35 +28,32 @@ export function PersonDetail({
   person,
   week,
   inherited,
+  rules,
+  businessHours,
   serviceCount,
   onEdit,
   onGone,
+  onPresentChange,
 }: {
   person: TeamPerson;
   /** Weekly hours of the person (Monday first); empty when not loaded or none set. */
   week: WorkingDay[];
   /** True when the week is the business hours (the person has no hours of their own). */
   inherited: boolean;
+  /** The person's own weekly rules (empty = follows the business). */
+  rules: { weekday: number; start_time: string; end_time: string }[];
+  businessHours: BusinessHoursRule[];
   serviceCount: number;
   onEdit: () => void;
   /** The person left the team (or the invite was revoked): back to the list. */
   onGone: () => void;
+  /** True while a schedule editor sheet is open, so the page can shrink behind it. */
+  onPresentChange: (active: boolean) => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
   const [inviting, setInviting] = React.useState(false);
   const [sentTo, setSentTo] = React.useState<string | null>(null);
-  const to = t('team.to');
-  const daysText = workingDaysSummary(week, to);
-  const summary = !daysText
-    ? t('team.workingDays.none')
-    : inherited
-      ? t('team.workingDays.inherited', { days: daysText })
-      : daysText;
-  const lines = week.map((day) => ({
-    left: weekdayName(day.weekday),
-    right: dayHours(day, to) ?? t('team.off'),
-  }));
   const { staff } = person;
 
   return (
@@ -84,10 +80,13 @@ export function PersonDetail({
 
       {staff ? (
         <Group radius={26} className="mt-6">
-          <ScheduleSection
-            title={t('team.workingDays.title')}
-            summary={summary}
-            lines={lines}
+          <PersonSchedule
+            staffId={staff.id}
+            week={week}
+            inherited={inherited}
+            rules={rules}
+            businessHours={businessHours}
+            onPresentChange={onPresentChange}
           />
           <GroupRow
             showSeparator
