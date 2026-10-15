@@ -7,7 +7,11 @@ import { env } from '../env';
 
 /** Client-side codes for failures that never reached the API. */
 export type ClientErrorCode =
-  'NETWORK_ERROR' | 'OFFLINE' | 'BAD_RESPONSE' | 'NOT_CONFIGURED';
+  | 'NETWORK_ERROR'
+  | 'OFFLINE'
+  | 'BAD_RESPONSE'
+  | 'NOT_CONFIGURED'
+  | 'NOT_SIGNED_IN';
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode | ClientErrorCode;
@@ -141,7 +145,16 @@ export async function apiRequest<T>(
   }
   if (opts.auth !== false) {
     const token = await getAuthToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+    // Never send a protected call without a token: it can only 401, and a
+    // caller that reads that as "no business" misroutes the user.
+    if (!token) {
+      throw new ApiError({
+        code: 'NOT_SIGNED_IN',
+        message: 'No session token is available yet.',
+        status: 401,
+      });
+    }
+    headers.Authorization = `Bearer ${token}`;
   }
 
   let res: Response;
