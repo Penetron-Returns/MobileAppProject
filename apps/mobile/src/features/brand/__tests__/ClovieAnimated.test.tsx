@@ -41,6 +41,15 @@ describe('ClovieAnimated', () => {
     expect(opacity(tree, 'clovie-live-layer')).toBe(1);
   });
 
+  it('calls onReady once the page reports its first paint', () => {
+    const onReady = jest.fn();
+    const tree = mount(<ClovieAnimated size={120} onReady={onReady} />);
+    act(() => {
+      web(tree)[0].props.onMessage({ nativeEvent: { data: 'ready' } });
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores other messages from the page', () => {
     const tree = mount(<ClovieAnimated size={120} />);
     act(() => {

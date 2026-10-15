@@ -1,19 +1,31 @@
-import { Button, Text, useDepth } from '@booking/ui';
+import { Button, DURATION, Text, useDepth } from '@booking/ui';
 import { Mail } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
+import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+import { ClovieWordmark } from '@/features/brand/ClovieWordmark';
 import { openLegalPage, type LegalPage } from '@/lib/legal';
 import { toast } from '@/lib/toast';
 
 import { AuthError } from './AuthError';
+import { GoogleLogo } from './GoogleLogo';
 import type { AuthErrorKey } from '../errors';
 
-/** Google's brand blue for the "G" mark: a third-party brand colour, not a theme token. */
-const GOOGLE_BLUE = '#4285F4';
+/** Wordmark font size: big enough to be the hero of the board. */
+const WORDMARK_SIZE = 48;
+/** Delay between the entrance of each block, in ms. */
+const ENTRANCE_STEP = 90;
+
+/** A short fade-and-rise entrance, staggered by `step`; instant under reduced motion. */
+function enter(step: number) {
+  return FadeInDown.delay(step * ENTRANCE_STEP)
+    .duration(DURATION.page)
+    .reduceMotion(ReduceMotion.System);
+}
 
 interface WelcomeStepProps {
   isBusy: boolean;
@@ -48,7 +60,7 @@ function LegalLink({ page, label }: { page: LegalPage; label: string }) {
   );
 }
 
-/** The welcome board: Clovie, headline, value prop, then the sign-in options. */
+/** The welcome board: Clovie, wordmark, value prop, then the sign-in options. */
 export function WelcomeStep({
   isBusy,
   errorKey,
@@ -66,29 +78,24 @@ export function WelcomeStep({
         style={{ paddingTop: Math.max(insets.top + 40, 96) }}
       >
         {/* The hop spills above the 120pt box: keep the parent unclipped. */}
-        <ClovieAnimated state="default" size={120} />
-        <Text
-          style={{ color: depth.colors.secondary }}
-          className="mt-3.5 text-title font-semibold"
-        >
-          {t('auth.appName')}
-        </Text>
-        <Text
-          role="heading"
-          aria-level="1"
-          className="mx-9 mt-7 text-center text-large-title font-bold"
-        >
-          {t('auth.welcome.headline')}
-        </Text>
-        <Text
-          style={{ color: depth.colors.secondary }}
-          className="mx-12 mt-2.5 text-center text-title"
-        >
-          {t('auth.welcome.valueProp')}
-        </Text>
+        <Animated.View entering={enter(0)}>
+          <ClovieAnimated state="default" size={120} />
+        </Animated.View>
+        <Animated.View entering={enter(1)} className="mt-4">
+          <ClovieWordmark size={WORDMARK_SIZE} />
+        </Animated.View>
+        <Animated.View entering={enter(2)}>
+          <Text
+            style={{ color: depth.colors.secondary }}
+            className="mx-12 mt-2 text-center text-title"
+          >
+            {t('auth.welcome.valueProp')}
+          </Text>
+        </Animated.View>
       </View>
 
-      <View
+      <Animated.View
+        entering={enter(3)}
         className="gap-3 px-6"
         style={{ paddingBottom: insets.bottom + 34 }}
       >
@@ -100,12 +107,7 @@ export function WelcomeStep({
           disabled={isBusy}
           accessibilityLabel={t('auth.welcome.google')}
         >
-          <Text
-            className="w-5 text-center font-bold"
-            style={{ color: GOOGLE_BLUE, fontSize: 19, lineHeight: 22 }}
-          >
-            G
-          </Text>
+          <GoogleLogo size={20} />
           <Text>{t('auth.welcome.google')}</Text>
         </Button>
         <Button
@@ -131,7 +133,7 @@ export function WelcomeStep({
           </Text>
           <LegalLink page="privacy" label={t('auth.welcome.privacy')} />
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
