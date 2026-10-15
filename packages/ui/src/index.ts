@@ -107,6 +107,8 @@ export { ConfirmDialog } from './components/ConfirmDialog';
 export { DestructiveRow } from './components/DestructiveRow';
 export type { DestructiveRowProps } from './components/DestructiveRow';
 export { Disclosure } from './components/Disclosure';
+export { AnimatedNumber } from './components/AnimatedNumber';
+export type { AnimatedNumberProps } from './components/AnimatedNumber';
 export { Reveal } from './components/Reveal';
 export type { RevealProps } from './components/Reveal';
 export { Turn } from './components/Turn';

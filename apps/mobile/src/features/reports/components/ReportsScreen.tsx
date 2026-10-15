@@ -1,5 +1,13 @@
 import type { ReportsSummaryDTO } from '@booking/types';
-import { ErrorState, Page, Reveal, Skeleton, Surface, Text } from '@booking/ui';
+import {
+  AnimatedNumber,
+  ErrorState,
+  Page,
+  Reveal,
+  Skeleton,
+  Surface,
+  Text,
+} from '@booking/ui';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -101,18 +109,18 @@ function ReportContent({
           <Text className="text-subtitle font-semibold text-muted-foreground">
             {t('reports.revenue', { month: monthLabel(report.month) })}
           </Text>
-          <Text
-            style={{ fontVariant: ['tabular-nums'] }}
+          <AnimatedNumber
+            value={report.revenue_cents}
+            format={(cents) =>
+              formatMoney(cents, currency, { decimals: false })
+            }
             className="mt-0.5 text-large-title font-bold"
-          >
-            {formatMoney(report.revenue_cents, currency, { decimals: false })}
-          </Text>
-          <Text
-            style={{ fontVariant: ['tabular-nums'] }}
+          />
+          <AnimatedNumber
+            value={report.completed_jobs}
+            format={(count) => t('reports.completedJobs', { count })}
             className="text-title"
-          >
-            {t('reports.completedJobs', { count: report.completed_jobs })}
-          </Text>
+          />
           <WeeklyChart weekly={report.weekly} today={today} />
         </View>
       </Reveal>
