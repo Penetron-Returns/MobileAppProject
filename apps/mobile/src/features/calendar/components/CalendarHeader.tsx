@@ -1,5 +1,5 @@
 import { SegmentedControl, Text, useDepth } from '@booking/ui';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import {
@@ -22,6 +22,7 @@ export function CalendarHeader({
   onViewChange,
   onAnchor,
   onShift,
+  onNewBooking,
 }: {
   view: CalendarViewMode;
   anchor: ISODate;
@@ -29,6 +30,8 @@ export function CalendarHeader({
   onViewChange: (view: CalendarViewMode) => void;
   onAnchor: (date: ISODate) => void;
   onShift: (direction: 1 | -1) => void;
+  /** Paid plans: a quiet "New booking" action (they have no "+" in the tab bar). */
+  onNewBooking?: () => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
@@ -84,6 +87,16 @@ export function CalendarHeader({
               )}
             </Pressable>
           ))}
+          {onNewBooking ? (
+            <Pressable
+              onPress={onNewBooking}
+              accessibilityRole="button"
+              accessibilityLabel={t('tabs.add')}
+              className="h-11 w-11 items-center justify-center"
+            >
+              <Plus size={22} strokeWidth={2.2} color={depth.colors.tint} />
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

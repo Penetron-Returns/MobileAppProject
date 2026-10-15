@@ -1,10 +1,11 @@
 import { Text, useDepth, withAlpha } from '@booking/ui';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View, type GestureResponderEvent } from 'react-native';
 import { minutesToTime } from '@/lib/time';
 import {
   appointmentSpan,
   complementSpans,
+  minuteAtOffset,
   minutesToPx,
   type BlockedSpan,
   type MinuteSpan,
@@ -51,6 +52,7 @@ export function Column({
   appointments,
   timezone,
   hasDivider,
+  onLongPressEmpty,
 }: {
   width: number;
   height: number;
@@ -63,6 +65,8 @@ export function Column({
   appointments: Ready['columns'][number]['appointments'];
   timezone: string;
   hasDivider: boolean;
+  /** Long-press on an empty part of the column (paid plans' quiet manual-booking fallback). */
+  onLongPressEmpty?: (minutes: number) => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
@@ -77,6 +81,19 @@ export function Column({
         borderLeftColor: withAlpha(depth.colors.label, 0.07),
       }}
     >
+      {onLongPressEmpty ? (
+        <Pressable
+          // Screen readers use the header New booking action instead.
+          accessible={false}
+          delayLongPress={450}
+          onLongPress={(event: GestureResponderEvent) =>
+            onLongPressEmpty(
+              minuteAtOffset(event.nativeEvent.locationY, window),
+            )
+          }
+          style={{ position: 'absolute', left: 0, top: 0, width, height }}
+        />
+      ) : null}
       {off.map((span) => {
         const spanHeight = minutesToPx(span.endMin - span.startMin);
         return (
