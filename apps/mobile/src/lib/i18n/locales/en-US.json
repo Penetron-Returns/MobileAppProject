@@ -995,7 +995,8 @@
     "off": "Off",
     "workingDays": {
       "title": "Working days",
-      "none": "No working days set"
+      "none": "No working days set",
+      "inherited": "Same as business hours, {{days}}"
     },
     "services": {
       "title": "Services",
@@ -1051,7 +1052,15 @@
   "join": {
     "headline": "You've been invited to {{business}}",
     "subtitle": "Join to see their calendar and bookings. You can create your own business instead.",
-    "join": "Join {{business}}",
+    "join": "Join",
+    "joinNamed": "Join {{business}}",
+    "name": {
+      "title": "Your name",
+      "hint": "This is how you appear on the team and in bookings.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "firstNameRequired": "Enter your first name."
+    },
     "createOwn": "Create my own business instead",
     "failed": "Couldn't join. Check your connection and try again."
   }

@@ -48,6 +48,8 @@ export function Switch({
         { width: TRACK_W, height: TRACK_H, borderRadius: 16 },
         disabled && { opacity: 0.5 },
       ]}
+      // Size also as classes so a row can never squeeze the track out of its card.
+      className="h-[31px] w-[51px] shrink-0"
     >
       <View
         style={[

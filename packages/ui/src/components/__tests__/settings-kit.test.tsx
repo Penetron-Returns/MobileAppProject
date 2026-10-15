@@ -139,6 +139,22 @@ describe('Disclosure', () => {
     act(() => row.props.onPress());
     expect(onPress).toHaveBeenCalled();
   });
+
+  it('turns the chevron over on a wrapping view, not on the icon', () => {
+    const turn = (expanded: boolean) => {
+      const tree = render(
+        <Disclosure label="More" expanded={expanded} onPress={jest.fn()} />,
+      );
+      const wrapper = tree.root.find(
+        (n) =>
+          typeof n.type === 'string' &&
+          JSON.stringify(n.props.style ?? '').includes('rotate'),
+      );
+      return JSON.stringify(wrapper.props.style);
+    };
+    expect(turn(true)).toContain('180deg');
+    expect(turn(false)).toContain('0deg');
+  });
 });
 
 describe('Stepper', () => {

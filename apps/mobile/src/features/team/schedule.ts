@@ -28,6 +28,40 @@ export function toWorkingWeek(
   }));
 }
 
+export interface BusinessHoursRule {
+  weekday: number;
+  opens_at: string;
+  closes_at: string;
+}
+
+export interface ResolvedWeek {
+  week: WorkingDay[];
+  /** True when the person has no rules of their own and follows the business hours. */
+  inherited: boolean;
+}
+
+/**
+ * A person's working week. A staff member with zero availability rules
+ * inherits the business hours (BUILD_PLAN: availability_rules), so their week
+ * is the business's, not empty.
+ */
+export function resolveWorkingWeek(
+  rules: readonly AvailabilityRule[],
+  businessHours: readonly BusinessHoursRule[],
+): ResolvedWeek {
+  if (rules.length) return { week: toWorkingWeek(rules), inherited: false };
+  return {
+    week: toWorkingWeek(
+      businessHours.map((h) => ({
+        weekday: h.weekday,
+        start_time: h.opens_at,
+        end_time: h.closes_at,
+      })),
+    ),
+    inherited: true,
+  };
+}
+
 /** The hours text of a day ("08:00 to 17:00", split shifts joined), or null when off. */
 export function dayHours(day: WorkingDay, to: string): string | null {
   if (!day.ranges.length) return null;
