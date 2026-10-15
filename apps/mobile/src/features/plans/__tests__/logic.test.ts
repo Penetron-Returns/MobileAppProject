@@ -1,6 +1,15 @@
-import type { FeatureEntitlementDTO } from '@booking/types';
+import type { BillingUsageDTO, FeatureEntitlementDTO } from '@booking/types';
 
-import { hasFeature, monthlyLimit } from '../logic';
+import {
+  appMode,
+  DEFAULT_EXTRA_JOB_CENTS,
+  extraJobRateCents,
+  formatRand,
+  hasFeature,
+  monthlyLimit,
+  resetsLabel,
+  usageView,
+} from '../logic';
 
 const growth: FeatureEntitlementDTO[] = [
   { feature: 'companion', monthly_limit: null },
@@ -31,5 +40,99 @@ describe('monthlyLimit', () => {
     expect(monthlyLimit(growth, 'companion')).toBeNull();
     expect(monthlyLimit(growth, 'inbox')).toBeNull();
     expect(monthlyLimit(undefined, 'companion')).toBeNull();
+  });
+});
+
+describe('appMode', () => {
+  it.each([
+    [[{ feature: 'companion', monthly_limit: null }], 'ai'],
+    [[{ feature: 'reports', monthly_limit: null }], 'ai'],
+    [[{ feature: 'inbox', monthly_limit: null }], 'free'],
+    [[], 'free'],
+    [undefined, 'free'],
+  ] as const)('maps %j to %s', (features, expected) => {
+    expect(appMode(features as FeatureEntitlementDTO[] | undefined)).toBe(
+      expected,
+    );
+  });
+});
+
+describe('formatRand', () => {
+  it.each([
+    [0, 'R0'],
+    [20000, 'R200'],
+    [1600, 'R16'],
+    [125000, 'R1,250'],
+    [450, 'R4.50'],
+    [405, 'R4.05'],
+    [-1600, '-R16'],
+  ])('writes %i cents as %s', (cents, expected) => {
+    expect(formatRand(cents)).toBe(expected);
+  });
+});
+
+function usage(over: Partial<BillingUsageDTO> = {}): BillingUsageDTO {
+  return {
+    plan: 'growth',
+    month: '2026-10',
+    completed_jobs: 63,
+    included_jobs: 100,
+    usage_percent: 63,
+    usage_state: 'normal',
+    extra_jobs: 0,
+    extra_cost_cents: 0,
+    resets_on: '2026-11-01',
+    ...over,
+  };
+}
+
+describe('usageView', () => {
+  it.each([
+    ['normal', usage(), { fillPercent: 63, hasAllowance: true }],
+    [
+      'near',
+      usage({ completed_jobs: 86, usage_percent: 86, usage_state: 'near' }),
+      { fillPercent: 86, hasAllowance: true },
+    ],
+    [
+      'over caps the bar at full',
+      usage({
+        completed_jobs: 104,
+        usage_percent: 104,
+        usage_state: 'over',
+        extra_jobs: 4,
+        extra_cost_cents: 1600,
+      }),
+      { fillPercent: 100, hasAllowance: true, extraJobs: 4 },
+    ],
+    [
+      'free has no allowance',
+      usage({
+        plan: 'free',
+        included_jobs: null,
+        usage_percent: null,
+        completed_jobs: 7,
+      }),
+      { fillPercent: 0, hasAllowance: false, limit: 0 },
+    ],
+  ])('%s', (_name, input, expected) => {
+    expect(usageView(input)).toMatchObject(expected);
+  });
+});
+
+describe('extraJobRateCents', () => {
+  it('derives the rate from the extras when there are some', () => {
+    expect(
+      extraJobRateCents(usage({ extra_jobs: 4, extra_cost_cents: 1600 })),
+    ).toBe(400);
+  });
+  it('falls back to R4 with none', () => {
+    expect(extraJobRateCents(usage())).toBe(DEFAULT_EXTRA_JOB_CENTS);
+  });
+});
+
+describe('resetsLabel', () => {
+  it('writes the reset day as day and month', () => {
+    expect(resetsLabel('2026-11-01')).toBe('1 Nov');
   });
 });

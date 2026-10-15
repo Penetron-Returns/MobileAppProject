@@ -2,12 +2,27 @@
  * Public runtime configuration. Expo inlines `process.env.EXPO_PUBLIC_*` at
  * bundle time, so every variable must be referenced literally here.
  */
+/** The scheme://host[:port] part of a URL, or '' when it is not one. */
+export function originOf(url: string): string {
+  return /^(https?:\/\/[^/?#]+)/i.exec(url.trim())?.[1] ?? '';
+}
+
+const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
+
 export const env = {
-  apiUrl: (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, ''),
+  apiUrl,
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '',
   clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '',
 };
+
+/**
+ * The origin the companion page claims to be served from. Nerova only frames
+ * a session for an origin on its allowlist, so this must equal the backend's
+ * NEROVA_EMBED_ORIGIN. Optional: defaults to the API's own origin.
+ */
+export const companionOrigin: string =
+  originOf(process.env.EXPO_PUBLIC_COMPANION_ORIGIN ?? '') || originOf(apiUrl);
 
 export type EnvKey = keyof typeof env;
 
