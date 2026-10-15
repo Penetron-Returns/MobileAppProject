@@ -1,6 +1,6 @@
-import { CenteredSpinner, FloatingTabBar } from '@booking/ui';
+import { CenteredSpinner, DURATION, useDepth } from '@booking/ui';
 import { useAuth, useClerk, useSession, useUser } from '@clerk/expo';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +9,6 @@ import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
 import { usePendingInvitations } from '@/features/join/hooks';
-import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import {
   resolveAppRoute,
@@ -64,6 +63,7 @@ export default function AppLayout() {
   const { session } = useSession();
   const { setActive } = useClerk();
   const { t } = useTranslation();
+  const ground = useDepth().ground.backgroundColor as string;
   const [inOnboarding, setInOnboarding] = React.useState(false);
   const [joinDeclined, setJoinDeclined] = React.useState(false);
 
@@ -149,112 +149,19 @@ export default function AppLayout() {
   }
 
   return (
-    <Tabs
-      // Detail pages are hidden tabs, so back must follow history, not jump to the first tab.
-      backBehavior="history"
-      // The floating capsule draws itself (icons, labels and the centre "+").
-      tabBar={(props) => (
-        <FloatingTabBar {...props} inbox={<InboxEntryDome />} />
-      )}
-      screenOptions={{ headerShown: false }}
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        // Drill-in pages slide in from the right and swipe back natively.
+        animation: 'slide_from_right',
+        animationDuration: DURATION.page,
+        gestureEnabled: true,
+        fullScreenGestureEnabled: true,
+        // The ground colour behind a moving screen, so a transition never flashes white.
+        contentStyle: { backgroundColor: ground },
+      }}
     >
-      <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />
-      <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
-      <Tabs.Screen name="add" options={{ title: t('tabs.add') }} />
-      <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
-      <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
-      <Tabs.Screen name="inbox" options={{ href: null }} />
-      <Tabs.Screen
-        name="bookings/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="bookings/reschedule/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="bookings/cancel/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="clients/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/operating-hours"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/services"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/business-details"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/team"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="inbox/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/booking-rules"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/whatsapp"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/whatsapp-detail"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/notifications"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-    </Tabs>
+      <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+    </Stack>
   );
 }
