@@ -49,6 +49,7 @@ const mockRouter = {
   push: jest.fn(),
   replace: jest.fn(),
   back: jest.fn(),
+  canGoBack: jest.fn(() => true),
   setParams: jest.fn(),
 };
 // `router` is a lazy getter: the factory runs before `mockRouter` is assigned.
@@ -57,6 +58,11 @@ jest.mock('expo-router', () =>
     {
       ...jest.requireActual('expo-router'),
       useLocalSearchParams: () => mockSearchParams(),
+      // No navigator in these tests, so run the focus effect on mount.
+      useFocusEffect: (effect: () => void | (() => void)) => {
+        const R = jest.requireActual('react');
+        R.useEffect(effect, [effect]);
+      },
       useRouter: () => ({
         push: jest.fn(),
         replace: jest.fn(),
@@ -483,7 +489,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setCalendarViewMode } from '@/features/calendar/navigation';
 
-import AddBookingRoute from '../(tabs)/add';
+import NewBookingRoute from '../new-booking';
 import BookingDetailRoute from '../bookings/[id]';
 import CalendarRoute from '../(tabs)/calendar';
 import CancelRoute from '../bookings/cancel/[id]';
@@ -634,7 +640,7 @@ describe('Cancel booking', () => {
 
 describe('New booking', () => {
   it('starts with the client search, new client row and the service list', () => {
-    const json = render(<AddBookingRoute />);
+    const json = render(<NewBookingRoute />);
     expect(json).toContain('Who is it for?');
     expect(json).toContain('Olivia Bennett');
     expect(json).toContain('New client');
@@ -643,7 +649,7 @@ describe('New booking', () => {
     expect(json).toContain('Next: pick a time');
   });
 
-  it('resets the form and client preselection once a booking is made', () => {
+  it('shows the done state, and Done closes the sheet', () => {
     let onSuccess: ((id: string) => void) | undefined;
     mockHooks.useCreateAppointment.mockImplementation(
       (opts: { onSuccess: (id: string) => void }) => {
@@ -651,7 +657,7 @@ describe('New booking', () => {
         return mockMutation();
       },
     );
-    const tree = renderScreen(<AddBookingRoute />);
+    const tree = renderScreen(<NewBookingRoute />);
     act(() =>
       tree.root
         .findByProps({ accessibilityLabel: "Women's Haircut" })
@@ -670,6 +676,10 @@ describe('New booking', () => {
     expect(toJson(tree)).toContain('When?');
     act(() => onSuccess?.('appt-9'));
     expect(toJson(tree)).toContain('Booked');
+    act(() =>
+      tree.root.findByProps({ accessibilityLabel: 'Done' }).props.onPress(),
+    );
+    expect(mockRouter.back).toHaveBeenCalled();
   });
 });
 
@@ -700,6 +710,19 @@ describe('Settings', () => {
     expect(json).toContain('18:00');
     expect(json).toContain('Closed');
     expect(json).toContain('Holidays and special days');
+  });
+
+  it('links to breaks and time off in Team', () => {
+    const tree = renderScreen(<OperatingHoursRoute />);
+    expect(toJson(tree)).toContain('Set per person in Team');
+    act(() =>
+      tree.root
+        .findByProps({
+          accessibilityLabel: 'Breaks and time off. Set per person in Team',
+        })
+        .props.onPress(),
+    );
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/team');
   });
 
   it('groups services by category with prices and hidden markers', () => {

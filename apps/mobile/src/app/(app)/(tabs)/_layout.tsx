@@ -1,11 +1,11 @@
 import { DURATION, FloatingTabBar, useDepth } from '@booking/ui';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { InboxEntryDome } from '@/features/inbox/components/InboxEntryDome';
 
 /**
- * The five tabs. Detail pages (booking, client, settings sub-pages) live in
+ * The four tabs (the centre + opens the New booking modal instead of a tab). Detail pages (booking, client, settings sub-pages) live in
  * the parent stack so they slide over the tab bar instead of hiding it.
  */
 export default function TabsLayout() {
@@ -16,7 +16,11 @@ export default function TabsLayout() {
       backBehavior="history"
       // The floating capsule draws itself (icons, labels and the centre "+").
       tabBar={(props) => (
-        <FloatingTabBar {...props} inbox={<InboxEntryDome />} />
+        <FloatingTabBar
+          {...props}
+          inbox={<InboxEntryDome />}
+          onAdd={() => router.push('/new-booking' as never)}
+        />
       )}
       screenOptions={{
         headerShown: false,
@@ -31,7 +35,6 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />
       <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
-      <Tabs.Screen name="add" options={{ title: t('tabs.add') }} />
       <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
       <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
       <Tabs.Screen name="inbox" options={{ href: null }} />

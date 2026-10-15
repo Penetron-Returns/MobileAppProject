@@ -29,7 +29,7 @@ import { View } from 'react-native';
 
 import { Row, Section, Specimen } from './Specimen';
 
-const TAB_NAMES = ['index', 'calendar', 'add', 'clients', 'settings'];
+const TAB_NAMES = ['index', 'calendar', 'clients', 'settings'];
 const TAB_STATE = {
   index: 0,
   routes: TAB_NAMES.map((name) => ({ key: `${name}-key`, name })),

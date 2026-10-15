@@ -6,20 +6,18 @@ import {
 } from '../layout';
 
 describe('isTabRootPath', () => {
-  it.each([
-    '/',
-    '/calendar',
-    '/add',
-    '/clients',
-    '/settings',
-    '/inbox',
-    '/clients/',
-  ])('shows the bar on %s', (path) => expect(isTabRootPath(path)).toBe(true));
-
-  it.each(['/bookings/abc', '/clients/abc', '/settings/services', '/sign-in'])(
-    'hides the bar on %s',
-    (path) => expect(isTabRootPath(path)).toBe(false),
+  it.each(['/', '/calendar', '/clients', '/settings', '/inbox', '/clients/'])(
+    'shows the bar on %s',
+    (path) => expect(isTabRootPath(path)).toBe(true),
   );
+
+  it.each([
+    '/new-booking',
+    '/bookings/abc',
+    '/clients/abc',
+    '/settings/services',
+    '/sign-in',
+  ])('hides the bar on %s', (path) => expect(isTabRootPath(path)).toBe(false));
 });
 
 describe('tab bar offsets', () => {

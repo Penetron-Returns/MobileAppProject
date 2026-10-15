@@ -33,7 +33,7 @@ import type { ClientFilter } from '../logic';
 import { ClientRow } from './ClientRow';
 
 const FILTERS: ClientFilter[] = ['all', 'recent', 'regulars'];
-const ADD_CLIENT = { pathname: '/add', params: { mode: 'new' } };
+const ADD_CLIENT = { pathname: '/new-booking', params: { mode: 'new' } };
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
@@ -72,9 +72,7 @@ export function ClientsScreen() {
       onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
     >
       {hasNoClientsAtAll ? (
-        <ClientsEmpty
-          onAdd={guard(() => router.navigate(ADD_CLIENT as never))}
-        />
+        <ClientsEmpty onAdd={guard(() => router.push(ADD_CLIENT as never))} />
       ) : (
         <>
           <SearchField

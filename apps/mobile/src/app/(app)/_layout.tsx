@@ -162,6 +162,18 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+      {/* New booking slides up over everything, tab bar included. Swipe-down is
+          off so closing always goes through the discard check. */}
+      <Stack.Screen
+        name="new-booking"
+        options={{
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+          animationDuration: DURATION.page,
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
     </Stack>
   );
 }

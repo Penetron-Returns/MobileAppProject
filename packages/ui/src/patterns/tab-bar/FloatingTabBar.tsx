@@ -70,8 +70,8 @@ const BAR_PAD = 4;
 
 /**
  * The floating tab bar of the iPhone design: Today, Calendar, +, Clients,
- * Settings in one raised capsule, a tactile centre "+" that opens a new
- * booking, and the Inbox dome above the right-hand end. Hidden on screens
+ * Settings in one raised capsule, a tactile centre "+" that calls `onAdd`
+ * (the app opens New booking as a modal), and the Inbox dome above the right-hand end. Hidden on screens
  * that opt out through `tabBarStyle: { display: 'none' }`. The selected pill
  * slides between tabs, the tapped icon pops and a light haptic confirms the
  * change.
@@ -81,7 +81,10 @@ export function FloatingTabBar({
   descriptors,
   navigation,
   inbox,
+  onAdd,
 }: TabBarProps & {
+  /** Opens New booking; a modal route, so the bar has no "add" tab to switch to. */
+  onAdd?: () => void;
   /** The Inbox dome (or nothing) shown above the right-hand end of the bar. */
   inbox?: React.ReactNode;
 }) {
@@ -214,7 +217,10 @@ export function FloatingTabBar({
         />
         {LEFT_TABS.map(renderTab)}
         <Pressable
-          onPress={() => goTo('add')}
+          onPress={() => {
+            lightHaptic();
+            onAdd?.();
+          }}
           accessibilityRole="button"
           accessibilityLabel={t('tabs.add')}
           {...addBounce.handlers}

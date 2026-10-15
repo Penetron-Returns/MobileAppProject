@@ -9,18 +9,15 @@ jest.mock('lucide-react-native', () => {
   return new Proxy({}, { get: () => View });
 });
 
-const NAMES = [
-  'index',
-  'calendar',
-  'add',
-  'clients',
-  'settings',
-  'bookings/[id]',
-];
+const NAMES = ['index', 'calendar', 'clients', 'settings', 'bookings/[id]'];
 
 function renderBar(
   activeName: string,
-  options: { hidden?: boolean; inbox?: React.ReactNode } = {},
+  options: {
+    hidden?: boolean;
+    inbox?: React.ReactNode;
+    onAdd?: () => void;
+  } = {},
 ) {
   const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
   const state = {
@@ -50,6 +47,7 @@ function renderBar(
         navigation,
       } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
       inbox={options.inbox}
+      onAdd={options.onAdd}
     />,
   );
   return { tree, navigation };
@@ -84,10 +82,12 @@ describe('FloatingTabBar', () => {
     expect([...new Set(selected)]).toEqual(['Clients']);
   });
 
-  it('navigates to the add route from the centre plus', () => {
-    const { tree, navigation } = renderBar('index');
+  it('calls onAdd from the centre plus without switching tabs', () => {
+    const onAdd = jest.fn();
+    const { tree, navigation } = renderBar('index', { onAdd });
     act(() => pressable(tree, 'New booking').props.onPress());
-    expect(navigation.navigate).toHaveBeenCalledWith('add');
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(navigation.navigate).not.toHaveBeenCalled();
   });
 
   it('navigates to a tab and emits tabPress first', () => {
