@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 import { openLegalPage, type LegalPage } from '@/lib/legal';
 import { toast } from '@/lib/toast';
 
-import { AppMark } from './AppMark';
 import { AuthError } from './AuthError';
 import type { AuthErrorKey } from '../errors';
 
@@ -48,7 +48,7 @@ function LegalLink({ page, label }: { page: LegalPage; label: string }) {
   );
 }
 
-/** The welcome board: mark, headline, value prop, then the sign-in options. */
+/** The welcome board: Clovie, headline, value prop, then the sign-in options. */
 export function WelcomeStep({
   isBusy,
   errorKey,
@@ -63,9 +63,10 @@ export function WelcomeStep({
     <View className="flex-1 justify-between">
       <View
         className="items-center"
-        style={{ paddingTop: Math.max(insets.top + 56, 112) }}
+        style={{ paddingTop: Math.max(insets.top + 40, 96) }}
       >
-        <AppMark />
+        {/* The hop spills above the 120pt box: keep the parent unclipped. */}
+        <ClovieAnimated state="default" size={120} />
         <Text
           style={{ color: depth.colors.secondary }}
           className="mt-3.5 text-title font-semibold"
