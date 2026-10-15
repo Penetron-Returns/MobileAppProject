@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 
+import { findRepeatedWeekday } from '@booking/features/availability/lib/hours.ts';
 import { isIsoDate, isTimeOfDay, isValidTimeZone, parseTimeOfDay, diffDays } from '@booking/features/lib/time.ts';
 
 export const uuid = z.guid();
@@ -14,7 +15,13 @@ export const instant = z.iso.datetime({ offset: true });
 const text = (max: number) => z.string().trim().max(max);
 const nullableText = (max: number) => text(max).nullable().optional();
 const weekday = z.number().int().min(0).max(6);
-const endAfterStart = (start: string, end: string) => parseTimeOfDay(end) > parseTimeOfDay(start);
+/** False for malformed or missing times, so a refine never throws while the field checks are still reporting. */
+export const endAfterStart = (start?: string | null, end?: string | null) =>
+  !!start && !!end && isTimeOfDay(start) && isTimeOfDay(end) && parseTimeOfDay(end) > parseTimeOfDay(start);
+
+/** Weekly hours allow one range per weekday; a lunch gap is a staff break. */
+export const oneRangePerWeekday = (rows: { weekday: number }[]) => findRepeatedWeekday(rows) === null;
+export const ONE_RANGE_MESSAGE = 'At most one range per weekday; use a break for a gap';
 
 // ---------- business ----------
 
@@ -49,7 +56,7 @@ export const hoursRow = z
   .object({ weekday, opens_at: timeOfDay, closes_at: timeOfDay })
   .refine((r) => endAfterStart(r.opens_at, r.closes_at), 'closes_at must be after opens_at');
 
-export const replaceHoursSchema = z.object({ hours: z.array(hoursRow).max(50) });
+export const replaceHoursSchema = z.object({ hours: z.array(hoursRow).max(7).refine(oneRangePerWeekday, ONE_RANGE_MESSAGE) });
 
 // ---------- services & staff ----------
 
@@ -91,7 +98,7 @@ const ruleRow = z
   .object({ weekday, start_time: timeOfDay, end_time: timeOfDay })
   .refine((r) => endAfterStart(r.start_time, r.end_time), 'end_time must be after start_time');
 
-export const staffAvailabilitySchema = z.object({ rules: z.array(ruleRow).max(50) });
+export const staffAvailabilitySchema = z.object({ rules: z.array(ruleRow).max(7).refine(oneRangePerWeekday, ONE_RANGE_MESSAGE) });
 
 export const createOverrideSchema = z
   .object({
@@ -197,7 +204,7 @@ export const publicBookingSchema = z.object({
 export const onboardingSchema = z.object({
   business: z.object({ name: text(120).min(1) }),
   owner_name: nullableText(120),
-  hours: z.array(hoursRow).min(1).max(50),
+  hours: z.array(hoursRow).min(1).max(7).refine(oneRangePerWeekday, ONE_RANGE_MESSAGE),
   services: z
     .array(
       z.object({
