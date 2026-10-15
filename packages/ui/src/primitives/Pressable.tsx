@@ -45,7 +45,9 @@ export function Pressable({
   const depth = useDepth();
   const [pressed, setPressed] = React.useState(false);
   const flat = StyleSheet.flatten([
-    typeof style === 'function' ? style({ pressed, hovered: false }) : style,
+    typeof style === 'function'
+      ? style({ pressed } as PressableStateCallbackType)
+      : style,
     feedback === 'dim' && pressed && { opacity: 0.6 },
     feedback === 'inset' && pressed && depth.buttonPressed,
     feedback === 'nudge' && pressed && NUDGE,
