@@ -517,7 +517,8 @@
       "notifications": "Notifications",
       "whatsapp": "WhatsApp",
       "companion": "Companion",
-      "plan": "Plan"
+      "plan": "Plan",
+      "voice": "Hey Clovie"
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -1328,6 +1329,64 @@
           "description": "Everything is connected. Check again once your companion is switched on."
         }
       }
+    },
+    "heard": {
+      "prefix": "You said: {{text}}",
+      "label": "What you said to Clovie",
+      "copy": "Copy",
+      "copyLabel": "Copy what you said",
+      "copied": "Copied. Paste it in the chat.",
+      "dismiss": "Dismiss what you said"
+    }
+  },
+  "voice": {
+    "title": "Hey Clovie",
+    "toggle": "Hey Clovie",
+    "working": "Handling what you said",
+    "status": {
+      "not_configured": "Not set up in this build",
+      "off": "Off",
+      "starting": "Starting",
+      "listening": "Listening for \"{{phrase}}\"",
+      "busy": "Listening to you",
+      "error": "Needs attention"
+    },
+    "errors": {
+      "permission_denied": "Clovie needs the microphone and notifications turned on.",
+      "background_start_blocked": "Android only lets Hey Clovie start while the app is open. Open Clovie and try again.",
+      "model_load_failed": "The wake word could not be loaded. Reinstall the app and try again.",
+      "audio_failed": "The microphone is busy or unavailable. Try again in a moment.",
+      "inference_failed": "The wake word stopped working. Turn Hey Clovie off and on again."
+    },
+    "permissionRationale": {
+      "title": "Clovie needs your permission",
+      "microphone": "Clovie listens through the microphone for the wake word.",
+      "notifications": "Clovie shows a notification while it listens, so you can always see and stop it.",
+      "ok": "Allow",
+      "overlay": "Clovie shows a panel over other apps while you talk to it. Android asks for that separately, in your phone settings."
+    },
+    "permissionDenied": "Turn on the microphone and notifications for Clovie in your phone settings.",
+    "openSettings": "Open settings",
+    "about": {
+      "title": "How it works",
+      "body": "Say \"{{phrase}}\", then a short command, even with your phone locked or Clovie in the background. For example: \"client has arrived\" checks in the client who is due now. Anything else opens Clovie with what you said."
+    },
+    "privacy": {
+      "title": "Your privacy",
+      "body": "The microphone listens on this phone for the wake word only. Nothing is recorded, saved or sent anywhere until you speak after \"{{phrase}}\". Then your phone turns that one command into text, and the text goes to Clovie only when it opens. A notification shows while Hey Clovie is on, with a Stop button. Turn it off here any time."
+    },
+    "battery": "Listening all day uses some battery. On a locked phone, tap the notification to open Clovie.",
+    "checkedIn": "Checked in {{name}}",
+    "noAppointment": "No one is due to check in right now.",
+    "noNameMatch": "No appointment for {{name}} is due right now.",
+    "noCompanion": "Your plan does not include the companion.",
+    "failed": "Could not check in. Try again from Today.",
+    "overlay": {
+      "title": "Show over other apps",
+      "granted": "On: Clovie answers on top of any app",
+      "missing": "Off: Clovie will answer with a notification instead",
+      "allow": "Allow",
+      "hint": "Clovie shows a panel at the bottom of the screen while you talk. Android needs your permission to show it over other apps."
     }
   },
   "reports": {

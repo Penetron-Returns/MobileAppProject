@@ -37,7 +37,7 @@ export function useAppointmentsRealtime(enabled: boolean) {
 const LIST_SELECT =
   'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client:clients(id, name, phone_e164), service:services(name), staff:staff(id, name)';
 
-async function fetchAppointmentsBetween(from: string, to: string) {
+export async function fetchAppointmentsBetween(from: string, to: string) {
   return unwrap(
     await supabase
       .from('appointments')
