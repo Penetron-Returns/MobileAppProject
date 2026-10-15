@@ -147,18 +147,23 @@ describe('services, staff and overrides', () => {
     expect((await h.call('PUT', `/v1/staff/${id}/availability`, { body: { rules: [] } })).status).toBe(404);
   });
 
-  it('creates and deletes overrides that shape availability', async () => {
-    const created = await h.call('POST', '/v1/overrides', { body: { date: WED, is_closed: true, reason: 'Holiday' } });
+  it('creates and deletes per-staff overrides that shape availability', async () => {
+    const body = { staff_id: h.thandi.id, date: WED, is_closed: true, reason: 'Leave' };
+    const created = await h.call('POST', '/v1/overrides', { body });
     expect(created.status).toBe(201);
-    expect(created.body.data).toMatchObject({ date: WED, is_closed: true, staff_id: null, start_time: null });
+    expect(created.body.data).toMatchObject({ date: WED, is_closed: true, staff_id: h.thandi.id, start_time: null });
     const closed = await h.call('GET', `/v1/availability/slots?service_id=${h.cut.id}&date=${WED}`);
-    expect(closed.body.data.slots).toEqual([]);
+    expect(closed.body.data.slots.every((s: { staff_ids: string[] }) => s.staff_ids.join() === h.sipho.id)).toBe(true);
 
     expect((await h.call('DELETE', `/v1/overrides/${created.body.data.id}`)).status).toBe(200);
     expect((await h.call('DELETE', `/v1/overrides/${created.body.data.id}`)).status).toBe(404);
 
-    const open = await h.call('POST', '/v1/overrides', { body: { date: WED, is_closed: false, start_time: '10:00' } });
+    const open = await h.call('POST', '/v1/overrides', { body: { staff_id: h.thandi.id, date: WED, is_closed: false, start_time: '10:00' } });
     expect(open.status).toBe(400);
+    // Business-wide days moved to special days
+    const wide = await h.call('POST', '/v1/overrides', { body: { date: WED, is_closed: true } });
+    expect(wide.status).toBe(400);
+    expect(wide.body.error.message).toContain('special-days');
   });
 });
 

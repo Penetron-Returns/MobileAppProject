@@ -25,13 +25,14 @@ const C = 'cccccccc-0000-4000-8000-000000000003';
 const weekdays = (start: string, end: string, days = [1, 2, 3, 4, 5]): WeeklyWindow[] =>
   days.map((weekday) => ({ weekday, start, end }));
 
-const staff = (id: string, sort_order = 0, rules: WeeklyWindow[] = []): StaffSchedule => ({ id, sort_order, rules });
+const staff = (id: string, sort_order = 0, rules: WeeklyWindow[] = []): StaffSchedule => ({ id, sort_order, rules, breaks: [], timeOff: [] });
 
 function input(overrides: Partial<AvailabilityInput> = {}): AvailabilityInput {
   return {
     timezone: TZ,
     rules: { lead_time_minutes: 0, buffer_minutes: 0, slot_interval_minutes: 30, booking_horizon_days: 60 },
     businessHours: weekdays('09:00', '12:00'),
+    specialDays: [],
     overrides: [],
     staff: [staff(A)],
     busy: [],
@@ -81,9 +82,11 @@ describe('computeSlots', () => {
     expect(starts(i)).toEqual(['09:10', '09:25', '09:40', '09:55', '10:10', '10:25']);
   });
 
-  it('handles split shifts (lunch break)', () => {
+  // Changed from "handles split shifts": a lunch gap is now a staff break, not a second business-hours row.
+  it('removes a staff break (lunch) from the day', () => {
     const i = input({
-      businessHours: [...weekdays('09:00', '12:00'), ...weekdays('13:00', '17:00')],
+      businessHours: weekdays('09:00', '17:00'),
+      staff: [{ ...staff(A), breaks: [{ weekdays: [], start: '12:00', end: '13:00' }] }],
       rules: rules({ slot_interval_minutes: 60 }),
     });
     expect(starts(i)).toEqual(['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']);
@@ -179,20 +182,21 @@ describe('computeSlots', () => {
   });
 
   describe('overrides', () => {
+    // Changed: business-wide overrides are special days now (business_special_days).
     it('business-wide closure removes the day', () => {
-      const i = input({ overrides: [{ staff_id: null, date: WED, is_closed: true, start_time: null, end_time: null }] });
+      const i = input({ specialDays: [{ date: WED, is_closed: true, start_time: null, end_time: null }] });
       expect(computeSlots(i, WED)).toEqual([]);
       expect(computeSlots(i, '2026-10-01')).toHaveLength(5);
     });
 
     it('business-wide custom window replaces business hours for that date', () => {
-      const i = input({ overrides: [{ staff_id: null, date: WED, is_closed: false, start_time: '10:00:00', end_time: '11:00:00' }] });
+      const i = input({ specialDays: [{ date: WED, is_closed: false, start_time: '10:00:00', end_time: '11:00:00' }] });
       expect(starts(i)).toEqual(['10:00']);
     });
 
     it('business-wide override can open a normally closed day', () => {
       const sun = '2026-10-04';
-      const i = input({ overrides: [{ staff_id: null, date: sun, is_closed: false, start_time: '10:00', end_time: '12:00' }] });
+      const i = input({ specialDays: [{ date: sun, is_closed: false, start_time: '10:00', end_time: '12:00' }] });
       expect(starts(i, sun)).toEqual(['10:00', '10:30', '11:00']);
     });
 
@@ -344,7 +348,7 @@ describe('listAvailableDays', () => {
 
   it('drops closed and fully booked days', () => {
     const i = input({
-      overrides: [{ staff_id: null, date: '2026-09-29', is_closed: true, start_time: null, end_time: null }],
+      specialDays: [{ date: '2026-09-29', is_closed: true, start_time: null, end_time: null }],
       busy: [{ staff_id: A, start: sast('09:00'), end: sast('12:00') }],
     });
     expect(listAvailableDays(i, '2026-09-28', '2026-10-01')).toEqual(['2026-09-28', '2026-10-01']);

@@ -188,6 +188,65 @@ describe('completeOnboarding', () => {
     expect(await createSupabaseRepository(already.db).completeOnboarding(input)).toBe(false);
   });
 
+  describe('schedule (special days, breaks, time off)', () => {
+    const OTHER = '33333333-3333-4333-8333-333333333333';
+
+    it('scopes special days by business and date range', async () => {
+      const { db, requests } = fakeDb(() => ({ body: [] }));
+      await createSupabaseRepository(db).listSpecialDays(BIZ, '2026-10-01', '2026-10-31');
+      const req = requests[0]!;
+      expect(req.path).toBe('/business_special_days');
+      expect(req.params.get('business_id')).toBe(`eq.${BIZ}`);
+      expect(req.params.getAll('date')).toEqual(['gte.2026-10-01', 'lte.2026-10-31']);
+    });
+
+    it('turns a second special day on a date into VALIDATION_FAILED', async () => {
+      const { db } = fakeDb(() => ({ status: 409, body: { code: '23505', message: 'duplicate key value violates unique constraint' } }));
+      const values = { date: '2026-10-09', name: 'X', kind: 'closure' as const, is_closed: true, start_time: null, end_time: null };
+      await expect(createSupabaseRepository(db).insertSpecialDay(BIZ, values)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('calls replace_staff_breaks by parameter name and maps an overlap to a rule violation', async () => {
+      const ok = fakeDb(() => ({ body: [{ id: 'b1', business_id: BIZ, staff_id: STAFF, label: 'Lunch', start_time: '12:00:00', end_time: '13:00:00', weekdays: [1] }] }));
+      const breaks = [{ label: 'Lunch', start_time: '12:00', end_time: '13:00', weekdays: [1] }];
+      const rows = await createSupabaseRepository(ok.db).replaceStaffBreaks(BIZ, STAFF, breaks);
+      expect(rows).toHaveLength(1);
+      expect(ok.requests[0]).toMatchObject({ path: '/rpc/replace_staff_breaks', body: { p_staff_id: STAFF, p_rows: breaks } });
+
+      const overlap = fakeDb(() => ({ status: 400, body: { code: 'P0001', message: 'RULE:OVERLAPPING_BREAKS:Breaks on the same day overlap' } }));
+      await expect(createSupabaseRepository(overlap.db).replaceStaffBreaks(BIZ, STAFF, breaks)).rejects.toMatchObject({
+        code: 'RULE_VIOLATION',
+        details: { rule: 'OVERLAPPING_BREAKS' },
+      });
+    });
+
+    it('lists time off overlapping the range for the given staff, scoped by business', async () => {
+      const { db, requests } = fakeDb(() => ({ body: [] }));
+      await createSupabaseRepository(db).listTimeOff(BIZ, '2026-10-01', '2026-10-31', [STAFF, OTHER]);
+      const req = requests[0]!;
+      expect(req.path).toBe('/staff_time_off');
+      expect(req.params.get('business_id')).toBe(`eq.${BIZ}`);
+      expect(req.params.get('starts_on')).toBe('lte.2026-10-31');
+      expect(req.params.get('ends_on')).toBe('gte.2026-10-01');
+      expect(req.params.get('staff_id')).toBe(`in.(${STAFF},${OTHER})`);
+    });
+
+    it('skips the query for an empty staff filter and breaks for no staff', async () => {
+      const { db, requests } = fakeDb(() => ({ body: [] }));
+      const repo = createSupabaseRepository(db);
+      expect(await repo.listTimeOff(BIZ, 'a', 'b', [])).toEqual([]);
+      expect(await repo.listStaffBreaks(BIZ, [])).toEqual([]);
+      expect(requests).toHaveLength(0);
+    });
+
+    it('scopes time off deletes by business and reports whether a row was removed', async () => {
+      const { db, requests } = fakeDb(() => ({ status: 200, body: [], headers: { 'content-range': '*/1' } }));
+      expect(await createSupabaseRepository(db).deleteTimeOff(BIZ, 'row-1')).toBe(true);
+      expect(requests[0]!.params.get('business_id')).toBe(`eq.${BIZ}`);
+      expect(requests[0]!.params.get('id')).toBe('eq.row-1');
+    });
+  });
+
   it('maps a database error', async () => {
     const { db } = fakeDb(() => ({ status: 404, body: { code: 'P0002', message: 'business not found' } }));
     await expect(createSupabaseRepository(db).completeOnboarding(input)).rejects.toBeInstanceOf(AppError);

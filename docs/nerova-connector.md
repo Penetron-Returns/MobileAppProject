@@ -43,10 +43,10 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 | Tool | Read only | Backed by | Notes |
 | --- | --- | --- | --- |
 | `accounts_list` | yes | `EntitlementService.listBusinessIdsWithFeature('companion')` + `BookingService.getBusiness` + hours | Keyset pagination on business id (`limit` default 50, max 100; `cursor` is the last id) |
-| `accounts_get` | yes | same | `displayName` = name, `timeZone`, `currency`, one location, `openingHours` (weekly `HH:mm` ranges from `business_hours`; business-wide `availability_overrides` for the next 180 days as exceptions; a closing time of `24:00` is sent as `23:59`) |
+| `accounts_get` | yes | same | `displayName` = name, `timeZone`, `currency`, one location, `openingHours` (weekly `HH:mm` ranges from `business_hours`; business-wide `business_special_days` (closed days and special hours, the name sent as `reason`) for the next 180 days as exceptions; a closing time of `24:00` is sent as `23:59`) |
 | `services_list` | yes | `BookingService.listServices({ activeOnly })` | `price` = `{ amountCents, currency }`, optional `category` and `description` |
 | `staff_list` | yes | `BookingRepository.listStaff` / `listStaffServices` | Active staff that accept bookings, with the active services each performs |
-| `availability_search` | yes | `BookingService.listAvailableSlots` per business day in the window | One entry per (slot, free staff member), inside `[start, end)`, window at most 31 days, days are computed 4 at a time; unknown service or staff is `not_found` |
+| `availability_search` | yes | `BookingService.listAvailableSlots` per business day in the window | One entry per (slot, free staff member), inside `[start, end)`, window at most 31 days, days are computed 4 at a time; unknown service or staff is `not_found`. It is the same engine as the app, so staff breaks, time off and closed special days are never offered |
 | `appointments_get` | yes | `BookingService.getAppointment` | Reflects writes immediately; status `confirmed/cancelled/completed/no_show` becomes `Scheduled/Cancelled/Completed/NoShow` |
 | `appointments_list` | yes | `BookingService.listAppointments` (new) + lookups for names | Window at most 31 days, filters `staffId`, `clientId`, `clientPhone` (normalised to E.164), `status`; keyset cursor on `(starts_at, id)`; includes `serviceName`, `staffName`, `clientName`, `clientPhone` |
 | `appointments_create` | no | `BookingService.createAppointment` | See below |

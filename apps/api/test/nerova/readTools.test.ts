@@ -31,9 +31,9 @@ describe('accounts', () => {
 
   it('returns the account with zone, currency, one location and opening hours', async () => {
     const h = nerovaHarness();
-    h.repo.tables.availability_overrides.push({
-      id: h.repo.nextId(), business_id: h.business.id, staff_id: null, date: '2026-12-25',
-      start_time: null, end_time: null, is_closed: true, reason: 'Public holiday',
+    h.repo.tables.business_special_days.push({
+      id: h.repo.nextId(), business_id: h.business.id, date: '2026-12-25', name: 'Christmas Day',
+      kind: 'public_holiday', is_closed: true, start_time: null, end_time: null,
     });
     const account = await h.ok('accounts_get', { accountId: h.business.id });
     expect(account).toMatchObject({
@@ -45,13 +45,10 @@ describe('accounts', () => {
     });
     const days = account.openingHours.weekly[0].days;
     expect(days).toHaveLength(7);
-    expect(days.find((d: { day: string }) => d.day === 'monday').ranges).toEqual([
-      { open: '09:00', close: '12:00' },
-      { open: '13:00', close: '17:00' },
-    ]);
+    expect(days.find((d: { day: string }) => d.day === 'monday').ranges).toEqual([{ open: '09:00', close: '17:00' }]);
     expect(days.find((d: { day: string }) => d.day === 'sunday').ranges).toEqual([]);
     expect(account.openingHours.exceptions).toEqual([
-      { date: '2026-12-25', externalLocationId: h.business.id, ranges: [], reason: 'Public holiday' },
+      { date: '2026-12-25', externalLocationId: h.business.id, ranges: [], reason: 'Christmas Day' },
     ]);
   });
 
@@ -155,6 +152,31 @@ describe('availability_search', () => {
     expect(code(await h.tool('availability_search', { ...base, serviceId: '00000000-0000-4000-8000-0000000000aa', ...window }))).toBe('not_found');
     expect(code(await h.tool('availability_search', { ...base, staffId: '00000000-0000-4000-8000-0000000000aa', ...window }))).toBe('not_found');
     expect(code(await h.tool('availability_search', { ...base, serviceId: 'nope', ...window }))).toBe('not_found');
+  });
+
+  it('returns the new availability model: breaks, time off and special days are not offered', async () => {
+    const h = nerovaHarness();
+    const base = { accountId: h.business.id, serviceId: h.cut.id, staffId: h.thandi.id, ...window };
+    const startsAt = async (args: Record<string, unknown>) =>
+      (await h.ok('availability_search', args)).data.map((s: { startTime: string }) => s.startTime);
+    // Fixture: Thandi lunches 12:00-13:00 every day
+    expect(await startsAt(base)).not.toContain(sast('12:00'));
+    expect(await startsAt(base)).toContain(sast('11:00'));
+
+    h.repo.tables.staff_time_off.push({
+      id: h.repo.nextId(), business_id: h.business.id, staff_id: h.thandi.id, starts_on: WED, ends_on: WED,
+      start_time: '14:00:00', end_time: '16:00:00', reason: 'other', note: null,
+    });
+    const withTimeOff = await startsAt(base);
+    expect(withTimeOff).not.toContain(sast('14:00'));
+    expect(withTimeOff).not.toContain(sast('15:00'));
+    expect(withTimeOff).toContain(sast('16:00'));
+
+    h.repo.tables.business_special_days.push({
+      id: h.repo.nextId(), business_id: h.business.id, date: WED, name: 'Heritage Day', kind: 'public_holiday',
+      is_closed: true, start_time: null, end_time: null,
+    });
+    expect(await startsAt({ ...base, staffId: undefined })).toEqual([]);
   });
 
   it('is empty for an inactive service', async () => {

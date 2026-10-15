@@ -4,7 +4,11 @@ This workstream covers the availability engine, the BookingService (`packages/fe
 
 ```
 packages/features/
-  availability/lib/availability.ts   pure engine (no I/O, injected `now`)
+  availability/lib/availability.ts   pure slot engine (no I/O, injected `now`)
+  availability/lib/windows.ts        pure per-staff, per-date bookable windows (the rule order below)
+  availability/lib/conflicts.ts, holidays.ts, mappers.ts, hours.ts  conflict preview, SA public holidays, row → DTO, one-range check
+  availability/services/*.ts         special days, staff breaks and time off, config and conflicts reads
+  bookings/lib/availabilityInput.ts  loads every schedule table into engine input (the one place)
   bookings/services/bookingService.ts  BookingService over a repository
   repositories/types.ts, supabase.ts   BookingRepository interfaces + Supabase implementation
   repositories/rows.ts, bookings/lib/mappers.ts  explicit row types, row → DTO mapping
@@ -32,9 +36,10 @@ To install and check the backend: `cd apps/api && npm ci && npx tsc --noEmit && 
 The inputs to `computeSlots(input, date)` are:
 
 - the business timezone and booking rules
-- business hours
-- per-staff rules
-- overrides
+- business hours (one range per weekday)
+- special days (business-wide, per date)
+- per-staff rules (one range per weekday), breaks and time off
+- per-staff day overrides
 - busy ranges, which are the `blocked` ranges of non-cancelled appointments
 - the service duration
 - the candidate staff (active, `accepts_bookings`, qualified)
@@ -43,9 +48,14 @@ The inputs to `computeSlots(input, date)` are:
 For one calendar date `D` in the business timezone:
 
 1. **Bookable dates** run from `today` to `today + booking_horizon_days` inclusive, where `today` is the date of `now` in the business timezone. Any other date returns `[]`.
-2. **Business windows(D)**: if any business-wide override (`staff_id null`) exists for `D`, it decides. `is_closed` gives `[]`, and otherwise the override windows *replace* the business hours. Without an override, the business windows are the `business_hours` rows for `weekday(D)`, where 0 is Sunday.
-3. **Staff windows(D)**: a per-staff override decides in the same way (closed or replacement windows). Without one, the staff member's `availability_rules` for `weekday(D)` apply, and a staff member with **zero rules** inherits the business windows.
-4. **Effective windows** are staff windows ∩ business windows. Overlapping or touching rows are merged first, so 09:00–10:30 plus 10:30–12:00 behaves as one 09:00–12:00 window.
+2. **Business windows(D)**, in this order:
+   1. **Business hours**: the one `business_hours` row for `weekday(D)` (0 is Sunday), or closed. This is the outer bound.
+   2. **Special day**: if `business_special_days` has a row for `D`, it decides. Closed gives `[]`, otherwise its single range *replaces* the weekday hours (it may be wider or open a normally closed day).
+3. **Staff windows(D)**:
+   3. **Staff hours**: a per-staff override for `D` decides first (closed, or one replacement range); otherwise the staff member's `availability_rules` row for `weekday(D)` applies (none for that weekday means off), and a staff member with **zero rules** inherits the business windows. The result is clipped to the business windows (step 2), so staff are never bookable outside business hours or on a closed special day.
+   4. **Breaks**: every `staff_breaks` row whose `weekdays` is empty or contains `weekday(D)` is subtracted.
+   5. **Time off**: every `staff_time_off` row with `starts_on <= D <= ends_on` is subtracted: the whole day when its times are null, else `start_time..end_time` (the same hours on each date of a multi-day range). Overlaps with breaks just union.
+4. **Effective windows** are what is left after steps 1-5. Overlapping or touching rows are merged first, so 09:00–10:30 plus 10:30–12:00 behaves as one 09:00–12:00 window. Because slots step from the start of each remaining window, a break or time off in the middle re-aligns the grid after it (a 12:30 break end gives 13:30, 14:30, ... on a 60 minute interval).
 5. Each effective window's wall-clock bounds are converted to instants with luxon (see DST below). Candidate starts are `t = windowStart, windowStart + interval, …` for as long as `t + duration ≤ windowEnd`. The service must fit inside the window, but the buffer does not have to.
 6. A candidate is kept when `t ≥ now + lead_time_minutes` and `[t, t + duration + buffer)` does not overlap any busy range of that staff member. Ranges are half-open, which matches the DB exclusion constraint on `blocked`.
 7. Slots are merged across staff by start instant and sorted by start. `staff_ids` is ordered by the deterministic tie-break: fewest appointments that day (counted by appointment start date in the business timezone), then `sort_order`, then `id`.
@@ -61,7 +71,8 @@ For one calendar date `D` in the business timezone:
   2. Checks that the service is active.
   3. Re-validates the start against **live** availability for the date (lead time, horizon, grid alignment, overlap) and resolves the staff member. A requested staff member must be free. With no preference, the first entry of the slot's `staff_ids` wins.
   4. Calls the `create_appointment` RPC. Its errors are mapped by `mapDbError`, so a lost race becomes 23P01, which is returned as `SLOT_UNAVAILABLE`.
-- `allowOutsideHours` only has effect for `actor.type === 'staff'`. It skips hours, lead time and the grid, but staff are still picked by the overlap and tie-break rules, and the DB exclusion constraint remains the final guard.
+- **Where the break / time-off / special-day guard lives:** in the service, through the same engine. `resolveStaff` re-validates the start with `findSlot`, and the engine already removed breaks, time off and closed special days, so a booking (any actor, any channel) inside one fails `SLOT_UNAVAILABLE` and reschedule behaves the same. It is not duplicated in SQL: the RPCs stay the overlap guard (exclusion constraint) and carry no schedule logic. `allowOutsideHours` (staff walk-ins) deliberately skips all of it, exactly as it already skipped hours.
+- `allowOutsideHours` only has effect for `actor.type === 'staff'`. It skips hours, breaks, time off, special days, lead time and the grid, but staff are still picked by the overlap and tie-break rules, and the DB exclusion constraint remains the final guard.
 - `rescheduleAppointment` and `cancelAppointment`:
   - A customer only sees their own appointments (anything else returns `NOT_FOUND`) and must act at least `cancellation_window_minutes` before the start, or the call fails with `RULE_VIOLATION` and `rule=CANCELLATION_WINDOW`.
   - A reschedule revalidates the new start with the appointment's own busy range excluded.
@@ -119,6 +130,9 @@ The steps run independently. It returns `{ idempotency_keys_deleted, webhook_eve
 | `business_hours` | business_id, weekday, opens_at, closes_at |
 | `availability_rules` | business_id, staff_id, weekday, start_time, end_time |
 | `availability_overrides` | id, business_id, staff_id, date, start_time, end_time, is_closed, reason |
+| `business_special_days` | id, business_id, date, name, kind, is_closed, start_time, end_time |
+| `staff_breaks` | id, business_id, staff_id, label, start_time, end_time, weekdays |
+| `staff_time_off` | id, business_id, staff_id, starts_on, ends_on, start_time, end_time, reason, note |
 | `clients` | id, business_id, phone_e164, name, email, notes, tags, is_blocked, whatsapp_opt_in, first_seen_at, last_seen_at |
 | `client_notes` | id, business_id, client_id, body, kind, created_by, created_at |
 | `appointments` | id, business_id, client_id, staff_id, service_id, slot, blocked, status, source, price_cents, duration_minutes, notes, idempotency_key, checked_in_at, cancelled_at, cancel_reason, created_by, created_at |
@@ -168,7 +182,8 @@ Delete ordering doesn't rely on FK cascade rules the plan leaves unspecified:
    - `PUT /v1/business/hours` returns `{ hours: BusinessHoursRow[] }`.
    - `PUT /v1/staff/:id/services` returns `{ staff_id, service_ids }`.
    - `PUT /v1/staff/:id/availability` returns `{ staff_id, rules }`.
-   - `POST /v1/overrides` returns `OverrideDTO` (`booking/admin.ts`).
+   - `POST /v1/overrides` returns `StaffDayOverrideDTO` (`packages/types/api.ts`); `staff_id` is required.
+   - Special days, breaks and time off: see BUILD_PLAN §4 (`SpecialDayDTO`, `StaffBreakDTO`, `StaffTimeOffDTO`, `AvailabilityConfigResponse`, `AvailabilityConflictsResponse`).
    - `DELETE /v1/services/:id` and `DELETE /v1/staff/:id` return `{ id, deleted }`, where `deleted:false` means the row was deactivated.
    - `DELETE /v1/overrides/:id` and `DELETE /v1/clients/:id/notes/:noteId` return `{ id }`.
    - `POST /v1/devices` returns `{ token, platform }`.
@@ -178,7 +193,10 @@ Delete ordering doesn't rely on FK cascade rules the plan leaves unspecified:
 4. **`POST /v1/clients` is an upsert by phone** (through `upsert_client_by_phone`, then the provided fields are applied). It returns the existing client when the phone is already known, and always responds 201.
 5. **Soft delete for staff**: a staff member referenced by appointments is deactivated (`is_active=false, accepts_bookings=false`) rather than deleted, mirroring the rule for services.
 6. **Horizon**: the bookable dates are `today … today + booking_horizon_days` inclusive, in the business timezone.
-7. **A staff override never extends past business hours.** It is intersected with the business windows, so opening a normally closed day needs a business-wide override.
+7. **A staff override never extends past business hours.** It is intersected with the business windows, so opening a normally closed day needs a business-wide special day (`special_hours`). Per-staff overrides were kept (rather than migrated into time off) because they can also *replace* a day's hours, which time off cannot express; business-wide overrides moved to `business_special_days`.
+7a. **One range per weekday.** Business hours and staff hours allow a single range per weekday (unique constraints and `ONE_RANGE_PER_DAY`); a lunch gap is a staff break. The engine still merges any rows it is handed, so it stays tolerant, but the data can no longer hold a hidden split shift.
+7b. **Partial time off over several dates** repeats the same hours on each date of the range. Different hours on the first and last day are two time-off rows.
+7c. **Conflict preview, never auto-cancel.** A closed special day or time off changes availability immediately and leaves existing appointments untouched. `GET /v1/availability/conflicts` lists the confirmed appointments the owner should handle first.
 8. **Reschedule with no `staff_id`** keeps the current staff member when they are free, and otherwise uses the tie-break winner.
 9. **`SLOT_UNAVAILABLE`** also covers starts that are off the slot grid, outside hours, before now + lead time or beyond the horizon. The live re-check can't tell a taken slot from one that was never valid.
 10. **Notifications**: `notifyCustomer` defaults to `false` inside the service. The `/v1` routes default `send_whatsapp_confirmation` and `notify_customer` to `true`, and public web bookings always pass `true`.

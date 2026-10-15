@@ -141,7 +141,7 @@ The `RULE` codes in use are:
 - Optional args such as `p_notes` and `p_staff_id` can be omitted.
 
 **Audit attribution**
-- Audited tables: businesses, services, staff, staff_services, business_hours, availability_rules, availability_overrides, clients.
+- Audited tables: businesses, services, staff, staff_services, business_hours, availability_rules, availability_overrides, business_special_days, staff_breaks, staff_time_off, clients.
 - Every PostgREST call is its own transaction, so a separate `set_request_context()` call does not carry over to the next request.
 - For plain table writes, attach headers instead: `db.from('services').update(...).setHeader('x-actor-id', userId).setHeader('x-request-id', requestId)`. Optionally add `x-actor-type: customer|staff|system`.
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
@@ -170,7 +170,8 @@ The `RULE` codes in use are:
 **Replace RPCs**
 - `replace_business_hours` takes rows `[{weekday, opens_at, closes_at}]` with times as `"HH:mm"`.
 - `replace_staff_availability` takes `[{weekday, start_time, end_time}]`. An empty array means the staff member inherits business hours.
-- Both return the resulting rows. They apply the replace as a diff, so unchanged rows keep their ids and their audit history.
+- Both allow at most one range per weekday (`RULE:ONE_RANGE_PER_DAY`) and upsert by weekday. `replace_staff_breaks` takes `[{label, start_time, end_time, weekdays}]` (empty/absent `weekdays` = every day; overlaps raise `RULE:OVERLAPPING_BREAKS`).
+- All return the resulting rows. They apply the replace as a diff, so unchanged rows keep their ids and their audit history.
 
 **Onboarding**
 - `complete_onboarding(p_business_id, p_user_id, p_owner_name, p_hours, p_team, p_services)` runs the whole first-run setup in one transaction under a row lock on the business and writes `businesses.onboarded_at` last. It returns `true` when applied and `false` when already onboarded, so a retry or a concurrent duplicate is a no-op. `p_team` is `[{name, title?}]`, `p_services` is `[{name, duration_minutes, price_cents}]`. Existing businesses with hours or services were backfilled as onboarded. `service_role` only.
@@ -199,7 +200,7 @@ Deviations are kept to a minimum. Each one fixes something the plan as written c
    - `appointments`: `cancelled ⇔ cancelled_at is not null`, the slot length equals `duration_minutes`, and `lower(blocked) = lower(slot)`.
    - Enumerated values for `escalations.reason`, `webhook_events.source` and `device_push_tokens.platform`, taken from the plan and the DTOs.
    - `slug` format and uppercase ISO `currency`.
-   - An open (not closed) override must have a valid window.
+   - An open (not closed) override must have a valid window. Overrides are per staff (`staff_id not null`); business-wide days live in `business_special_days`.
 9. **FK semantics.**
    - `users.business_id` uses `on delete set null`, because users outlive a business.
    - `appointments → clients/staff/services` use `NO ACTION`: it has restrict semantics but is checked at the end of the statement, so deleting a business still cascades.
