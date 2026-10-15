@@ -9,6 +9,7 @@ import {
   GroupBlock,
   GroupRow,
   InlineInsetInput,
+  MonthGrid,
   SegmentedControl,
   Stepper,
   Switch,
@@ -29,6 +30,25 @@ const ROLES = [
   { value: 'staff', label: 'Staff' },
   { value: 'owner', label: 'Owner' },
 ] as const;
+
+const cell = (day: number, extra: object = {}) => ({
+  value: `2026-12-${String(day).padStart(2, '0')}`,
+  label: String(day),
+  accessibilityLabel: `${day} December`,
+  ...extra,
+});
+const GALLERY_WEEKS = [
+  [null, cell(1), cell(2), cell(3, { today: true }), cell(4), cell(5), cell(6)],
+  [
+    cell(7, { disabled: true }),
+    cell(8),
+    cell(9, { selected: true }),
+    cell(10),
+    cell(11),
+    cell(12),
+    cell(13),
+  ],
+];
 
 /** The controls the settings boards (Team, Hours, Services) need. */
 export function SettingsKitGallery() {
@@ -178,6 +198,12 @@ export function SettingsKitGallery() {
             expanded={more}
             onPress={() => setMore((v) => !v)}
           />
+          <Disclosure
+            variant="row"
+            label="Holidays and special days"
+            expanded={more}
+            onPress={() => setMore((v) => !v)}
+          />
         </Specimen>
       </Section>
 
@@ -203,6 +229,21 @@ export function SettingsKitGallery() {
               <DestructiveRow label="Remove from team" onPress={() => {}} />
             </GroupBlock>
           </Group>
+        </Specimen>
+      </Section>
+
+      <Section title="Settings kit: date">
+        <Specimen label="MonthGrid (chosen day, today, a day that cannot be picked)">
+          <MonthGrid
+            title="December 2026"
+            weekdays={['M', 'T', 'W', 'T', 'F', 'S', 'S']}
+            weeks={GALLERY_WEEKS}
+            previousLabel="Previous month"
+            nextLabel="Next month"
+            onPrevious={() => {}}
+            onNext={() => {}}
+            onSelect={() => {}}
+          />
         </Specimen>
       </Section>
 

@@ -13,6 +13,7 @@ import { Disclosure } from '../Disclosure';
 import { FormSheet } from '../FormSheet';
 import { Group, GroupBlock, GroupRow } from '../Group';
 import { InlineInsetInput } from '../InlineInsetInput';
+import { MonthGrid } from '../MonthGrid';
 import { SegmentedControl } from '../SegmentedControl';
 import { Stepper } from '../Stepper';
 import { TimeField } from '../TimeField';
@@ -127,6 +128,25 @@ describe('TintLink action variant', () => {
     const link = pressable(tree, 'Add a service');
     expect(String(link.props.className)).toContain('min-h-[52px]');
     expect(JSON.stringify(tree.toJSON())).toContain('text-title font-semibold');
+  });
+});
+
+describe('Disclosure row variant', () => {
+  it('is a full-width 48pt row that reports expanded', () => {
+    const onPress = jest.fn();
+    const tree = render(
+      <Disclosure
+        variant="row"
+        label="Holidays and special days"
+        expanded={false}
+        onPress={onPress}
+      />,
+    );
+    const row = pressable(tree, 'Holidays and special days');
+    expect(String(row.props.className)).toContain('min-h-12');
+    expect(row.props.accessibilityState).toEqual({ expanded: false });
+    act(() => row.props.onPress());
+    expect(onPress).toHaveBeenCalled();
   });
 });
 
@@ -449,5 +469,106 @@ describe('glass navigation', () => {
       </GlassPage>,
     );
     expect(textOf(tree)).toContain('footer here');
+  });
+});
+
+describe('MonthGrid', () => {
+  const weeks = [
+    [
+      null,
+      null,
+      {
+        value: '2026-12-01',
+        label: '1',
+        accessibilityLabel: 'Tuesday 1 December',
+      },
+      {
+        value: '2026-12-02',
+        label: '2',
+        accessibilityLabel: 'Wednesday 2 December',
+        selected: true,
+      },
+      {
+        value: '2026-12-03',
+        label: '3',
+        accessibilityLabel: 'Thursday 3 December',
+        today: true,
+      },
+      {
+        value: '2026-12-04',
+        label: '4',
+        accessibilityLabel: 'Friday 4 December',
+        disabled: true,
+      },
+      null,
+    ],
+  ];
+  const props = {
+    title: 'December 2026',
+    weekdays: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    weeks,
+    previousLabel: 'Previous month',
+    nextLabel: 'Next month',
+  };
+
+  it('picks a day and steps months from 44pt controls', () => {
+    const onSelect = jest.fn();
+    const onNext = jest.fn();
+    const onPrevious = jest.fn();
+    const tree = render(
+      <MonthGrid
+        {...props}
+        onSelect={onSelect}
+        onNext={onNext}
+        onPrevious={onPrevious}
+      />,
+    );
+    expect(textOf(tree)).toContain('December 2026');
+    const day = pressable(tree, 'Tuesday 1 December');
+    expect(String(day.props.className)).toContain('h-11');
+    act(() => day.props.onPress());
+    expect(onSelect).toHaveBeenCalledWith('2026-12-01');
+    act(() => pressable(tree, 'Next month').props.onPress());
+    act(() => pressable(tree, 'Previous month').props.onPress());
+    expect(onNext).toHaveBeenCalled();
+    expect(onPrevious).toHaveBeenCalled();
+  });
+
+  it('exposes the chosen and the disabled day through accessibility state', () => {
+    const tree = render(
+      <MonthGrid
+        {...props}
+        onSelect={jest.fn()}
+        onNext={jest.fn()}
+        onPrevious={jest.fn()}
+      />,
+    );
+    expect(
+      pressable(tree, 'Wednesday 2 December').props.accessibilityState,
+    ).toEqual({
+      selected: true,
+      disabled: false,
+    });
+    expect(
+      pressable(tree, 'Friday 4 December').props.accessibilityState,
+    ).toEqual({
+      selected: false,
+      disabled: true,
+    });
+  });
+
+  it('can switch the previous month off', () => {
+    const tree = render(
+      <MonthGrid
+        {...props}
+        disablePrevious
+        onSelect={jest.fn()}
+        onNext={jest.fn()}
+        onPrevious={jest.fn()}
+      />,
+    );
+    expect(pressable(tree, 'Previous month').props.accessibilityState).toEqual({
+      disabled: true,
+    });
   });
 });
