@@ -34,8 +34,7 @@
   "auth": {
     "appName": "Clovie",
     "welcome": {
-      "headline": "Run your shop from your phone.",
-      "valueProp": "Bookings, clients and WhatsApp in one place.",
+      "valueProp": "Run your shop from your phone.",
       "google": "Continue with Google",
       "email": "Continue with email or phone",
       "legalPrefix": "By continuing you agree to our",

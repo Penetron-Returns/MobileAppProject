@@ -10,7 +10,7 @@ jest.mock('react-native-webview', () => {
 });
 
 describe('WelcomeStep', () => {
-  it('shows the idle Clovie above the Clovie name instead of the app tile', () => {
+  it('shows the idle Clovie above the wordmark and the value prop', () => {
     const tree = mount(
       <WelcomeStep
         isBusy={false}
@@ -21,6 +21,11 @@ describe('WelcomeStep', () => {
     );
     const web = tree.root.findAllByProps({ testID: 'clovie-webview' });
     expect(web[0].props.source.html).toContain('"state":"default"');
-    expect(text(tree)).toContain('Clovie');
+    expect(
+      tree.root.findByProps({ testID: 'clovie-wordmark' }).props
+        .accessibilityLabel,
+    ).toBe('Clovie');
+    expect(text(tree)).toContain('Run your shop from your phone.');
+    expect(text(tree)).not.toContain('Bookings, clients and WhatsApp');
   });
 });

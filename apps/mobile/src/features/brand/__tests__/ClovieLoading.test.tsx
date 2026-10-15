@@ -66,16 +66,28 @@ describe('ClovieLoading', () => {
     expect(quoteText(tree)).toBe(quotes[1]);
   });
 
-  it('hides the native splash after its first layout, once', () => {
+  it('hides the native splash once the still has loaded, once', () => {
     const tree = mount(<ClovieLoading random={() => 0} />);
     expect(mockHideAsync).not.toHaveBeenCalled();
-    const root = tree.root.findByProps({ testID: 'clovie-loading' });
+    const still = tree.root.findByProps({ testID: 'clovie-still' });
     act(() => {
-      root.props.onLayout();
-      root.props.onLayout();
+      still.props.onLoad();
+      still.props.onLoad();
     });
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
     hideNativeSplash();
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the splash after the safety timeout if the still never loads', () => {
+    mount(<ClovieLoading random={() => 0} splashSafetyMs={1500} />);
+    act(() => {
+      jest.advanceTimersByTime(1499);
+    });
+    expect(mockHideAsync).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
   });
 });
