@@ -8,7 +8,7 @@ import type { BusinessDTO } from '@booking/types';
 import type { WaDeps } from '../deps.ts';
 import { accountGraph } from '../deps.ts';
 import { verifyFlowToken } from '../flows/token.ts';
-import { isInstant, isUuid } from '../ids.ts';
+import { isInstant, isUuid, normaliseInstant } from '../ids.ts';
 import { escalate, type OutboundTarget } from '../outbound.ts';
 import type { ConversationPatch, ConversationRow, MessageType, WaAccountRow } from '../repo.ts';
 import { executeActions } from './executor.ts';
@@ -157,13 +157,13 @@ function normaliseInput(deps: WaDeps, raw: RawInput, conversationId: string): En
 function bookingPayload(response: Record<string, unknown>): { serviceId: string; startsAt: string } | null {
   const { service_slug: serviceId, start_time_iso: startsAt } = response;
   if (typeof serviceId !== 'string' || !isUuid(serviceId) || typeof startsAt !== 'string' || !isInstant(startsAt)) return null;
-  return { serviceId: serviceId.toLowerCase(), startsAt: new Date(startsAt).toISOString() };
+  return { serviceId: serviceId.toLowerCase(), startsAt: new Date(normaliseInstant(startsAt)).toISOString() };
 }
 
 /** The reschedule Flow's `complete` payload (`start_time_iso`). Anything malformed is dropped. */
 function reschedulePayload(response: Record<string, unknown>): { startsAt: string } | null {
   const startsAt = response.start_time_iso;
-  return typeof startsAt === 'string' && isInstant(startsAt) ? { startsAt: new Date(startsAt).toISOString() } : null;
+  return typeof startsAt === 'string' && isInstant(startsAt) ? { startsAt: new Date(normaliseInstant(startsAt)).toISOString() } : null;
 }
 
 const CAS_ATTEMPTS = 3;

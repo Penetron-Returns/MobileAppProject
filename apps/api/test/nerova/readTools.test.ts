@@ -106,6 +106,29 @@ describe('services_list and staff_list', () => {
   });
 });
 
+describe('.NET round-trip instants (7 fractional digits)', () => {
+  const dotnet = (hhmm: string) => sast(hhmm).replace('.000Z', '.0000000+00:00');
+
+  it('availability_search accepts them and returns the same slots', async () => {
+    const h = nerovaHarness();
+    const base = { accountId: h.business.id, serviceId: h.cut.id };
+    const plain = await h.ok('availability_search', { ...base, start: sast('00:00'), end: sast('23:59') });
+    const net = await h.ok('availability_search', { ...base, start: dotnet('00:00'), end: dotnet('23:59') });
+    expect(net.data.length).toBeGreaterThan(0);
+    expect(net.data).toEqual(plain.data);
+  });
+
+  it('appointments_list accepts them', async () => {
+    const h = nerovaHarness();
+    await h.ok('appointments_create', {
+      accountId: h.business.id, idempotencyKey: 'dn1', externalServiceId: h.cut.id, externalStaffId: h.thandi.id,
+      startTime: dotnet('09:00'), client: { name: 'Nadia', phone: '+27821234567' },
+    });
+    const list = await h.ok('appointments_list', { accountId: h.business.id, from: dotnet('00:00'), to: dotnet('23:59') });
+    expect(list.items.map((i: { startTime: string }) => i.startTime)).toEqual([sast('09:00')]);
+  });
+});
+
 describe('availability_search', () => {
   const window = { start: sast('00:00'), end: sast('23:59') };
 
