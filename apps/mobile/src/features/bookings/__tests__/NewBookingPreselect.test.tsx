@@ -23,7 +23,11 @@ jest.mock('lucide-react-native', () => {
 });
 jest.mock('expo-router', () => ({
   router: { setParams: jest.fn(), navigate: jest.fn(), push: jest.fn() },
-  usePathname: () => '/add',
+  usePathname: () => '/new-booking',
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    const R = require('react');
+    R.useEffect(effect, [effect]);
+  },
 }));
 jest.mock('@/features/business/hooks', () => ({
   useBusiness: () => ({

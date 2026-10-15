@@ -2,12 +2,14 @@ import {
   ErrorState,
   GlassPage,
   Group,
+  GroupRow,
   ListSkeleton,
   Presenter,
   SaveFooter,
   Text,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -134,6 +136,14 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
         <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
           {t('settings.hours.hint')}
         </Text>
+        <Group radius={26} className="mx-4 mt-5">
+          <GroupRow
+            title={t('hours.breaks.title')}
+            subtitle={t('hours.breaks.subtitle')}
+            accessibilityLabel={`${t('hours.breaks.title')}. ${t('hours.breaks.subtitle')}`}
+            onPress={() => router.push('/settings/team')}
+          />
+        </Group>
         <SpecialDaysSection
           canManage={canManage}
           onPresentChange={setPresenting}

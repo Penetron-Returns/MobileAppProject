@@ -623,6 +623,10 @@
   },
   "hours": {
     "title": "Operating hours",
+    "breaks": {
+      "title": "Breaks and time off",
+      "subtitle": "Set per person in Team"
+    },
     "intro": "Set your standard opening times. One range per day: add a team member's lunch as a break.",
     "open": "Open",
     "closed": "Closed",
@@ -784,6 +788,12 @@
   },
   "newBooking": {
     "title": "New booking",
+    "discard": {
+      "title": "Discard this booking?",
+      "description": "What you entered will be lost.",
+      "confirm": "Discard",
+      "keep": "Keep editing"
+    },
     "who": "Who is it for?",
     "searchPlaceholder": "Client name or number",
     "searchFailed": "Couldn't search clients.",

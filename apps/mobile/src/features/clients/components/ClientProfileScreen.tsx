@@ -130,7 +130,7 @@ function ProfileBody({
           spoken={t('clients.profile.bookLabel', { name: firstName })}
           onPress={() =>
             router.push({
-              pathname: '/add',
+              pathname: '/new-booking',
               params: { clientId: client.id },
             } as never)
           }

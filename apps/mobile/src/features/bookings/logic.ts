@@ -255,3 +255,36 @@ export const HISTORY_EVENTS = [
   'cancelled',
   'notes_updated',
 ] as const;
+
+/** What the user has typed or picked so far on the New booking sheet. */
+export interface BookingDraft {
+  client: {
+    mode: 'existing' | 'new';
+    hasClient: boolean;
+    name: string;
+    phone: string;
+  };
+  serviceId: string | null;
+  notes: string;
+}
+
+/**
+ * True when closing the sheet would lose input. A client preselected from a
+ * route param counts as input only once something else has been entered, so
+ * "Book" from a profile and then ✕ closes straight away.
+ */
+export function hasUnsavedInput(
+  draft: BookingDraft,
+  preselected: boolean,
+): boolean {
+  const typedClient =
+    draft.client.mode === 'new' &&
+    Boolean(draft.client.name.trim() || draft.client.phone.trim());
+  const pickedClient = draft.client.hasClient && !preselected;
+  return (
+    typedClient ||
+    pickedClient ||
+    draft.serviceId !== null ||
+    draft.notes.trim().length > 0
+  );
+}

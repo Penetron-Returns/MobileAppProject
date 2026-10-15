@@ -208,7 +208,7 @@ export function ConversationScreen({
                 className="flex-1"
                 onPress={() =>
                   router.push({
-                    pathname: '/add',
+                    pathname: '/new-booking',
                     params: { clientId: client.id },
                   } as never)
                 }
