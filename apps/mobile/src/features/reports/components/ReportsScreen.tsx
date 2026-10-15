@@ -58,9 +58,11 @@ function ReportsBody({
     <>
       <MonthSwitcher
         month={month}
+        currentMonth={currentMonth}
         canNext={canGoNext(month, currentMonth)}
         onPrev={() => setMonth((m) => shiftMonth(m, -1))}
         onNext={() => setMonth((m) => shiftMonth(m, 1))}
+        onPick={setMonth}
       />
       <SavedCopyBanner query={report} timezone={timezone} />
       {isFailed(report) ? (

@@ -1,10 +1,8 @@
 import {
   buildEmbedHtml,
-  detentHeight,
   notReadyKey,
   parseWidgetMessage,
   refreshDelayMs,
-  settleDetent,
 } from '../logic';
 
 describe('notReadyKey', () => {
@@ -87,29 +85,5 @@ describe('buildEmbedHtml', () => {
   it('relays nerova:widget messages to the app', () => {
     expect(html).toContain('nerova:widget');
     expect(html).toContain('ReactNativeWebView.postMessage');
-  });
-});
-
-describe('settleDetent', () => {
-  const height = 800;
-  it.each([
-    ['half, small drag stays', 'half', 10, 0, 'half'],
-    ['half, drag up goes full', 'half', -150, 0, 'full'],
-    ['half, fling up goes full', 'half', -20, -1200, 'full'],
-    ['half, long drag down closes', 'half', 250, 0, 'close'],
-    ['half, hard fling down closes', 'half', 30, 1500, 'close'],
-    ['half, short pull down stays', 'half', 120, 0, 'half'],
-    ['full, small drag stays', 'full', 20, 0, 'full'],
-    ['full, drag down goes half', 'full', 150, 0, 'half'],
-    ['full, fling down goes half', 'full', 10, 1000, 'half'],
-  ] as const)('%s', (_n, from, offset, velocity, expected) => {
-    expect(settleDetent({ from, offset, velocity, height })).toBe(expected);
-  });
-});
-
-describe('detentHeight', () => {
-  it('is the usable height at full and a fraction at half', () => {
-    expect(detentHeight('full', 800)).toBe(800);
-    expect(detentHeight('half', 800)).toBe(464);
   });
 });

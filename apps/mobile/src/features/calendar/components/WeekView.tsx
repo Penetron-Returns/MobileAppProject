@@ -1,5 +1,5 @@
-import { Chip, Surface, Text, useDepth } from '@booking/ui';
-import { ChevronRight } from 'lucide-react-native';
+import { Chip, Menu, Surface, Text, useDepth } from '@booking/ui';
+import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -7,9 +7,12 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { WEEKDAYS, formatDateLong, type ISODate } from '@/lib/time';
 
 import type { CalendarWeekView } from '../hooks';
-import { filterByStaff, weekSummary } from '../logic';
+import { filterByStaff, MAX_STAFF_CHIPS, weekSummary } from '../logic';
 
 type Ready = Extract<CalendarWeekView, { status: 'ready' }>;
+
+/** The "everyone" option of the staff menu; a real staff id never looks like this. */
+const ALL = 'all';
 
 function firstName(name: string | undefined): string {
   return name?.trim().split(/\s+/)[0] ?? '';
@@ -40,7 +43,32 @@ export function WeekView({
 
   return (
     <View>
-      {view.staff.length > 1 ? (
+      {view.staff.length > MAX_STAFF_CHIPS ? (
+        <View className="px-5 pt-3">
+          <Menu
+            align="start"
+            selected={staffId ?? ALL}
+            onSelect={(value) => setStaffId(value === ALL ? null : value)}
+            options={[
+              { value: ALL, label: t('calendar.everyone') },
+              ...view.staff.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+            accessibilityLabel={t('calendar.showForPick', {
+              name: staffName ?? t('calendar.everyone'),
+            })}
+            className="min-h-11 flex-row items-center gap-1.5 self-start"
+          >
+            <Text className="text-title font-semibold">
+              {staffName ?? t('calendar.everyone')}
+            </Text>
+            <ChevronDown
+              size={14}
+              strokeWidth={2.8}
+              color={depth.colors.secondary}
+            />
+          </Menu>
+        </View>
+      ) : view.staff.length > 1 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}

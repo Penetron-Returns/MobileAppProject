@@ -123,3 +123,35 @@ describe('CalendarHeader New booking action', () => {
     ).toHaveLength(0);
   });
 });
+
+describe('DayView horizontal scrolling', () => {
+  const staff = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...READY.columns[0],
+      staff: { id: `staff-${i}`, name: `Person ${i}` },
+    }));
+  const grid = (n: number) =>
+    mount(
+      <DayView
+        view={{ ...READY, columns: staff(n) } as typeof READY}
+        date="2026-10-14"
+        bottomInset={0}
+      />,
+    );
+  const scroller = (tree: ReturnType<typeof mount>) =>
+    tree.root.find(
+      (node) => node.props.horizontal === true && 'scrollEnabled' in node.props,
+    );
+
+  it('scrolls sideways from the first column with three or more staff', () => {
+    const props = scroller(grid(3)).props;
+    expect(props.scrollEnabled).toBe(true);
+    expect(props.contentOffset).toEqual({ x: 0, y: 0 });
+    expect(props.bounces).toBe(false);
+  });
+
+  it('keeps one or two staff fixed, filling the width next to the gutter', () => {
+    expect(scroller(grid(2)).props.scrollEnabled).toBe(false);
+    expect(scroller(grid(1)).props.scrollEnabled).toBe(false);
+  });
+});

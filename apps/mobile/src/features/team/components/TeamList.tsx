@@ -3,16 +3,17 @@ import {
   Group,
   GroupRow,
   resolveSystemColor,
+  SwipeableRow,
   Text,
   TintLink,
   useDepth,
   Reveal,
 } from '@booking/ui';
-import { Plus, UserPlus, Users } from 'lucide-react-native';
+import { Plus, UserMinus, UserPlus, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { personSubtitle, type TeamPerson } from '../logic';
+import { canRemoveMember, personSubtitle, type TeamPerson } from '../logic';
 import { InviteCard } from './InviteCard';
 
 /**
@@ -23,10 +24,13 @@ export function TeamList({
   people,
   onOpen,
   onAddPerson,
+  onRemoveMember,
 }: {
   people: TeamPerson[];
   onOpen: (key: string) => void;
   onAddPerson: () => void;
+  /** Asks to remove a login from the team (the screen confirms). */
+  onRemoveMember: (person: TeamPerson) => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
@@ -49,23 +53,40 @@ export function TeamList({
             const subtitle = personSubtitle(person, t);
             return (
               <Reveal key={person.key} scope="team" index={i}>
-                <GroupRow
-                  showSeparator={i > 0}
-                  avatarName={person.name}
-                  avatarRing={resolveSystemColor(
-                    person.staff?.color,
-                    depth.scheme,
-                  )}
-                  title={person.name}
-                  subtitle={subtitle}
-                  accessibilityLabel={t('team.openPerson', {
-                    name: person.name,
-                    meta: [person.job, t(`team.accessSpoken.${person.access}`)]
-                      .filter(Boolean)
-                      .join(', '),
-                  })}
-                  onPress={() => onOpen(person.key)}
-                />
+                <SwipeableRow
+                  enabled={canRemoveMember(person)}
+                  trailing={[
+                    {
+                      key: 'remove',
+                      label: t('common.remove'),
+                      spokenLabel: t('team.remove.action'),
+                      role: 'destructive',
+                      icon: UserMinus,
+                      onPress: () => onRemoveMember(person),
+                    },
+                  ]}
+                >
+                  <GroupRow
+                    showSeparator={i > 0}
+                    avatarName={person.name}
+                    avatarRing={resolveSystemColor(
+                      person.staff?.color,
+                      depth.scheme,
+                    )}
+                    title={person.name}
+                    subtitle={subtitle}
+                    accessibilityLabel={t('team.openPerson', {
+                      name: person.name,
+                      meta: [
+                        person.job,
+                        t(`team.accessSpoken.${person.access}`),
+                      ]
+                        .filter(Boolean)
+                        .join(', '),
+                    })}
+                    onPress={() => onOpen(person.key)}
+                  />
+                </SwipeableRow>
               </Reveal>
             );
           })}

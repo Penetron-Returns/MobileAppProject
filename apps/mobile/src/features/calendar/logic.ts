@@ -182,6 +182,9 @@ export interface WeekSummary {
   total: number;
 }
 
+/** More staff than this and the week filter is a pull-down menu instead of chips. */
+export const MAX_STAFF_CHIPS = 4;
+
 export function filterByStaff<A extends { staff: { id: string } }>(
   appointments: A[],
   staffId: string | null,

@@ -1,4 +1,5 @@
 import {
+  recentMonths,
   busiestParts,
   canGoNext,
   chartBars,
@@ -117,5 +118,16 @@ describe('busiestParts', () => {
       day: 'Sunday',
       time: '08:00',
     });
+  });
+});
+
+describe('recentMonths', () => {
+  it('lists the current month first, then the ones before it across a year end', () => {
+    expect(recentMonths('2026-02', 4)).toEqual([
+      '2026-02',
+      '2026-01',
+      '2025-12',
+      '2025-11',
+    ]);
   });
 });

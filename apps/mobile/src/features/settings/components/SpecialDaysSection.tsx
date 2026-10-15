@@ -8,10 +8,11 @@ import {
   GroupRow,
   ListSkeleton,
   Pressable,
+  SwipeableRow,
   Text,
   useDepth,
 } from '@booking/ui';
-import { Plus } from 'lucide-react-native';
+import { Plus, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -92,19 +93,32 @@ export function SpecialDaysSection({
                 const date = formatWeekdayDayMonth(day.date);
                 const value = specialDayValue(day, t('hours.closed'));
                 return (
-                  <GroupRow
+                  <SwipeableRow
                     key={day.id}
-                    showSeparator={i > 0}
-                    title={day.name}
-                    subtitle={date}
-                    detail={value}
-                    accessibilityLabel={t('hours.special.rowLabel', {
-                      name: day.name,
-                      date,
-                      value,
-                    })}
-                    onPress={canManage ? () => setEditing(day) : undefined}
-                  />
+                    enabled={canManage}
+                    trailing={[
+                      {
+                        key: 'delete',
+                        label: t('common.delete'),
+                        role: 'destructive',
+                        icon: Trash2,
+                        onPress: () => setDeleting(day),
+                      },
+                    ]}
+                  >
+                    <GroupRow
+                      showSeparator={i > 0}
+                      title={day.name}
+                      subtitle={date}
+                      detail={value}
+                      accessibilityLabel={t('hours.special.rowLabel', {
+                        name: day.name,
+                        date,
+                        value,
+                      })}
+                      onPress={canManage ? () => setEditing(day) : undefined}
+                    />
+                  </SwipeableRow>
                 );
               })}
               {canManage ? (
