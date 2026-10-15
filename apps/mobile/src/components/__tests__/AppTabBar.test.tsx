@@ -23,7 +23,7 @@ jest.mock('@/features/inbox/useInboxEntry', () => ({
   useInboxEntry: () => ({ isVisible: mockHas('inbox'), unreadCount: 2 }),
 }));
 
-const NAMES = ['index', 'calendar', 'clients', 'settings'];
+const NAMES = ['index', 'calendar', 'reports', 'clients', 'settings'];
 
 function bar() {
   const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
@@ -67,17 +67,26 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/new-booking');
   });
 
-  it('paid: Reports replaces the plus and the companion dome replaces the Inbox', () => {
+  it('paid: Reports is an ordinary fifth tab, there is no plus and the companion dome replaces the Inbox', () => {
     mockMode = 'ai';
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();
     const all = labels(tree);
-    expect(all).toContain('Reports');
     expect(all).toContain('Open your companion');
     expect(all).not.toContain('New booking');
     expect(all.some((l) => l.startsWith('Inbox'))).toBe(false);
+    const tabs = tree.root
+      .findAll((n) => n.props.accessibilityRole === 'tab')
+      .map((n) => n.props.accessibilityLabel as string);
+    expect([...new Set(tabs)]).toEqual([
+      'Today',
+      'Calendar',
+      'Reports',
+      'Clients',
+      'Settings',
+    ]);
     act(() => pressableByLabel(tree, 'Reports').props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/reports');
+    expect(mockPush).not.toHaveBeenCalled();
     act(() => pressableByLabel(tree, 'Open your companion').props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/companion');
   });

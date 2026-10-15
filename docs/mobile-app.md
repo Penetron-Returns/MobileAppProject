@@ -139,7 +139,7 @@ Deliberate divergence from upstream react-native-reusables: `Button` `default` i
 ### Floating tab bar
 
 `FloatingTabBar` (`@booking/ui`) replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) ·
-Clients · Settings in one capsule, plus a dome above it. The centre action (`center`: `add` or `reports`) and the dome
+Clients · Settings in one capsule on Free (paid plans: Today · Calendar · Reports · Clients · Settings, five equal tabs, no "+"), plus a dome above it. The tabs (`tabs`), the optional "+" (`onAdd`) and the dome
 are slots the app fills per plan through `AppTabBar`: `<InboxEntryDome />` (`features/inbox`, `useInboxEntry()`) on Free,
 `<CompanionEntryDome />` (`features/companion`, `useCompanionEntry()`) on paid plans, each the single place for its plan
 gating and badge count. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
@@ -149,7 +149,7 @@ gating and badge count. The bar floats over content, so `Screen` and `Page` add 
 
 One app, two modes, chosen by the entitlements from `/v1/me` (`useAppMode()`: `companion` or `reports` means paid; never a plan name). **Free** is the research app and is unchanged: "+" opens New booking, the Inbox dome shows, Settings has WhatsApp. **Paid** (Starter R200 / 50 jobs, Growth R400 / 100, Pro R800 / 200; extra jobs R4, never cut off, warning from 80%):
 
-- The bar's centre button opens **Reports**; the dome is the **companion dome**, which opens the companion sheet. `AppTabBar` (`components/`) wires this; `tabBarActions(mode)` (`features/plans/tabBar.ts`) is the table.
+- **Reports** is an ordinary tab (`(tabs)/reports`, same style as the others); the dome is the **companion dome**, which opens the companion sheet. `AppTabBar` (`components/`) wires this; `tabBarActions(mode)` (`features/plans/tabBar.ts`) is the table.
 - Inbox routes (`/inbox`, `/inbox/[id]`) redirect to Today on paid plans; `/reports` and `/companion` redirect on Free (all through `Gate`).
 - Manual booking stays reachable: a "New booking" action in the Calendar header, and long-pressing an empty slot of the day view opens New booking with `staffId`, `date` and `time` params (`newBookingHref`).
 - **Reports** (`features/reports`): `GET /v1/reports/summary?month=`, month switcher, revenue, weekly chart, companion outcomes (`companion` is null until Nerova is linked), sources, no-shows, cancellations, busiest time, usage card (opens Plan).

@@ -6,10 +6,15 @@ import {
 } from '../layout';
 
 describe('isTabRootPath', () => {
-  it.each(['/', '/calendar', '/clients', '/settings', '/inbox', '/clients/'])(
-    'shows the bar on %s',
-    (path) => expect(isTabRootPath(path)).toBe(true),
-  );
+  it.each([
+    '/',
+    '/calendar',
+    '/reports',
+    '/clients',
+    '/settings',
+    '/inbox',
+    '/clients/',
+  ])('shows the bar on %s', (path) => expect(isTabRootPath(path)).toBe(true));
 
   it.each([
     '/new-booking',
