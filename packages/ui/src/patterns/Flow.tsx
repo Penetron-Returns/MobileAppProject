@@ -123,11 +123,13 @@ export function FlowFooter({ children }: { children: React.ReactNode }) {
           fade(depth.ground.backgroundColor as string, 'up'),
         ]}
       />
+      {/* The absolute box spans the screen and carries the 20pt margins; a
+          width of 100% on a box already inset by left/right overflowed it. */}
       <View
-        style={{ position: 'absolute', left: 20, right: 20, bottom }}
-        className="w-full max-w-2xl self-center"
+        style={{ position: 'absolute', left: 0, right: 0, bottom }}
+        className="px-5"
       >
-        {children}
+        <View className="w-full max-w-2xl self-center">{children}</View>
       </View>
     </>
   );

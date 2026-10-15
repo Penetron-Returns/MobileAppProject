@@ -92,6 +92,8 @@ export function BreakSheet({
       footer={
         <Button
           size="lg"
+          // Saving plays its own success haptic.
+          haptic={false}
           onPress={submit}
           loading={save.isPending}
           accessibilityLabel={t('common.save')}

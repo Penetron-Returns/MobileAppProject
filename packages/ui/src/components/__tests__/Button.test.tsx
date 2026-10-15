@@ -2,8 +2,15 @@ import * as React from 'react';
 import { ActivityIndicator } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 
-import { Button } from '../Button';
+import { StyleSheet } from 'react-native';
+
+import { haptics } from '../../lib/haptics';
+import { BUTTON_RADIUS, Button } from '../Button';
 import { Text } from '../../primitives/Text';
+
+jest.mock('../../lib/haptics', () => ({
+  haptics: { light: jest.fn(), selection: jest.fn() },
+}));
 
 function renderButton(props: React.ComponentProps<typeof Button>) {
   let tree!: renderer.ReactTestRenderer;
@@ -106,5 +113,63 @@ describe('Button', () => {
     expect(renderButton({}).root.findAllByType(ActivityIndicator)).toHaveLength(
       0,
     );
+  });
+
+  describe('pressed layers follow the capsule radius', () => {
+    const styleAt = (
+      props: React.ComponentProps<typeof Button>,
+      pressed: boolean,
+    ) => {
+      const node = findButtonNode(renderButton(props));
+      const fn = node.props.style as (s: { pressed: boolean }) => unknown;
+      return StyleSheet.flatten(fn({ pressed }) as never) as Record<
+        string,
+        unknown
+      >;
+    };
+
+    it.each(['default', 'sm', 'lg', 'xl', 'icon'] as const)(
+      'keeps an explicit half-height radius at size %s, pressed or not',
+      (size) => {
+        for (const variant of ['default', 'neutral', 'secondary'] as const) {
+          for (const pressed of [false, true]) {
+            expect(styleAt({ size, variant }, pressed).borderRadius).toBe(
+              BUTTON_RADIUS[size],
+            );
+          }
+        }
+      },
+    );
+
+    it('draws the pressed inset shadow together with that radius', () => {
+      const style = styleAt({ variant: 'neutral' }, true);
+      expect(String(style.boxShadow)).toContain('inset');
+      expect(style.borderRadius).toBe(BUTTON_RADIUS.default);
+    });
+  });
+
+  describe('haptics', () => {
+    beforeEach(() => jest.clearAllMocks());
+    const press = (props: React.ComponentProps<typeof Button>) => {
+      const node = findButtonNode(renderButton(props));
+      act(() => node.props.onPress({}));
+    };
+
+    it('taps lightly when the primary button is pressed', () => {
+      const onPress = jest.fn();
+      press({ onPress });
+      expect(haptics.light).toHaveBeenCalledTimes(1);
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays silent when the caller plays its own outcome haptic', () => {
+      press({ onPress: jest.fn(), haptic: false });
+      expect(haptics.light).not.toHaveBeenCalled();
+    });
+
+    it('stays silent for secondary buttons', () => {
+      press({ onPress: jest.fn(), variant: 'secondary' });
+      expect(haptics.light).not.toHaveBeenCalled();
+    });
   });
 });
