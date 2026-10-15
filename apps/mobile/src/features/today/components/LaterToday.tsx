@@ -1,10 +1,22 @@
-import { Surface, Text, useDepth } from '@booking/ui';
+import {
+  RowContextMenu,
+  Surface,
+  SwipeableRow,
+  Text,
+  useDepth,
+  useRowActionProps,
+} from '@booking/ui';
 import { router } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
+import {
+  bookingMenuActions,
+  cancelHref,
+} from '@/features/appointments/menuActions';
+import { canChange } from '@/features/bookings/logic';
 import { setCalendarViewMode } from '@/features/calendar/navigation';
 import { formatTime } from '@/lib/time';
 
@@ -70,7 +82,44 @@ export function LaterToday({
   );
 }
 
-function LaterRow({
+/**
+ * A booking row: swipe left for Cancel booking and long-press for the menu.
+ * Both only open the cancel flow (reason and confirmation live there), so
+ * nothing is ever cancelled by a gesture.
+ */
+function LaterRow(props: {
+  appointment: TodayAppointment;
+  timezone: string;
+  showSeparator: boolean;
+}) {
+  const { t } = useTranslation();
+  const { appointment } = props;
+  const actions = React.useMemo(
+    () => bookingMenuActions(appointment, t),
+    [appointment, t],
+  );
+  return (
+    <RowContextMenu actions={actions}>
+      <SwipeableRow
+        enabled={canChange(appointment.status)}
+        trailing={[
+          {
+            key: 'cancel',
+            label: t('common.cancel'),
+            spokenLabel: t('bookingMenu.cancel'),
+            role: 'destructive',
+            icon: X,
+            onPress: () => router.push(cancelHref(appointment.id)),
+          },
+        ]}
+      >
+        <LaterRowBody {...props} />
+      </SwipeableRow>
+    </RowContextMenu>
+  );
+}
+
+function LaterRowBody({
   appointment,
   timezone,
   showSeparator,
@@ -84,10 +133,12 @@ function LaterRow({
   const client = appointment.client?.name ?? t('today.unknownClient');
   const service = appointment.service?.name ?? '';
   const time = formatTime(appointment.starts_at, timezone);
+  const rowActions = useRowActionProps();
 
   return (
     <Pressable
       onPress={() => router.push(`/bookings/${appointment.id}` as never)}
+      {...rowActions}
       accessibilityRole="button"
       accessibilityLabel={t('today.bookingLabel', { client, service, time })}
       className="min-h-14 flex-row items-center gap-3.5 px-4 py-1.5 active:bg-muted"

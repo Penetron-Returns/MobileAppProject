@@ -45,6 +45,7 @@
     "lucide-react-native": "*",
     "nativewind": "^4",
     "react": "*",
+    "react-native-gesture-handler": "*",
     "react-hook-form": "^7",
     "react-i18next": "*",
     "react-native": "*",

@@ -21,8 +21,8 @@ import { useBusinessHours } from '@/features/business/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError, toast } from '@/lib/toast';
 
-import { useAvailabilityRules, useTeam } from '../hooks';
-import { buildTeam } from '../logic';
+import { useAvailabilityRules, useRemoveMember, useTeam } from '../hooks';
+import { buildTeam, type TeamPerson } from '../logic';
 import { resolveWorkingWeek } from '../schedule';
 import { PersonDetail } from './PersonDetail';
 import { StaffForm } from './StaffForm';
@@ -46,6 +46,13 @@ export function TeamScreen() {
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<StaffRow | 'new' | null>(null);
   const [deleting, setDeleting] = React.useState<StaffRow | null>(null);
+  const [removing, setRemoving] = React.useState<TeamPerson | null>(null);
+  // The dialog closes before the request ends, so the name for the toast is kept here.
+  const removedName = React.useRef('');
+  const removeMember = useRemoveMember({
+    onSuccess: () =>
+      toast.success(t('team.removed', { name: removedName.current })),
+  });
   const remove = useDeleteStaff({
     onSuccess: () => {
       toast.success(t('staff.removed'));
@@ -106,6 +113,7 @@ export function TeamScreen() {
           people={people}
           onOpen={setSelectedKey}
           onAddPerson={() => setEditing('new')}
+          onRemoveMember={setRemoving}
         />
       </>
     );
@@ -146,6 +154,24 @@ export function TeamScreen() {
         onConfirm={() => {
           if (deleting) remove.mutate(deleting.id);
           setDeleting(null);
+        }}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        title={t('team.remove.title', { name: removing?.name ?? '' })}
+        description={t('team.remove.description', {
+          name: removing?.name ?? '',
+        })}
+        confirmLabel={t('team.remove.confirm')}
+        cancelLabel={t('team.remove.keep')}
+        destructive
+        onConfirm={() => {
+          if (removing?.member) {
+            removedName.current = removing.name;
+            removeMember.mutate(removing.member.user_id);
+          }
+          setRemoving(null);
         }}
       />
     </Presenter>

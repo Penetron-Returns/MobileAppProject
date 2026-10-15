@@ -1,4 +1,12 @@
-import { Avatar, Capsule, Surface, Text, useDepth } from '@booking/ui';
+import {
+  Avatar,
+  Capsule,
+  RowContextMenu,
+  Surface,
+  Text,
+  useDepth,
+  useRowActionProps,
+} from '@booking/ui';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
@@ -9,25 +17,48 @@ import { formatPhone } from '@/lib/format';
 import { formatRelativeDate, formatTime, todayISO } from '@/lib/time';
 
 import type { ClientListItem } from '../hooks';
+import { clientMenuActions } from '../menuActions';
 import { isRegular, noShowCount, summariseVisits, VIP_TAG } from '../logic';
 
 const NO_SHOWS_WORTH_SHOWING = 2;
 
 /** One client in the list: dome avatar, name, last visit, quiet labels. */
-export function ClientRow({
-  client,
-  timezone,
-  showSeparator,
-  now,
-}: {
+export function ClientRow(props: ClientRowProps) {
+  const { t } = useTranslation();
+  const { client } = props;
+  const actions = React.useMemo(
+    () =>
+      clientMenuActions(
+        client,
+        client.name ?? formatPhone(client.phone_e164),
+        t,
+      ),
+    [client, t],
+  );
+  return (
+    <RowContextMenu actions={actions}>
+      <ClientRowBody {...props} />
+    </RowContextMenu>
+  );
+}
+
+interface ClientRowProps {
   client: ClientListItem;
   timezone: string;
   showSeparator: boolean;
   now: Date;
-}) {
+}
+
+function ClientRowBody({
+  client,
+  timezone,
+  showSeparator,
+  now,
+}: ClientRowProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const depth = useDepth();
+  const rowActions = useRowActionProps();
   const name = client.name ?? formatPhone(client.phone_e164);
   const { todayAt, lastVisitDate } = summariseVisits(
     client.appointments,
@@ -60,6 +91,7 @@ export function ClientRow({
   return (
     <Pressable
       onPress={() => router.push(`/clients/${client.id}` as never)}
+      {...rowActions}
       accessibilityRole="button"
       accessibilityLabel={spoken}
       className="min-h-[60px] flex-row items-center gap-3 px-4 py-1.5 active:bg-muted"

@@ -4,6 +4,7 @@ import { ApiError } from '@/lib/api';
 
 import {
   accessNote,
+  canRemoveMember,
   buildTeam,
   inviteSchema,
   personSubtitle,
@@ -133,7 +134,7 @@ describe('accessNote', () => {
     expect(accessNote(people[index])).toBe(expected);
   });
 
-  it('says nothing about a staff-role member', () => {
+  it('names the role of a staff-role member, so the subtitle is never empty', () => {
     const [staffMember] = buildTeam([person('s5', 'Lerato')], {
       members: [
         {
@@ -147,7 +148,12 @@ describe('accessNote', () => {
       ],
       invitations: [],
     });
-    expect(accessNote(staffMember)).toBeNull();
+    expect(accessNote(staffMember)).toBe('staff');
+    expect(
+      personSubtitle({ ...staffMember, job: null }, (key) =>
+        key === 'team.access.staff' ? 'Staff' : key,
+      ),
+    ).toBe('Staff');
   });
 });
 
@@ -204,6 +210,7 @@ describe('personSubtitle', () => {
   const t = (key: string) =>
     ({
       'team.access.owner': 'Owner',
+      'team.access.staff': 'Staff',
       'team.access.invited': 'Invite pending',
       'team.access.none': 'No app access',
       'team.status.inactive': 'Inactive',
@@ -240,6 +247,41 @@ describe('personSubtitle', () => {
       [person('s1', 'Thandi'), person('s2', 'Ruan'), person('s3', 'Aisha')],
       team,
     );
-    expect(personSubtitle(ghost, t)).toBe('');
+    expect(personSubtitle(ghost, t)).toBe('Staff');
+  });
+});
+
+describe('canRemoveMember', () => {
+  const people = buildTeam(
+    [person('s1', 'Thandi'), person('s5', 'Lerato'), person('s3', 'Aisha')],
+    {
+      members: [
+        {
+          user_id: 'u1',
+          name: 'Thandi',
+          email: null,
+          role: 'owner',
+          staff_id: 's1',
+          is_self: true,
+        },
+        {
+          user_id: 'u5',
+          name: 'Lerato',
+          email: null,
+          role: 'staff',
+          staff_id: 's5',
+          is_self: false,
+        },
+      ],
+      invitations: [],
+    },
+  );
+
+  it.each([
+    [0, false, 'the owner, who is also the signed-in person'],
+    [1, true, 'a staff login'],
+    [2, false, 'someone with no login'],
+  ])('person %i: %s (%s)', (index, expected) => {
+    expect(canRemoveMember(people[index])).toBe(expected);
   });
 });

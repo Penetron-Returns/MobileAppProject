@@ -284,7 +284,7 @@ describe('Team list', () => {
     expect(out).toContain('4 people can take bookings');
     // The owner has a login; a staff member's login needs no note.
     expect(out).toContain('Senior stylist · Owner');
-    expect(out).toContain('"Barber"');
+    expect(out).toContain('Barber · Staff');
     expect(out).toContain('Nail technician · Invite pending');
     expect(out).toContain('Beauty therapist · No app access');
     // An email invite with no calendar row yet gets its own row.

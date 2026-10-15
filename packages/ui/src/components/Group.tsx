@@ -13,6 +13,7 @@ import { Surface } from '../primitives/Surface';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 import { Avatar } from './Avatar';
+import { useRowActionProps } from './RowActions';
 import type { GlyphComponent } from './Glyph';
 
 /** Section heading (22/28 bold) above a group, 4pt clear of it. */
@@ -117,6 +118,8 @@ export function GroupRow({
   destructive,
 }: GroupRowProps) {
   const depth = useDepth();
+  // Swipe / long-press actions of an enclosing SwipeableRow or ContextMenu.
+  const rowActions = useRowActionProps();
   const hasAvatar = avatarName !== undefined;
   const body = (
     <>
@@ -183,6 +186,7 @@ export function GroupRow({
   return (
     <Pressable
       onPress={onPress}
+      {...rowActions}
       accessibilityRole="button"
       accessibilityLabel={
         accessibilityLabel ?? (detail ? `${title}, ${detail}` : title)

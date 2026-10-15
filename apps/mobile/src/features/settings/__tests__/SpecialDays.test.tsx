@@ -80,6 +80,9 @@ const ok = <T,>(data: T) => ({
   refetch: jest.fn(),
 });
 
+// New days list holiday suggestions, so the button saves the custom form.
+const SAVE = 'Add custom day';
+
 const METRICS = {
   insets: { top: 0, left: 0, right: 0, bottom: 34 },
   frame: { x: 0, y: 0, width: 402, height: 874 },
@@ -250,7 +253,7 @@ describe('Holidays and special days', () => {
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     expect(mockSave).toHaveBeenCalledWith({
       id: null,
       body: {
@@ -268,7 +271,7 @@ describe('Holidays and special days', () => {
     const tree = mount();
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     expect(mockSave).not.toHaveBeenCalled();
     expect(text(tree)).toContain('Give the day a name.');
   });
@@ -281,7 +284,7 @@ describe('Holidays and special days', () => {
     press(tree, 'Special hours');
     press(tree, 'Open ends at 13:00');
     press(tree, 'Hour 12');
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     expect(mockCheck).toHaveBeenCalledWith([
       {
         from: '2026-10-15',
@@ -320,7 +323,7 @@ describe('Bookings in the way', () => {
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     return tree;
   }
 
@@ -365,7 +368,7 @@ describe('Bookings in the way', () => {
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     expect(mockSave).not.toHaveBeenCalled();
     const { toast } = jest.requireMock('@/lib/toast');
     expect(toast.error).toHaveBeenCalled();
@@ -426,7 +429,7 @@ describe('Editing and deleting a special day', () => {
     press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Again'));
-    await pressAsync(tree, 'Save');
+    await pressAsync(tree, SAVE);
     act(() => {
       mockSaveOpts.onError?.(
         Object.assign(
@@ -442,5 +445,17 @@ describe('Editing and deleting a special day', () => {
     expect(text(tree)).toContain(
       'There is already a special day on that date.',
     );
+  });
+});
+
+describe('Special day swipe action', () => {
+  it('offers Delete on a day and asks before deleting', () => {
+    const tree = mount();
+    press(tree, 'Holidays and special days');
+    const [first] = byLabel(tree, 'Delete').filter((n) => !!n.props.onPress);
+    act(() => first.props.onPress());
+    const dialog = tree.root.findByProps({ testID: 'confirm-dialog' });
+    expect(dialog.props.open).toBe(true);
+    expect(mockDelete).not.toHaveBeenCalled();
   });
 });
