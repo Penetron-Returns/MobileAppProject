@@ -1,4 +1,4 @@
-import { Surface, Text, useDepth } from '@booking/ui';
+import { Surface, Text, Turn, useDepth } from '@booking/ui';
 import { ChevronDown } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,12 +31,9 @@ export function History({
         <Text style={{ color: depth.colors.tint }} className="text-title">
           {t('booking.history')}
         </Text>
-        <ChevronDown
-          size={16}
-          strokeWidth={2.6}
-          color={depth.colors.tint}
-          style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}
-        />
+        <Turn open={open}>
+          <ChevronDown size={16} strokeWidth={2.6} color={depth.colors.tint} />
+        </Turn>
       </Pressable>
       {open ? (
         <Surface variant="raised" className="px-4 py-1">

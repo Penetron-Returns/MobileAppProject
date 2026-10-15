@@ -9,6 +9,7 @@ import { Pressable } from '../Pressable';
 import { Skeleton } from '../Skeleton';
 import { Surface, type SurfaceVariant } from '../Surface';
 import { Text } from '../Text';
+import { DURATION, SCALE } from '../../tokens/motion';
 
 const flat = (style: unknown) =>
   (StyleSheet.flatten(style as StyleProp<ViewStyle>) ?? {}) as Record<
@@ -128,8 +129,25 @@ describe('Pressable', () => {
     );
   });
 
-  it('nudges down by one point', () => {
-    expect(pressedStyle('nudge', true).transform).toEqual([{ translateY: 1 }]);
+  it('nudges down by one point and shrinks slightly', () => {
+    expect(pressedStyle('nudge', true).transform).toEqual([
+      { translateY: 1 },
+      { scale: SCALE.pressed },
+    ]);
+  });
+
+  it('shrinks an inset press but leaves a dim press at full size', () => {
+    expect(pressedStyle('inset', true).transform).toEqual([
+      { translateY: 0 },
+      { scale: SCALE.pressed },
+    ]);
+    expect(pressedStyle('dim', true).transform).toBeUndefined();
+  });
+
+  it('eases the press with the press token on the UI thread', () => {
+    const style = pressedStyle('nudge', true);
+    expect(style.transitionDuration).toBe(DURATION.press);
+    expect(style.transitionProperty).toBe('transform');
   });
 
   it('leaves feedback to the caller with none', () => {

@@ -8,12 +8,32 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type ViewStyle,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { lightHaptic } from '../../lib/haptics';
 import { Text } from '../../primitives/Text';
 import { type DepthTokens } from '../../tokens/depth';
 import { useDepth } from '../../theme/useDepth';
+import {
+  DURATION,
+  SCALE,
+  springConfig,
+  timingConfig,
+} from '../../tokens/motion';
 
 import {
   INBOX_DOME_GAP,
@@ -25,6 +45,7 @@ import {
   type TabRouteName,
 } from './layout';
 import { useDsText } from '../../lib/strings';
+import { usePressBounce } from './usePressBounce';
 
 const TAB_ICONS: Record<TabRouteName, LucideIcon> = {
   index: Sun,
@@ -38,13 +59,22 @@ type TabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>
 >[0];
 
-const PRESSED_NUDGE = { transform: [{ translateY: 1 }] } as const;
+/** Position of a tab inside the capsule, measured on layout. */
+interface TabFrame {
+  x: number;
+  width: number;
+}
+
+/** Inset of the tabs inside the capsule (p-1): the pill sits within it. */
+const BAR_PAD = 4;
 
 /**
- * The floating tab bar of the iPhone design: Today · Calendar · + · Clients ·
+ * The floating tab bar of the iPhone design: Today, Calendar, +, Clients,
  * Settings in one raised capsule, a tactile centre "+" that opens a new
- * booking, and the Inbox dome above the right-hand end. Hidden on pushed
- * detail screens, which opt out through `tabBarStyle: { display: 'none' }`.
+ * booking, and the Inbox dome above the right-hand end. Hidden on screens
+ * that opt out through `tabBarStyle: { display: 'none' }`. The selected pill
+ * slides between tabs, the tapped icon pops and a light haptic confirms the
+ * change.
  */
 export function FloatingTabBar({
   state,
@@ -58,8 +88,40 @@ export function FloatingTabBar({
   const t = useDsText();
   const depth = useDepth();
   const insets = useSafeAreaInsets();
+  const addBounce = usePressBounce();
+  const [frames, setFrames] = React.useState<
+    Partial<Record<TabRouteName, TabFrame>>
+  >({});
 
   const current = state.routes[state.index];
+  const activeName = current.name as string;
+  const activeFrame = frames[activeName as TabRouteName];
+  const pillX = useSharedValue(0);
+  const pillW = useSharedValue(0);
+  const pillOn = useSharedValue(0);
+  const placed = React.useRef(false);
+  React.useEffect(() => {
+    if (!activeFrame) {
+      pillOn.value = withTiming(0, timingConfig(DURATION.quick));
+      return;
+    }
+    if (!placed.current) {
+      // First placement lands without sliding in from the left edge.
+      placed.current = true;
+      pillX.value = activeFrame.x;
+      pillW.value = activeFrame.width;
+    } else {
+      pillX.value = withSpring(activeFrame.x, springConfig('snappy'));
+      pillW.value = withSpring(activeFrame.width, springConfig('snappy'));
+    }
+    pillOn.value = withTiming(1, timingConfig(DURATION.quick));
+  }, [activeFrame, pillOn, pillW, pillX]);
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: pillOn.value,
+    width: pillW.value,
+    transform: [{ translateX: pillX.value }],
+  }));
+
   const currentStyle = StyleSheet.flatten(
     descriptors[current.key]?.options.tabBarStyle as ViewStyle | undefined,
   );
@@ -73,7 +135,19 @@ export function FloatingTabBar({
           canPreventDefault: true,
         })
       : { defaultPrevented: false };
-    if (!event.defaultPrevented) navigation.navigate(name);
+    if (!event.defaultPrevented) {
+      if (name !== activeName) lightHaptic();
+      navigation.navigate(name);
+    }
+  };
+
+  const onFrame = (name: TabRouteName) => (event: LayoutChangeEvent) => {
+    const { x, width } = event.nativeEvent.layout;
+    setFrames((prev) =>
+      prev[name]?.x === x && prev[name]?.width === width
+        ? prev
+        : { ...prev, [name]: { x, width } },
+    );
   };
 
   const renderTab = (name: TabRouteName) => {
@@ -84,9 +158,10 @@ export function FloatingTabBar({
         key={name}
         icon={TAB_ICONS[name]}
         label={t(`tabs.${name === 'index' ? 'today' : name}`)}
-        isActive={current.name === name}
+        isActive={activeName === name}
         depth={depth}
         onPress={() => goTo(name, route.key)}
+        onLayout={onFrame(name)}
       />
     );
   };
@@ -123,24 +198,39 @@ export function FloatingTabBar({
         ]}
         className="flex-row items-stretch p-1"
       >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            depth.pill,
+            {
+              position: 'absolute',
+              top: BAR_PAD,
+              bottom: BAR_PAD,
+              left: 0,
+              borderRadius: 28,
+            },
+            pillStyle,
+          ]}
+        />
         {LEFT_TABS.map(renderTab)}
         <Pressable
           onPress={() => goTo('add')}
           accessibilityRole="button"
           accessibilityLabel={t('tabs.add')}
+          {...addBounce.handlers}
           className="w-[60px] items-center justify-center"
         >
           {({ pressed }) => (
-            <View
+            <Animated.View
               style={[
                 depth.primary,
                 pressed && depth.primaryPressed,
-                pressed && PRESSED_NUDGE,
+                addBounce.style,
               ]}
               className="h-[52px] w-[52px] items-center justify-center rounded-full"
             >
               <Plus size={26} strokeWidth={2.4} color={depth.colors.onFill} />
-            </View>
+            </Animated.View>
           )}
         </Pressable>
         {RIGHT_TABS.map(renderTab)}
@@ -155,24 +245,43 @@ function TabItem({
   isActive,
   depth,
   onPress,
+  onLayout,
 }: {
   icon: LucideIcon;
   label: string;
   isActive: boolean;
   depth: DepthTokens;
   onPress: () => void;
+  onLayout: (event: LayoutChangeEvent) => void;
 }) {
   const color = isActive ? depth.colors.tint : depth.colors.inactive;
+  // The icon pops (scale 1, 1.12, 1) each time its tab becomes the selected one.
+  const pop = useSharedValue(1);
+  const wasActive = React.useRef(isActive);
+  React.useEffect(() => {
+    if (isActive && !wasActive.current) {
+      pop.value = withSequence(
+        withSpring(SCALE.pop, springConfig('snappy')),
+        withSpring(1, springConfig('snappy')),
+      );
+    }
+    wasActive.current = isActive;
+  }, [isActive, pop]);
+  const popStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pop.value }],
+  }));
   return (
     <Pressable
       onPress={onPress}
+      onLayout={onLayout}
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: isActive }}
-      style={isActive ? [depth.pill, { borderRadius: 28 }] : undefined}
       className="min-w-0 flex-1 items-center justify-center gap-px"
     >
-      <IconGlyph size={24} strokeWidth={isActive ? 2.2 : 1.8} color={color} />
+      <Animated.View style={popStyle}>
+        <IconGlyph size={24} strokeWidth={isActive ? 2.2 : 1.8} color={color} />
+      </Animated.View>
       <Text
         numberOfLines={1}
         style={{ color }}

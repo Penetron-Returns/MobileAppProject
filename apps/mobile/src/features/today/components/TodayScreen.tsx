@@ -1,4 +1,11 @@
-import { IconButton, OfflineBanner, Page, Surface, Text } from '@booking/ui';
+import {
+  IconButton,
+  OfflineBanner,
+  Page,
+  Reveal,
+  Surface,
+  Text,
+} from '@booking/ui';
 import { Bell } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -58,21 +65,27 @@ function TodayBody({ view }: { view: TodayView }) {
         <TodayEmpty />
       ) : view.upNext ? (
         <>
-          <UpNextCard
-            appointment={view.upNext}
-            now={view.now}
-            timezone={view.timezone}
-          />
-          <LaterToday later={view.later} timezone={view.timezone} />
+          <Reveal scope="today" index={0}>
+            <UpNextCard
+              appointment={view.upNext}
+              now={view.now}
+              timezone={view.timezone}
+            />
+          </Reveal>
+          <Reveal scope="today" index={1}>
+            <LaterToday later={view.later} timezone={view.timezone} />
+          </Reveal>
         </>
       ) : (
         <TodayAllDone />
       )}
       {view.appointments.length > 0 ? (
-        <TodaySummary
-          expectedCents={view.expectedCents}
-          currency={view.currency}
-        />
+        <Reveal scope="today" index={2}>
+          <TodaySummary
+            expectedCents={view.expectedCents}
+            currency={view.currency}
+          />
+        </Reveal>
       ) : null}
     </>
   );

@@ -18,7 +18,7 @@ import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 import { NativeOnlyAnimatedView } from '../primitives/NativeOnlyAnimatedView';
 import { TextClassContext } from '../primitives/Text';
 import { cn } from '../lib/cn';
-import { MOTION } from '../tokens/motion';
+import { MOTION, SPRING } from '../tokens/motion';
 
 /**
  * A bottom sheet built on the same dialog primitive as `ui/dialog`, styled to
@@ -74,9 +74,10 @@ function SheetOverlay({
           accessible={false}
         >
           <NativeOnlyAnimatedView
-            entering={SlideInDown.duration(MOTION.sheetIn).reduceMotion(
-              ReduceMotion.System,
-            )}
+            entering={SlideInDown.springify()
+              .damping(SPRING.gentle.damping)
+              .stiffness(SPRING.gentle.stiffness)
+              .reduceMotion(ReduceMotion.System)}
             exiting={SlideOutDown.duration(MOTION.sheetOut).reduceMotion(
               ReduceMotion.System,
             )}

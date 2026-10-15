@@ -12,6 +12,7 @@ import {
   Text,
   useDepth,
   useOfflineGuard,
+  Reveal,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
@@ -169,13 +170,14 @@ function ClientList({
           </Text>
         ) : (
           clients.map((client, index) => (
-            <ClientRow
-              key={client.id}
-              client={client}
-              timezone={timezone}
-              showSeparator={index > 0}
-              now={now}
-            />
+            <Reveal key={client.id} scope="clients" index={index}>
+              <ClientRow
+                client={client}
+                timezone={timezone}
+                showSeparator={index > 0}
+                now={now}
+              />
+            </Reveal>
           ))
         )}
       </Group>

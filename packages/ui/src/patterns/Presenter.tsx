@@ -1,17 +1,17 @@
 import * as React from 'react';
 import { View } from 'react-native';
 import Animated, {
-  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
+import { DURATION, EASING, timingConfig } from '../tokens/motion';
+
 /** The scene behind a presented sheet (board: a black root under the scaled screen). */
 const BACKDROP = '#000000';
 const SCALE = 0.94;
 const RADIUS = 40;
-const DURATION = 300;
 
 /**
  * Wraps a screen that presents a `FormSheet`: while `active`, the screen
@@ -27,10 +27,10 @@ export function Presenter({
 }) {
   const progress = useSharedValue(active ? 1 : 0);
   React.useEffect(() => {
-    progress.value = withTiming(active ? 1 : 0, {
-      duration: DURATION,
-      reduceMotion: ReduceMotion.System,
-    });
+    progress.value = withTiming(
+      active ? 1 : 0,
+      timingConfig(DURATION.page, EASING.inOut),
+    );
   }, [active, progress]);
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - (1 - SCALE) * progress.value }],

@@ -61,10 +61,14 @@ describe('SegmentedControl choice variant', () => {
       checked: true,
       selected: true,
     });
-    expect(flat(staff.props.style).borderRadius).toBe(18);
-    expect(flat(staff.props.style).backgroundColor).toBe(
-      getDepth('light').segment.backgroundColor,
-    );
+    // The lit segment is the sliding indicator behind the labels.
+    const indicator = group.findAll(
+      (n) =>
+        typeof n.type === 'string' &&
+        flat(n.props.style).backgroundColor ===
+          getDepth('light').segment.backgroundColor,
+    )[0];
+    expect(flat(indicator.props.style).borderRadius).toBe(18);
     act(() => pressable(tree, 'Owner').props.onPress());
     expect(onChange).toHaveBeenCalledWith('owner');
   });

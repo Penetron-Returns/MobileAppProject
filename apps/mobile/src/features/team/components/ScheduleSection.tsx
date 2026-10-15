@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
-import { GroupBlock, Text, useDepth } from '@booking/ui';
+import { GroupBlock, Text, Turn, useDepth } from '@booking/ui';
 
 /** One line of an open section: a left label and a quiet right value. */
 export interface SectionLine {
@@ -60,16 +60,13 @@ export function ScheduleSection({
             {summary}
           </Text>
         </View>
-        <View
-          importantForAccessibility="no-hide-descendants"
-          style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}
-        >
+        <Turn open={open} degrees={90}>
           <ChevronRight
             size={14}
             strokeWidth={2.8}
             color={depth.colors.secondary}
           />
-        </View>
+        </Turn>
       </Pressable>
       {open ? (
         <View className="px-4 pb-2">
