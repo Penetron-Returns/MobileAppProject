@@ -1,34 +1,28 @@
 /**
  * Availability engine. Pure and deterministic: no I/O, no hidden clock
- * (`now` is part of the input). See docs/booking-core.md for the algorithm.
+ * (`now` is part of the input). Windows per staff member and date come from
+ * ./windows.ts; this file turns them into slots. See docs/booking-core.md.
  */
 import type { ISODate, SlotDTO, UUID } from '@booking/types';
-import { dateInZone, dateRange, parseTimeOfDay, wallClockToEpoch, weekdayOf, addDays } from '../../lib/time.ts';
+import { dateInZone, dateRange, wallClockToEpoch, addDays } from '../../lib/time.ts';
+import { staffWindowsFor, type MinuteWindow, type ScheduleInput, type StaffSchedule } from './windows.ts';
+
+export {
+  businessWindowsFor,
+  intersectWindows,
+  mergeWindows,
+  staffWindowsFor,
+  subtractWindows,
+  type BreakWindow,
+  type MinuteWindow,
+  type OverrideWindow,
+  type SpecialDayWindow,
+  type StaffSchedule,
+  type TimeOffWindow,
+  type WeeklyWindow,
+} from './windows.ts';
 
 const MINUTE = 60_000;
-
-export interface WeeklyWindow {
-  weekday: number;
-  /** `HH:mm` or Postgres `HH:mm:ss` */
-  start: string;
-  end: string;
-}
-
-export interface OverrideWindow {
-  /** null = whole business */
-  staff_id: UUID | null;
-  date: ISODate;
-  is_closed: boolean;
-  start_time: string | null;
-  end_time: string | null;
-}
-
-export interface StaffSchedule {
-  id: UUID;
-  sort_order: number;
-  /** Zero rules → the staff member inherits business hours */
-  rules: WeeklyWindow[];
-}
 
 /** An existing non-cancelled appointment's `blocked` range. */
 export interface BusyRange {
@@ -45,11 +39,9 @@ export interface EngineRules {
   booking_horizon_days: number;
 }
 
-export interface AvailabilityInput {
+export interface AvailabilityInput extends ScheduleInput {
   timezone: string;
   rules: EngineRules;
-  businessHours: WeeklyWindow[];
-  overrides: OverrideWindow[];
   /** Candidate staff: already filtered to active, bookable and qualified */
   staff: StaffSchedule[];
   busy: BusyRange[];
@@ -57,75 +49,8 @@ export interface AvailabilityInput {
   now: Date;
 }
 
-/** Wall-clock interval in minutes after midnight, [start, end) */
-type MinuteWindow = [number, number];
 /** Instant interval in epoch ms, [start, end) */
 type EpochWindow = [number, number];
-
-// ---------- window algebra (wall-clock minutes) ----------
-
-/** Sorts and merges overlapping or touching windows. */
-export function mergeWindows(windows: MinuteWindow[]): MinuteWindow[] {
-  const sorted = windows.filter(([s, e]) => e > s).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const out: MinuteWindow[] = [];
-  for (const [s, e] of sorted) {
-    const last = out[out.length - 1];
-    if (last && s <= last[1]) last[1] = Math.max(last[1], e);
-    else out.push([s, e]);
-  }
-  return out;
-}
-
-export function intersectWindows(a: MinuteWindow[], b: MinuteWindow[]): MinuteWindow[] {
-  const out: MinuteWindow[] = [];
-  for (const [as, ae] of a) {
-    for (const [bs, be] of b) {
-      const s = Math.max(as, bs);
-      const e = Math.min(ae, be);
-      if (e > s) out.push([s, e]);
-    }
-  }
-  return mergeWindows(out);
-}
-
-function weeklyWindows(rows: WeeklyWindow[], weekday: number): MinuteWindow[] {
-  return mergeWindows(
-    rows.filter((r) => r.weekday === weekday).map((r) => [parseTimeOfDay(r.start), parseTimeOfDay(r.end)]),
-  );
-}
-
-/**
- * Override rows for one scope (business or one staff member) on one date.
- * Returns null when there is no override, [] when closed, else the replacement windows.
- */
-function overrideWindows(overrides: OverrideWindow[], staffId: UUID | null, date: ISODate): MinuteWindow[] | null {
-  const rows = overrides.filter((o) => o.staff_id === staffId && o.date === date);
-  if (rows.length === 0) return null;
-  if (rows.some((o) => o.is_closed)) return [];
-  return mergeWindows(
-    rows
-      .filter((o) => o.start_time && o.end_time)
-      .map((o) => [parseTimeOfDay(o.start_time!), parseTimeOfDay(o.end_time!)]),
-  );
-}
-
-/** Business windows for a date: business-wide override, else weekly business hours. */
-export function businessWindowsFor(input: Pick<AvailabilityInput, 'businessHours' | 'overrides'>, date: ISODate): MinuteWindow[] {
-  return overrideWindows(input.overrides, null, date) ?? weeklyWindows(input.businessHours, weekdayOf(date));
-}
-
-/** Effective staff windows for a date = (staff override | staff rules | business) ∩ business. */
-export function staffWindowsFor(
-  input: Pick<AvailabilityInput, 'businessHours' | 'overrides'>,
-  staff: StaffSchedule,
-  date: ISODate,
-): MinuteWindow[] {
-  const business = businessWindowsFor(input, date);
-  const own =
-    overrideWindows(input.overrides, staff.id, date) ??
-    (staff.rules.length === 0 ? business : weeklyWindows(staff.rules, weekdayOf(date)));
-  return intersectWindows(own, business);
-}
 
 // ---------- dates ----------
 

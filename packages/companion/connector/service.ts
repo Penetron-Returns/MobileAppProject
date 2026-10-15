@@ -106,11 +106,11 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   async function accountView(businessId: UUID) {
     const business = await booking.getBusiness(businessId);
     const today = dateInZone(deps.clock(), business.timezone);
-    const [hours, overrides] = await Promise.all([
+    const [hours, specialDays] = await Promise.all([
       repo.listBusinessHours(businessId),
-      repo.listOverrides(businessId, today, addDays(today, EXCEPTION_HORIZON_DAYS)),
+      repo.listSpecialDays(businessId, today, addDays(today, EXCEPTION_HORIZON_DAYS)),
     ]);
-    return toAccount(business, toOpeningHours(business.id, hours, overrides));
+    return toAccount(business, toOpeningHours(business.id, hours, specialDays));
   }
 
   async function appointmentOf(businessId: UUID, appointmentId: string): Promise<AppointmentDTO> {

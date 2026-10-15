@@ -7,6 +7,7 @@
 import type { UUID } from '@booking/types';
 import { AppError, mapDbError } from '@booking/features/lib/errors.ts';
 import { rangeBounds } from '@booking/features/lib/time.ts';
+import { createMemorySchedule } from './scheduleMemory.ts';
 import type { AuditEntry, BookingRepository, BusyRow, StaffValues } from '@booking/features/repositories/types.ts';
 import {
   DEFAULT_BOOKING_RULES,
@@ -18,6 +19,9 @@ import {
   type ClientNoteRow,
   type ClientRow,
   type OverrideRow,
+  type SpecialDayRow,
+  type StaffBreakRow,
+  type TimeOffRow,
   type ServiceRow,
   type StaffRow,
   type StaffServiceRow,
@@ -34,6 +38,9 @@ export interface MemoryTables {
   business_hours: BusinessHoursDbRow[];
   availability_rules: AvailabilityRuleRow[];
   availability_overrides: OverrideRow[];
+  business_special_days: SpecialDayRow[];
+  staff_breaks: StaffBreakRow[];
+  staff_time_off: TimeOffRow[];
   clients: ClientRow[];
   client_notes: ClientNoteRow[];
   appointments: AppointmentRow[];
@@ -65,6 +72,27 @@ function overlaps(a: string, b: string): boolean {
   return Date.parse(x.start) < Date.parse(y.end) && Date.parse(y.start) < Date.parse(x.end);
 }
 
+/** Mirrors replace_business_hours / replace_staff_availability: valid rows, identical duplicates collapse, one range per weekday. */
+function oneRangePerWeekday<T extends { weekday: number }>(
+  rows: T[],
+  window: (row: T) => { weekday: number; start: string; end: string },
+  what: string,
+): T[] {
+  const byDay = new Map<number, T>();
+  for (const row of rows) {
+    const w = window(row);
+    if (w.weekday < 0 || w.weekday > 6 || w.end <= w.start) {
+      throw rule('INVALID_HOURS', 'Each row needs weekday 0-6 and an end after the start');
+    }
+    const seen = byDay.get(w.weekday);
+    if (seen && (window(seen).start !== w.start || window(seen).end !== w.end)) {
+      throw rule('ONE_RANGE_PER_DAY', `${what} allow one range per weekday`);
+    }
+    byDay.set(w.weekday, row);
+  }
+  return [...byDay.values()];
+}
+
 export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryRepository {
   const now = () => (opts.now ?? (() => new Date()))().toISOString();
   let seq = 0;
@@ -82,6 +110,9 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     business_hours: [],
     availability_rules: [],
     availability_overrides: [],
+    business_special_days: [],
+    staff_breaks: [],
+    staff_time_off: [],
     clients: [],
     client_notes: [],
     appointments: [],
@@ -158,6 +189,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
   return {
     tables,
     nextId,
+    ...createMemorySchedule(tables, nextId),
 
     // ----- catalog -----
     async getBusiness(id) {
@@ -178,8 +210,9 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       );
     },
     async replaceBusinessHours(businessId, hours) {
+      const rows = oneRangePerWeekday(hours, (h) => ({ weekday: h.weekday, start: h.opens_at, end: h.closes_at }), 'Opening hours');
       tables.business_hours = tables.business_hours.filter((h) => h.business_id !== businessId);
-      tables.business_hours.push(...hours.map((h) => ({ business_id: businessId, ...h })));
+      tables.business_hours.push(...rows.map((h) => ({ business_id: businessId, ...h })));
     },
 
     async completeOnboarding(input) {
@@ -189,7 +222,9 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       // Validate everything before touching a table: the real RPC is one transaction, so a bad row applies nothing.
       const badName = [...input.team, ...input.services].some((x) => x.name.trim().length === 0);
       const badService = input.services.some((s) => s.duration_minutes <= 0 || s.duration_minutes > 720 || s.price_cents < 0);
-      const badHours = input.hours.some((h) => h.weekday < 0 || h.weekday > 6 || h.closes_at <= h.opens_at);
+      const badHours =
+        input.hours.some((h) => h.weekday < 0 || h.weekday > 6 || h.closes_at <= h.opens_at) ||
+        new Set(input.hours.map((h) => h.weekday)).size !== input.hours.length;
       if (badName || badService || badHours) throw new AppError('VALIDATION_FAILED', 'Invalid onboarding data');
 
       const staffValues = (name: string, title: string | null, sort_order: number, user_id: string | null): StaffValues => ({
@@ -276,6 +311,8 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       tables.staff_services = keep(tables.staff_services);
       tables.availability_rules = keep(tables.availability_rules);
       tables.availability_overrides = keep(tables.availability_overrides);
+      tables.staff_breaks = keep(tables.staff_breaks);
+      tables.staff_time_off = keep(tables.staff_time_off);
       tables.staff = tables.staff.filter((s) => !(s.business_id === businessId && s.id === id));
     },
     async listStaffServices(businessId) {
@@ -291,8 +328,9 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     },
     async replaceStaffAvailability(businessId, staffId, rules) {
       if (!find(tables.staff, businessId, staffId)) throw notFound('Staff');
+      const rows = oneRangePerWeekday(rules, (r) => ({ weekday: r.weekday, start: r.start_time, end: r.end_time }), 'Working hours');
       tables.availability_rules = tables.availability_rules.filter((r) => r.staff_id !== staffId);
-      tables.availability_rules.push(...rules.map((r) => ({ business_id: businessId, staff_id: staffId, ...r })));
+      tables.availability_rules.push(...rows.map((r) => ({ business_id: businessId, staff_id: staffId, ...r })));
     },
 
     async listOverrides(businessId, from, to) {

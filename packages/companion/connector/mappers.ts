@@ -1,6 +1,6 @@
 /** Internal rows/DTOs → Nerova Booking connector wire shapes (camelCase, integer cents, UTC instants). */
 import type { AppointmentDTO, AppointmentStatus, BusinessDTO, ServiceDTO } from '@booking/types';
-import type { BusinessHoursDbRow, ClientRow, OverrideRow, StaffRow } from '@booking/features/repositories/rows.ts';
+import type { BusinessHoursDbRow, ClientRow, SpecialDayRow, StaffRow } from '@booking/features/repositories/rows.ts';
 import { normaliseTimeOfDay } from '@booking/features/lib/time.ts';
 
 export type WireStatus = 'Scheduled' | 'Completed' | 'Cancelled' | 'NoShow';
@@ -28,8 +28,8 @@ const clock = (value: string) => {
   return t === '24:00' ? '23:59' : t;
 };
 
-/** One location (the business itself): the weekly schedule plus business-wide date exceptions. */
-export function toOpeningHours(locationId: string, hours: BusinessHoursDbRow[], overrides: OverrideRow[]) {
+/** One location (the business itself): the weekly schedule plus business-wide special days as date exceptions. */
+export function toOpeningHours(locationId: string, hours: BusinessHoursDbRow[], specialDays: SpecialDayRow[]) {
   const weekly = DAYS.map((day, weekday) => ({
     day,
     ranges: hours
@@ -37,14 +37,12 @@ export function toOpeningHours(locationId: string, hours: BusinessHoursDbRow[], 
       .sort((a, b) => a.opens_at.localeCompare(b.opens_at))
       .map((h): Range => ({ open: clock(h.opens_at), close: clock(h.closes_at) })),
   }));
-  const exceptions = overrides
-    .filter((o) => o.staff_id === null)
-    .map((o) => ({
-      date: o.date,
-      externalLocationId: locationId,
-      ranges: o.is_closed || !o.start_time || !o.end_time ? [] : [{ open: clock(o.start_time), close: clock(o.end_time) }],
-      ...(o.reason ? { reason: o.reason } : {}),
-    }));
+  const exceptions = specialDays.map((d) => ({
+    date: d.date,
+    externalLocationId: locationId,
+    ranges: d.is_closed || !d.start_time || !d.end_time ? [] : [{ open: clock(d.start_time), close: clock(d.end_time) }],
+    reason: d.name,
+  }));
   return { weekly: [{ externalLocationId: locationId, days: weekly }], exceptions };
 }
 
