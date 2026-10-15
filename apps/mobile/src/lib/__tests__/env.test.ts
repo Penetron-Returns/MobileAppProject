@@ -58,4 +58,35 @@ describe('env', () => {
     const { env } = loadEnvModule();
     expect(env.apiUrl).toBe('https://api.example.com');
   });
+
+  it.each([
+    [
+      'https://app.example.com',
+      'https://api.example.com/functions/v1/api',
+      'https://app.example.com',
+    ],
+    [
+      'https://app.example.com/path/',
+      'https://api.example.com',
+      'https://app.example.com',
+    ],
+    ['', 'https://api.example.com/functions/v1/api', 'https://api.example.com'],
+    ['', 'http://127.0.0.1:54321/functions/v1/api', 'http://127.0.0.1:54321'],
+    ['', '', ''],
+  ])('companion origin %j with API %j is %j', (companion, api, expected) => {
+    setEnv({ EXPO_PUBLIC_API_URL: api });
+    process.env.EXPO_PUBLIC_COMPANION_ORIGIN = companion;
+    expect(loadEnvModule().companionOrigin).toBe(expected);
+  });
+
+  it('does not require the companion origin', () => {
+    setEnv({
+      EXPO_PUBLIC_API_URL: 'https://api.example.com',
+      EXPO_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_xxx',
+    });
+    delete process.env.EXPO_PUBLIC_COMPANION_ORIGIN;
+    expect(loadEnvModule().validateEnv()).toEqual({ ok: true });
+  });
 });
