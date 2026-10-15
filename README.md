@@ -117,7 +117,7 @@ cp apps/api/.env.example apps/api/.env   # fill in Clerk, Meta and secret values
 npm --prefix apps/api run serve    # supabase --workdir packages/database functions serve api
 ```
 
-The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp Flows key pair with `node apps/api/whatsapp/generate-flow-keys.mjs`. [docs/whatsapp.md](docs/whatsapp.md) covers webhooks, Flows and connecting a number.
+The API runs at `http://127.0.0.1:54321/functions/v1/api`. Generate the WhatsApp Flows key pair with `node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs`. [docs/whatsapp.md](docs/whatsapp.md) covers webhooks, Flows and connecting a number.
 
 ### 4. App
 

@@ -84,7 +84,7 @@ No product code exists yet; subscriptions are planned. Just reserve the slots: i
 
 Only needed to try the Free-tier deterministic WhatsApp engine; the app, web flow and API work without it.
 Create a Meta app with a WhatsApp test number, then follow `docs/whatsapp.md`: `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`,
-Flow keys via `node apps/api/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
+Flow keys via `node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
 `POST /v1/whatsapp/connect` (stored encrypted, never in Doppler). Webhook callback: `<API_BASE_URL>/webhooks/whatsapp`.
 
 ### 5. EAS and the Android build
@@ -121,7 +121,7 @@ Flow keys via `node apps/api/whatsapp/generate-flow-keys.mjs`, `WHATSAPP_REGISTR
 
 | Task | Command |
 | --- | --- |
-| Check env is complete | `npm run env:check` (names only); one app: `sh scripts/env/check.sh backend --hosted` |
+| Check env is complete | `npm run env:check` (names only); one app: `sh scripts/env/check.sh api --hosted` |
 | Run API locally | `npm run dev:api` (Doppler if available, else `apps/api/.env`) |
 | Run app | `npm run dev:mobile` (Doppler if available, else `apps/mobile/.env.local`) |
 | Push secrets to hosted dev | `SUPABASE_PROJECT_REF=<ref> npm run env:push-secrets` |

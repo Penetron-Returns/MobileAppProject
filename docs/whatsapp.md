@@ -3,7 +3,7 @@
 This workstream is the customer-facing channel. It covers the Meta Graph client, the signed webhook, the deterministic conversation engine, WhatsApp Flows, onboarding (`/v1/whatsapp`), the staff inbox, notifications (confirmations, reminders, Expo push) and the WhatsApp cron jobs. The contract is `docs/BUILD_PLAN.md` §4–§5. The deviations are listed at the end.
 
 ```
-apps/api/src/whatsapp/
+packages/app-store/whatsapp/
   graph.ts            Graph API client: retry/backoff, typed Meta error kinds
   messages.ts         message builders (WhatsApp limits) → Cloud API payloads
   ids.ts              reply-id grammar (parse/format)
@@ -20,10 +20,10 @@ apps/api/src/whatsapp/
   inbox.ts            staff reply, release, resolve escalation
   jobs.ts             reminders, conversation-expiry, waba-health, token-refresh
   assets.ts           bundled Flow JSON + templates (JSON imports)
-apps/api/src/notifications/   NotificationService (index.ts), customer copy, Expo push
+packages/app-store/whatsapp/notifications/  NotificationService (index.ts), customer copy, Expo push
 apps/api/src/routes/whatsapp/ webhook.ts, flows.ts, v1.ts (/v1/whatsapp), inbox.ts (/v1), schemas.ts
-apps/api/whatsapp/            flows/booking.json, flows/reschedule.json, templates.json, generate-flow-keys.mjs
-apps/api/test/whatsapp/       fakes + table-driven and end-to-end tests
+packages/app-store/whatsapp/assets/  flows/booking.json, flows/reschedule.json, templates.json (scripts/generate-flow-keys.mjs)
+apps/api/test/whatsapp/       table-driven and end-to-end tests (fakes in packages/testing/whatsapp)
 ```
 
 No new dependencies were added. The code only uses Web-standard APIs, `node:crypto` / `node:buffer`, hono, zod and luxon, so it runs unchanged on Node (Vitest) and on Supabase Edge Functions (Deno). Bundled JSON is loaded with `import … with { type: 'json' }`.
@@ -56,7 +56,7 @@ Without `WHATSAPP_FLOW_PRIVATE_KEY`, `FLOW_TOKEN_SECRET` or `API_BASE_URL`, Flow
 ### 2. Flows keys
 
 ```bash
-node apps/api/whatsapp/generate-flow-keys.mjs [passphrase]
+node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs [passphrase]
 ```
 
 This prints `WHATSAPP_FLOW_PRIVATE_KEY` as one line with `\n` escapes (the backend accepts escaped or real newlines), plus the public key. You don't need to upload the public key by hand: `connect` and `sync` call `POST /{phone-number-id}/whatsapp_business_encryption` with it. Set `FLOW_TOKEN_SECRET` to a random string.
@@ -113,7 +113,7 @@ The other endpoints (all owner-only, except `GET` which any member can call):
 
 ### Templates
 
-`apps/api/whatsapp/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
+`packages/app-store/whatsapp/assets/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
 
 | Template | Quick replies (payloads) |
 | --- | --- |
@@ -270,7 +270,7 @@ For each inbound message (`engine/index.ts`):
 
 ```bash
 # 1. Keys. Put the private key in WHATSAPP_FLOW_PRIVATE_KEY (and the passphrase, if any), and set FLOW_TOKEN_SECRET + API_BASE_URL.
-node apps/api/whatsapp/generate-flow-keys.mjs [passphrase]
+node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs [passphrase]
 
 # 2. Upload the public key (the PEM printed above, saved as public_key.pem) to the phone number.
 curl -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/whatsapp_business_encryption" \
@@ -280,11 +280,11 @@ curl -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/whatsapp_busine
 curl -X POST "https://graph.facebook.com/v23.0/<WABA_ID>/flows" -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -F name=booking_v2 -F 'categories=["APPOINTMENT_BOOKING"]' \
   -F endpoint_uri="<API_BASE_URL>/flows/whatsapp" \
-  -F flow_json=@apps/api/whatsapp/flows/booking.json -F publish=false
+  -F flow_json=@packages/app-store/whatsapp/assets/flows/booking.json -F publish=false
 
 # 4. (Re)upload the JSON to a draft. Fix any validation_errors in the response first.
 curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/assets" -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -F name=flow.json -F asset_type=FLOW_JSON -F file=@apps/api/whatsapp/flows/booking.json
+  -F name=flow.json -F asset_type=FLOW_JSON -F file=@packages/app-store/whatsapp/assets/flows/booking.json
 
 # 5. Publish. A published Flow is immutable: to change the JSON, create booking_v3 and re-point flow_ids.
 curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/publish" -H "Authorization: Bearer <ACCESS_TOKEN>"
