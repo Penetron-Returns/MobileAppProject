@@ -26,7 +26,9 @@ import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { useServices, useStaff } from '@/features/catalog/hooks';
 import { Gate } from '@/features/plans/components/Gate';
+import { useAppMode, useEntitlements } from '@/features/plans/hooks';
 
+import { CompanionGlyph } from './CompanionGlyph';
 import {
   appVersionLabel,
   settingsGroups,
@@ -41,6 +43,8 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   team: GLYPHS.team,
   rules: GLYPHS.sliders,
   whatsapp: GLYPHS.chat,
+  companion: CompanionGlyph,
+  plan: GLYPHS.card,
   notifications: GLYPHS.bell,
 };
 
@@ -51,6 +55,8 @@ const ROUTES: Record<SettingsItem, string> = {
   team: '/settings/team',
   rules: '/settings/booking-rules',
   whatsapp: '/settings/whatsapp',
+  companion: '/companion',
+  plan: '/settings/plan',
   notifications: '/settings/notifications',
 };
 
@@ -71,6 +77,8 @@ export function SettingsScreen() {
   const services = useServices();
   const staff = useStaff();
   const whatsapp = useWhatsAppAccount();
+  const mode = useAppMode();
+  const entitlements = useEntitlements();
   const { isDark, toggle } = useAppColorScheme();
   const isOwner = me.data?.role !== 'staff';
   const userName =
@@ -82,6 +90,7 @@ export function SettingsScreen() {
     services: services.data ? String(services.data.length) : undefined,
     team: staff.data ? String(staff.data.length) : undefined,
     whatsapp: whatsappDetail(t, whatsapp.data),
+    plan: entitlements.plan ? t(`plans.names.${entitlements.plan}`) : undefined,
   };
 
   const renderGroup = (group: SettingsGroup, index: number) => {
@@ -124,8 +133,8 @@ export function SettingsScreen() {
         </Group>
       </Reveal>
     );
-    // Our own WhatsApp booking menu is a Free-plan feature.
-    return group.id === 'customize' ? (
+    // Our own WhatsApp booking menu is a Free-plan feature; paid plans show the Companion row instead.
+    return group.id === 'customize' && mode === 'free' ? (
       <Gate key={group.id} feature="whatsapp_menu">
         {content}
       </Gate>
@@ -172,7 +181,9 @@ export function SettingsScreen() {
         </View>
       )}
 
-      {settingsGroups(isOwner).map((group, index) => renderGroup(group, index))}
+      {settingsGroups(isOwner, mode).map((group, index) =>
+        renderGroup(group, index),
+      )}
 
       <Pressable
         onPress={() => void signOut()}

@@ -40,6 +40,10 @@ function makeGlyph(name: string, d: string): GlyphComponent {
  * (Settings.dc.html) so they match it stroke for stroke.
  */
 export const GLYPHS = {
+  card: makeGlyph(
+    'card',
+    'M5.5 5.5h13a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z M3.5 10h17',
+  ),
   store: makeGlyph('store', 'M4 20V9.5L12 4l8 5.5V20 M9.5 20v-6h5v6'),
   clock: makeGlyph(
     'clock',
