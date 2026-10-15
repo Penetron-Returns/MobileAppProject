@@ -48,6 +48,24 @@ jest.mock('@/features/business/hooks', () => ({
   useBusiness: () => mockHooks.business,
   useReplaceBusinessHours: () => ({ mutate: mockReplace, isPending: false }),
 }));
+jest.mock('@/features/availability/hooks', () => ({
+  useAvailabilityConfig: () => ({
+    data: { special_days: [] },
+    isPending: false,
+    isError: false,
+    error: null,
+    fetchStatus: 'idle',
+    dataUpdatedAt: 1,
+    refetch: jest.fn(),
+  }),
+  useUpcomingWindow: () => ({
+    today: '2026-10-15',
+    from: '2026-10-15',
+    to: '2027-10-15',
+    timezone: 'Africa/Johannesburg',
+  }),
+  useDeleteSpecialDay: () => ({ mutate: jest.fn(), isPending: false }),
+}));
 jest.mock('@/features/business/me', () => ({
   useCanManage: () => mockHooks.canManage,
 }));
@@ -178,12 +196,11 @@ describe('Operating hours screen', () => {
     ]);
   });
 
-  it('adds a second range for a split shift from the open wheel', () => {
+  it('has one range per day: no way to add a second one', () => {
     const tree = mount(<OperatingHoursScreen />);
     press(tree, 'Tuesday closes at 17:00');
-    press(tree, 'Add hours');
-    expect(byLabel(tree, 'Tuesday opens at 18:00').length).toBeGreaterThan(0);
-    expect(byLabel(tree, 'Remove these hours').length).toBeGreaterThan(0);
+    expect(byLabel(tree, 'Add hours')).toHaveLength(0);
+    expect(byLabel(tree, 'Remove these hours')).toHaveLength(0);
   });
 
   it('is read only for staff: no save footer, fields disabled', () => {

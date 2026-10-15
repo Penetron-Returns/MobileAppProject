@@ -3,6 +3,7 @@ import {
   GlassPage,
   Group,
   ListSkeleton,
+  Presenter,
   SaveFooter,
   Text,
 } from '@booking/ui';
@@ -10,6 +11,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DayHoursRow } from '@/features/availability/components/DayHoursRow';
+import {
+  toHoursRows,
+  toWeekSchedule,
+  validateWeek,
+  type DayHours,
+  type TimeEnd,
+} from '@/features/availability/week';
 import {
   useBusinessHours,
   useReplaceBusinessHours,
@@ -19,15 +28,7 @@ import { isFailed, loadError } from '@/lib/offline';
 import { WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
-import {
-  nextRange,
-  toHoursRows,
-  toWeekSchedule,
-  validateWeek,
-  type DayHours,
-  type TimeRange,
-} from '../logic';
-import { DayHoursRow, type PickedTime } from './DayHoursRow';
+import { SpecialDaysSection } from './SpecialDaysSection';
 
 export function OperatingHoursScreen() {
   const { t } = useTranslation();
@@ -54,8 +55,9 @@ export function OperatingHoursScreen() {
   );
 }
 
-interface PickerTarget extends PickedTime {
+interface PickerTarget {
   weekday: number;
+  field: TimeEnd;
 }
 
 function HoursEditor({ initial }: { initial: DayHours[] }) {
@@ -63,12 +65,15 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
   const canManage = useCanManage();
   const [days, setDays] = React.useState(initial);
   const [picker, setPicker] = React.useState<PickerTarget | null>(null);
+  const [presenting, setPresenting] = React.useState(false);
   const replace = useReplaceBusinessHours({
     onSuccess: () => toast.success(t('hours.saved')),
   });
 
-  const updateDay = (weekday: number, fn: (day: DayHours) => DayHours) =>
-    setDays((prev) => prev.map((d) => (d.weekday === weekday ? fn(d) : d)));
+  const updateDay = (weekday: number, patch: Partial<DayHours>) =>
+    setDays((prev) =>
+      prev.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d)),
+    );
 
   const save = () => {
     const error = validateWeek(days);
@@ -82,73 +87,58 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
   };
 
   return (
-    <GlassPage
-      title={t('hours.title')}
-      backLabel={t('tabs.settings')}
-      backFallback="/settings"
-      footer={
-        canManage ? (
-          <SaveFooter
-            label={
-              replace.isPending ? t('common.saving') : t('common.saveChanges')
-            }
-            onPress={save}
-            disabled={replace.isPending}
-          />
-        ) : undefined
-      }
-    >
-      <Group radius={26} className="mx-4">
-        {days.map((day, i) => (
-          <DayHoursRow
-            key={day.weekday}
-            day={day}
-            label={WEEKDAYS[day.weekday]}
-            editable={canManage}
-            showSeparator={i > 0}
-            picked={picker?.weekday === day.weekday ? picker : null}
-            onToggle={(isOpen) => {
-              updateDay(day.weekday, (d) => ({ ...d, isOpen }));
-              if (picker?.weekday === day.weekday) setPicker(null);
-            }}
-            onPick={(index, field) =>
-              setPicker((cur) =>
-                cur?.weekday === day.weekday &&
-                cur.index === index &&
-                cur.field === field
-                  ? null
-                  : { weekday: day.weekday, index, field },
-              )
-            }
-            onClosePicker={() => setPicker(null)}
-            onChangeTime={(index, field: keyof TimeRange, time) =>
-              updateDay(day.weekday, (d) => ({
-                ...d,
-                ranges: d.ranges.map((r, j) =>
-                  j === index ? { ...r, [field]: time } : r,
-                ),
-              }))
-            }
-            onAddRange={() => {
-              updateDay(day.weekday, (d) => ({
-                ...d,
-                ranges: [...d.ranges, nextRange(d.ranges)],
-              }));
-              setPicker(null);
-            }}
-            onRemoveRange={(index) => {
-              updateDay(day.weekday, (d) => ({
-                ...d,
-                ranges: d.ranges.filter((_, j) => j !== index),
-              }));
-              setPicker(null);
-            }}
-          />
-        ))}
-      </Group>
-      <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
-        {t('settings.hours.hint')}
-      </Text>
-    </GlassPage>
+    <Presenter active={presenting}>
+      <GlassPage
+        title={t('hours.title')}
+        backLabel={t('tabs.settings')}
+        backFallback="/settings"
+        footer={
+          canManage ? (
+            <SaveFooter
+              label={
+                replace.isPending ? t('common.saving') : t('common.saveChanges')
+              }
+              onPress={save}
+              disabled={replace.isPending}
+            />
+          ) : undefined
+        }
+      >
+        <Group radius={26} className="mx-4">
+          {days.map((day, i) => (
+            <DayHoursRow
+              key={day.weekday}
+              day={day}
+              label={WEEKDAYS[day.weekday]}
+              editable={canManage}
+              showSeparator={i > 0}
+              picked={picker?.weekday === day.weekday ? picker.field : null}
+              onToggle={(isOpen) => {
+                updateDay(day.weekday, { isOpen });
+                if (picker?.weekday === day.weekday) setPicker(null);
+              }}
+              onPick={(field) =>
+                setPicker((cur) =>
+                  cur?.weekday === day.weekday && cur.field === field
+                    ? null
+                    : { weekday: day.weekday, field },
+                )
+              }
+              onClosePicker={() => setPicker(null)}
+              onChangeTime={(field, time) =>
+                updateDay(day.weekday, { [field]: time })
+              }
+            />
+          ))}
+        </Group>
+        <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
+          {t('settings.hours.hint')}
+        </Text>
+        <SpecialDaysSection
+          canManage={canManage}
+          onPresentChange={setPresenting}
+        />
+      </GlassPage>
+    </Presenter>
   );
 }
