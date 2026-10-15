@@ -171,10 +171,10 @@ What `@booking/ui` already covers, and what is still needed to reach full SwiftU
 | Type scale, colour roles, Depth tokens | Done |
 | Grouped lists, rows, engraved separators, switches, segmented control, stepper, time wheel, month grid | Done |
 | Push slide + swipe-back, tab cross-fade, sliding tab pill, press scale, spring switch, chevron turns, list reveal | Done (motion pass) |
-| New booking as slide-up modal with ✕ | In progress |
-| **Large title → inline title collapse on scroll** (material bar fade) | To do |
-| **Spring tokens mapped to SwiftUI `.smooth` / `.snappy` / `.bouncy`** | To do: align `tokens/motion.ts` |
-| **Haptics map** (selection / light impact / success / warning / error) | Partial: tab change only |
+| New booking as slide-up modal with ✕ | Built and merged; not yet verified on a device |
+| **Large title → inline title collapse on scroll** (material bar fade) | Done for `Page` screens (Today, Clients, Settings, pushed pages): UI-thread scroll handler, blur bar on iOS, opaque ground material on Android, overscroll stretch, instant under reduced motion. `GlassPage` (centred title, no large title) and Calendar (fixed header) are unchanged |
+| **Spring tokens mapped to SwiftUI `.smooth` / `.snappy` / `.bouncy`** | Done: `SPRING` is `{ duration: 500, dampingRatio }` (1 / 0.85 / 0.7); `bouncy` only for `SuccessMark` |
+| **Haptics map** (selection / light impact / success / warning / error) | Done: `haptics` helper in `@booking/ui` (no-op on web, never throws). Selection: tabs, segmented, wheel, month grid, day pick. Light: switch, chip, primary button, Add. Success: `SuccessMark` and success toasts. Warning: blocked input (`toast.blocked`), slot taken. Error: error toasts |
 | **Swipe actions on rows** (bookings, clients, services, team) | To do |
 | **Context menus** (long-press preview + actions) on rows and calendar blocks | To do |
 | **Sheet detents** (medium/large) for pickers and quick actions | To do |

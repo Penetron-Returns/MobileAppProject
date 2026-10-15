@@ -6,6 +6,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { haptics } from '../lib/haptics';
 import { Pressable } from '../primitives/Pressable';
 import { useDepth } from '../theme/useDepth';
 import { DURATION, springConfig, timingConfig } from '../tokens/motion';
@@ -54,7 +55,10 @@ export function Switch({
   const fillStyle = useAnimatedStyle(() => ({ opacity: fill.value }));
   return (
     <Pressable
-      onPress={() => onCheckedChange(!checked)}
+      onPress={() => {
+        haptics.light();
+        onCheckedChange(!checked);
+      }}
       disabled={disabled}
       feedback="none"
       accessibilityRole="switch"

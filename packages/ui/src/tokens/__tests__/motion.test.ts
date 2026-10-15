@@ -20,10 +20,21 @@ describe('motion tokens', () => {
     expect([...values].sort((a, b) => a - b)).toEqual(values);
   });
 
-  it('keeps both springs damped and the snappy one stiffer', () => {
-    expect(SPRING.snappy.stiffness).toBeGreaterThan(SPRING.gentle.stiffness);
-    expect(SPRING.snappy.damping).toBeGreaterThan(0);
-    expect(SPRING.gentle.damping).toBeGreaterThan(0);
+  it('maps the springs to SwiftUI smooth, snappy and bouncy (500ms, bounce 0 / 0.15 / 0.3)', () => {
+    expect(SPRING).toEqual({
+      smooth: { duration: 500, dampingRatio: 1 },
+      snappy: { duration: 500, dampingRatio: 0.85 },
+      bouncy: { duration: 500, dampingRatio: 0.7 },
+    });
+  });
+
+  it('keeps the springs ordered from least to most bounce', () => {
+    expect(SPRING.smooth.dampingRatio).toBeGreaterThan(
+      SPRING.snappy.dampingRatio,
+    );
+    expect(SPRING.snappy.dampingRatio).toBeGreaterThan(
+      SPRING.bouncy.dampingRatio,
+    );
   });
 
   it('keeps bezier control points inside the unit range on x', () => {
@@ -47,7 +58,10 @@ describe('motion tokens', () => {
   it('hands every animation the system reduce-motion setting', () => {
     expect(timingConfig().reduceMotion).toBe('system');
     expect(timingConfig(DURATION.quick).duration).toBe(DURATION.quick);
-    expect(springConfig('gentle').reduceMotion).toBe('system');
-    expect(springConfig('gentle').damping).toBe(SPRING.gentle.damping);
+    expect(springConfig('smooth').reduceMotion).toBe('system');
+    expect(springConfig('bouncy').dampingRatio).toBe(
+      SPRING.bouncy.dampingRatio,
+    );
+    expect(springConfig('bouncy').duration).toBe(SPRING.bouncy.duration);
   });
 });

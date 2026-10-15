@@ -35,12 +35,17 @@ export const EASING = {
   inOut: Easing.bezier(...BEZIER.inOut),
 } as const;
 
-/** Spring configs (Reanimated `withSpring`). */
+/**
+ * Spring configs, mapped one-to-one to SwiftUI's `Animation` presets and used
+ * as `withSpring({ duration, dampingRatio })`, where `dampingRatio = 1 - bounce`.
+ */
 export const SPRING = {
-  /** Quick, nearly critically damped: pills, switch thumbs, press-back. */
-  snappy: { damping: 20, stiffness: 320, mass: 0.8 },
-  /** Softer with a hint of overshoot: toasts, sheets, success marks. */
-  gentle: { damping: 16, stiffness: 180, mass: 1 },
+  /** SwiftUI `.smooth` (bounce 0): layout changes, sheets, toasts, page-level moves. */
+  smooth: { duration: 500, dampingRatio: 1 },
+  /** SwiftUI `.snappy` (bounce 0.15): selection pills, switch thumbs, chips. */
+  snappy: { duration: 500, dampingRatio: 0.85 },
+  /** SwiftUI `.bouncy` (bounce 0.3): celebrations only (the success mark). */
+  bouncy: { duration: 500, dampingRatio: 0.7 },
 } as const;
 
 /** Scale values for press and pop feedback. */

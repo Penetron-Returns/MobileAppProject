@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { haptics } from '../lib/haptics';
 import { Pressable } from '../primitives/Pressable';
 import { Surface } from '../primitives/Surface';
 import { Text } from '../primitives/Text';
@@ -100,7 +101,10 @@ export function MonthGrid({
             cell ? (
               <Pressable
                 key={cell.value}
-                onPress={() => onSelect(cell.value)}
+                onPress={() => {
+                  haptics.selection();
+                  onSelect(cell.value);
+                }}
                 disabled={cell.disabled}
                 accessibilityRole="button"
                 accessibilityLabel={cell.accessibilityLabel}

@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
+import { haptics } from '../lib/haptics';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 import { springConfig } from '../tokens/motion';
@@ -14,10 +15,11 @@ import { springConfig } from '../tokens/motion';
 /** The large green completion dome (design: 88pt on the done screen). */
 export function SuccessMark({ size = 88 }: { size?: number }) {
   const depth = useDepth();
-  // The dome pops in with a gentle overshoot; reduced motion lands it at once.
+  // The dome pops in with a bouncy overshoot; reduced motion lands it at once.
   const pop = useSharedValue(0);
   React.useEffect(() => {
-    pop.value = withSpring(1, springConfig('gentle'));
+    pop.value = withSpring(1, springConfig('bouncy'));
+    haptics.success();
   }, [pop]);
   const popStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, pop.value * 2),

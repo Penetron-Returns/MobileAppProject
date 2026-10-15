@@ -24,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { lightHaptic } from '../../lib/haptics';
+import { haptics } from '../../lib/haptics';
 import { Text } from '../../primitives/Text';
 import { type DepthTokens } from '../../tokens/depth';
 import { useDepth } from '../../theme/useDepth';
@@ -139,7 +139,7 @@ export function FloatingTabBar({
         })
       : { defaultPrevented: false };
     if (!event.defaultPrevented) {
-      if (name !== activeName) lightHaptic();
+      if (name !== activeName) haptics.selection();
       navigation.navigate(name);
     }
   };
@@ -218,7 +218,7 @@ export function FloatingTabBar({
         {LEFT_TABS.map(renderTab)}
         <Pressable
           onPress={() => {
-            lightHaptic();
+            haptics.light();
             onAdd?.();
           }}
           accessibilityRole="button"
