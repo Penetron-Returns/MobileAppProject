@@ -241,3 +241,17 @@ export * from './rnr/textarea';
 export * from './rnr/toggle';
 export * from './rnr/toggle-group';
 export * from './rnr/tooltip';
+
+// Haptics and title collapse
+export { haptics } from './lib/haptics';
+export {
+  COLLAPSE_FADE,
+  collapseThreshold,
+  titleCollapse,
+} from './lib/titleCollapse';
+export {
+  AnimatedScrollView,
+  CollapsingBar,
+  NAV_ROW_HEIGHT,
+  useTitleCollapse,
+} from './patterns/CollapsingTitle';
