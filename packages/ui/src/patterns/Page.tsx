@@ -2,9 +2,10 @@ import * as React from 'react';
 import {
   KeyboardAvoidingView,
   RefreshControl,
-  ScrollView,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KEYBOARD_AVOIDING_BEHAVIOR } from '../lib/keyboard';
@@ -12,8 +13,20 @@ import { Ground } from '../primitives/Ground';
 import { Text } from '../primitives/Text';
 import { useAppColorScheme } from '../theme/useAppColorScheme';
 import { useDepth } from '../theme/useDepth';
+import { collapseThreshold } from '../lib/titleCollapse';
 import { BackPill } from './BackPill';
+import {
+  AnimatedScrollView,
+  CollapsingBar,
+  NAV_ROW_HEIGHT,
+  useTitleCollapse,
+} from './CollapsingTitle';
 import { INBOX_DOME_CLEARANCE, tabBarClearance } from './tab-bar/layout';
+
+/** Height reserved for the back pill row in the content (and its pinned twin). */
+const BACK_ROW = 44;
+/** Large title line height, for the threshold before the title is measured. */
+const LARGE_TITLE_LINE = 41;
 
 /** Fade height below the status bar: clear of the 34pt title that rests under it. */
 const NAV_FADE_EXTRA = 8;
@@ -56,6 +69,18 @@ export function Page({
   const { colors } = useAppColorScheme();
   const depth = useDepth();
   const [refreshing, setRefreshing] = React.useState(false);
+  const paddingTop = insets.top + 8;
+  const barHeight = insets.top + NAV_ROW_HEIGHT;
+  const [titleBottom, setTitleBottom] = React.useState(
+    paddingTop + (backLabel ? BACK_ROW : 0) + 4 + LARGE_TITLE_LINE,
+  );
+  const { scrollHandler, barStyle, titleStyle } = useTitleCollapse(
+    collapseThreshold(titleBottom, barHeight),
+  );
+  const onTitleLayout = (event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    setTitleBottom(paddingTop + y + height);
+  };
 
   const handleRefresh = React.useCallback(async () => {
     if (!onRefresh) return;
@@ -77,11 +102,13 @@ export function Page({
         className="flex-1"
         behavior={KEYBOARD_AVOIDING_BEHAVIOR}
       >
-        <ScrollView
+        <AnimatedScrollView
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           contentInsetAdjustmentBehavior="never"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
-            paddingTop: insets.top + 8,
+            paddingTop,
             paddingBottom: footer ? 16 : bottom,
           }}
           refreshControl={
@@ -96,29 +123,32 @@ export function Page({
           }
         >
           <View className="w-full max-w-2xl self-center">
-            {backLabel ? (
-              <BackPill label={backLabel} fallback={backFallback} />
-            ) : null}
-            <View className="flex-row items-end justify-between pl-5 pr-4 pt-1">
+            {backLabel ? <View style={{ height: BACK_ROW }} /> : null}
+            <View
+              onLayout={onTitleLayout}
+              className="flex-row items-end justify-between pl-5 pr-4 pt-1"
+            >
               <View className="min-w-0 flex-1">
                 {caption ? (
                   <Text className="text-subtitle font-semibold text-muted-foreground">
                     {caption}
                   </Text>
                 ) : null}
-                <Text
-                  role="heading"
-                  aria-level="1"
-                  className="text-large-title font-bold"
-                >
-                  {title}
-                </Text>
+                <Animated.View style={titleStyle}>
+                  <Text
+                    role="heading"
+                    aria-level="1"
+                    className="text-large-title font-bold"
+                  >
+                    {title}
+                  </Text>
+                </Animated.View>
               </View>
               {titleRight}
             </View>
             {children}
           </View>
-        </ScrollView>
+        </AnimatedScrollView>
         {footer}
       </KeyboardAvoidingView>
       {/* The board's glass nav fade: scrolled content dissolves under the status bar
@@ -138,6 +168,12 @@ export function Page({
           },
         ]}
       />
+      <CollapsingBar title={title} height={barHeight} style={barStyle} />
+      {backLabel ? (
+        <View style={{ position: 'absolute', top: insets.top + 2, left: 0 }}>
+          <BackPill label={backLabel} fallback={backFallback} />
+        </View>
+      ) : null}
     </Ground>
   );
 }
