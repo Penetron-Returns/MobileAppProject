@@ -72,7 +72,12 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   /** Adds the window. Returns false when the permission is missing. */
   fun show(): Boolean {
     if (!canShow()) return false
-    if (isAttached) return true
+    main.removeCallbacks(finishHide)
+    if (isAttached) {
+      // Still on screen from the last command (its exit may be running): play the entrance again.
+      run("play('enter')")
+      return true
+    }
     preload()
     val view = web ?: return false
     val height = (context.resources.displayMetrics.heightPixels * HEIGHT_FRACTION).toInt()
@@ -92,14 +97,29 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       view.visibility = View.VISIBLE
       val isNight = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
       run("setTheme('${if (isNight) "dark" else "light"}')")
+      run("play('enter')") // the first visible frame is the ignition
       true
     } catch (_: RuntimeException) {
       false // permission revoked meanwhile, or no window token
     }
   }
 
-  fun hide() {
+  /** Plays the exit (the glow sinks, Clovie dips, the line retracts), then removes the window. */
+  fun hide(animated: Boolean = true) {
     stopMetering()
+    if (!isAttached || web == null) return
+    main.removeCallbacks(finishHide)
+    if (animated) {
+      run("play('exit')")
+      main.postDelayed(finishHide, EXIT_MS)
+    } else {
+      detach()
+    }
+  }
+
+  private val finishHide = Runnable { detach() }
+
+  private fun detach() {
     val view = web ?: return
     if (isAttached) {
       try {
@@ -131,7 +151,7 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   fun pushRms(rmsDb: Float) = meter.push(rmsDb)
 
   fun destroy() {
-    hide()
+    hide(animated = false)
     web?.destroy()
     web = null
     isPageReady = false
@@ -178,9 +198,10 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
     main.removeCallbacks(tick)
   }
 
-  private companion object {
+  companion object {
     const val PAGE_URL = "file:///android_asset/overlay/overlay.html"
     const val HEIGHT_FRACTION = 0.5f // the glow rises to about half the screen; its top fades out
+    const val EXIT_MS = 480L // the page's exit runs ~450 ms
     const val FRAME_MS = 33L // ~30 Hz
   }
 }
@@ -207,7 +228,7 @@ class LevelMeter {
     return level
   }
 
-  private companion object {
+  companion object {
     const val RISE = 0.5f
     const val FALL = 0.2f
     const val DECAY = 0.92f

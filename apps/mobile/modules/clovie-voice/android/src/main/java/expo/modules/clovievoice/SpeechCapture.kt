@@ -19,6 +19,9 @@ class SpeechCapture(private val context: Context, private val onLevel: (Float) -
   private val main = Handler(Looper.getMainLooper())
   private var recognizer: SpeechRecognizer? = null
   private var onDone: ((String?) -> Unit)? = null
+  /** True while a command is being listened for. */
+  val isBusy: Boolean
+    get() = onDone != null
   private var onStarted: (() -> Unit)? = null
   private var localeIndex = 0
   private val timeout = Runnable { finish(null) }

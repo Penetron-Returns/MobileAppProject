@@ -1,0 +1,5 @@
+<resources>
+  <string name="clovie_talk_label">Talk to Clovie</string>
+  <string name="clovie_voice_label">Clovie Voice</string>
+  <string name="clovie_widget_description">Tap to talk to Clovie.</string>
+</resources>

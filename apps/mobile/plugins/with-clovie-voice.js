@@ -27,6 +27,8 @@ const PERMISSIONS = [
   'android.permission.POST_NOTIFICATIONS',
   // Keeps the CPU awake while the screen is off so the wake word still fires.
   'android.permission.WAKE_LOCK',
+  // The two light haptic ticks of the entrance.
+  'android.permission.VIBRATE',
   // "Display over other apps": the overlay window that is the voice UI. The owner grants it in system settings.
   'android.permission.SYSTEM_ALERT_WINDOW',
 ];

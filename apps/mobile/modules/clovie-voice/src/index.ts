@@ -3,8 +3,11 @@ import { Platform } from 'react-native';
 
 import type {
   ClovieVoiceCommandOutcome,
+  ClovieVoiceHandsFree,
+  ClovieVoiceHandsFreeConfig,
   ClovieVoiceStartOptions,
   ClovieVoiceState,
+  ClovieVoiceTileResult,
 } from './ClovieVoice.types';
 
 export type * from './ClovieVoice.types';
@@ -16,6 +19,12 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   getStatus(): ClovieVoiceState;
   start(options: ClovieVoiceStartOptions): Promise<ClovieVoiceState>;
   stop(): ClovieVoiceState;
+  startTalk(): Promise<ClovieVoiceState>;
+  configureHandsFree(config: ClovieVoiceHandsFreeConfig): void;
+  getHandsFree(): ClovieVoiceHandsFree;
+  requestAddTile(): Promise<ClovieVoiceTileResult>;
+  setLauncherIconEnabled(enabled: boolean): void;
+  isLauncherIconEnabled(): boolean;
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
   completeCommand(id: string, status: string, message: string): boolean;
@@ -89,4 +98,41 @@ export function completeCommand(
   outcome: ClovieVoiceCommandOutcome,
 ): boolean {
   return native?.completeCommand(id, outcome.status, outcome.message) ?? false;
+}
+
+/** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */
+export async function startTalk(): Promise<ClovieVoiceState> {
+  return native ? native.startTalk() : UNSUPPORTED;
+}
+
+const HANDS_FREE_OFF: ClovieVoiceHandsFree = {
+  enabled: false,
+  useOpeningHours: true,
+  onlyWhileCharging: false,
+  duty: 'stopped',
+  untilMs: null,
+  windowsUntilMs: null,
+};
+
+/** Hands-free settings and its duty now, as the service sees them. */
+export function getHandsFree(): ClovieVoiceHandsFree {
+  return native?.getHandsFree() ?? HANDS_FREE_OFF;
+}
+
+/** Stores the conditions and the opening windows; the service re-checks at once if it is running. */
+export function configureHandsFree(config: ClovieVoiceHandsFreeConfig): void {
+  native?.configureHandsFree(config);
+}
+
+/** Asks Android to add the Quick Settings tile (Android 13+); older phones add it by hand. */
+export async function requestAddTile(): Promise<ClovieVoiceTileResult> {
+  return native ? native.requestAddTile() : 'unsupported';
+}
+
+export function setLauncherIconEnabled(enabled: boolean): void {
+  native?.setLauncherIconEnabled(enabled);
+}
+
+export function isLauncherIconEnabled(): boolean {
+  return native?.isLauncherIconEnabled() ?? false;
 }
