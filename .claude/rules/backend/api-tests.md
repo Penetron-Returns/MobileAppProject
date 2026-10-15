@@ -1,5 +1,5 @@
 ---
-paths: apps/api/test/**/*.ts,apps/api/src/**/*.test.ts
+paths: apps/api/test/**/*.ts,apps/api/src/**/*.test.ts,packages/testing/**/*.ts
 description: Rules for backend Vitest tests (routes, services, engines, fakes)
 ---
 

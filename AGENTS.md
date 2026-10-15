@@ -91,7 +91,7 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 | Auth           | Clerk (`@clerk/expo`), custom sign-in UI on Clerk's headless hooks (`useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used). Orgs = businesses, roles owner/staff | JWT trusted by Supabase (third-party auth) and the API                                                            |
 | API            | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon                                                                                           | source in `apps/api/`, entry in `packages/database/supabase/functions/api/`, tests with Vitest + Deno smoke tests |
 | Database       | Supabase Postgres + RLS, Realtime, Storage, pg_cron + pg_net                                                                                                                    | `packages/database/supabase/` migrations, seed, SQL tests                                                         |
-| Channel        | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates                                                                                                          | `apps/api/src/whatsapp/`                                                                                          |
+| Channel        | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates                                                                                                          | `packages/app-store/whatsapp/`                                                                                    |
 | Payments       | Stripe (planned)                                                                                                                                                                | server-side only                                                                                                  |
 | Builds         | EAS (development / preview / production channels), `supabase --workdir packages/database functions deploy api`                                                                  |                                                                                                                   |
 | Tooling        | ESLint, Prettier, Husky, Jest (app), Vitest (api), GitHub Actions                                                                                                               |                                                                                                                   |
@@ -124,35 +124,38 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 ## 4. Repository map
 
-| Path                                                                   | What                                                                                                                |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `apps/mobile/src/app/`                                                 | Expo Router routes (thin)                                                                                           |
-| `apps/mobile/src/features/<feature>/`                                  | hooks, components, pure logic per feature                                                                           |
-| `packages/ui/` (`@booking/ui`), `apps/mobile/src/components/`          | design system (tokens, primitives, components, patterns) / app-only pieces                                          |
-| `apps/mobile/src/lib/`                                                 | Supabase, API client, query client, env, formatters                                                                 |
-| `apps/api/src/{routes,booking,whatsapp,notifications,middleware,lib}`  | API layers                                                                                                          |
-| `apps/api/src/ports.ts`, `container.ts`                                | module contracts, composition root                                                                                  |
-| `apps/api/whatsapp/`                                                   | Flow JSON, template definitions, key generation                                                                     |
-| `packages/database/supabase/{migrations,tests,seed.sql,functions/api}` | schema, SQL tests, demo data, Edge Function entry stub                                                              |
-| `packages/database/` (`@booking/database`)                             | Supabase project; generated `database.types.ts` lives beside `supabase/`                                            |
-| `packages/types/` (`@booking/types`)                                   | types-only API contracts (`api.ts`)                                                                                 |
-| `packages/config/` (`@booking/config`)                                 | shared presets: Prettier, API tsconfig, ESLint base                                                                 |
-| `docs/`                                                                | `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-system`, `clerk-setup`, `mcp`, `skills` |
-| `.claude/rules/`, `.claude/skills/`, `.mcp.json`                       | AI tooling: rules, skills, MCP servers                                                                              |
+| Path                                                                   | What                                                                                                                                          |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/mobile/src/app/`                                                 | Expo Router routes (thin)                                                                                                                     |
+| `apps/mobile/src/features/<feature>/`                                  | hooks, components, pure logic per feature                                                                                                     |
+| `packages/ui/` (`@booking/ui`), `apps/mobile/src/components/`          | design system (tokens, primitives, components, patterns) / app-only pieces                                                                    |
+| `apps/mobile/src/lib/`                                                 | Supabase, API client, query client, env, formatters                                                                                           |
+| `apps/api/src/{routes,middleware,lib}`, `env.ts`, `container.ts`       | thin Hono shell: HTTP, env, composition root (DI wiring)                                                                                      |
+| `packages/features/<feature>/` (`@booking/features`)                   | runtime-neutral domain: services, repositories, `ports.ts`, pure logic (no Hono, no apps)                                                     |
+| `packages/companion/` (`@booking/companion`)                           | Booking connector (MCP) and account events; the part other platforms study                                                                    |
+| `packages/app-store/` (`@booking/app-store`)                           | optional apps, one folder each, plus `_registry.ts`; the WhatsApp Free demo is `whatsapp/`                                                    |
+| `packages/testing/` (`@booking/testing`)                               | shared in-memory fakes                                                                                                                        |
+| `packages/database/supabase/{migrations,tests,seed.sql,functions/api}` | schema, SQL tests, demo data, Edge Function entry stub                                                                                        |
+| `packages/database/` (`@booking/database`)                             | Supabase project; generated `database.types.ts` lives beside `supabase/`                                                                      |
+| `packages/types/` (`@booking/types`)                                   | types-only API contracts (`api.ts`)                                                                                                           |
+| `packages/config/` (`@booking/config`)                                 | shared presets: Prettier, API tsconfig, ESLint base                                                                                           |
+| `docs/`                                                                | `architecture` (binding), `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-system`, `clerk-setup`, `mcp`, `skills` |
+| `.claude/rules/`, `.claude/skills/`, `.mcp.json`                       | AI tooling: rules, skills, MCP servers                                                                                                        |
 
 ---
 
 ## 5. Commands (run the ones for every area you touched before calling work done)
 
-| Area                   | Check                                                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| App                    | `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch`                                             |
-| API                    | `cd apps/api && npx tsc --noEmit && npx vitest run`                                                                       |
-| All (app + API + Edge) | `npm run check` from the repo root                                                                                        |
-| Database               | `scripts/db/test.sh` (throwaway Postgres 16 → migrations → seed → SQL tests → types check)                                |
-| DB types               | `scripts/db/gen-types.sh` after any migration change                                                                      |
-| Edge                   | `cd apps/api && npm run check:edge && npm run test:edge` (Deno typecheck + smoke tests)                                   |
-| Dev                    | `cd apps/mobile && npx expo start --dev-client` (app) · `cd apps/api && npm run serve` (API; needs Supabase CLI + Docker) |
+| Area                                | Check                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| App                                 | `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch`                                             |
+| API                                 | `cd apps/api && npx tsc --noEmit && npx vitest run`                                                                       |
+| Boundaries                          | `npm run check:boundaries && npm run check:imports` (dependency-cruiser rules, tsconfig/Deno import map drift)            |
+| All (app + API + Edge + boundaries) | `npm run check` from the repo root                                                                                        |
+| Database                            | `scripts/db/test.sh` (throwaway Postgres 16 → migrations → seed → SQL tests → types check)                                |
+| DB types                            | `scripts/db/gen-types.sh` after any migration change                                                                      |
+| Edge                                | `cd apps/api && npm run check:edge && npm run test:edge` (Deno typecheck + smoke tests)                                   |
+| Dev                                 | `cd apps/mobile && npx expo start --dev-client` (app) · `cd apps/api && npm run serve` (API; needs Supabase CLI + Docker) |
 
 ---
 
@@ -171,13 +174,13 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 ## 7. AI configuration
 
-| Path                                                       | Purpose                                                                                            |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `.claude/rules/general/`                                   | always-on: SOLID principles, architecture, security, testing, git workflow                         |
-| `.claude/rules/frontend/` · `backend/` · `infrastructure/` | load when matching files are touched                                                               |
-| `.claude/rules/ai-rules/`                                  | conventions for rules, agents, skills and hooks                                                    |
-| `.claude/agents/`                                          | `frontend`, `backend`, `frontend-reviewer`, `backend-reviewer`                                     |
-| `.claude/skills/`                                          | vetted third-party + project skills (`docs/skills.md`)                                             |
-| `.claude/hooks/` + `settings.json`                         | block pushes to master, force-push, `--no-verify`, edits to merged migrations/generated types/.env |
-| `.mcp.json`                                                | Meta dev tools, Clerk, shadcn, Stripe, Supabase (`docs/mcp.md`)                                    |
-| `AGENTS.md`                                                | mirror of this file for other AI tools (`node scripts/sync-ai-rules.mjs`)                          |
+| Path                                                       | Purpose                                                                                                                                      |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.claude/rules/general/`                                   | always-on: SOLID principles, architecture, repository structure (where code goes, package dependency rules), security, testing, git workflow |
+| `.claude/rules/frontend/` · `backend/` · `infrastructure/` | load when matching files are touched                                                                                                         |
+| `.claude/rules/ai-rules/`                                  | conventions for rules, agents, skills and hooks                                                                                              |
+| `.claude/agents/`                                          | `frontend`, `backend`, `frontend-reviewer`, `backend-reviewer`                                                                               |
+| `.claude/skills/`                                          | vetted third-party + project skills (`docs/skills.md`)                                                                                       |
+| `.claude/hooks/` + `settings.json`                         | block pushes to master, force-push, `--no-verify`, edits to merged migrations/generated types/.env                                           |
+| `.mcp.json`                                                | Meta dev tools, Clerk, shadcn, Stripe, Supabase (`docs/mcp.md`)                                                                              |
+| `AGENTS.md`                                                | mirror of this file for other AI tools (`node scripts/sync-ai-rules.mjs`)                                                                    |

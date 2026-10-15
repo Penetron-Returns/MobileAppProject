@@ -10,8 +10,8 @@ These boundaries hold the system together. Breaking one requires a [BUILD_PLAN.m
 
 1. Read in the app through Supabase (RLS scopes rows to the caller's business). Write only through the backend API. The app never holds the service-role key or Meta tokens.
 2. Treat Postgres as the single source of truth. Compute availability live and never cache it. The exclusion constraint prevents double booking, so never replace it with an application-level check.
-3. Keep backend layering one-directional: `routes/*` → services (`booking/`, `whatsapp/`, `notifications/`) → repositories → `db`. Services never import Hono.
-4. Cross modules only through ports. WhatsApp code books via `BookingService` and never writes `appointments` directly.
+3. Keep backend layering one-directional: `apps/api` `routes/*` → services (`packages/features/<feature>/services`, `packages/app-store`, `packages/companion`) → repositories → `db`. Services never import Hono or `apps/api`. Package boundaries and placement are in [repository-structure.md](/.claude/rules/general/repository-structure.md).
+4. Cross modules only through ports, which live in [packages/features/ports.ts](/packages/features/ports.ts) and each feature's `ports.ts`. Implementations are wired only in [container.ts](/apps/api/src/container.ts). WhatsApp and companion code book via `BookingService` and never write `appointments` directly.
 5. Keep `packages/types/` types-only: no runtime imports. Change it additively and update both sides together.
 6. Keep the WhatsApp engine deterministic: no AI, no free-text interpretation. Unexpected input gets a fixed re-prompt or escalation.
 7. Make every mutation idempotent (an `Idempotency-Key` on API calls, deterministic keys for WhatsApp and web bookings) and audited (`appointment_events`, `audit_log`).

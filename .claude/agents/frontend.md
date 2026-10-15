@@ -9,7 +9,7 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 
 ## Role Boundaries
 
-- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/api/`, `packages/database/` or `packages/types/`
+- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/api/`, `packages/features/`, `packages/companion/`, `packages/app-store/`, `packages/testing/`, `packages/database/` or `packages/types/`. Never import server code or those packages into the app (Metro bundles it); shared UI comes from `@booking/ui`, shared contracts from `@booking/types`
 - If you need an API or DTO change, stop and describe it (endpoint, request, response) instead of inventing one
 - Never commit, push or open PRs unless the user explicitly asks
 
@@ -20,4 +20,4 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 3. Build from `@booking/ui` (`packages/ui`, the design system; see `docs/design-system.md`) and import nothing else for shared UI. Use the `ui-ux-pro-max`, `react-native-skills`, `composition-patterns`, `expo-*` and `supabase` skills when relevant
 4. Put data access in feature hooks, pure logic in tested functions, and strings in i18n
 5. Handle loading, empty and error states, dark mode and accessibility on every screen
-6. Verify: `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch`. Report exactly what passed and anything you could not verify (e.g. native-only behaviour)
+6. Verify: `cd apps/mobile && npm run lint && npx tsc --noEmit && npm run test:no-watch`, then `npm run check:boundaries` from the repo root. Report exactly what passed and anything you could not verify (e.g. native-only behaviour)

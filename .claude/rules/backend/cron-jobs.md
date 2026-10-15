@@ -1,5 +1,5 @@
 ---
-paths: apps/api/src/routes/cron.ts,apps/api/src/**/jobs.ts,packages/database/supabase/migrations/*cron*.sql
+paths: apps/api/src/routes/cron.ts,packages/app-store/whatsapp/jobs.ts,packages/features/bookings/services/cleanupJob.ts,packages/database/supabase/migrations/*cron*.sql
 description: Rules for scheduled jobs triggered by pg_cron via pg_net
 ---
 
