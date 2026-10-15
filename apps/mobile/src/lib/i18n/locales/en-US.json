@@ -93,7 +93,10 @@
       "NETWORK_ERROR": "Could not reach the server. Check your connection.",
       "BAD_RESPONSE": "The server returned an unexpected response.",
       "NOT_CONFIGURED": "This app isn't configured yet.",
-      "OFFLINE": "You're offline. Reconnect to make changes."
+      "OFFLINE": "You're offline. Reconnect to make changes.",
+      "COMPANION_NOT_READY": "Your companion isn't ready yet.",
+      "UPSTREAM_COMPANION_ERROR": "Your companion couldn't be reached. Please try again.",
+      "FEATURE_NOT_IN_PLAN": "That isn't included in your plan."
     }
   },
   "status": {
@@ -137,7 +140,8 @@
     "calendar": "Calendar",
     "add": "New booking",
     "clients": "Clients",
-    "settings": "Settings"
+    "settings": "Settings",
+    "reports": "Reports"
   },
   "inbox": {
     "title": "Inbox",
@@ -476,7 +480,9 @@
       "team": "Team",
       "rules": "Booking rules",
       "notifications": "Notifications",
-      "whatsapp": "WhatsApp"
+      "whatsapp": "WhatsApp",
+      "companion": "Companion",
+      "plan": "Plan"
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -1209,5 +1215,197 @@
       "open": "Open booking {{booking}}",
       "saveAnyway": "Save anyway (bookings stay)"
     }
+  },
+  "companion": {
+    "title": "Companion",
+    "close": "Close companion",
+    "expand": "Expand companion",
+    "collapse": "Collapse companion",
+    "loading": "Getting your companion ready",
+    "checkAgain": "Check again",
+    "domeLabel": "Open your companion",
+    "domeLabelCount_one": "Open your companion, {{count}} thing needs your attention",
+    "domeLabelCount_other": "Open your companion, {{count}} things need your attention",
+    "error": {
+      "title": "Your companion isn't reachable"
+    },
+    "notReady": {
+      "generic": {
+        "title": "Your companion isn't ready yet",
+        "description": "It's still getting ready. Check again in a moment."
+      },
+      "reasons": {
+        "account_not_found": {
+          "title": "Your companion is being set up",
+          "description": "We're linking your business. This usually takes a few minutes."
+        },
+        "not_provisioned": {
+          "title": "Your companion is being set up",
+          "description": "It's learning your services and hours. Check again soon."
+        },
+        "setup_incomplete": {
+          "title": "Finish setting up your companion",
+          "description": "A few steps are left before it can go live."
+        },
+        "unavailable": {
+          "title": "Your companion is unavailable right now",
+          "description": "Please try again a little later."
+        }
+      },
+      "steps": {
+        "connect_booking_system": {
+          "title": "Connecting your bookings",
+          "description": "Your companion is linking to your schedule. Check again soon."
+        },
+        "verify_booking_connection": {
+          "title": "Checking your booking link",
+          "description": "We're making sure your companion can see your schedule. Check again soon."
+        },
+        "provision_account": {
+          "title": "Your companion is being set up",
+          "description": "It's getting ready. Check again in a few minutes."
+        },
+        "connect_whatsapp": {
+          "title": "Connect WhatsApp to go live",
+          "description": "Your companion answers clients on WhatsApp. Connect your number to switch it on."
+        },
+        "go_live": {
+          "title": "One step left: go live",
+          "description": "Everything is connected. Check again once your companion is switched on."
+        }
+      }
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "revenue": "Revenue · {{month}}",
+    "completedJobs_one": "{{count}} completed job",
+    "completedJobs_other": "{{count}} completed jobs",
+    "loading": "Loading the report",
+    "error": {
+      "title": "Couldn't load this report",
+      "description": "Check your connection and try again."
+    },
+    "chart": {
+      "label": "Completed jobs per week",
+      "callout_one": "Week of {{date}} · {{count}} job",
+      "callout_other": "Week of {{date}} · {{count}} jobs",
+      "bar_one": "Week of {{date}}, {{count}} job",
+      "bar_other": "Week of {{date}}, {{count}} jobs"
+    },
+    "companion": {
+      "title": "What your companion did",
+      "labels": {
+        "bookings_created": "Bookings made",
+        "bookings_rescheduled": "Rescheduled",
+        "bookings_cancelled": "Cancelled",
+        "conversations_handled": "Chats handled"
+      },
+      "offline": {
+        "title": "Your companion isn't connected yet",
+        "description": "Once it's live, what it does shows up here. The rest of this report is complete."
+      }
+    },
+    "sources": {
+      "title": "Where bookings come from",
+      "whatsapp": "WhatsApp",
+      "companion": "Companion",
+      "manual": "Manual",
+      "web": "Web",
+      "empty": "No bookings were made this month.",
+      "row": "{{source}} {{percent}}%"
+    },
+    "stats": {
+      "noShows": "No-shows",
+      "cancellations": "Cancellations",
+      "busiest": "Busiest: {{day}} around {{time}}",
+      "busiestNone": "The busiest time shows once there are completed jobs."
+    }
+  },
+  "plans": {
+    "title": "Plan & billing",
+    "names": {
+      "free": "Free",
+      "starter": "Starter",
+      "growth": "Growth",
+      "pro": "Pro"
+    },
+    "yourPlan": "Your plan",
+    "headline": "{{rate}} per completed job. Pick the size that fits.",
+    "subline": "No-shows and cancellations don't count. Go over? Extra jobs are {{rate}} each.",
+    "checkoutSoon": "Checkout opens soon",
+    "tiers": "Plans",
+    "checkoutNote": "Opens secure checkout on the web.",
+    "completedJobDefinition": "A completed job is a booking whose time has passed and that wasn't cancelled or marked no-show.",
+    "perksTitle": "Every paid plan includes your AI companion",
+    "perks": {
+      "whatsapp": "Books and reschedules on WhatsApp 24/7",
+      "gaps": "Fills gaps and cuts no-shows",
+      "reminders": "Sends reminders",
+      "reports": "Reports what it did"
+    },
+    "tier": {
+      "priceLabel": "{{price}} a month",
+      "perMonth": "/ month",
+      "jobs": "{{count}} completed jobs",
+      "perJob": "{{price}} per job",
+      "current": "Current plan",
+      "currentLabel": "{{name}}, current plan",
+      "choose": "Choose {{name}}",
+      "chooseLabel": "Choose {{name}}, {{price}} a month, opens secure checkout on the web"
+    },
+    "compare": {
+      "title": "Compare plans",
+      "yes": "Yes",
+      "no": "–",
+      "rows": {
+        "price": "Price / month",
+        "jobs": "Completed jobs",
+        "extra": "Extra jobs",
+        "manual": "Manual booking",
+        "inbox": "Team inbox",
+        "companion": "AI companion",
+        "reports": "Reports"
+      }
+    },
+    "billing": {
+      "title": "Billing",
+      "payment": "Payment method",
+      "invoices": "Invoices",
+      "managedOnWeb": "Managed on web",
+      "noInvoices": "None yet",
+      "manage": "Manage subscription",
+      "footnote": "Prices in rand. Cancel anytime."
+    },
+    "free": {
+      "line": "You're on Free. Add your AI companion from {{from}}.",
+      "lineNoPrice": "You're on Free.",
+      "body": "Manual and WhatsApp booking and the team inbox stay free."
+    },
+    "usage": {
+      "line": "{{used}} of {{limit}} jobs this month · resets {{date}}",
+      "lineOver": "{{used}} of {{limit}} · {{extra}}, {{amount}} so far",
+      "extraJobs_one": "{{count}} extra job",
+      "extraJobs_other": "{{count}} extra jobs",
+      "barLabel": "Completed jobs this month",
+      "reassure": "Completed jobs only. Nothing is ever cut off.",
+      "near": {
+        "title": "You're close to your limit",
+        "body": "Nothing stops at the limit. Extra jobs are {{rate}} each, billed at month end."
+      },
+      "over": {
+        "title": "You're over your limit",
+        "body": "Nothing was cut off. Extra jobs are {{rate}} each, billed at month end. Resets {{date}}."
+      },
+      "openHint": "Opens your plan",
+      "unavailable": "Usage isn't available right now."
+    },
+    "error": {
+      "title": "Couldn't load your plan",
+      "description": "Check your connection and try again."
+    },
+    "loading": "Loading plans"
   }
 }

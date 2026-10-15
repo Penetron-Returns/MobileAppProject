@@ -62,6 +62,10 @@ export const qk = {
   conversations: ['conversations'] as const,
   conversation: (id: string) => ['conversations', 'one', id] as const,
   messages: (conversationId: string) => ['messages', conversationId] as const,
+  plans: ['plans'] as const,
+  billingUsage: (month: string | null) =>
+    ['billing-usage', month ?? 'current'] as const,
+  report: (month: string) => ['reports', month] as const,
   openEscalations: ['escalations', 'open-count'] as const,
 };
 

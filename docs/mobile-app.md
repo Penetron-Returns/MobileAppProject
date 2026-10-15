@@ -139,10 +139,22 @@ Deliberate divergence from upstream react-native-reusables: `Button` `default` i
 ### Floating tab bar
 
 `FloatingTabBar` (`@booking/ui`) replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) ·
-Clients · Settings in one capsule, plus the Inbox dome above it. The dome is a slot: the app passes
-`<InboxEntryDome />` (`features/inbox`), which reads `useInboxEntry()`, the single place for plan gating and the
-unread count. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
+Clients · Settings in one capsule, plus a dome above it. The centre action (`center`: `add` or `reports`) and the dome
+are slots the app fills per plan through `AppTabBar`: `<InboxEntryDome />` (`features/inbox`, `useInboxEntry()`) on Free,
+`<CompanionEntryDome />` (`features/companion`, `useCompanionEntry()`) on paid plans, each the single place for its plan
+gating and badge count. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
 (`isTabRootPath`); screens that opt out with `tabBarStyle: { display: 'none' }` (details, settings sub-pages) hide it.
+
+### The AI app (paid plans)
+
+One app, two modes, chosen by the entitlements from `/v1/me` (`useAppMode()`: `companion` or `reports` means paid; never a plan name). **Free** is the research app and is unchanged: "+" opens New booking, the Inbox dome shows, Settings has WhatsApp. **Paid** (Starter R200 / 50 jobs, Growth R400 / 100, Pro R800 / 200; extra jobs R4, never cut off, warning from 80%):
+
+- The bar's centre button opens **Reports**; the dome is the **companion dome**, which opens the companion sheet. `AppTabBar` (`components/`) wires this; `tabBarActions(mode)` (`features/plans/tabBar.ts`) is the table.
+- Inbox routes (`/inbox`, `/inbox/[id]`) redirect to Today on paid plans; `/reports` and `/companion` redirect on Free (all through `Gate`).
+- Manual booking stays reachable: a "New booking" action in the Calendar header, and long-pressing an empty slot of the day view opens New booking with `staffId`, `date` and `time` params (`newBookingHref`).
+- **Reports** (`features/reports`): `GET /v1/reports/summary?month=`, month switcher, revenue, weekly chart, companion outcomes (`companion` is null until Nerova is linked), sources, no-shows, cancellations, busiest time, usage card (opens Plan).
+- **Plan & billing** (`features/plans`, `/settings/plan`): `GET /v1/plans` and `GET /v1/billing/usage`. "Choose" goes through `startCheckout` (`checkout.ts`): it toasts "Checkout opens soon" while `checkout_url` is null and opens the URL once the API has one. "Manage subscription" stays hidden until a URL exists.
+- **Companion sheet** (`features/companion`, route `/companion`, a transparent modal): `POST /v1/companion/session` with `{ color_mode }` and an Idempotency-Key returns `{ url, expires_at }`. The `react-native-webview` loads our own one-frame page with `baseUrl` set to `EXPO_PUBLIC_COMPANION_ORIGIN` (it must equal the backend's `NEROVA_EMBED_ORIGIN`; default: the API origin) because Nerova only runs the widget on an allowlisted origin. The page frames the session URL in an iframe (`sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`) and relays `nerova:widget` messages. A new session is minted about a minute before `expires_at` and on `session_expired`. `COMPANION_NOT_READY` (`details.reason` / `next_step`) shows a friendly explanation; `UPSTREAM_COMPANION_ERROR` or offline shows a retry. The URL is a secret: it is never logged or shown.
 
 ## Route map
 
@@ -150,7 +162,10 @@ unread count. The bar floats over content, so `Screen` and `Page` add bottom pad
 | --- | --- | --- |
 | `/sign-in` | `(auth)` | custom welcome → email → code screens (`features/auth`, `useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used) / web `<SignIn />`; redirects to `/` if already signed in |
 | `/` | `(app)` (tabs) | Today (`features/today`): today's `appointments` (business timezone), Up next hero + check-in, Later today, expected total; loading / empty / error / offline states |
-| `/inbox` | `(app)` (hidden tab) | Stub: opened from the floating Inbox dome; conversations and escalations come later |
+| `/reports` | `(app)` | Paid plans only (`reports`): month report; opened from the centre tab button |
+| `/companion` | `(app)` | Paid plans only (`companion`): companion sheet over the current screen; opened from the dome or Settings |
+| `/settings/plan` | `(app)` | Plan & billing (owner only) |
+| `/inbox` | `(app)` (hidden tab) | Free only; paid plans are redirected. Stub: opened from the floating Inbox dome; conversations and escalations come later |
 | `/calendar` | `(app)` (tabs) | Day/week/month from `appointments` + `business_hours` (breaks = gaps between shifts) |
 | `/add` | `(app)` (tabs) | Add booking: client search/new client, live slots from `/v1/availability/slots`, `POST /v1/appointments`. Params `clientId`, `mode=new` |
 | `/bookings/[id]` | `(app)` | Booking detail + cancel (`/v1/appointments/:id/cancel`) |

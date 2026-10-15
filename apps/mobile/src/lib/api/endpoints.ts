@@ -5,13 +5,16 @@ import type {
   AvailabilityConfigResponse,
   AvailableDaysResponse,
   AvailableSlotsResponse,
+  BillingUsageDTO,
   BusinessDTO,
   CancelAppointmentRequest,
   ClientDTO,
+  CompanionSessionDTO,
   ClientNoteDTO,
   CreateAppointmentRequest,
   CreateClientNoteRequest,
   CreateClientRequest,
+  CreateCompanionSessionRequest,
   CreateOverrideRequest,
   CreateServiceRequest,
   CreateSpecialDayRequest,
@@ -21,8 +24,10 @@ import type {
   ManualConnectRequest,
   MeDTO,
   OnboardingRequest,
+  PlansDTO,
   RegisterDeviceRequest,
   ReplaceBusinessHoursRequest,
+  ReportsSummaryDTO,
   ReplaceStaffBreaksRequest,
   ReplaceStaffBreaksResponse,
   RescheduleAppointmentRequest,
@@ -64,6 +69,18 @@ export type ConflictQuery = {
 /** Typed endpoint map (docs/BUILD_PLAN.md §4). */
 export const api = {
   me: () => get<MeDTO>('/v1/me'),
+
+  // plans, usage, companion, reports (docs/BUILD_PLAN.md "Plans, usage, companion and reports")
+  plans: () => get<PlansDTO>('/v1/plans'),
+  billingUsage: (month?: string) =>
+    get<BillingUsageDTO>('/v1/billing/usage', { month }),
+  reportsSummary: (month: string) =>
+    get<ReportsSummaryDTO>('/v1/reports/summary', { month }),
+  createCompanionSession: (b: CreateCompanionSessionRequest, key: string) =>
+    send<CreateCompanionSessionRequest, CompanionSessionDTO>(
+      'POST',
+      '/v1/companion/session',
+    )(b, key),
 
   // onboarding: needs only an org-owner session, no business yet
   onboard: (b: OnboardingRequest, key: string) =>
