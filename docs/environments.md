@@ -80,6 +80,14 @@ Full detail in `docs/clerk-setup.md`. Summary:
 No product code exists yet; subscriptions are planned. Just reserve the slots: in test mode copy `sk_test_...` to Doppler
 `STRIPE_SECRET_KEY`. Create the webhook endpoint later when the route exists (`STRIPE_WEBHOOK_SECRET`). Keys stay server-side only.
 
+### 3b. Nerova companion (paid plans)
+
+The AI companion and the Reports outcome counts call Nerova's REST API (`https://api.nerova.si`) from the server only.
+
+- `NEROVA_API_KEY`: Live API key with `accounts:read` and `usage:read`. Doppler `dev`/`prod` and Supabase secrets; never in the app, logs or responses. Empty = the companion reports `COMPANION_NOT_READY` (`reason: unavailable`) and Reports omit Nerova's counts.
+- `NEROVA_EMBED_ORIGIN`: the exact origin (`https://host[:port]`) of the owner web app that frames the companion. It must be on the Nerova embed allowlist (Settings, Security, Domain allowlist, or `set_embed_origins`), otherwise Nerova answers `422 widget.origin_not_registered`.
+- The imported Nerova account's `externalReference` is our business id; the API resolves and caches the `acct_` id in `businesses.nerova_account_id`.
+
 ### 4. Meta WhatsApp test number (optional)
 
 Only needed to try the Free-tier deterministic WhatsApp engine; the app, web flow and API work without it.
