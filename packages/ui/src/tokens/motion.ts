@@ -104,6 +104,8 @@ export const SCALE = {
   pressedLarge: 0.94,
   /** Peak of the tab icon pop. */
   pop: 1.12,
+  /** Trough of the tab icon bounce on tap (1, dip, 1). */
+  tabDip: 0.86,
 } as const;
 
 /** `withTiming` config that honours the OS reduce-motion setting. JS thread only: inside a worklet use `TIMING`. */

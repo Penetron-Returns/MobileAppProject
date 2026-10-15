@@ -272,24 +272,24 @@ function TabItem({
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
   const color = isActive ? depth.colors.tint : depth.colors.inactive;
-  // The icon pops (scale 1, 1.12, 1) each time its tab becomes the selected one.
+  // Every tap dips the icon (1, 0.86, 1) and springs it back, even on the
+  // tab that is already selected. Reduce motion makes both legs instant.
   const pop = useSharedValue(1);
-  const wasActive = React.useRef(isActive);
-  React.useEffect(() => {
-    if (isActive && !wasActive.current) {
-      pop.value = withSequence(
-        withSpring(SCALE.pop, springConfig('snappy')),
-        withSpring(1, springConfig('snappy')),
-      );
-    }
-    wasActive.current = isActive;
-  }, [isActive, pop]);
+  const bounce = () => {
+    pop.value = withSequence(
+      withTiming(SCALE.tabDip, timingConfig(DURATION.press)),
+      withSpring(1, springConfig('snappy')),
+    );
+  };
   const popStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pop.value }],
   }));
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        bounce();
+        onPress();
+      }}
       onLayout={onLayout}
       accessibilityRole="tab"
       accessibilityLabel={label}

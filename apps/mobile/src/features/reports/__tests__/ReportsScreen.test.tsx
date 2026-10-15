@@ -78,10 +78,19 @@ beforeEach(() => {
 });
 afterEach(() => jest.useRealTimers());
 
+/** Lets the KPI numbers finish counting up before the text is read. */
+function settleCounts() {
+  act(() => {
+    jest.advanceTimersByTime(1000);
+  });
+}
+
 describe('ReportsScreen', () => {
   it('shows the full report', () => {
     mockUseReport.mockReturnValue(query({ data: report() }));
-    const out = text(mount(<ReportsScreen />));
+    const tree = mount(<ReportsScreen />);
+    settleCounts();
+    const out = text(tree);
     expect(out).toContain('Reports');
     expect(out).toContain('October 2026');
     expect(out).toContain('Revenue · October 2026');
@@ -101,7 +110,9 @@ describe('ReportsScreen', () => {
 
   it('shows a calm note when the companion is not connected', () => {
     mockUseReport.mockReturnValue(query({ data: report({ companion: null }) }));
-    const out = text(mount(<ReportsScreen />));
+    const tree = mount(<ReportsScreen />);
+    settleCounts();
+    const out = text(tree);
     expect(out).toContain("Your companion isn't connected yet");
     // The rest of the report is still there.
     expect(out).toContain('R 86,420');
