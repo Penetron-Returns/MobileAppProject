@@ -65,6 +65,13 @@ export {
   keyboardAvoidingBehavior,
 } from './lib/keyboard';
 export type { DsStringKey } from './lib/strings';
+export {
+  MEDIUM_FRACTION,
+  clampSheetHeight,
+  detentHeight,
+  settleDetent,
+} from './lib/sheetDetents';
+export type { Detent } from './lib/sheetDetents';
 
 // Primitives
 export { Divider } from './primitives/Divider';
@@ -146,6 +153,17 @@ export {
   SheetTitle,
   SheetTrigger,
 } from './components/Sheet';
+export { RowContextMenu } from './components/RowContextMenu';
+export type {
+  RowContextMenuAction,
+  RowContextMenuProps,
+} from './components/RowContextMenu';
+export { Menu } from './components/Menu';
+export type { MenuOption, MenuProps } from './components/Menu';
+export { RowActionsProvider, useRowActionProps } from './components/RowActions';
+export type { RowAction } from './components/RowActions';
+export { SwipeableRow } from './components/SwipeableRow';
+export type { SwipeAction, SwipeableRowProps } from './components/SwipeableRow';
 export { DayChips, SlotSkeleton, TimeChips } from './components/SlotPicker';
 export type {
   DayChipsProps,

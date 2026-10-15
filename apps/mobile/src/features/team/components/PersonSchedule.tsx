@@ -119,6 +119,7 @@ export function PersonSchedule({
       times: breakTimes(b, to),
     }),
     onPress: () => setSheet({ kind: 'break', item: b }),
+    onDelete: () => setDeleting({ kind: 'break', item: b }),
   }));
   const offLines: SectionLine[] = timeOff.map((e) => ({
     key: e.id,
@@ -130,6 +131,7 @@ export function PersonSchedule({
       range: timeOffRange(e, to),
     }),
     onPress: () => setSheet({ kind: 'off', item: e }),
+    onDelete: () => setDeleting({ kind: 'off', item: e }),
   }));
 
   const businessWeek: DayHours[] = toWeekSchedule(businessHours);

@@ -26,6 +26,8 @@ export const DS_STRINGS = {
   'states.blocked.tryAgain': 'Try again',
   'states.error.title': "Couldn't load this",
   'states.error.description': 'Check your connection and try again.',
+  'sheet.expand': 'Show larger',
+  'sheet.collapse': 'Show smaller',
   'tabs.today': 'Today',
   'tabs.calendar': 'Calendar',
   'tabs.add': 'New booking',

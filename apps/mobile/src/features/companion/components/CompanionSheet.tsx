@@ -1,5 +1,10 @@
 import {
   BEZIER,
+  clampSheetHeight,
+  detentHeight,
+  MEDIUM_FRACTION,
+  settleDetent,
+  type Detent,
   DURATION,
   haptics,
   Pressable,
@@ -19,13 +24,6 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import {
-  detentHeight,
-  HALF_FRACTION,
-  settleDetent,
-  type Detent,
-} from '../logic';
 
 /** The sheet stops 8pt under the status bar when full (as `FormSheet` does). */
 const TOP_GAP = 8;
@@ -55,9 +53,9 @@ export function CompanionSheet({
   const reduceMotion = useReduceMotion();
   const { height: screenHeight } = useWindowDimensions();
   const usable = screenHeight - insets.top - TOP_GAP;
-  const [detent, setDetent] = React.useState<Detent>('half');
+  const [detent, setDetent] = React.useState<Detent>('medium');
   const height = React.useRef(
-    new Animated.Value(detentHeight('half', usable)),
+    new Animated.Value(detentHeight('medium', usable)),
   ).current;
   const open = React.useRef(new Animated.Value(0)).current;
   const dragStart = React.useRef(0);
@@ -105,10 +103,8 @@ export function CompanionSheet({
           });
         },
         onPanResponderMove: (_, g) => {
-          const max = usableRef.current;
-          const min = max * 0.25;
           height.setValue(
-            Math.min(Math.max(dragStart.current - g.dy, min), max),
+            clampSheetHeight(dragStart.current - g.dy, usableRef.current),
           );
         },
         onPanResponderRelease: (_, g) => {
@@ -133,7 +129,7 @@ export function CompanionSheet({
 
   const translateY = open.interpolate({
     inputRange: [0, 1],
-    outputRange: [usable * HALF_FRACTION + 40, 0],
+    outputRange: [usable * MEDIUM_FRACTION + 40, 0],
   });
 
   return (
@@ -185,15 +181,15 @@ export function CompanionSheet({
           <Pressable
             onPress={() => {
               haptics.selection();
-              goTo(detent === 'full' ? 'half' : 'full');
+              goTo(detent === 'large' ? 'medium' : 'large');
             }}
             accessibilityRole="button"
             accessibilityLabel={
-              detent === 'full'
+              detent === 'large'
                 ? t('companion.collapse')
                 : t('companion.expand')
             }
-            accessibilityState={{ expanded: detent === 'full' }}
+            accessibilityState={{ expanded: detent === 'large' }}
             style={{
               height: GRAB_ROW,
               alignItems: 'center',

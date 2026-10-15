@@ -100,36 +100,3 @@ export function notReadyKey(
   if (d.reason && REASONS.has(d.reason)) return `reasons.${d.reason}`;
   return 'generic';
 }
-
-/** Sheet detents as fractions of the usable height; `closed` is below the half detent. */
-export type Detent = 'half' | 'full';
-
-export const HALF_FRACTION = 0.58;
-
-/**
- * Where a released drag settles. `offset` is how far the sheet's top has moved
- * from its current detent (positive = down), `velocity` is px/s (positive = down).
- * A fling or a long drag changes detent; a hard pull down from half closes.
- */
-export function settleDetent(opts: {
-  from: Detent;
-  offset: number;
-  velocity: number;
-  height: number;
-}): Detent | 'close' {
-  const { from, offset, velocity, height } = opts;
-  const FLING = 800;
-  const far = height * 0.12;
-  const goDown = velocity > FLING || offset > far;
-  const goUp = velocity < -FLING || offset < -far;
-  if (from === 'full') return goDown ? 'half' : 'full';
-  if (goUp) return 'full';
-  return goDown && (velocity > FLING * 1.5 || offset > height * 0.25)
-    ? 'close'
-    : 'half';
-}
-
-/** Sheet height in px for a detent, given the usable height under the status bar. */
-export function detentHeight(detent: Detent, usable: number): number {
-  return detent === 'full' ? usable : Math.round(usable * HALF_FRACTION);
-}

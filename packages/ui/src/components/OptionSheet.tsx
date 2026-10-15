@@ -13,7 +13,13 @@ export interface SheetOption<V extends string> {
   description?: string;
 }
 
-/** Bottom sheet with a single-choice list. */
+/** More options than this and the sheet opens at the medium detent, draggable to large. */
+const DETENT_FROM = 5;
+
+/**
+ * Bottom sheet with a single-choice list. A short list is fitted to its rows;
+ * a long one opens at the medium detent and drags up to large.
+ */
 export function OptionSheet<V extends string>({
   open,
   onOpenChange,
@@ -29,13 +35,14 @@ export function OptionSheet<V extends string>({
   selected: V | null;
   onSelect: (value: V) => void;
 }) {
+  const tall = options.length > DETENT_FROM;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent detent={tall ? 'medium' : undefined}>
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
-        <ScrollView className="max-h-96">
+        <ScrollView className={tall ? 'flex-1' : 'max-h-96'}>
           {options.map((option) => {
             const isSelected = option.value === selected;
             return (

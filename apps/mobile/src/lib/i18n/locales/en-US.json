@@ -5,6 +5,8 @@
     "dismiss": "Dismiss",
     "retry": "Try again",
     "cancel": "Cancel",
+    "delete": "Delete",
+    "remove": "Remove",
     "confirm": "Confirm",
     "save": "Save",
     "search": "Search",
@@ -135,6 +137,24 @@
       "description": "Bookings from WhatsApp, the web page and this app show up here."
     }
   },
+  "bookingMenu": {
+    "open": "Open",
+    "reschedule": "Reschedule",
+    "message": "Message",
+    "cancel": "Cancel booking",
+    "client": "the client",
+    "greeting": "Hi {{name}}, a quick note about your appointment with us."
+  },
+  "clientMenu": {
+    "open": "Open",
+    "book": "Book",
+    "message": "Message",
+    "greeting": "Hi {{name}}, this is a message from us."
+  },
+  "sheet": {
+    "expand": "Show larger",
+    "collapse": "Show smaller"
+  },
   "tabs": {
     "today": "Today",
     "calendar": "Calendar",
@@ -251,6 +271,7 @@
     "bookingCount_other": "{{count}} bookings",
     "openDay": "Show {{date}}",
     "showFor": "Show bookings for",
+    "showForPick": "Show bookings for {{name}}. Choose a person",
     "everyone": "Everyone",
     "weekDayLabel_one": "{{day}} {{date}}, {{count}} booking. Open day",
     "weekDayLabel_other": "{{day}} {{date}}, {{count}} bookings. Open day",
@@ -667,6 +688,7 @@
       "hours": "Special hours",
       "open": "Open",
       "custom": "Custom day",
+      "addCustom": "Add custom day",
       "suggestions": "Public holidays",
       "addAll": "Add all upcoming public holidays ({{count}})",
       "addHoliday": "Add {{name}}, {{date}}, as a closed day",
@@ -1027,6 +1049,7 @@
     "openPerson": "{{name}}, {{meta}}. Open",
     "access": {
       "owner": "Owner",
+      "staff": "Staff",
       "invited": "Invite pending",
       "none": "No app access"
     },
@@ -1290,6 +1313,7 @@
   },
   "reports": {
     "title": "Reports",
+    "pickMonth": "{{month}}. Choose a month",
     "prevMonth": "Previous month",
     "nextMonth": "Next month",
     "revenue": "Revenue · {{month}}",

@@ -1,24 +1,40 @@
 import * as DialogPrimitive from '@rn-primitives/dialog';
 import * as React from 'react';
 import {
+  PanResponder,
   Platform,
+  Pressable as RNPressable,
   View,
+  useWindowDimensions,
   type GestureResponderEvent,
   type ViewProps,
 } from 'react-native';
-import {
+import Animated, {
   FadeIn,
   FadeOut,
   ReduceMotion,
   SlideInDown,
   SlideOutDown,
+  useSharedValue,
+  withSpring,
+  useAnimatedStyle,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
 
 import { NativeOnlyAnimatedView } from '../primitives/NativeOnlyAnimatedView';
 import { TextClassContext } from '../primitives/Text';
 import { cn } from '../lib/cn';
-import { MOTION, SPRING } from '../tokens/motion';
+import { haptics } from '../lib/haptics';
+import { useDsText } from '../lib/strings';
+import {
+  clampSheetHeight,
+  detentHeight,
+  settleDetent,
+  type Detent,
+} from '../lib/sheetDetents';
+import { useDepth } from '../theme/useDepth';
+import { MOTION, SPRING, springConfig } from '../tokens/motion';
 
 /**
  * A bottom sheet built on the same dialog primitive as `ui/dialog`, styled to
@@ -94,25 +110,143 @@ function SheetContent({
   className,
   portalHost,
   children,
+  detent,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   portalHost?: string;
+  /**
+   * SwiftUI presentationDetents: open at this detent
+   * and let the grabber drag (or tap) between medium and large, or pull down
+   * to close. Without it the sheet is fitted to its content.
+   */
+  detent?: Detent;
 }) {
+  const content = (grabber: React.ReactNode) => (
+    <DialogPrimitive.Content
+      className={cn(
+        'bg-background border-border w-full gap-4 rounded-t-2xl border-t p-6 shadow-lg shadow-black/10',
+        detent && 'flex-1',
+        className,
+      )}
+      {...props}
+    >
+      {grabber}
+      <>{children}</>
+    </DialogPrimitive.Content>
+  );
   return (
     <SheetPortal hostName={portalHost}>
       <SheetOverlay>
-        <DialogPrimitive.Content
-          className={cn(
-            'bg-background border-border w-full gap-4 rounded-t-2xl border-t p-6 shadow-lg shadow-black/10',
-            className,
-          )}
-          {...props}
-        >
-          <View className="bg-muted -mt-2 mb-1 h-1.5 w-10 self-center rounded-full" />
-          <>{children}</>
-        </DialogPrimitive.Content>
+        {detent ? (
+          <DetentFrame initial={detent}>{content}</DetentFrame>
+        ) : (
+          content(
+            <View className="bg-muted -mt-2 mb-1 h-1.5 w-10 self-center rounded-full" />,
+          )
+        )}
       </SheetOverlay>
     </SheetPortal>
+  );
+}
+
+/** The sheet stops 8pt under the status bar when large, like the form sheet. */
+const TOP_GAP = 8;
+
+/**
+ * Gives a sheet its height and the drag between detents. The height is a
+ * shared value, so dragging and the settling spring run on the UI thread.
+ */
+function DetentFrame({
+  initial,
+  children,
+}: {
+  initial: Detent;
+  children: (grabber: React.ReactNode) => React.ReactNode;
+}) {
+  const { onOpenChange } = DialogPrimitive.useRootContext();
+  const t = useDsText();
+  const depth = useDepth();
+  const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+  const usable = screenHeight - insets.top - TOP_GAP;
+  const usableRef = React.useRef(usable);
+  usableRef.current = usable;
+  const detentRef = React.useRef<Detent>(initial);
+  const [detent, setDetent] = React.useState<Detent>(initial);
+  const height = useSharedValue(detentHeight(initial, usable));
+  const dragStart = React.useRef(0);
+
+  const goTo = React.useCallback(
+    (next: Detent) => {
+      detentRef.current = next;
+      setDetent(next);
+      height.value = withSpring(
+        detentHeight(next, usableRef.current),
+        springConfig('smooth'),
+      );
+    },
+    [height],
+  );
+
+  const pan = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 6,
+        onPanResponderGrant: () => {
+          dragStart.current = height.value;
+        },
+        onPanResponderMove: (_, g) => {
+          height.value = clampSheetHeight(
+            dragStart.current - g.dy,
+            usableRef.current,
+          );
+        },
+        onPanResponderRelease: (_, g) => {
+          const from = detentRef.current;
+          const outcome = settleDetent({
+            from,
+            offset: g.dy,
+            velocity: g.vy * 1000,
+            height: usableRef.current,
+          });
+          if (outcome === 'close') {
+            haptics.light();
+            onOpenChange(false);
+            return;
+          }
+          if (outcome !== from) haptics.selection();
+          goTo(outcome);
+        },
+      }),
+    [goTo, height, onOpenChange],
+  );
+
+  const frame = useAnimatedStyle(() => ({ height: height.value }));
+  const grabber = (
+    <View {...pan.panHandlers} className="-mx-6 -mt-6">
+      <RNPressable
+        onPress={() => {
+          haptics.selection();
+          goTo(detent === 'large' ? 'medium' : 'large');
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={
+          detent === 'large' ? t('sheet.collapse') : t('sheet.expand')
+        }
+        accessibilityState={{ expanded: detent === 'large' }}
+        className="h-8 items-center justify-center"
+      >
+        <View
+          style={{ backgroundColor: depth.grabber }}
+          className="h-[5px] w-9 rounded-[3px]"
+        />
+      </RNPressable>
+    </View>
+  );
+  return (
+    <Animated.View style={[{ width: '100%' }, frame]}>
+      {children(grabber)}
+    </Animated.View>
   );
 }
 
