@@ -25,8 +25,8 @@ function ToastCard({ item }: { item: ToastItem }) {
   return (
     <Animated.View
       entering={FadeInUp.springify()
-        .damping(SPRING.gentle.damping)
-        .stiffness(SPRING.gentle.stiffness)
+        .duration(SPRING.smooth.duration)
+        .dampingRatio(SPRING.smooth.dampingRatio)
         .reduceMotion(ReduceMotion.System)}
       exiting={FadeOutUp.duration(DURATION.quick).reduceMotion(
         ReduceMotion.System,

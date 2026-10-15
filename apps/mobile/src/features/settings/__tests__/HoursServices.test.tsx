@@ -27,11 +27,11 @@ jest.mock('@booking/ui/components/ConfirmDialog', () => {
   };
 });
 
-const mockToastInfo = jest.fn();
+const mockToastBlocked = jest.fn();
 const mockToastSuccess = jest.fn();
 jest.mock('@/lib/toast', () => ({
   toast: {
-    info: (...a: unknown[]) => mockToastInfo(...a),
+    blocked: (...a: unknown[]) => mockToastBlocked(...a),
     success: (...a: unknown[]) => mockToastSuccess(...a),
     failed: jest.fn(),
   },
@@ -182,7 +182,7 @@ describe('Operating hours screen', () => {
     press(tree, 'Hour 08');
     press(tree, 'Save Changes');
     expect(mockReplace).not.toHaveBeenCalled();
-    expect(mockToastInfo).toHaveBeenCalledWith(
+    expect(mockToastBlocked).toHaveBeenCalledWith(
       'Monday: closing time must be after opening time.',
     );
   });

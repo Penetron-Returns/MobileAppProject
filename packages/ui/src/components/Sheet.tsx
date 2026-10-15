@@ -75,8 +75,8 @@ function SheetOverlay({
         >
           <NativeOnlyAnimatedView
             entering={SlideInDown.springify()
-              .damping(SPRING.gentle.damping)
-              .stiffness(SPRING.gentle.stiffness)
+              .duration(SPRING.smooth.duration)
+              .dampingRatio(SPRING.smooth.dampingRatio)
               .reduceMotion(ReduceMotion.System)}
             exiting={SlideOutDown.duration(MOTION.sheetOut).reduceMotion(
               ReduceMotion.System,

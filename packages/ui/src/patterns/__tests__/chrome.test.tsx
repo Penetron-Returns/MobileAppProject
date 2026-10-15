@@ -128,6 +128,13 @@ describe('Page', () => {
     expect(StyleSheet.flatten(fade.props.style).position).toBe('absolute');
   });
 
+  it('carries an inline title bar that the scroll fades in', () => {
+    const tree = render(<Page title="Today">{null}</Page>);
+    const bar = host(tree, 'collapsing-bar');
+    expect(bar.props.pointerEvents).toBe('none');
+    expect(textOf(tree).split('Today').length - 1).toBeGreaterThanOrEqual(2);
+  });
+
   it('shows the back pill only for pushed screens', () => {
     const pushed = render(
       <Page title="Client" backLabel="Clients">
@@ -303,5 +310,23 @@ describe('flow chrome', () => {
       expect(text).toContain(part);
     }
     expect(tree.root.find((n) => n.props.role === 'heading')).toBeTruthy();
+  });
+
+  it('keeps the pinned footer inside the 20pt margins instead of overflowing right', () => {
+    const tree = render(<FlowFooter>{'continue'}</FlowFooter>);
+    const anchors = tree.root.findAll(
+      (n) =>
+        typeof n.type === 'string' &&
+        StyleSheet.flatten(n.props.style)?.bottom !== undefined &&
+        StyleSheet.flatten(n.props.style)?.position === 'absolute' &&
+        StyleSheet.flatten(n.props.style)?.height === undefined,
+    );
+    const style = StyleSheet.flatten(anchors[0].props.style);
+    // Full-width anchor: the margin comes from padding, never from left/right
+    // insets combined with a 100% wide child.
+    expect(style.left).toBe(0);
+    expect(style.right).toBe(0);
+    const inner = anchors[0].props.className as string;
+    expect(inner).toContain('px-5');
   });
 });

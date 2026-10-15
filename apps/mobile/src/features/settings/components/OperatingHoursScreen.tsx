@@ -80,7 +80,7 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
   const save = () => {
     const error = validateWeek(days);
     if (error) {
-      toast.info(
+      toast.blocked(
         t(`hours.errors.${error.reason}`, { day: WEEKDAYS[error.weekday] }),
       );
       return;
