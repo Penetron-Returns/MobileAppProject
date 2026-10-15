@@ -14,7 +14,8 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "monochromeImage": "./src/assets/images/adaptive-icon-monochrome.png",
+        "backgroundColor": "#d4e9f4"
       },
       "package": "si.nerova.booking.dev"
     },
@@ -32,7 +33,11 @@
           "image": "./src/assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#d4e9f4",
+          "dark": {
+            "image": "./src/assets/images/splash-icon.png",
+            "backgroundColor": "#051218"
+          }
         }
       ],
       [

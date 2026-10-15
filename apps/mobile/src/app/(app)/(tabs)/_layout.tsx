@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { AppTabBar } from '@/components/AppTabBar';
 
 /**
- * The four tabs (the centre button opens New booking on Free and Reports on paid plans instead of a tab). Detail pages (booking, client, settings sub-pages) live in
+ * The tab routes (the bar shows four on Free, with a centre "+" for New booking, and five on paid plans, with Reports). Detail pages (booking, client, settings sub-pages) live in
  * the parent stack so they slide over the tab bar instead of hiding it.
  */
 export default function TabsLayout() {
@@ -29,6 +29,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />
       <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
+      <Tabs.Screen name="reports" options={{ title: t('tabs.reports') }} />
       <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
       <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
       <Tabs.Screen name="inbox" options={{ href: null }} />
