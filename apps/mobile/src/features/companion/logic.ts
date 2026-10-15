@@ -1,6 +1,7 @@
 import type {
   CompanionNotReadyDetails,
   CompanionNotReadyReason,
+  CompanionSetupDTO,
 } from '@booking/types';
 
 /** Mint the next session this long before the current one ends. */
@@ -152,4 +153,48 @@ export function notReadyKey(
   if (d.next_step && NEXT_STEPS.has(d.next_step)) return `steps.${d.next_step}`;
   if (d.reason && REASONS.has(d.reason)) return `reasons.${d.reason}`;
   return 'generic';
+}
+
+/** How often to ask whether WhatsApp is connected while the connect tab is open. */
+export const WHATSAPP_POLL_MS = 3_000;
+/** Stop asking this long after the owner starts connecting. */
+export const WHATSAPP_POLL_WINDOW_MS = 180_000;
+
+/** Where the owner is in the connect flow (the card's own progress, not the server's). */
+export type ConnectPhase =
+  'idle' | 'starting' | 'waiting' | 'failed' | 'already_connected';
+
+export type ConnectCardState =
+  'hidden' | 'prompt' | 'starting' | 'waiting' | 'failed' | 'connected';
+
+/**
+ * What the "Connect WhatsApp" card shows. Staff never see it. Once the owner
+ * has started, a connected answer (or WHATSAPP_ALREADY_CONNECTED) wins even
+ * though the server's next step has moved on; an owner who opens the sheet
+ * with WhatsApp already connected sees no card.
+ */
+export function deriveConnectCard(input: {
+  isOwner: boolean;
+  setup: Pick<CompanionSetupDTO, 'next_step' | 'whatsapp'> | undefined;
+  phase: ConnectPhase;
+  isCollapsed: boolean;
+}): ConnectCardState {
+  const { isOwner, setup, phase, isCollapsed } = input;
+  if (!isOwner || isCollapsed) return 'hidden';
+  if (phase === 'already_connected') return 'connected';
+  if (phase === 'idle') {
+    return setup?.next_step === 'connect_whatsapp' ? 'prompt' : 'hidden';
+  }
+  return setup?.whatsapp.connected ? 'connected' : phase;
+}
+
+/**
+ * The number for the success line, masked except the last three digits:
+ * "+27 ••• ••• 567". Empty when there is nothing usable to show.
+ */
+export function maskConnectedPhone(raw: string | null | undefined): string {
+  const digits = (raw ?? '').replace(/\D/g, '');
+  if (digits.length < 4) return '';
+  const prefix = digits.startsWith('27') ? '+27 ' : '+';
+  return `${prefix}••• ••• ${digits.slice(-3)}`;
 }

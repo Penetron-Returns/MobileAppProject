@@ -36,11 +36,61 @@ describe('createHttpNerovaClient', () => {
     expect(await client.getCompanionSetup('nope')).toBeNull();
   });
 
-  it('reads the companion setup next step', async () => {
-    const f = fakeFetch(() => json(200, { nextStep: 'connect_whatsapp' }));
+  it('reads the companion setup next step, WhatsApp status and receptionist state', async () => {
+    const f = fakeFetch(() =>
+      json(200, {
+        nextStep: 'connect_whatsapp',
+        receptionistLive: false,
+        version: 3,
+        whatsApp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true },
+      }),
+    );
     const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
-    expect(await client.getCompanionSetup('acct_1')).toEqual({ nextStep: 'connect_whatsapp' });
+    expect(await client.getCompanionSetup('acct_1')).toEqual({
+      nextStep: 'connect_whatsapp',
+      receptionistLive: false,
+      version: 3,
+      whatsapp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true },
+    });
     expect(f.calls[0]?.url).toBe('https://api.nerova.si/v1/accounts/acct_1/companion/setup');
+  });
+
+  it('defaults a missing whatsApp block to not connected', async () => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(200, { nextStep: 'none' })).impl });
+    expect(await client.getCompanionSetup('acct_1')).toEqual({
+      nextStep: 'none',
+      receptionistLive: false,
+      version: null,
+      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false },
+    });
+  });
+
+  it('reads the activation version from the setup, and null when it is missing', async () => {
+    const f = fakeFetch(() => json(200, { nextStep: 'connect_whatsapp', version: 4 }));
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    expect(await client.getCompanionSetup('acct_1')).toMatchObject({ version: 4 });
+    const bad = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(200, { nextStep: 'none' })).impl });
+    expect(await bad.getCompanionSetup('acct_1')).toMatchObject({ version: null });
+  });
+
+  it('posts a whats_app connection session with the idempotency key and returns the launch url untouched', async () => {
+    const launchUrl = 'https://app.nerova.si/connect/whatsapp/pacs_1#state=abc123';
+    const f = fakeFetch(() => json(201, { launchUrl, expiresAt: '2026-10-13T10:10:00Z', state: 'abc123', sessionId: 'pacs_1' }));
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    const session = await client.createConnectionSession({
+      accountId: 'acct_1',
+      embedOrigin: 'https://app.example.test',
+      expectedVersion: 4,
+      idempotencyKey: 'companion-wa-connect-acct_1-2026-10-13T10:00-v4',
+    });
+    expect(session).toEqual({ launchUrl, expiresAt: '2026-10-13T10:10:00Z' });
+    const call = f.calls[0]!;
+    expect(call.url).toBe('https://api.nerova.si/v1/accounts/acct_1/connection-sessions');
+    expect(call.init.method).toBe('POST');
+    const headers = call.init.headers as Record<string, string>;
+    expect(headers['Idempotency-Key']).toBe('companion-wa-connect-acct_1-2026-10-13T10:00-v4');
+    expect(headers.Authorization).toBe(`Bearer ${NEROVA_KEY}`);
+    expect(JSON.parse(call.init.body as string)).toEqual({ channel: 'whats_app', embedOrigin: 'https://app.example.test', expectedVersion: 4 });
   });
 
   it('posts an owner_chat session with the idempotency key and the documented body', async () => {
@@ -105,6 +155,30 @@ describe('createHttpNerovaClient', () => {
     await expect(
       client.createOwnerChatSession({ accountId: 'a', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' }),
     ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR' });
+  });
+});
+
+describe('connection session errors', () => {
+  const input = { accountId: 'a', embedOrigin: 'https://x.test', expectedVersion: 1, idempotencyKey: 'abcdefgh' };
+  const withStatus = (status: number, code: string | null) => createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(status, code ? { code } : {})).impl });
+
+  it.each([
+    [409, 'activation.not_provisioned', 'not_provisioned'],
+    [403, 'auth.account_not_available', 'account_not_available'],
+  ])('maps %s %s to COMPANION_NOT_READY / %s', async (status, code, reason) => {
+    await expect(withStatus(status, code).createConnectionSession(input)).rejects.toMatchObject({ code: 'COMPANION_NOT_READY', details: { reason } });
+  });
+
+  it('surfaces a stale version (409 activation.version_conflict) as UPSTREAM_COMPANION_ERROR carrying the nerova code, not as not-ready', async () => {
+    await expect(withStatus(409, 'activation.version_conflict').createConnectionSession(input)).rejects.toMatchObject({
+      code: 'UPSTREAM_COMPANION_ERROR',
+      details: { status: 409, nerova_code: 'activation.version_conflict' },
+    });
+  });
+
+  it('rejects a response without a launch url', async () => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(201, { expiresAt: '2026-10-13T10:10:00Z' })).impl });
+    await expect(client.createConnectionSession(input)).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR' });
   });
 });
 

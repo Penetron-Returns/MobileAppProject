@@ -73,6 +73,7 @@ export type ApiErrorCode =
   | 'RATE_LIMITED'
   | 'UPSTREAM_META_ERROR'
   | 'COMPANION_NOT_READY'
+  | 'WHATSAPP_ALREADY_CONNECTED'
   | 'UPSTREAM_COMPANION_ERROR'
   | 'INTERNAL';
 
@@ -692,6 +693,40 @@ export interface CompanionNotReadyDetails {
   reason: CompanionNotReadyReason;
   /** Nerova's companion setup `nextStep` when known, e.g. `connect_whatsapp` */
   next_step?: string;
+}
+
+/** `next_step` of GET /v1/companion/setup: what the owner does next, or `none` */
+export type CompanionSetupStep =
+  | 'connect_booking_system'
+  | 'verify_booking_connection'
+  | 'provision_account'
+  | 'connect_whatsapp'
+  | 'go_live'
+  | 'none';
+
+/** GET /v1/companion/setup (owner) */
+export interface CompanionSetupDTO {
+  next_step: CompanionSetupStep;
+  whatsapp: {
+    connected: boolean;
+    state: string;
+    display_phone_number: string | null;
+    business_verified: boolean;
+  };
+  companion_live: boolean;
+}
+
+/** Optional body of POST /v1/companion/whatsapp/connect-session */
+export interface CompanionWhatsAppConnectSessionRequest {
+  /** Where the hosted page sends the owner afterwards. Accepted now; forwarded once Nerova supports `returnUrl`. */
+  return_url?: string;
+}
+
+/** POST /v1/companion/whatsapp/connect-session (owner), 201. Errors: 409 COMPANION_NOT_READY, 409 WHATSAPP_ALREADY_CONNECTED */
+export interface CompanionWhatsAppConnectSessionDTO {
+  /** Open in a browser tab; it carries a secret and expires at expires_at */
+  launch_url: string;
+  expires_at: ISODateTime;
 }
 
 /** Where a booking came from. The app's own bookings (walk-in, phone) are `manual`; `companion` is Nerova. */

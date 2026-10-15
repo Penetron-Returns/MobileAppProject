@@ -10,6 +10,8 @@ import type {
   CancelAppointmentRequest,
   ClientDTO,
   CompanionSessionDTO,
+  CompanionSetupDTO,
+  CompanionWhatsAppConnectSessionDTO,
   ClientNoteDTO,
   CreateAppointmentRequest,
   CreateClientNoteRequest,
@@ -81,6 +83,13 @@ export const api = {
       'POST',
       '/v1/companion/session',
     )(b, key),
+
+  companionSetup: () => get<CompanionSetupDTO>('/v1/companion/setup'),
+  createCompanionWhatsAppSession: (key: string) =>
+    send<undefined, CompanionWhatsAppConnectSessionDTO>(
+      'POST',
+      '/v1/companion/whatsapp/connect-session',
+    )(undefined, key),
 
   // onboarding: needs only an org-owner session, no business yet
   onboard: (b: OnboardingRequest, key: string) =>

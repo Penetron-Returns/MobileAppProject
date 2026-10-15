@@ -1,5 +1,8 @@
 import {
   buildEmbedHtml,
+  deriveConnectCard,
+  maskConnectedPhone,
+  type ConnectPhase,
   clovieMood,
   IDLE_ACTIVITY,
   reduceActivity,
@@ -157,5 +160,104 @@ describe('clovieMood', () => {
     [{ phase: 'replied', since: 1000 }, 1000 + REPLIED_MS, 'idle'],
   ])('reads %j at %d as %s', (activity, now, expected) => {
     expect(clovieMood(activity, now)).toBe(expected);
+  });
+});
+
+describe('deriveConnectCard', () => {
+  const setup = (next_step: string, connected = false) =>
+    ({ next_step, whatsapp: { connected } }) as never;
+  const base = {
+    isOwner: true,
+    phase: 'idle' as ConnectPhase,
+    isCollapsed: false,
+  };
+
+  it.each([
+    [
+      'owner at connect_whatsapp',
+      { setup: setup('connect_whatsapp') },
+      'prompt',
+    ],
+    ['owner at go_live', { setup: setup('go_live', true) }, 'hidden'],
+    ['owner at none', { setup: setup('none', true) }, 'hidden'],
+    ['setup not loaded', { setup: undefined }, 'hidden'],
+    [
+      'staff never see it',
+      { setup: setup('connect_whatsapp'), isOwner: false },
+      'hidden',
+    ],
+    [
+      'staff even when connected mid-flow',
+      { setup: setup('go_live', true), isOwner: false, phase: 'waiting' },
+      'hidden',
+    ],
+    [
+      'collapsed',
+      { setup: setup('connect_whatsapp'), isCollapsed: true },
+      'hidden',
+    ],
+    [
+      'minting the launch URL',
+      { setup: setup('connect_whatsapp'), phase: 'starting' },
+      'starting',
+    ],
+    [
+      'tab open, not connected yet',
+      { setup: setup('connect_whatsapp'), phase: 'waiting' },
+      'waiting',
+    ],
+    [
+      'connected while waiting (next step moved on)',
+      { setup: setup('go_live', true), phase: 'waiting' },
+      'connected',
+    ],
+    [
+      'connected right after starting',
+      { setup: setup('go_live', true), phase: 'starting' },
+      'connected',
+    ],
+    [
+      'connect failed',
+      { setup: setup('connect_whatsapp'), phase: 'failed' },
+      'failed',
+    ],
+    [
+      'already connected answer',
+      { setup: setup('connect_whatsapp'), phase: 'already_connected' },
+      'connected',
+    ],
+    [
+      'already connected, setup not loaded',
+      { setup: undefined, phase: 'already_connected' },
+      'connected',
+    ],
+    [
+      'already connected then collapsed',
+      { setup: undefined, phase: 'already_connected', isCollapsed: true },
+      'hidden',
+    ],
+  ] as [string, Partial<Parameters<typeof deriveConnectCard>[0]>, string][])(
+    '%s',
+    (_name, over, expected) => {
+      expect(deriveConnectCard({ ...base, setup: undefined, ...over })).toBe(
+        expected,
+      );
+    },
+  );
+});
+
+describe('maskConnectedPhone', () => {
+  it.each([
+    ['+27 82 123 4567', '+27 ••• ••• 567'],
+    ['+27821234567', '+27 ••• ••• 567'],
+    ['27821234567', '+27 ••• ••• 567'],
+    ['+1 (415) 555-0132', '+••• ••• 132'],
+    ['+44 7700 900123', '+••• ••• 123'],
+    ['123', ''],
+    ['', ''],
+    [null, ''],
+    [undefined, ''],
+  ])('masks %s as %s', (raw, expected) => {
+    expect(maskConnectedPhone(raw)).toBe(expected);
   });
 });

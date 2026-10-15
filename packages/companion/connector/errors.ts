@@ -44,6 +44,7 @@ const CODE_MAP: Record<AppError['code'], ConnectorErrorCode> = {
   RATE_LIMITED: 'rate_limited',
   UPSTREAM_META_ERROR: 'provider_unavailable',
   COMPANION_NOT_READY: 'provider_unavailable',
+  WHATSAPP_ALREADY_CONNECTED: 'conflict',
   UPSTREAM_COMPANION_ERROR: 'provider_unavailable',
   INTERNAL: 'provider_unavailable',
 };
