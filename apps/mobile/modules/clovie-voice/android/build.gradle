@@ -18,4 +18,5 @@ dependencies {
   // Runs the three wake-word models. Stable, more than two weeks old.
   implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
   implementation 'androidx.core:core-ktx:1.13.1'
+  implementation 'com.facebook.react:react-android'
 }
