@@ -17,7 +17,10 @@ begin
   insert into public.business_hours (business_id, weekday, opens_at, closes_at) values (b, 1, '09:00', '17:00');
   insert into public.availability_rules (business_id, staff_id, weekday, start_time, end_time)
     values (b, (f->>'staff_a')::uuid, 1, '09:00', '12:00');
-  insert into public.availability_overrides (business_id, date, is_closed) values (b, '2030-12-25', true);
+  insert into public.availability_overrides (business_id, staff_id, date, is_closed) values (b, (f->>'staff_a')::uuid, '2030-12-25', true);
+  insert into public.business_special_days (business_id, date, name, kind) values (b, '2030-12-25', 'Christmas Day', 'public_holiday');
+  insert into public.staff_breaks (business_id, staff_id, label, start_time, end_time) values (b, (f->>'staff_a')::uuid, 'Lunch', '12:00', '13:00');
+  insert into public.staff_time_off (business_id, staff_id, starts_on, ends_on, reason) values (b, (f->>'staff_a')::uuid, '2030-07-01', '2030-07-02', 'leave');
   insert into public.client_notes (business_id, client_id, body) values (b, (f->>'client_1')::uuid, 'note');
   perform tests.book(f, 'staff_a', 'service_long', 'client_1', '2030-06-03 09:00Z');
   insert into public.whatsapp_accounts (business_id, waba_id, phone_number_id, access_token_ciphertext, status)
@@ -95,8 +98,8 @@ declare
   v_total int;
 begin
   foreach t in array array['users', 'staff', 'services', 'staff_services', 'business_hours', 'availability_rules',
-    'availability_overrides', 'clients', 'client_notes', 'appointments', 'appointment_events', 'audit_log',
-    'message_templates', 'conversations', 'messages', 'escalations', 'booking_attempts', 'device_push_tokens']
+    'availability_overrides', 'business_special_days', 'staff_breaks', 'staff_time_off', 'clients', 'client_notes',
+    'appointments', 'appointment_events', 'audit_log', 'message_templates', 'conversations', 'messages', 'escalations', 'booking_attempts', 'device_push_tokens']
   loop
     execute format('select count(*) filter (where business_id = %L), count(*) from public.%I', v_me, t)
       into v_mine, v_total;
@@ -179,7 +182,8 @@ declare
   t text;
 begin
   foreach t in array array['businesses', 'users', 'staff', 'services', 'staff_services', 'business_hours',
-    'availability_rules', 'availability_overrides', 'clients', 'client_notes', 'appointments', 'appointment_events',
+    'availability_rules', 'availability_overrides', 'business_special_days', 'staff_breaks', 'staff_time_off',
+    'clients', 'client_notes', 'appointments', 'appointment_events',
     'audit_log', 'whatsapp_accounts', 'message_templates', 'conversations', 'messages', 'webhook_events',
     'escalations', 'idempotency_keys', 'booking_attempts', 'device_push_tokens']
   loop

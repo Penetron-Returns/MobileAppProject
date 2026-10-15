@@ -27,7 +27,10 @@ begin
   perform tests.ok(not (select accepts_bookings from public.staff where business_id = b and name = 'Sarah Jenkins'),
                    'seed: Sarah is on leave (accepts_bookings = false)');
   perform tests.eq((select count(*) from public.business_hours where business_id = b and weekday = 0)::int, 0, 'seed: closed on Sunday');
-  perform tests.eq((select count(*) from public.business_hours where business_id = b and weekday = 3)::int, 2, 'seed: lunch gap on weekdays');
+  perform tests.eq((select count(*) from public.business_hours where business_id = b and weekday = 3)::int, 1, 'seed: one opening range per day');
+  perform tests.ok(exists (select 1 from public.staff_breaks where business_id = b and label = 'Lunch'), 'seed: lunch is a staff break');
+  perform tests.ok(exists (select 1 from public.staff_time_off where business_id = b), 'seed: staff time off');
+  perform tests.ok((select count(*) from public.business_special_days where business_id = b and kind = 'public_holiday' and is_closed) >= 5, 'seed: upcoming public holidays are closed special days');
   perform tests.ok((select count(*) from public.clients where business_id = b and 'VIP' = any (tags)) >= 2, 'seed: VIP clients');
   perform tests.ok((select count(*) from public.appointments where business_id = b) >= 30, 'seed: appointments');
   perform tests.ok((select count(distinct status) from public.appointments where business_id = b) >= 3, 'seed: mixed statuses');

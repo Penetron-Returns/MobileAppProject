@@ -14,22 +14,26 @@ declare
 begin
   -- business hours
   select count(*) into v_n from public.replace_business_hours(b, '[
-    {"weekday": 1, "opens_at": "09:00", "closes_at": "13:00"},
-    {"weekday": 1, "opens_at": "14:00", "closes_at": "18:00"},
+    {"weekday": 1, "opens_at": "09:00", "closes_at": "18:00"},
     {"weekday": 6, "opens_at": "09:00", "closes_at": "14:00"}]');
-  perform tests.eq(v_n, 3, 'replace_business_hours returns the new rows');
-  select id into v_keep from public.business_hours where business_id = b and weekday = 1 and opens_at = '09:00';
+  perform tests.eq(v_n, 2, 'replace_business_hours returns the new rows');
+  select id into v_keep from public.business_hours where business_id = b and weekday = 1;
 
   select count(*) into v_n from public.replace_business_hours(b, '[
-    {"weekday": 1, "opens_at": "09:00", "closes_at": "13:00"},
+    {"weekday": 1, "opens_at": "09:00", "closes_at": "18:00"},
     {"weekday": 2, "opens_at": "09:00:00", "closes_at": "17:30"},
     {"weekday": 2, "opens_at": "09:00", "closes_at": "17:30"}]');
   perform tests.eq(v_n, 2, 'full replace (duplicates collapsed)');
   perform tests.eq((select count(*) from public.business_hours where business_id = b and weekday = 6)::int, 0, 'removed days are gone');
   perform tests.ok(exists (select 1 from public.business_hours where id = v_keep), 'unchanged rows keep their id');
+  select count(*) into v_n from public.replace_business_hours(b, '[
+    {"weekday": 1, "opens_at": "08:00", "closes_at": "18:00"}, {"weekday": 2, "opens_at": "09:00", "closes_at": "17:30"}]');
+  perform tests.ok(exists (select 1 from public.business_hours where id = v_keep and opens_at = '08:00'), 'a changed range updates the row in place');
 
   perform tests.throws(format($q$select public.replace_business_hours(%L, '[{"weekday": 1, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 1, "opens_at": "12:00", "closes_at": "15:00"}]')$q$, b),
-    'P0001', 'RULE:OVERLAPPING_HOURS:%', 'overlapping hours rejected');
+    'P0001', 'RULE:ONE_RANGE_PER_DAY:%', 'two ranges on one weekday rejected (overlapping)');
+  perform tests.throws(format($q$select public.replace_business_hours(%L, '[{"weekday": 1, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 1, "opens_at": "14:00", "closes_at": "18:00"}]')$q$, b),
+    'P0001', 'RULE:ONE_RANGE_PER_DAY:%', 'a split day is rejected');
   perform tests.throws(format($q$select public.replace_business_hours(%L, '[{"weekday": 1, "opens_at": "13:00", "closes_at": "09:00"}]')$q$, b),
     'P0001', 'RULE:INVALID_HOURS:%', 'inverted hours rejected');
   perform tests.throws(format($q$select public.replace_business_hours(%L, '[{"weekday": 9, "opens_at": "09:00", "closes_at": "10:00"}]')$q$, b),
@@ -53,7 +57,7 @@ begin
     '[{"weekday": 3, "start_time": "10:00", "end_time": "12:00"}]');
   perform tests.eq(v_n, 1, 'replace_staff_availability replaces');
   perform tests.throws(format($q$select public.replace_staff_availability(%L, '[{"weekday": 3, "start_time": "10:00", "end_time": "12:00"}, {"weekday": 3, "start_time": "11:00", "end_time": "13:00"}]')$q$, f->>'staff_a'),
-    'P0001', 'RULE:OVERLAPPING_HOURS:%', 'overlapping rules rejected');
+    'P0001', 'RULE:ONE_RANGE_PER_DAY:%', 'two working ranges on one weekday rejected');
   perform tests.throws($q$select public.replace_staff_availability(gen_random_uuid(), '[]')$q$,
     'P0002', 'staff not found', 'unknown staff → P0002');
   select count(*) into v_n from public.replace_staff_availability((f->>'staff_a')::uuid, '[]');
