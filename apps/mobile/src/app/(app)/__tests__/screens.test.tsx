@@ -107,6 +107,16 @@ jest.mock('@/features/appointments/hooks', () => ({
   useRescheduleAppointment: mockMutation,
   useSetAppointmentStatus: mockMutation,
 }));
+jest.mock('@/features/availability/hooks', () => ({
+  useAvailabilityConfig: mockHook('useAvailabilityConfig'),
+  useUpcomingWindow: () => ({
+    today: '2026-10-12',
+    from: '2026-10-12',
+    to: '2027-10-12',
+    timezone: 'Africa/Johannesburg',
+  }),
+  useDeleteSpecialDay: mockMutation,
+}));
 jest.mock('@/features/calendar/hooks', () => ({
   useCalendarDay: mockHook('useCalendarDay'),
   useCalendarWeek: mockHook('useCalendarWeek'),
@@ -211,14 +221,12 @@ const APPOINTMENTS = [
   },
 ];
 
-const HOURS = [1, 2, 3, 4, 5, 6, 0].flatMap((weekday) =>
-  weekday === 0
-    ? []
-    : [
-        { weekday, opens_at: '09:00:00', closes_at: '13:00:00' },
-        { weekday, opens_at: '14:00:00', closes_at: '18:00:00' },
-      ],
-);
+// One range per weekday (a lunch gap is a staff break); Sunday is closed.
+const HOURS = [1, 2, 3, 4, 5, 6].map((weekday) => ({
+  weekday,
+  opens_at: '09:00:00',
+  closes_at: '18:00:00',
+}));
 
 const CLIENT_ROWS = [
   {
@@ -373,14 +381,13 @@ const DAY_VIEW = {
   columns: [
     {
       staff: STAFF_FIRST(),
-      working: [
-        { startMin: 540, endMin: 780 },
-        { startMin: 840, endMin: 1080 },
-      ],
+      working: [{ startMin: 540, endMin: 1080 }],
+      blocks: [{ startMin: 780, endMin: 840, kind: 'break', label: 'Lunch' }],
       appointments: APPOINTMENTS,
     },
   ],
   window: { startMin: 540, endMin: 1080 },
+  closedDay: null,
   isOffline: false,
   refresh: jest.fn(),
 };
@@ -389,8 +396,14 @@ const WEEK_VIEW = {
   timezone: 'Africa/Johannesburg',
   today: '2026-10-12',
   now: new Date('2026-10-12T08:40:00.000Z'),
-  hours: HOURS,
-  overrides: [],
+  schedule: {
+    hours: HOURS,
+    specialDays: [],
+    rules: [],
+    overrides: [],
+    breaks: [],
+    timeOff: [],
+  },
   appointments: APPOINTMENTS,
   staff: [],
   isOffline: false,
@@ -449,6 +462,14 @@ beforeEach(() => {
       { id: 'e-1', type: 'created', occurred_at: '2026-10-01T08:00:00.000Z' },
     ]),
     useBookingRules: success({ cancellation_window_minutes: 1440 }),
+    useAvailabilityConfig: success({
+      from: '2026-10-12',
+      to: '2027-10-12',
+      timezone: 'Africa/Johannesburg',
+      business_hours: [],
+      special_days: [],
+      staff: [],
+    }),
     useCalendarDay: DAY_VIEW,
     useCalendarWeek: WEEK_VIEW,
   };
@@ -509,6 +530,8 @@ describe('Calendar', () => {
     expect(json).toContain('1 booking');
     expect(json).toContain('Olivia Bennett');
     expect(json).toContain('Balayage & Toner');
+    // The staff break is drawn on the column, labelled as on the board.
+    expect(json).toContain('Lunch · 13:00');
   });
 
   it('switches to the read-only week list and back via setCalendarViewMode', () => {
@@ -670,13 +693,13 @@ describe('Settings', () => {
     expect(json).toContain('South African Rand (ZAR)');
   });
 
-  it('shows split shifts per weekday and Sunday closed', () => {
+  it('shows one range per weekday, Sunday closed and the special days entry', () => {
     const json = render(<OperatingHoursRoute />);
     expect(json).toContain('Monday');
     expect(json).toContain('09:00');
-    expect(json).toContain('13:00');
-    expect(json).toContain('14:00');
+    expect(json).toContain('18:00');
     expect(json).toContain('Closed');
+    expect(json).toContain('Holidays and special days');
   });
 
   it('groups services by category with prices and hidden markers', () => {

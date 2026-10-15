@@ -1,61 +1,36 @@
-import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import {
   useAppointmentsBetween,
   type AppointmentListItem,
 } from '@/features/appointments/hooks';
-import { useBusiness, useBusinessHours } from '@/features/business/hooks';
+import { useAvailabilityConfig } from '@/features/availability/hooks';
+import { useBusiness } from '@/features/business/hooks';
 import { useStaff, type StaffRow } from '@/features/catalog/hooks';
 import { useNow } from '@/hooks/useNow';
 import { isFailed, loadError, type LoadStatus } from '@/lib/offline';
-import { supabase, unwrap } from '@/lib/supabase';
 import { addDays, todayISO, zonedTimeToUtc, type ISODate } from '@/lib/time';
 
-import { calendarKeys } from './keys';
+import { toCalendarSchedule, type CalendarSchedule } from './config';
 import {
   buildDayColumns,
   weekDates,
   type DayColumn,
-  type HoursRow,
   type MinuteSpan,
-  type OverrideRow,
-  type RuleRow,
+  type SpecialDayRow,
 } from './logic';
-
-async function fetchRules(): Promise<RuleRow[]> {
-  return unwrap(
-    await supabase
-      .from('availability_rules')
-      .select('staff_id, weekday, start_time, end_time'),
-  );
-}
-
-async function fetchOverrides(
-  from: ISODate,
-  to: ISODate,
-): Promise<OverrideRow[]> {
-  return unwrap(
-    await supabase
-      .from('availability_overrides')
-      .select('staff_id, date, is_closed, start_time, end_time')
-      .gte('date', from)
-      .lte('date', to),
-  );
-}
 
 export interface CalendarBase {
   timezone: string;
   today: ISODate;
   now: Date;
-  hours: HoursRow[];
-  overrides: OverrideRow[];
+  schedule: CalendarSchedule;
   appointments: AppointmentListItem[];
 }
 
 type Failed = { status: 'error'; error: unknown; retry: () => void };
 
-/** Bookings, hours and overrides for [from, lastDay], shared by the day and week views. */
+/** Bookings and the schedule (hours, special days, breaks, time off) for [from, lastDay]. */
 function useCalendarRange(from: ISODate, lastDay: ISODate) {
   const business = useBusiness();
   const now = useNow();
@@ -65,12 +40,8 @@ function useCalendarRange(from: ISODate, lastDay: ISODate) {
     ? zonedTimeToUtc(addDays(lastDay, 1), '00:00', tz).toISOString()
     : '';
   const appointments = useAppointmentsBetween(fromIso, toIso);
-  const hours = useBusinessHours();
-  const overrides = useQuery({
-    queryKey: calendarKeys.overrides(from, lastDay),
-    queryFn: () => fetchOverrides(from, lastDay),
-  });
-  return { business, now, tz, appointments, hours, overrides };
+  const config = useAvailabilityConfig(from, lastDay);
+  return { business, now, tz, appointments, config };
 }
 
 const failure = (
@@ -96,54 +67,40 @@ export type CalendarDayView =
       now: Date;
       columns: DayColumn<StaffRow, AppointmentListItem>[];
       window: MinuteSpan;
+      /** The holiday this date is closed for, if any. */
+      closedDay: SpecialDayRow | null;
       isOffline: boolean;
       refresh: () => Promise<unknown>;
     };
 
 export function useCalendarDay(date: ISODate): CalendarDayView {
-  const range = useCalendarRange(date, date);
+  const { business, now, tz, appointments, config } = useCalendarRange(
+    date,
+    date,
+  );
   const staff = useStaff();
-  const rules = useQuery({
-    queryKey: calendarKeys.rules,
-    queryFn: fetchRules,
-  });
-  const { business, now, tz, appointments, hours, overrides } = range;
 
   const refresh = React.useCallback(
     () =>
-      Promise.all([
-        appointments.refetch(),
-        overrides.refetch(),
-        rules.refetch(),
-        staff.refetch(),
-      ]),
-    [appointments, overrides, rules, staff],
+      Promise.all([appointments.refetch(), config.refetch(), staff.refetch()]),
+    [appointments, config, staff],
   );
 
   const failed = failure(
-    [business, appointments, hours, overrides, rules, staff].filter(
+    [business, appointments, config, staff].filter(
       (q) => isFailed(q) && q.data === undefined,
     ),
   );
   if (failed) return failed;
-  if (
-    !tz ||
-    !appointments.data ||
-    !hours.data ||
-    !overrides.data ||
-    !rules.data ||
-    !staff.data
-  ) {
+  if (!tz || !appointments.data || !config.data || !staff.data) {
     return { status: 'loading' };
   }
-  const { columns, window } = buildDayColumns({
+  const { columns, window, closedDay } = buildDayColumns({
     date,
     timezone: tz,
     staff: staff.data,
     appointments: appointments.data,
-    hours: hours.data,
-    rules: rules.data,
-    overrides: overrides.data,
+    schedule: toCalendarSchedule(config.data),
   });
   return {
     status: 'ready',
@@ -152,6 +109,7 @@ export function useCalendarDay(date: ISODate): CalendarDayView {
     now,
     columns,
     window,
+    closedDay,
     isOffline: appointments.isError || appointments.fetchStatus === 'paused',
     refresh,
   };
@@ -169,27 +127,23 @@ export type CalendarWeekView =
 
 export function useCalendarWeek(anchor: ISODate): CalendarWeekView {
   const dates = weekDates(anchor);
-  const range = useCalendarRange(dates[0], dates[6]);
+  const { business, now, tz, appointments, config } = useCalendarRange(
+    dates[0],
+    dates[6],
+  );
   const staff = useStaff();
-  const { business, now, tz, appointments, hours, overrides } = range;
   const refresh = React.useCallback(
-    () => Promise.all([appointments.refetch(), overrides.refetch()]),
-    [appointments, overrides],
+    () => Promise.all([appointments.refetch(), config.refetch()]),
+    [appointments, config],
   );
 
   const failed = failure(
-    [business, appointments, hours, overrides, staff].filter(
+    [business, appointments, config, staff].filter(
       (q) => isFailed(q) && q.data === undefined,
     ),
   );
   if (failed) return failed;
-  if (
-    !tz ||
-    !appointments.data ||
-    !hours.data ||
-    !overrides.data ||
-    !staff.data
-  ) {
+  if (!tz || !appointments.data || !config.data || !staff.data) {
     return { status: 'loading' };
   }
   return {
@@ -197,8 +151,7 @@ export function useCalendarWeek(anchor: ISODate): CalendarWeekView {
     timezone: tz,
     today: todayISO(tz, now),
     now,
-    hours: hours.data,
-    overrides: overrides.data,
+    schedule: toCalendarSchedule(config.data),
     appointments: appointments.data,
     staff: staff.data.filter((s) => s.is_active),
     isOffline: appointments.isError || appointments.fetchStatus === 'paused',

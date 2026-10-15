@@ -7,14 +7,17 @@ import {
   type ISODate,
 } from '@/lib/time';
 import type { CalendarViewMode } from './navigation';
+import type { CalendarSchedule } from './config';
 import {
   businessWindows,
+  specialDayOn,
+  staffBlocks,
   staffWindows,
   timelineWindow,
-  type HoursRow,
+  type BlockedSpan,
   type MinuteSpan,
-  type OverrideRow,
-  type RuleRow,
+  type SpecialDayRow,
+  type TimeOffRow,
 } from './spans';
 
 export * from './spans';
@@ -106,6 +109,8 @@ export function columnStaff<S extends StaffLike>(
 export interface DayColumn<S, A> {
   staff: S;
   working: MinuteSpan[];
+  /** Breaks and time off inside the working hours. */
+  blocks: BlockedSpan[];
   appointments: A[];
 }
 
@@ -122,21 +127,39 @@ export function buildDayColumns<
   timezone: string;
   staff: S[];
   appointments: A[];
-  hours: HoursRow[];
-  rules: RuleRow[];
-  overrides: OverrideRow[];
-}): { columns: DayColumn<S, A>[]; window: MinuteSpan } {
-  const { date, timezone, appointments, hours, rules, overrides } = opts;
-  const columns = columnStaff(opts.staff, appointments).map((staff) => ({
-    staff,
-    working: staffWindows({ date, staffId: staff.id, hours, rules, overrides }),
-    appointments: appointments.filter((a) => a.staff.id === staff.id),
-  }));
+  schedule: CalendarSchedule;
+}): {
+  columns: DayColumn<S, A>[];
+  window: MinuteSpan;
+  /** The closed special day (holiday) this date is, if any. */
+  closedDay: SpecialDayRow | null;
+} {
+  const { date, timezone, appointments, schedule } = opts;
+  const columns = columnStaff(opts.staff, appointments).map((staff) => {
+    const working = staffWindows({ date, staffId: staff.id, ...schedule });
+    return {
+      staff,
+      working,
+      blocks: staffBlocks({
+        date,
+        staffId: staff.id,
+        working,
+        breaks: schedule.breaks,
+        timeOff: schedule.timeOff,
+      }),
+      appointments: appointments.filter((a) => a.staff.id === staff.id),
+    };
+  });
+  const special = specialDayOn(date, schedule.specialDays);
   const window = timelineWindow([
     ...columns.flatMap((c) => c.working),
     ...appointments.map((a) => appointmentSpan(a, timezone)),
   ]);
-  return { columns, window };
+  return {
+    columns,
+    window,
+    closedDay: special?.is_closed ? special : null,
+  };
 }
 
 // ---------- the week list ----------
@@ -145,6 +168,10 @@ export interface WeekDay {
   date: ISODate;
   count: number;
   isClosed: boolean;
+  /** Name of the closed special day ("Christmas Day"), when that is why it is closed. */
+  closedName: string | null;
+  /** People off all or part of the day (time off), for a quiet note. */
+  off: { staffId: string; reason: TimeOffRow['reason'] }[];
   isToday: boolean;
   /** 0..1 share of the busiest day, for the bar. */
   fullness: number;
@@ -169,10 +196,11 @@ export function weekSummary(opts: {
   today: ISODate;
   timezone: string;
   appointments: { starts_at: string }[];
-  hours: HoursRow[];
-  overrides: OverrideRow[];
+  schedule: CalendarSchedule;
+  /** Limit the time off notes to one person. */
+  staffId?: string | null;
 }): WeekSummary {
-  const { anchor, today, timezone, appointments, hours, overrides } = opts;
+  const { anchor, today, timezone, appointments, schedule, staffId } = opts;
   const counts: Record<ISODate, number> = {};
   for (const a of appointments) {
     const date = businessDate(a.starts_at, timezone);
@@ -182,11 +210,23 @@ export function weekSummary(opts: {
   const busiest = Math.max(1, ...dates.map((d) => counts[d] ?? 0));
   const days = dates.map((date) => {
     const count = counts[date] ?? 0;
+    const special = specialDayOn(date, schedule.specialDays);
+    const isClosed =
+      count === 0 &&
+      businessWindows(date, schedule.hours, schedule.specialDays).length === 0;
     return {
       date,
       count,
-      isClosed:
-        count === 0 && businessWindows(date, hours, overrides).length === 0,
+      isClosed,
+      closedName: isClosed && special?.is_closed ? special.name : null,
+      off: schedule.timeOff
+        .filter(
+          (t) =>
+            t.starts_on <= date &&
+            date <= t.ends_on &&
+            (!staffId || t.staff_id === staffId),
+        )
+        .map((t) => ({ staffId: t.staff_id, reason: t.reason })),
       isToday: date === today,
       fullness: count / busiest,
     };
