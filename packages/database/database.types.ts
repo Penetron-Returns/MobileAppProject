@@ -225,7 +225,7 @@ export type Database = {
           id: string
           is_closed: boolean
           reason: string | null
-          staff_id: string | null
+          staff_id: string
           start_time: string | null
           updated_at: string
         }
@@ -237,7 +237,7 @@ export type Database = {
           id?: string
           is_closed?: boolean
           reason?: string | null
-          staff_id?: string | null
+          staff_id: string
           start_time?: string | null
           updated_at?: string
         }
@@ -249,7 +249,7 @@ export type Database = {
           id?: string
           is_closed?: boolean
           reason?: string | null
-          staff_id?: string | null
+          staff_id?: string
           start_time?: string | null
           updated_at?: string
         }
@@ -432,6 +432,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "business_hours_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_special_days: {
+        Row: {
+          business_id: string
+          created_at: string
+          date: string
+          end_time: string | null
+          id: string
+          is_closed: boolean
+          kind: Database["public"]["Enums"]["special_day_kind"]
+          name: string
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          date: string
+          end_time?: string | null
+          id?: string
+          is_closed?: boolean
+          kind: Database["public"]["Enums"]["special_day_kind"]
+          name: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          date?: string
+          end_time?: string | null
+          id?: string
+          is_closed?: boolean
+          kind?: Database["public"]["Enums"]["special_day_kind"]
+          name?: string
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_special_days_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
@@ -1079,6 +1126,57 @@ export type Database = {
           },
         ]
       }
+      staff_breaks: {
+        Row: {
+          business_id: string
+          created_at: string
+          end_time: string
+          id: string
+          label: string
+          staff_id: string
+          start_time: string
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          end_time: string
+          id?: string
+          label?: string
+          staff_id: string
+          start_time: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          end_time?: string
+          id?: string
+          label?: string
+          staff_id?: string
+          start_time?: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_breaks_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_breaks_staff_id_fkey"
+            columns: ["business_id", "staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
       staff_services: {
         Row: {
           business_id: string
@@ -1115,6 +1213,63 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_services_staff_id_fkey"
+            columns: ["business_id", "staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      staff_time_off: {
+        Row: {
+          business_id: string
+          created_at: string
+          end_time: string | null
+          ends_on: string
+          id: string
+          note: string | null
+          reason: Database["public"]["Enums"]["time_off_reason"]
+          staff_id: string
+          start_time: string | null
+          starts_on: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          end_time?: string | null
+          ends_on: string
+          id?: string
+          note?: string | null
+          reason?: Database["public"]["Enums"]["time_off_reason"]
+          staff_id: string
+          start_time?: string | null
+          starts_on: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          end_time?: string | null
+          ends_on?: string
+          id?: string
+          note?: string | null
+          reason?: Database["public"]["Enums"]["time_off_reason"]
+          staff_id?: string
+          start_time?: string | null
+          starts_on?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_time_off_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_time_off_staff_id_fkey"
             columns: ["business_id", "staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
@@ -1493,6 +1648,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      replace_staff_breaks: {
+        Args: {
+          p_rows: Json
+          p_staff_id: string
+        }
+        Returns: {
+          business_id: string
+          created_at: string
+          end_time: string
+          id: string
+          label: string
+          staff_id: string
+          start_time: string
+          updated_at: string
+          weekdays: number[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "staff_breaks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       replace_staff_services: {
         Args: {
           p_service_ids: string[]
@@ -1635,7 +1813,9 @@ export type Database = {
       message_status: "received" | "queued" | "sent" | "delivered" | "read" | "failed"
       message_type: "text" | "interactive" | "flow" | "template" | "button" | "reaction" | "media" | "unknown"
       plan_key: "free" | "starter" | "growth" | "pro"
+      special_day_kind: "public_holiday" | "closure" | "special_hours"
       template_status: "draft" | "submitted" | "approved" | "rejected" | "paused" | "disabled"
+      time_off_reason: "leave" | "sick" | "training" | "other"
       wa_account_status: "pending" | "live" | "needs_reauth" | "disconnected" | "paused"
     }
     CompositeTypes: {

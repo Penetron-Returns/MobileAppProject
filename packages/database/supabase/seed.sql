@@ -84,16 +84,16 @@ select count(*) from public.replace_staff_services('30000000-0000-4000-8000-0000
   '20000000-0000-4000-8000-000000000008', '20000000-0000-4000-8000-000000000009']::uuid[]);
 
 -- -----------------------------------------------------------------------------
--- Opening hours: Mon–Fri 09:00–13:00 + 14:00–18:00 (lunch gap), Sat 09:00–18:00,
--- Sunday closed (no rows). Emma/Marcus/Sarah inherit these (no rules);
--- Amara works Tue–Sat 09:00–17:00.
+-- Opening hours: Mon–Sat 09:00–18:00 (one range per day), Sunday closed (no row).
+-- Emma/Marcus/Sarah inherit these (no rules); Amara works Tue–Sat 09:00–17:00.
+-- Lunch is a staff break, not a gap in the opening hours.
 -- -----------------------------------------------------------------------------
 select count(*) from public.replace_business_hours('10000000-0000-4000-8000-000000000001', '[
-  {"weekday": 1, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 1, "opens_at": "14:00", "closes_at": "18:00"},
-  {"weekday": 2, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 2, "opens_at": "14:00", "closes_at": "18:00"},
-  {"weekday": 3, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 3, "opens_at": "14:00", "closes_at": "18:00"},
-  {"weekday": 4, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 4, "opens_at": "14:00", "closes_at": "18:00"},
-  {"weekday": 5, "opens_at": "09:00", "closes_at": "13:00"}, {"weekday": 5, "opens_at": "14:00", "closes_at": "18:00"},
+  {"weekday": 1, "opens_at": "09:00", "closes_at": "18:00"},
+  {"weekday": 2, "opens_at": "09:00", "closes_at": "18:00"},
+  {"weekday": 3, "opens_at": "09:00", "closes_at": "18:00"},
+  {"weekday": 4, "opens_at": "09:00", "closes_at": "18:00"},
+  {"weekday": 5, "opens_at": "09:00", "closes_at": "18:00"},
   {"weekday": 6, "opens_at": "09:00", "closes_at": "18:00"}
 ]'::jsonb);
 
@@ -105,12 +105,30 @@ select count(*) from public.replace_staff_availability('30000000-0000-4000-8000-
   {"weekday": 6, "start_time": "09:00", "end_time": "17:00"}
 ]'::jsonb);
 
--- A public holiday next month, whole business closed.
-insert into public.availability_overrides (id, business_id, staff_id, date, is_closed, reason)
-values ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', null,
-        (date_trunc('month', now() at time zone 'Africa/Johannesburg') + interval '1 month 15 days')::date,
-        true, 'Staff training day')
+-- Lunch 13:00–14:00 Mon–Fri for Emma, Marcus and Sarah; Amara 12:00–13:00 on her days.
+select count(*)
+  from (values ('30000000-0000-4000-8000-000000000001'::uuid), ('30000000-0000-4000-8000-000000000002'::uuid),
+               ('30000000-0000-4000-8000-000000000003'::uuid)) as s(id),
+       lateral public.replace_staff_breaks(s.id, '[{"label": "Lunch", "start_time": "13:00", "end_time": "14:00", "weekdays": [1, 2, 3, 4, 5]}]'::jsonb);
+select count(*) from public.replace_staff_breaks('30000000-0000-4000-8000-000000000004',
+  '[{"label": "Lunch", "start_time": "12:00", "end_time": "13:00", "weekdays": [2, 3, 4, 5, 6]}]'::jsonb);
+
+-- Time off: Marcus on a two-day course, Amara at the dentist one afternoon (both in the near future).
+insert into public.staff_time_off (id, business_id, staff_id, starts_on, ends_on, start_time, end_time, reason, note)
+values
+  ('80000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002',
+   (now() at time zone 'Africa/Johannesburg')::date + 12, (now() at time zone 'Africa/Johannesburg')::date + 13,
+   null, null, 'training', 'Colour masterclass'),
+  ('80000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000004',
+   (now() at time zone 'Africa/Johannesburg')::date + 5, (now() at time zone 'Africa/Johannesburg')::date + 5,
+   '14:00', '16:00', 'other', 'Dentist')
 on conflict (id) do nothing;
+
+insert into public.business_special_days (id, business_id, date, name, kind, is_closed)
+values ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001',
+        (date_trunc('month', now() at time zone 'Africa/Johannesburg') + interval '1 month 15 days')::date,
+        'Staff training day', 'closure', true)
+on conflict (business_id, date) do nothing;
 
 -- -----------------------------------------------------------------------------
 -- Clients
@@ -339,3 +357,38 @@ on conflict (id) do nothing;
 insert into public.businesses (id, clerk_org_id, name, slug, plan)
 values ('10000000-0000-4000-8000-000000000002', 'org_demo_harbour', 'Harbour Barbers', 'harbour', 'growth')
 on conflict (id) do nothing;
+
+-- Upcoming South African public holidays (Public Holidays Act 36 of 1994: a holiday that falls on a
+-- Sunday moves to the Monday) as closed special days for both demo businesses, plus a training day.
+create or replace function pg_temp.easter(p_year int) returns date language sql immutable as $$
+  with a as (select p_year % 19 as a, p_year / 100 as b, p_year % 100 as c),
+       d as (select a.a, a.b, a.c, a.b / 4 as d, a.b % 4 as e, (a.b + 8) / 25 as f from a),
+       g as (select d.*, (d.b - d.f + 1) / 3 as g from d),
+       h as (select g.*, (19 * g.a + g.b - g.d - g.g + 15) % 30 as h from g),
+       i as (select h.*, h.c / 4 as i, h.c % 4 as k from h),
+       l as (select i.*, (32 + 2 * i.e + 2 * i.i - i.h - i.k) % 7 as l from i),
+       m as (select l.*, (l.a + 11 * l.h + 22 * l.l) / 451 as m from l)
+  select make_date(p_year, (m.h + m.l - 7 * m.m + 114) / 31, ((m.h + m.l - 7 * m.m + 114) % 31) + 1) from m
+$$;
+
+insert into public.business_special_days (business_id, date, name, kind, is_closed)
+select b.id, hd.d, hd.name, 'public_holiday', true
+  from (values ('10000000-0000-4000-8000-000000000001'::uuid), ('10000000-0000-4000-8000-000000000002'::uuid)) as b(id)
+ cross join lateral (
+   select case when extract(dow from raw.d) = 0 then raw.d + 1 else raw.d end as d,
+          case when extract(dow from raw.d) = 0 then raw.name || ' (observed)' else raw.name end as name
+     from (
+       select make_date(y, m, dd) as d, name
+         from generate_series(extract(year from now())::int, extract(year from now())::int + 1) as y
+        cross join (values (1, 1, 'New Year''s Day'), (3, 21, 'Human Rights Day'), (4, 27, 'Freedom Day'),
+                           (5, 1, 'Workers'' Day'), (6, 16, 'Youth Day'), (8, 9, 'National Women''s Day'),
+                           (9, 24, 'Heritage Day'), (12, 16, 'Day of Reconciliation'),
+                           (12, 25, 'Christmas Day'), (12, 26, 'Day of Goodwill')) as f(m, dd, name)
+       union all
+       select pg_temp.easter(y) - 2, 'Good Friday' from generate_series(extract(year from now())::int, extract(year from now())::int + 1) as y
+       union all
+       select pg_temp.easter(y) + 1, 'Family Day' from generate_series(extract(year from now())::int, extract(year from now())::int + 1) as y
+     ) as raw
+ ) as hd
+ where hd.d >= (now() at time zone 'Africa/Johannesburg')::date
+on conflict (business_id, date) do nothing;
