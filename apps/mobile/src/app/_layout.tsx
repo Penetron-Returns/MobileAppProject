@@ -16,12 +16,15 @@ import { ConfigErrorScreen } from '@/components/ConfigErrorScreen';
 import { holdNativeSplash, hideNativeSplash } from '@/features/brand/splash';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { env, validateEnv } from '@/lib/env';
+import { registerVoiceHeadlessTask } from '@/features/voice/headlessTask';
 import { startOnlineSync } from '@/lib/online';
 import { queryClient } from '@/lib/query';
 
 const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
 startOnlineSync();
+// Hey Clovie (Android): lets the voice service run a command with the app in the background.
+registerVoiceHeadlessTask();
 // Keep the native splash until a screen has drawn: the loading screen hides it on
 // its first layout, other first screens through useHideSplashWhen.
 holdNativeSplash();

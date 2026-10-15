@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
+        font: 16px/1.35 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #fff; }
+      /* Placeholder visual: a bottom glow that rises with the mic level. The real design replaces this file's look, not its API. */
+      #glow { position: fixed; left: 0; right: 0; bottom: 0; height: 100%; opacity: 0;
+        background: radial-gradient(120% 100% at 50% 100%, rgba(56,189,248,.95) 0%, rgba(99,102,241,.6) 38%, rgba(99,102,241,0) 72%);
+        transform-origin: 50% 100%; transform: scaleY(.25); transition: opacity .25s ease; }
+      body[data-state='listening'] #glow, body[data-state='processing'] #glow, body[data-state='done'] #glow { opacity: 1; }
+      body[data-state='error'] #glow { opacity: 1; filter: hue-rotate(150deg); }
+      body[data-state='processing'] #glow { animation: pulse 1s ease-in-out infinite; }
+      @keyframes pulse { 50% { transform: scaleY(.55); } }
+      #panel { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 20px 28px; text-align: center; }
+      #label { font-weight: 600; font-size: 15px; letter-spacing: .02em; opacity: .9; }
+      #text { margin-top: 6px; font-size: 20px; font-weight: 600; text-shadow: 0 1px 8px rgba(0,0,0,.45); word-break: break-word; }
+      #action { display: none; margin: 14px auto 0; padding: 12px 22px; border: 0; border-radius: 999px;
+        background: #fff; color: #1e1b4b; font: inherit; font-weight: 700; }
+      @media (prefers-reduced-motion: reduce) { #glow { transition: none; animation: none !important; } }
+    </style>
+  </head>
+  <body data-state="idle">
+    <div id="glow"></div>
+    <div id="panel" role="status" aria-live="polite">
+      <div id="label"></div>
+      <div id="text"></div>
+      <button id="action" type="button"></button>
+    </div>
+    <!--SCRIPT-->
+  </body>
+</html>

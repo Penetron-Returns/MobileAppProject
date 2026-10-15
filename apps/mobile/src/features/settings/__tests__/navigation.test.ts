@@ -39,3 +39,22 @@ describe('appVersionLabel', () => {
     expect(appVersionLabel(name, version, build)).toBe(expected);
   });
 });
+
+describe('settingsGroups with Hey Clovie', () => {
+  it('adds the voice row after the customize item on devices that support it', () => {
+    expect(settingsGroups(true, 'free', { hasVoice: true })[1].items).toEqual([
+      'whatsapp',
+      'voice',
+    ]);
+    expect(settingsGroups(true, 'ai', { hasVoice: true })[1].items).toEqual([
+      'companion',
+      'voice',
+    ]);
+  });
+
+  it('never shows it to staff', () => {
+    expect(settingsGroups(false, 'free', { hasVoice: true })[0].items).toEqual([
+      'notifications',
+    ]);
+  });
+});
