@@ -16,8 +16,23 @@
     "saving": "Saving...",
     "done": "Done"
   },
+  "loading": {
+    "label": "Loading Clovie",
+    "quotes": [
+      "Polishing the clovers…",
+      "Finding your four-leaf day…",
+      "Checking who's booked in…",
+      "Fluffing up your calendar…",
+      "Tip: long-press a booking for quick actions.",
+      "Tip: swipe a row to see more.",
+      "Lining up today's appointments…",
+      "Warming up the schedule…",
+      "Tip: pull down on a list to refresh it.",
+      "Almost there, one moment…"
+    ]
+  },
   "auth": {
-    "appName": "Booking",
+    "appName": "Clovie",
     "welcome": {
       "headline": "Run your shop from your phone.",
       "valueProp": "Bookings, clients and WhatsApp in one place.",

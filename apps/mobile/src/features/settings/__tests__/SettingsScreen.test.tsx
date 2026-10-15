@@ -135,7 +135,7 @@ describe('Settings as owner', () => {
     expect(out).toContain('Team | 4');
     expect(out).toContain('Connected');
     expect(out).toContain('Sign out');
-    expect(out).toContain('Booking 1.0.0 (24)');
+    expect(out).toContain('Clovie 1.0.0 (24)');
   });
 
   it('opens Team on its own route', () => {
