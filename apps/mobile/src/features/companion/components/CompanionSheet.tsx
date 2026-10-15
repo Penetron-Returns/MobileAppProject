@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ClovieMood } from '../logic';
+import { CompanionEdgeClovie } from './CompanionEdgeClovie';
 import { CompanionHeader } from './CompanionHeader';
 
 /** The sheet stops 8pt under the status bar when full (as `FormSheet` does). */
@@ -34,7 +35,7 @@ const EASE = Easing.bezier(...BEZIER.out);
 
 /**
  * The companion sheet of Companion.dc.html: a lit sheet over a dimmed screen
- * with a grabber and a header where Clovie reacts to the chat. It rests at a half
+ * with a grabber, Clovie perched on its top-left edge (reacting to the chat) and a header. It rests at a half
  * detent and drags (or the grabber taps) to full; a hard pull down, a tap on
  * the dim or the close action dismisses it. Honours reduced motion.
  */
@@ -165,6 +166,7 @@ export function CompanionSheet({
           },
         ]}
       >
+        <CompanionEdgeClovie mood={mood} />
         <View {...pan.panHandlers}>
           <Pressable
             onPress={() => {
@@ -190,7 +192,7 @@ export function CompanionSheet({
             />
           </Pressable>
         </View>
-        <CompanionHeader mood={mood} />
+        <CompanionHeader />
         <View style={{ flex: 1, overflow: 'hidden' }}>{children}</View>
       </Animated.View>
     </View>

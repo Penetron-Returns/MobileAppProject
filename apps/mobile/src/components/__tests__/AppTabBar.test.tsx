@@ -4,6 +4,11 @@ import { act, mount, pressableByLabel } from '@/testing/render';
 
 import { AppTabBar } from '../AppTabBar';
 
+jest.mock('react-native-webview', () => {
+  const { View } = require('react-native');
+  return { WebView: View };
+});
+
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({

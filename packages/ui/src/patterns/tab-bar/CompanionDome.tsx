@@ -11,9 +11,18 @@ import { usePressBounce } from './usePressBounce';
 /** The character inside the dome (TabBar.dc.html: 40pt in a 56pt dome). */
 const CHARACTER_SIZE = 40;
 
+/** The size a `characterSlot` should be drawn at. */
+export const COMPANION_DOME_CHARACTER_SIZE = CHARACTER_SIZE;
+
 export interface CompanionDomeProps {
   /** The companion character image for the current colour scheme. */
-  character: ImageSourcePropType;
+  character?: ImageSourcePropType;
+  /**
+   * A live character (e.g. an animated Clovie) drawn at
+   * `COMPANION_DOME_CHARACTER_SIZE` instead of the still `character`. It may
+   * spill outside the dome (a hop), so nothing here clips.
+   */
+  characterSlot?: React.ReactNode;
   /** Things that need the owner's attention; the badge is hidden at 0. */
   count: number;
   /** Spoken name, including the count when there is one. */
@@ -28,6 +37,7 @@ export interface CompanionDomeProps {
  */
 export function CompanionDome({
   character,
+  characterSlot,
   count,
   label,
   onPress,
@@ -50,17 +60,20 @@ export function CompanionDome({
             width: INBOX_DOME_SIZE,
             height: INBOX_DOME_SIZE,
             borderRadius: INBOX_DOME_SIZE / 2,
+            overflow: 'visible',
           },
         ]}
         className="items-center justify-center rounded-full"
       >
-        <Image
-          source={character}
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-          resizeMode="contain"
-          style={{ width: CHARACTER_SIZE, height: CHARACTER_SIZE }}
-        />
+        {characterSlot ?? (
+          <Image
+            source={character}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            resizeMode="contain"
+            style={{ width: CHARACTER_SIZE, height: CHARACTER_SIZE }}
+          />
+        )}
         {count > 0 ? (
           <View
             style={{ backgroundColor: depth.colors.label }}

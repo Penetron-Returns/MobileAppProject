@@ -1,21 +1,35 @@
-import { CompanionDome, useAppColorScheme } from '@booking/ui';
+import { COMPANION_DOME_CHARACTER_SIZE, CompanionDome } from '@booking/ui';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
+
+import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 
 import { useCompanionEntry } from '../useCompanionEntry';
 
-/** The companion dome above the tab bar: shown only when the plan has the companion. */
+/**
+ * The companion dome above the tab bar: shown only when the plan has the
+ * companion. Clovie idles inside it; the hop spills above the dome, so neither
+ * this wrapper nor the dome clips.
+ */
 export function CompanionEntryDome() {
   const { t } = useTranslation();
-  const { isDark } = useAppColorScheme();
   const { isVisible, attentionCount } = useCompanionEntry();
   if (!isVisible) return null;
   return (
     <CompanionDome
-      character={
-        isDark
-          ? require('@/assets/images/companion-default-dark.png')
-          : require('@/assets/images/companion-default.png')
+      characterSlot={
+        <View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{ overflow: 'visible' }}
+        >
+          <ClovieAnimated
+            state="default"
+            size={COMPANION_DOME_CHARACTER_SIZE}
+          />
+        </View>
       }
       count={attentionCount}
       label={
