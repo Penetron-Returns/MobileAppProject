@@ -16,34 +16,34 @@ import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Easing,
-  Image,
   PanResponder,
   StyleSheet,
   View,
   useWindowDimensions,
-  type ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import type { ClovieMood } from '../logic';
+import { CompanionHeader } from './CompanionHeader';
 
 /** The sheet stops 8pt under the status bar when full (as `FormSheet` does). */
 const TOP_GAP = 8;
 /** The drag handle row (Companion.dc.html: 32pt). */
 const GRAB_ROW = 32;
-const CHARACTER = 64;
 const EASE = Easing.bezier(...BEZIER.out);
 
 /**
  * The companion sheet of Companion.dc.html: a lit sheet over a dimmed screen
- * with a grabber and the character on its top-left edge. It rests at a half
+ * with a grabber and a header where Clovie reacts to the chat. It rests at a half
  * detent and drags (or the grabber taps) to full; a hard pull down, a tap on
  * the dim or the close action dismisses it. Honours reduced motion.
  */
 export function CompanionSheet({
-  character,
+  mood,
   onClose,
   children,
 }: {
-  character: ImageSourcePropType;
+  mood: ClovieMood;
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -165,18 +165,6 @@ export function CompanionSheet({
           },
         ]}
       >
-        <View
-          pointerEvents="none"
-          style={{ position: 'absolute', left: 16, top: -CHARACTER + 4 }}
-        >
-          <Image
-            source={character}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-            resizeMode="contain"
-            style={{ width: CHARACTER, height: CHARACTER }}
-          />
-        </View>
         <View {...pan.panHandlers}>
           <Pressable
             onPress={() => {
@@ -202,6 +190,7 @@ export function CompanionSheet({
             />
           </Pressable>
         </View>
+        <CompanionHeader mood={mood} />
         <View style={{ flex: 1, overflow: 'hidden' }}>{children}</View>
       </Animated.View>
     </View>
