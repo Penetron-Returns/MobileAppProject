@@ -6,6 +6,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { haptics } from '../lib/haptics';
 import { cn } from '../lib/cn';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
@@ -109,7 +110,11 @@ export function SegmentedControl<T extends string>({
               isChoice ? { checked: selected, selected } : { selected }
             }
             accessibilityLabel={option.accessibilityLabel ?? option.label}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              if (option.value === value) return;
+              haptics.selection();
+              onChange(option.value);
+            }}
             // The 40pt pill reaches the 44pt target through its slop.
             hitSlop={isChoice ? { top: 2, bottom: 2 } : undefined}
             className={cn(

@@ -106,6 +106,8 @@ export function TimeOffSheet({
         conflicts.pending ? undefined : (
           <Button
             size="lg"
+            // Saving plays its own success haptic.
+            haptic={false}
             onPress={submit}
             loading={busy}
             accessibilityLabel={t('common.save')}

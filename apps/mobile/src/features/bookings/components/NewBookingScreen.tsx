@@ -4,6 +4,7 @@ import {
   ConfirmDialog,
   DoneCard,
   goBack,
+  haptics,
   IconButton,
   Screen,
   StackHeader,
@@ -154,6 +155,7 @@ function NewBookingFlow({
     onError: (error) => {
       if (isApiError(error) && error.code === 'SLOT_UNAVAILABLE') {
         // Conflicts are normal: refresh the live slots and offer the closest ones.
+        haptics.warning();
         setTakenAt(when.picked?.startsAt ?? null);
         setWhen((w) => ({ ...w, picked: null }));
         void queryClient.invalidateQueries({ queryKey: qk.availabilitySlots });
@@ -273,7 +275,7 @@ function NewBookingFlow({
     }
     const result = toCreateRequest(form);
     if (!result.ok) {
-      toast.info(t(`newBooking.errors.${result.error}`));
+      toast.blocked(t(`newBooking.errors.${result.error}`));
       return;
     }
     create.mutate(result.request);
@@ -305,6 +307,8 @@ function NewBookingFlow({
       footer={
         <Button
           size="lg"
+          // Booking plays its own success haptic; only "Next" taps lightly.
+          haptic={step === 1}
           disabled={disabled}
           accessibilityLabel={primaryLabel}
           accessibilityState={{ busy: create.isPending, disabled }}

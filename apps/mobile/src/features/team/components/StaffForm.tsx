@@ -95,6 +95,8 @@ export function StaffForm({
       footer={
         <Button
           size="lg"
+          // Saving plays its own success haptic.
+          haptic={false}
           className="w-full"
           onPress={() => void submit()}
           loading={save.isPending}
