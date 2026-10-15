@@ -1,6 +1,8 @@
 import type {
   AppointmentDTO,
   AvailabilityRuleInput,
+  AvailabilityConflictsResponse,
+  AvailabilityConfigResponse,
   AvailableDaysResponse,
   AvailableSlotsResponse,
   BusinessDTO,
@@ -12,6 +14,8 @@ import type {
   CreateClientRequest,
   CreateOverrideRequest,
   CreateServiceRequest,
+  CreateSpecialDayRequest,
+  CreateStaffTimeOffRequest,
   CreateInvitationRequest,
   CreateStaffRequest,
   ManualConnectRequest,
@@ -19,12 +23,17 @@ import type {
   OnboardingRequest,
   RegisterDeviceRequest,
   ReplaceBusinessHoursRequest,
+  ReplaceStaffBreaksRequest,
+  ReplaceStaffBreaksResponse,
   RescheduleAppointmentRequest,
   ResolveEscalationRequest,
   SendStaffMessageRequest,
   ServiceDTO,
   SetAppointmentStatusRequest,
+  SpecialDayDTO,
+  SpecialDaySuggestionsResponse,
   StaffDTO,
+  StaffTimeOffDTO,
   TeamDTO,
   TeamInvitationDTO,
   TeamMemberDTO,
@@ -34,11 +43,23 @@ import type {
   UpdateClientRequest,
   UpdateMemberRoleRequest,
   UpdateServiceRequest,
+  UpdateSpecialDayRequest,
+  UpdateStaffTimeOffRequest,
   UpdateStaffRequest,
   WhatsAppChannelDTO,
 } from '@booking/types';
 
 import { enc, get, send } from './client';
+
+/** GET /v1/availability/conflicts: whole days, or `start_time`..`end_time` on each date. */
+export type ConflictQuery = {
+  from: string;
+  to?: string;
+  staff_id?: string;
+  start_time?: string;
+  end_time?: string;
+  mode?: 'closed' | 'open_only';
+};
 
 /** Typed endpoint map (docs/BUILD_PLAN.md §4). */
 export const api = {
@@ -154,6 +175,51 @@ export const api = {
     date: string;
     staff_id?: string | null;
   }) => get<AvailableSlotsResponse>('/v1/availability/slots', q),
+
+  // availability model: special days, breaks, time off (docs/BUILD_PLAN.md)
+  availabilityConfig: (q: { from: string; to: string }) =>
+    get<AvailabilityConfigResponse>('/v1/availability/config', q),
+  availabilityConflicts: (q: ConflictQuery) =>
+    get<AvailabilityConflictsResponse>('/v1/availability/conflicts', q),
+  specialDaySuggestions: (year: number) =>
+    get<SpecialDaySuggestionsResponse>('/v1/special-days/suggestions', {
+      year,
+    }),
+  createSpecialDay: (b: CreateSpecialDayRequest, key: string) =>
+    send<CreateSpecialDayRequest, SpecialDayDTO>('POST', '/v1/special-days')(
+      b,
+      key,
+    ),
+  updateSpecialDay: (id: string, b: UpdateSpecialDayRequest, key: string) =>
+    send<UpdateSpecialDayRequest, SpecialDayDTO>(
+      'PATCH',
+      `/v1/special-days/${enc(id)}`,
+    )(b, key),
+  deleteSpecialDay: (id: string, key: string) =>
+    send<undefined, unknown>('DELETE', `/v1/special-days/${enc(id)}`)(
+      undefined,
+      key,
+    ),
+  replaceStaffBreaks: (id: string, b: ReplaceStaffBreaksRequest, key: string) =>
+    send<ReplaceStaffBreaksRequest, ReplaceStaffBreaksResponse>(
+      'PUT',
+      `/v1/staff/${enc(id)}/breaks`,
+    )(b, key),
+  createTimeOff: (staffId: string, b: CreateStaffTimeOffRequest, key: string) =>
+    send<CreateStaffTimeOffRequest, StaffTimeOffDTO>(
+      'POST',
+      `/v1/staff/${enc(staffId)}/time-off`,
+    )(b, key),
+  updateTimeOff: (id: string, b: UpdateStaffTimeOffRequest, key: string) =>
+    send<UpdateStaffTimeOffRequest, StaffTimeOffDTO>(
+      'PATCH',
+      `/v1/time-off/${enc(id)}`,
+    )(b, key),
+  deleteTimeOff: (id: string, key: string) =>
+    send<undefined, unknown>('DELETE', `/v1/time-off/${enc(id)}`)(
+      undefined,
+      key,
+    ),
 
   // appointments
   createAppointment: (b: CreateAppointmentRequest, key: string) =>
