@@ -38,6 +38,11 @@ const EnvSchema = z.object({
   /** whsec_... signing secret shown on the Nerova connection */
   NEROVA_EVENTS_SIGNING_SECRET: optional,
 
+  /** Nerova REST API key (https://api.nerova.si): companion sessions and outcome counts. Never logged or returned. Empty = companion off */
+  NEROVA_API_KEY: optional,
+  /** Origin of the owner web app that frames the companion; must be on Nerova's embed allowlist (scheme://host[:port]) */
+  NEROVA_EMBED_ORIGIN: optional,
+
   /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
   STRIPE_SECRET_KEY: optional,
   STRIPE_WEBHOOK_SECRET: optional,

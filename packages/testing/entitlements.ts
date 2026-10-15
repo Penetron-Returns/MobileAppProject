@@ -8,9 +8,9 @@ import type { FeatureKey, PlanKey } from '@booking/types';
  */
 export const PLAN_FEATURES: Record<PlanKey, FeatureKey[]> = {
   free: ['whatsapp_menu', 'inbox', 'extensions'],
-  starter: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
-  growth: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
-  pro: ['companion', 'desktop_app', 'extensions', 'assistant_bookings'],
+  starter: ['companion', 'desktop_app', 'extensions', 'assistant_bookings', 'reports'],
+  growth: ['companion', 'desktop_app', 'extensions', 'assistant_bookings', 'reports'],
+  pro: ['companion', 'desktop_app', 'extensions', 'assistant_bookings', 'reports'],
 };
 
 /** In-memory EntitlementService for one plan; `limits` sets monthly caps per feature. */

@@ -4,9 +4,13 @@ import { createClerkAdmin } from '@booking/features/team/lib/clerkAdmin.ts';
 import type { Db } from '@booking/features/lib/db.ts';
 import { getDb } from './lib/db.ts';
 import { createAccountEvents, eventSenderFromEnv } from '@booking/companion/events/events.ts';
+import { createCompanionService, type CompanionService } from '@booking/companion/nerova/companionService.ts';
+import { createNerovaClientFromEnv } from '@booking/companion/nerova/httpClient.ts';
+import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
+import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
 import { createEntitlementService } from '@booking/features/plans/services/entitlements.ts';
-import type { AccountEventsPort, BookingService, ClerkAdmin, EntitlementService, NotificationService } from '@booking/features/ports.ts';
+import type { AccountEventsPort, BookingService, ClerkAdmin, EntitlementService, NotificationService, UsageService } from '@booking/features/ports.ts';
 
 /**
  * Composition root. Built once per warm function instance.
@@ -19,6 +23,10 @@ export interface Container {
   notifications: NotificationService;
   entitlements: EntitlementService;
   nerovaEvents: AccountEventsPort;
+  /** Plan usage, catalogue and report statistics */
+  usage: UsageService;
+  /** Nerova AI companion: owner chat sessions and outcome counts */
+  companion: CompanionService;
   /** Clerk Backend API (organisation members and invitations) */
   clerkAdmin: ClerkAdmin;
   /** Injected clock for connector-level "now" (tests pin it) */
@@ -30,8 +38,12 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const booking = createBookingService({ db, notifications });
   const entitlements = createEntitlementService({ db });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
+  const clock = () => new Date();
+  const planRepo = createPlanRepository({ db });
+  const usage = createUsageService({ repo: planRepo, clock });
+  const companion = createCompanionService({ nerova: createNerovaClientFromEnv(env), plans: planRepo, embedOrigin: env.NEROVA_EMBED_ORIGIN, clock });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
-  return { env, db, booking, notifications, entitlements, nerovaEvents, clerkAdmin, clock: () => new Date() };
+  return { env, db, booking, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, clock };
 }
 
 let cached: Container | undefined;

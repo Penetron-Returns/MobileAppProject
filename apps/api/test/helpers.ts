@@ -5,6 +5,10 @@ import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idem
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import type { BookingService, NotificationService } from '@booking/features/ports.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
+import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
+import { createUsageService } from '@booking/features/plans/services/usage.ts';
+import { createFakeNerovaClient } from '@booking/testing/nerova.ts';
+import { createMemoryPlanRepository } from '@booking/testing/plans.ts';
 import { fakeEntitlements } from '@booking/testing/entitlements.ts';
 
 export const TEST_ENV: Env = {
@@ -47,6 +51,8 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
       throw new Error(`fake not configured: ${String(prop)}`);
     },
   });
+  // Plan usage and the companion over empty fakes; plan tests build their own with seeded data.
+  const planRepo = createMemoryPlanRepository();
   return {
     env: TEST_ENV,
     db: unimplemented as Db,
@@ -55,6 +61,8 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     // Free plan = the WhatsApp menu + inbox, which is what the existing suites exercise.
     entitlements: fakeEntitlements('free'),
     nerovaEvents: { accountChanged: async () => {} },
+    usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
+    companion: createCompanionService({ nerova: createFakeNerovaClient(), plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
     clerkAdmin: createFakeClerkAdmin(),
     clock: () => new Date(),
     ...overrides,

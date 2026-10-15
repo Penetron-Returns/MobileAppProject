@@ -228,3 +228,10 @@ export const createInvitationSchema = z.object({
 });
 
 export const updateMemberRoleSchema = z.object({ role: memberRole });
+
+// ---------- plans, usage, companion, reports ----------
+
+/** `YYYY-MM`, optional: the route defaults to the current month in the business timezone. */
+export const monthQuerySchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Expected a month YYYY-MM').optional() });
+
+export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']) });

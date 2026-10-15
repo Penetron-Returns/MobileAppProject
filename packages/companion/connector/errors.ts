@@ -43,6 +43,8 @@ const CODE_MAP: Record<AppError['code'], ConnectorErrorCode> = {
   FEATURE_NOT_IN_PLAN: 'not_found',
   RATE_LIMITED: 'rate_limited',
   UPSTREAM_META_ERROR: 'provider_unavailable',
+  COMPANION_NOT_READY: 'provider_unavailable',
+  UPSTREAM_COMPANION_ERROR: 'provider_unavailable',
   INTERNAL: 'provider_unavailable',
 };
 

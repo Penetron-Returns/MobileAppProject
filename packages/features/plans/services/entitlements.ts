@@ -16,6 +16,7 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   'desktop_app',
   'extensions',
   'assistant_bookings',
+  'reports',
 ];
 
 const isFeatureKey = (value: string): value is FeatureKey => (FEATURE_KEYS as readonly string[]).includes(value);
