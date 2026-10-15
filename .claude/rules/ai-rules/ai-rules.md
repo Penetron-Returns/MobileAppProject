@@ -16,7 +16,7 @@ Guidelines for the AI configuration in `.claude/`. `.claude/` is the source of t
    - `.claude/skills/`: workflow skills (ours) and vetted third-party skills (see `docs/skills.md`)
    - `.claude/hooks/`: Node scripts (`.mjs`) so they run on every OS. Wire them in `.claude/settings.json`
 2. Use this frontmatter for rules:
-   - `paths:` comma-separated globs for conditional loading. Be specific (`apps/api/src/whatsapp/**/*.ts`, not `**/*.ts`). Omit it only for rules that must always load (`general/`)
+   - `paths:` comma-separated globs for conditional loading. Be specific (`packages/app-store/whatsapp/**/*.ts`, not `**/*.ts`). New packages must appear in the `paths:` of the rules for the work done in them. Omit it only for rules that must always load (`general/`)
    - `description:` one self-contained line
 3. Structure every rule the same way:
    - `# Title` matching the filename, then a one-paragraph overview
