@@ -1255,6 +1255,11 @@
   },
   "companion": {
     "title": "Companion",
+    "clovie": {
+      "idle": "Clovie is ready",
+      "thinking": "Clovie is thinking",
+      "replied": "Clovie has replied"
+    },
     "close": "Close companion",
     "expand": "Expand companion",
     "collapse": "Collapse companion",

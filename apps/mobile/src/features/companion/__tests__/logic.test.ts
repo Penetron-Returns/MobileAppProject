@@ -1,5 +1,11 @@
 import {
   buildEmbedHtml,
+  clovieMood,
+  IDLE_ACTIVITY,
+  reduceActivity,
+  REPLIED_MS,
+  type ChatActivity,
+  type WidgetEvent,
   notReadyKey,
   parseWidgetMessage,
   refreshDelayMs,
@@ -60,6 +66,14 @@ describe('parseWidgetMessage', () => {
       msg({ type: 'nerova:widget', event: 'error', reason: 'load-timeout' }),
       { kind: 'error' },
     ],
+    [
+      msg({ type: 'nerova:widget', event: 'reply_started' }),
+      { kind: 'reply_started' },
+    ],
+    [
+      msg({ type: 'nerova:widget', event: 'reply_finished' }),
+      { kind: 'reply_finished' },
+    ],
     [msg({ type: 'other', event: 'ready' }), null],
     [msg({ type: 'nerova:widget', event: 'mystery' }), null],
     ['not json', null],
@@ -85,5 +99,63 @@ describe('buildEmbedHtml', () => {
   it('relays nerova:widget messages to the app', () => {
     expect(html).toContain('nerova:widget');
     expect(html).toContain('ReactNativeWebView.postMessage');
+  });
+});
+
+describe('reduceActivity', () => {
+  const thinking: ChatActivity = { phase: 'thinking', since: 100 };
+  const replied: ChatActivity = { phase: 'replied', since: 100 };
+  const at500 = (phase: ChatActivity['phase']): ChatActivity => ({
+    phase,
+    since: 500,
+  });
+  it.each<[string, ChatActivity, WidgetEvent, ChatActivity]>([
+    [
+      'starts thinking',
+      IDLE_ACTIVITY,
+      { kind: 'reply_started' },
+      at500('thinking'),
+    ],
+    [
+      'restarts thinking after a reply',
+      replied,
+      { kind: 'reply_started' },
+      at500('thinking'),
+    ],
+    [
+      'replies after thinking',
+      thinking,
+      { kind: 'reply_finished' },
+      at500('replied'),
+    ],
+    [
+      'ignores a finish with nothing started',
+      IDLE_ACTIVITY,
+      { kind: 'reply_finished' },
+      IDLE_ACTIVITY,
+    ],
+    ['goes idle on error', thinking, { kind: 'error' }, at500('idle')],
+    [
+      'goes idle on expiry',
+      thinking,
+      { kind: 'session_expired' },
+      at500('idle'),
+    ],
+    ['ignores resize', thinking, { kind: 'resize' }, thinking],
+    ['ignores ready', thinking, { kind: 'ready' }, thinking],
+  ])('%s', (_name, from, event, expected) => {
+    expect(reduceActivity(from, event, 500)).toEqual(expected);
+  });
+});
+
+describe('clovieMood', () => {
+  it.each<[ChatActivity, number, string]>([
+    [IDLE_ACTIVITY, 10_000, 'idle'],
+    [{ phase: 'thinking', since: 0 }, 60_000, 'thinking'],
+    [{ phase: 'replied', since: 1000 }, 1000, 'replied'],
+    [{ phase: 'replied', since: 1000 }, 1000 + REPLIED_MS - 1, 'replied'],
+    [{ phase: 'replied', since: 1000 }, 1000 + REPLIED_MS, 'idle'],
+  ])('reads %j at %d as %s', (activity, now, expected) => {
+    expect(clovieMood(activity, now)).toBe(expected);
   });
 });
