@@ -136,6 +136,31 @@ export function minutesToTime(min: number) {
   return `${pad(Math.floor(clamped / 60) % 24)}:${pad(clamped % 60)}`;
 }
 
+/** `16 Dec` */
+export function formatDayMonth(date: ISODate) {
+  const { m, d } = parseISODate(date);
+  return `${d} ${MONTHS_SHORT[m - 1]}`;
+}
+
+/** `Wed 16 Dec` */
+export function formatWeekdayDayMonth(date: ISODate) {
+  return `${WEEKDAYS_SHORT[weekdayOf(date)]} ${formatDayMonth(date)}`;
+}
+
+/**
+ * `24 to 26 Dec`, `30 Dec to 2 Jan`, or just `24 Dec` for one day. `word` is
+ * the translated joining word.
+ */
+export function formatDayRange(from: ISODate, to: ISODate, word: string) {
+  if (from === to) return formatDayMonth(from);
+  const a = parseISODate(from);
+  const b = parseISODate(to);
+  if (a.m === b.m && a.y === b.y) {
+    return `${a.d} ${word} ${b.d} ${MONTHS_SHORT[b.m - 1]}`;
+  }
+  return `${formatDayMonth(from)} ${word} ${formatDayMonth(to)}`;
+}
+
 /** `Tue, Aug 25` */
 export function formatDateShort(date: ISODate) {
   const { m, d } = parseISODate(date);

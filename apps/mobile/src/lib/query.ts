@@ -51,6 +51,11 @@ export const qk = {
   overrides: (staffId: string | null) =>
     ['overrides', staffId ?? 'business'] as const,
   businessHours: ['business-hours'] as const,
+  availabilityConfig: ['availability-config'] as const,
+  availabilityConfigRange: (from: string, to: string) =>
+    ['availability-config', from, to] as const,
+  specialDaySuggestions: (year: number) =>
+    ['special-day-suggestions', year] as const,
   availabilityDays: ['availability', 'days'] as const,
   availabilitySlots: ['availability', 'slots'] as const,
   whatsapp: ['whatsapp'] as const,

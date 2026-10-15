@@ -281,7 +281,12 @@
     "apptCount_one": "{{count}} appt",
     "apptCount_other": "{{count}} appts",
     "monthView": "Month view",
-    "monthCellLabel": "{{date}}, {{count}} appointments"
+    "monthCellLabel": "{{date}}, {{count}} appointments",
+    "closedDay": "{{name}} · Closed",
+    "closedNamed": "Closed · {{name}}",
+    "blockedLabel": "{{label}}, {{start}} to {{end}}, unavailable",
+    "weekDayClosedNamed": "{{day}} {{date}}, closed, {{name}}",
+    "offNote": "{{name}}: {{reason}}"
   },
   "clients": {
     "title": "Clients",
@@ -618,14 +623,12 @@
   },
   "hours": {
     "title": "Operating hours",
-    "intro": "Set your standard opening times. Add a second time range for split shifts such as a lunch break.",
+    "intro": "Set your standard opening times. One range per day: add a team member's lunch as a break.",
     "open": "Open",
     "closed": "Closed",
     "toggle": "{{day}} open",
     "noHours": "No hours set",
     "to": "to",
-    "addRange": "Add hours",
-    "removeRange": "Remove these hours",
     "done": "Done",
     "hour": "Hour {{value}}",
     "minutes": "Minutes {{value}}",
@@ -639,8 +642,44 @@
       "closes": "{{day}} closes at {{time}}"
     },
     "errors": {
-      "order": "{{day}}: closing time must be after opening time.",
-      "overlap": "{{day}}: time ranges overlap."
+      "order": "{{day}}: closing time must be after opening time."
+    },
+    "special": {
+      "title": "Holidays and special days",
+      "add": "Add special day",
+      "edit": "Edit special day",
+      "none": "No special days coming up",
+      "note": "Customers can only book inside these hours and each team member's own hours.",
+      "date": "Date",
+      "name": "Name",
+      "namePlaceholder": "Staff day",
+      "mode": "What happens that day",
+      "hours": "Special hours",
+      "open": "Open",
+      "custom": "Custom day",
+      "suggestions": "Public holidays",
+      "addAll": "Add all upcoming public holidays",
+      "addHoliday": "Add {{name}}, {{date}}, as a closed day",
+      "observed": "{{date}}, moved from {{sunday}}",
+      "loading": "Loading public holidays",
+      "rowLabel": "{{name}}, {{date}}, {{value}}",
+      "added": "Special day added",
+      "updated": "Special day saved",
+      "removed": "Special day deleted",
+      "addedCount_one": "{{count}} public holiday added",
+      "addedCount_other": "{{count}} public holidays added",
+      "delete": "Delete special day",
+      "deleteDialog": {
+        "title": "Delete {{name}}?",
+        "description": "Bookings on that date are not touched. The usual hours apply again.",
+        "confirm": "Delete",
+        "keep": "Keep"
+      },
+      "errors": {
+        "name": "Give the day a name.",
+        "order": "The closing time must be after the opening time.",
+        "exists": "There is already a special day on that date. Edit that one instead."
+      }
     }
   },
   "services": {
@@ -705,7 +744,8 @@
     "error": {
       "title": "Couldn't check availability",
       "description": "Check your connection and try again."
-    }
+    },
+    "closedOn": "Closed: {{days}}"
   },
   "reschedule": {
     "title": "Reschedule",
@@ -1047,6 +1087,80 @@
     "status": {
       "paused": "Not taking bookings",
       "inactive": "Inactive"
+    },
+    "more_count": "+{{count}} more",
+    "deleteConfirm": "Delete",
+    "deleteKeep": "Keep",
+    "hours": {
+      "change": "Change hours",
+      "saved": "Working days saved",
+      "hint": "Customers can book this person only inside these hours and the business hours.",
+      "useBusiness": "Use business hours",
+      "closedThatDay": "The business is closed on {{day}}.",
+      "outside": "Business hours are {{opens}} to {{closes}}",
+      "errors": {
+        "order": "{{day}}: the end time must be after the start time.",
+        "closed": "{{day}}: the business is closed that day. Open it in the business hours first.",
+        "outside": "{{day}}: these hours fall outside the business hours."
+      }
+    },
+    "breaks": {
+      "title": "Breaks",
+      "none": "No breaks",
+      "addAction": "Add a break",
+      "add": "Add a break",
+      "edit": "Edit break",
+      "name": "Name",
+      "time": "Break",
+      "days": "Days",
+      "everyDay": "Every working day",
+      "delete": "Delete break",
+      "added": "Break added",
+      "updated": "Break saved",
+      "removed": "Break deleted",
+      "editLine": "{{label}}, {{times}}. Edit",
+      "errors": {
+        "label": "Give the break a name.",
+        "order": "The break must end after it starts.",
+        "overlap": "That break overlaps another break on the same day."
+      },
+      "deleteDialog": {
+        "title": "Delete this break?",
+        "description": "Customers will be able to book over that time again."
+      }
+    },
+    "timeOff": {
+      "title": "Time off",
+      "none": "Nothing planned",
+      "addAction": "Add time off",
+      "add": "Add time off",
+      "edit": "Edit time off",
+      "reason": "Reason",
+      "reasons": {
+        "leave": "Leave",
+        "sick": "Sick",
+        "training": "Training",
+        "other": "Other"
+      },
+      "from": "From",
+      "to": "To",
+      "allDay": "All day",
+      "hours": "Hours",
+      "note": "Note",
+      "optional": "Optional",
+      "delete": "Delete time off",
+      "added": "Time off added",
+      "updated": "Time off saved",
+      "removed": "Time off deleted",
+      "editLine": "{{reason}}, {{range}}. Edit",
+      "errors": {
+        "range": "The last day must not be before the first day.",
+        "order": "The end time must be after the start time."
+      },
+      "deleteDialog": {
+        "title": "Delete this time off?",
+        "description": "Customers will be able to book this person on those days again."
+      }
     }
   },
   "join": {
@@ -1063,5 +1177,27 @@
     },
     "createOwn": "Create my own business instead",
     "failed": "Couldn't join. Check your connection and try again."
+  },
+  "availability": {
+    "field": {
+      "start": "{{title}} starts at {{time}}",
+      "end": "{{title}} ends at {{time}}"
+    },
+    "pick": {
+      "start": "{{title}} starts",
+      "end": "{{title}} ends"
+    },
+    "dateField": "{{title}}, {{date}}",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "conflicts": {
+      "dayTitle_one": "{{count}} booking that day",
+      "dayTitle_other": "{{count}} bookings that day",
+      "timeTitle_one": "{{count}} booking in that time",
+      "timeTitle_other": "{{count}} bookings in that time",
+      "body": "These bookings stay as they are. Nothing is cancelled or moved. Open one to message the client or change it.",
+      "open": "Open booking {{booking}}",
+      "saveAnyway": "Save anyway (bookings stay)"
+    }
   }
 }
