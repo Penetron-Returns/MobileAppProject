@@ -1,4 +1,9 @@
-import { dayHours, toWorkingWeek, workingDaysSummary } from '../schedule';
+import {
+  dayHours,
+  resolveWorkingWeek,
+  toWorkingWeek,
+  workingDaysSummary,
+} from '../schedule';
 
 const rule = (weekday: number, start: string, end: string) => ({
   weekday,
@@ -58,5 +63,36 @@ describe('workingDaysSummary', () => {
 
   it('is null with no working days', () => {
     expect(workingDaysSummary(week([]), 'to')).toBeNull();
+  });
+});
+
+describe('resolveWorkingWeek', () => {
+  const hours = [1, 2, 3, 4, 5].map((weekday) => ({
+    weekday,
+    opens_at: '09:00:00',
+    closes_at: '17:30:00',
+  }));
+
+  it('uses the person own rules when they have any', () => {
+    const { week, inherited } = resolveWorkingWeek(
+      [rule(6, '10:00', '14:00')],
+      hours,
+    );
+    expect(inherited).toBe(false);
+    expect(week.filter((d) => d.ranges.length).map((d) => d.weekday)).toEqual([
+      6,
+    ]);
+  });
+
+  it('inherits the business hours with zero rules', () => {
+    const { week, inherited } = resolveWorkingWeek([], hours);
+    expect(inherited).toBe(true);
+    expect(workingDaysSummary(week, 'to')).toBe('Mon to Fri, 09:00 to 17:30');
+  });
+
+  it('is empty and inherited when the business has no hours either', () => {
+    const { week, inherited } = resolveWorkingWeek([], []);
+    expect(inherited).toBe(true);
+    expect(workingDaysSummary(week, 'to')).toBeNull();
   });
 });

@@ -181,7 +181,7 @@ describe('ConfirmDialog', () => {
         <PortalHost />
       </>,
     );
-    return { tree, onConfirm };
+    return { tree, onConfirm, onOpenChange };
   }
 
   it('asks the question with a description and the default labels', () => {
@@ -205,6 +205,36 @@ describe('ConfirmDialog', () => {
     );
     act(() => confirm.props.onPress());
     expect(onConfirm).toHaveBeenCalled();
+  });
+
+  it('closes the dialog when confirming and when keeping', () => {
+    const { tree, onConfirm, onOpenChange } = dialog({
+      confirmLabel: 'Remove',
+      cancelLabel: 'Keep',
+    });
+    const press = (label: string) =>
+      act(() =>
+        tree.root
+          .find((n) => !!n.props.onPress && textOf(n).trim() === label)
+          .props.onPress(),
+      );
+    press('Keep');
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(onConfirm).not.toHaveBeenCalled();
+    press('Remove');
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not group the dialog into one accessible backdrop node', () => {
+    // An accessible backdrop hides the buttons from Android touch and TalkBack.
+    const { tree } = dialog();
+    const backdrop = tree.root.find(
+      (n) =>
+        typeof n.type === 'string' &&
+        n.props.accessible === false &&
+        textOf(n).includes('Cancel this booking?'),
+    );
+    expect(backdrop).toBeTruthy();
   });
 
   it('renders nothing while closed', () => {

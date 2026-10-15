@@ -22,11 +22,15 @@ jest.mock('lucide-react-native', () => {
 
 const mockSetActive = jest.fn();
 const mockGetInvitations = jest.fn();
+const mockUpdateUser = jest.fn();
+let mockFirstName: string | null = 'Sam';
 jest.mock('@clerk/expo', () => ({
   useClerk: () => ({ setActive: mockSetActive }),
   useUser: () => ({
     user: {
       id: 'user_1',
+      firstName: mockFirstName,
+      update: mockUpdateUser,
       getOrganizationInvitations: mockGetInvitations,
     },
   }),
@@ -96,6 +100,8 @@ function button(tree: ReactTestRenderer, label: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSetActive.mockResolvedValue(undefined);
+  mockUpdateUser.mockResolvedValue(undefined);
+  mockFirstName = 'Sam';
 });
 
 describe('JoinScreen', () => {
@@ -108,7 +114,9 @@ describe('JoinScreen', () => {
     );
     const out = text(tree);
     expect(out).toContain("You've been invited to Ashgrove Hair");
-    expect(out).toContain('Join Ashgrove Hair');
+    // The primary label is short so it fits the 56pt button; the business is named above.
+    expect(out).toContain('Join');
+    expect(out).not.toContain('Join Ashgrove Hair');
     expect(out).toContain('Create my own business instead');
   });
 
@@ -168,7 +176,7 @@ describe('JoinScreen', () => {
       "Couldn't join. Check your connection and try again.",
     );
     expect(mockSetActive).not.toHaveBeenCalled();
-    expect(text(tree)).toContain('Join Ashgrove Hair');
+    expect(button(tree, 'Join Ashgrove Hair')).toBeTruthy();
   });
 
   it('lists further invitations as their own Join buttons', async () => {
@@ -196,6 +204,83 @@ describe('JoinScreen', () => {
       <JoinScreen invitations={[]} onDecline={jest.fn()} />,
     );
     expect(text(tree)).toBe('');
+  });
+});
+
+describe('JoinScreen name step', () => {
+  const nameInput = (tree: ReactTestRenderer, label: string) =>
+    tree.root.find(
+      (n) => n.props.accessibilityLabel === label && !!n.props.onChangeText,
+    );
+
+  it('does not ask for a name when Clerk already has one', () => {
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair')]}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(text(tree)).not.toContain('Your name');
+  });
+
+  it('asks a nameless person for a name and blocks Join until the first name is filled in', async () => {
+    mockFirstName = null;
+    const accept = jest.fn().mockResolvedValue(undefined);
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair', accept)]}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(text(tree)).toContain('Your name');
+    act(() => nameInput(tree, 'First name').props.onChangeText('   '));
+    await act(async () => {
+      button(tree, 'Join Ashgrove Hair').props.onPress();
+    });
+    expect(text(tree)).toContain('Enter your first name.');
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
+  });
+
+  it('saves the trimmed name to Clerk before accepting the invitation', async () => {
+    mockFirstName = null;
+    const accept = jest.fn().mockResolvedValue(undefined);
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair', accept)]}
+        onDecline={jest.fn()}
+      />,
+    );
+    act(() => nameInput(tree, 'First name').props.onChangeText('  Sam '));
+    act(() => nameInput(tree, 'Last name').props.onChangeText(' Jones  '));
+    await act(async () => {
+      button(tree, 'Join Ashgrove Hair').props.onPress();
+    });
+    expect(mockUpdateUser).toHaveBeenCalledWith({
+      firstName: 'Sam',
+      lastName: 'Jones',
+    });
+    expect(mockUpdateUser.mock.invocationCallOrder[0]).toBeLessThan(
+      accept.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not accept when saving the name fails', async () => {
+    mockFirstName = null;
+    mockUpdateUser.mockRejectedValue(new Error('nope'));
+    const accept = jest.fn().mockResolvedValue(undefined);
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair', accept)]}
+        onDecline={jest.fn()}
+      />,
+    );
+    act(() => nameInput(tree, 'First name').props.onChangeText('Sam'));
+    await act(async () => {
+      button(tree, 'Join Ashgrove Hair').props.onPress();
+    });
+    expect(accept).not.toHaveBeenCalled();
+    expect(toast.failed).toHaveBeenCalled();
   });
 });
 
