@@ -46,7 +46,8 @@
           "appleSignIn": false
         }
       ],
-      "./plugins/with-dev-menu-no-fab.js"
+      "./plugins/with-dev-menu-no-fab.js",
+      "./plugins/with-clovie-voice.js"
     ],
     "experiments": {
       "typedRoutes": true

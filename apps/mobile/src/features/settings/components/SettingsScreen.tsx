@@ -25,6 +25,7 @@ import { useSignOut } from '@/features/auth/useSignOut';
 import { useWhatsAppAccount } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { useServices, useStaff } from '@/features/catalog/hooks';
+import { isSupported as isVoiceSupported } from '@/features/voice/clovieVoice';
 import { Gate } from '@/features/plans/components/Gate';
 import { useAppMode, useEntitlements } from '@/features/plans/hooks';
 
@@ -44,6 +45,7 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   rules: GLYPHS.sliders,
   whatsapp: GLYPHS.chat,
   companion: CompanionGlyph,
+  voice: GLYPHS.chat,
   plan: GLYPHS.card,
   notifications: GLYPHS.bell,
 };
@@ -56,6 +58,7 @@ const ROUTES: Record<SettingsItem, string> = {
   rules: '/settings/booking-rules',
   whatsapp: '/settings/whatsapp',
   companion: '/companion',
+  voice: '/settings/voice',
   plan: '/settings/plan',
   notifications: '/settings/notifications',
 };
@@ -181,8 +184,8 @@ export function SettingsScreen() {
         </View>
       )}
 
-      {settingsGroups(isOwner, mode).map((group, index) =>
-        renderGroup(group, index),
+      {settingsGroups(isOwner, mode, { hasVoice: isVoiceSupported() }).map(
+        (group, index) => renderGroup(group, index),
       )}
 
       <Pressable
