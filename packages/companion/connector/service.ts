@@ -79,14 +79,21 @@ function nerovaActor(origin?: { conversationId?: string }): Actor {
   return { type: 'nerova', id: origin?.conversationId ? `nerova:${origin.conversationId}` : 'nerova' };
 }
 
-/** Origin channels that mean the owner is directing Pip (Nerova's `owner_chat` widget session). */
-const OWNER_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_chat']);
+/**
+ * Origin channels that are not a customer and so skip the cancellation window: `owner` and `owner_chat` (the
+ * owner directing Pip) and `system` / `conformance` (Nerova's own jobs and its connection certification, which
+ * books the soonest slot and then moves and cancels it).
+ */
+const WINDOW_EXEMPT_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_chat', 'system', 'conformance']);
 
 /**
- * Changes are held to the cancellation window by default: only an origin that positively says the owner is
- * directing Pip skips it, so a missing or vague origin can never bypass the owner's rule for a customer.
+ * Changes are held to the cancellation window by default. Customer channels (`whatsapp`, `voice`, `flow`, ...)
+ * and a missing or unrecognised origin are held to it; only a channel in WINDOW_EXEMPT_CHANNELS skips it, so a
+ * vague origin can never bypass the owner's rule for a customer. Lead time and the booking horizon are part of
+ * availability, which stays truthful for every channel, and creates are never exempted from availability or the
+ * exclusion constraint.
  */
-const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && OWNER_CHANNELS.has(origin.channel));
+const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && WINDOW_EXEMPT_CHANNELS.has(origin.channel));
 
 export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
