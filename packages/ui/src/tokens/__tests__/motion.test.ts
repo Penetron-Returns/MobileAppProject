@@ -22,9 +22,9 @@ describe('motion tokens', () => {
 
   it('maps the springs to SwiftUI smooth, snappy and bouncy (500ms, bounce 0 / 0.15 / 0.3)', () => {
     expect(SPRING).toEqual({
-      smooth: { duration: 500, dampingRatio: 1 },
-      snappy: { duration: 500, dampingRatio: 0.85 },
-      bouncy: { duration: 500, dampingRatio: 0.7 },
+      smooth: { duration: 500, dampingRatio: 1, reduceMotion: 'system' },
+      snappy: { duration: 500, dampingRatio: 0.85, reduceMotion: 'system' },
+      bouncy: { duration: 500, dampingRatio: 0.7, reduceMotion: 'system' },
     });
   });
 

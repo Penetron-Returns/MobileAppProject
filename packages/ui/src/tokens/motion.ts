@@ -38,14 +38,62 @@ export const EASING = {
 /**
  * Spring configs, mapped one-to-one to SwiftUI's `Animation` presets and used
  * as `withSpring({ duration, dampingRatio })`, where `dampingRatio = 1 - bounce`.
+ * Plain objects, so they are safe to read inside a worklet.
  */
 export const SPRING = {
   /** SwiftUI `.smooth` (bounce 0): layout changes, sheets, toasts, page-level moves. */
-  smooth: { duration: 500, dampingRatio: 1 },
+  smooth: { duration: 500, dampingRatio: 1, reduceMotion: ReduceMotion.System },
   /** SwiftUI `.snappy` (bounce 0.15): selection pills, switch thumbs, chips. */
-  snappy: { duration: 500, dampingRatio: 0.85 },
+  snappy: {
+    duration: 500,
+    dampingRatio: 0.85,
+    reduceMotion: ReduceMotion.System,
+  },
   /** SwiftUI `.bouncy` (bounce 0.3): celebrations only (the success mark). */
-  bouncy: { duration: 500, dampingRatio: 0.7 },
+  bouncy: {
+    duration: 500,
+    dampingRatio: 0.7,
+    reduceMotion: ReduceMotion.System,
+  },
+} as const;
+
+/**
+ * Precomputed `withTiming` configs (reduce-motion aware). Plain objects: inside
+ * a worklet (`useAnimatedStyle`, `useDerivedValue`, gesture callbacks) use
+ * these and never call `timingConfig()`, which is a JS function and crashes
+ * the UI runtime ("Tried to synchronously call a Remote Function").
+ */
+export const TIMING = {
+  press: {
+    duration: DURATION.press,
+    easing: EASING.standard,
+    reduceMotion: ReduceMotion.System,
+  },
+  quick: {
+    duration: DURATION.quick,
+    easing: EASING.standard,
+    reduceMotion: ReduceMotion.System,
+  },
+  standard: {
+    duration: DURATION.standard,
+    easing: EASING.standard,
+    reduceMotion: ReduceMotion.System,
+  },
+  standardOut: {
+    duration: DURATION.standard,
+    easing: EASING.out,
+    reduceMotion: ReduceMotion.System,
+  },
+  page: {
+    duration: DURATION.page,
+    easing: EASING.standard,
+    reduceMotion: ReduceMotion.System,
+  },
+  pageInOut: {
+    duration: DURATION.page,
+    easing: EASING.inOut,
+    reduceMotion: ReduceMotion.System,
+  },
 } as const;
 
 /** Scale values for press and pop feedback. */
@@ -58,7 +106,7 @@ export const SCALE = {
   pop: 1.12,
 } as const;
 
-/** `withTiming` config that honours the OS reduce-motion setting. */
+/** `withTiming` config that honours the OS reduce-motion setting. JS thread only: inside a worklet use `TIMING`. */
 export function timingConfig(
   duration: number = DURATION.standard,
   easing: (typeof EASING)[keyof typeof EASING] = EASING.standard,
@@ -66,9 +114,9 @@ export function timingConfig(
   return { duration, easing, reduceMotion: ReduceMotion.System } as const;
 }
 
-/** `withSpring` config that honours the OS reduce-motion setting. */
+/** `withSpring` config that honours the OS reduce-motion setting. JS thread only: inside a worklet use `SPRING`. */
 export function springConfig(spring: keyof typeof SPRING = 'snappy') {
-  return { ...SPRING[spring], reduceMotion: ReduceMotion.System } as const;
+  return SPRING[spring];
 }
 
 /** Stagger between list rows, and the most rows that get a delay. */

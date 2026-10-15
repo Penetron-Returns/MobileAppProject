@@ -114,6 +114,7 @@ Animations use spring physics like SwiftUI's, defined once in `tokens/motion.ts`
 - **Lists:** rows appear with a short staggered fade-up on first load only. Insertions and removals animate layout (Reanimated layout animations).
 - **Reduced motion:** every animation honours it. Springs become cross-fades or are dropped, and nothing depends on motion to be understood.
 - **Never block input:** animations run on the UI thread and never delay a tap, navigation or save.
+- **Worklets use plain objects, never helpers:** inside `useAnimatedStyle`, `useDerivedValue`, `useAnimatedProps`, `useAnimatedReaction`, `runOnUI` or gesture callbacks, pass `TIMING.quick` / `SPRING.snappy` (plain objects). Never call `timingConfig()`, `springConfig()` or `staggerDelay()` there: they are JS-thread functions and crash the UI runtime ("Tried to synchronously call a Remote Function"). Call them in effects, handlers or the component body only. Other JS functions (haptics, `t()`, setState) inside a worklet need `runOnJS`. The Reanimated jest mock runs worklets on the JS thread, so tests cannot catch this; `packages/ui/src/tokens/__tests__/workletSafety.test.ts` scans the source for it instead.
 
 ## Haptics (SwiftUI `.sensoryFeedback`)
 

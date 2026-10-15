@@ -1,9 +1,4 @@
-import {
-  DURATION,
-  timingConfig,
-  useAppColorScheme,
-  useReduceMotion,
-} from '@booking/ui';
+import { TIMING, useAppColorScheme, useReduceMotion } from '@booking/ui';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 import Animated, {
@@ -51,10 +46,10 @@ export function ClovieAnimated({
   const onFail = React.useCallback(() => setFailed(true), []);
 
   const liveStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(showLive ? 1 : 0, timingConfig(DURATION.standard)),
+    opacity: withTiming(showLive ? 1 : 0, TIMING.standard),
   }));
   const stillStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(showLive ? 0 : 1, timingConfig(DURATION.standard)),
+    opacity: withTiming(showLive ? 0 : 1, TIMING.standard),
   }));
 
   const box = size * OVERSCAN;
