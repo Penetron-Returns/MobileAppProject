@@ -1,11 +1,14 @@
 /** zod argument schemas for the ten tools. Unknown arguments are ignored (v1 only adds). */
 import { z } from 'zod';
 
-import { isInstant } from '@booking/features/lib/time.ts';
+import { isInstant, normaliseInstant } from '@booking/features/lib/time.ts';
 
 const text = z.string().min(1).max(500);
 const optionalText = z.string().max(2000).optional();
-const instant = z.string().refine(isInstant, 'must be an ISO 8601 instant with an explicit offset (Z or +hh:mm)');
+const instant = z
+  .string()
+  .refine(isInstant, 'must be an ISO 8601 instant with an explicit offset (Z or +hh:mm)')
+  .transform(normaliseInstant);
 
 const origin = z
   .object({

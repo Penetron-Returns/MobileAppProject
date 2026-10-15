@@ -1,4 +1,4 @@
-import { isInstant } from '@booking/features/lib/time.ts';
+import { isInstant, normaliseInstant } from '@booking/features/lib/time.ts';
 
 /**
  * Reply-ID grammar (BUILD_PLAN §5). Every interactive reply and template
@@ -50,7 +50,7 @@ export function isCalendarDate(v: string): boolean {
 }
 
 /** Re-exported: the rule lives in features so the companion connector can share it without importing this app. */
-export { isInstant };
+export { isInstant, normaliseInstant };
 
 export function parseReplyId(raw: unknown): ReplyId | null {
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > MAX_ID_LENGTH) return null;
@@ -76,7 +76,7 @@ export function parseReplyId(raw: unknown): ReplyId | null {
       const staff = rest.slice(bar + 1);
       if (!isInstant(iso)) return null;
       if (staff !== 'any' && !isUuid(staff)) return null;
-      return { t: 'slot', startsAt: iso, staffId: staff === 'any' ? null : staff.toLowerCase() };
+      return { t: 'slot', startsAt: normaliseInstant(iso), staffId: staff === 'any' ? null : staff.toLowerCase() };
     }
     case 'cfm':
       return rest === 'yes' ? { t: 'cfm', yes: true } : rest === 'no' ? { t: 'cfm', yes: false } : null;

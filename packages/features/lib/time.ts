@@ -227,9 +227,14 @@ export function dayBoundsInZone(date: string, zone: string): { start: number; en
   return { start: wallClockToEpoch(date, 0, zone), end: wallClockToEpoch(date, 1440, zone) };
 }
 
-const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/;
 
-/** ISO 8601 instant with an explicit offset (Z or +hh:mm). Calendar-only strings and local times are rejected. */
+/** Truncates a fractional second to millisecond precision (Date.parse is engine-dependent beyond 3 digits, and .NET sends 7). */
+export function normaliseInstant(v: string): string {
+  return v.replace(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/, (_m, f: string) => `.${f.slice(0, 3).padEnd(3, '0')}`);
+}
+
+/** ISO 8601 instant with an explicit offset (Z or +hh:mm), 0-9 fractional digits. Calendar-only strings and local times are rejected. */
 export function isInstant(v: string): boolean {
-  return ISO_INSTANT_RE.test(v) && !Number.isNaN(Date.parse(v));
+  return ISO_INSTANT_RE.test(v) && !Number.isNaN(Date.parse(normaliseInstant(v)));
 }
