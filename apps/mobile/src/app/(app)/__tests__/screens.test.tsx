@@ -483,14 +483,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { setCalendarViewMode } from '@/features/calendar/navigation';
 
-import AddBookingRoute from '../add';
+import AddBookingRoute from '../(tabs)/add';
 import BookingDetailRoute from '../bookings/[id]';
-import CalendarRoute from '../calendar';
+import CalendarRoute from '../(tabs)/calendar';
 import CancelRoute from '../bookings/cancel/[id]';
 import RescheduleRoute from '../bookings/reschedule/[id]';
-import ClientsRoute from '../clients';
+import ClientsRoute from '../(tabs)/clients';
 import ClientProfileRoute from '../clients/[id]';
-import SettingsRoute from '../settings';
+import SettingsRoute from '../(tabs)/settings';
 import BusinessDetailsRoute from '../settings/business-details';
 import OperatingHoursRoute from '../settings/operating-hours';
 import ServicesRoute from '../settings/services';
