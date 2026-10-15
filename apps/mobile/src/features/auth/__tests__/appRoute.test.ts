@@ -12,6 +12,7 @@ const base: AppRouteInput = {
   userLoaded: true,
   activeOrgId: 'org_1',
   membershipOrgIds: ['org_1'],
+  membershipsStatus: 'idle',
   me: 'ok',
   invitations: { status: 'idle', count: 0 },
   joinDeclined: false,
@@ -141,6 +142,49 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
     'an active organisation ignores invitations',
     { invitations: { status: 'ready', count: 3 } },
     { kind: 'tabs' },
+  ],
+  [
+    'fresh sign-in: no active org, memberships still loading, waits',
+    { ...noOrg, membershipsStatus: 'loading' },
+    { kind: 'splash' },
+  ],
+  [
+    'fresh sign-in: memberships fetched, activates the first (not onboarding)',
+    {
+      activeOrgId: null,
+      membershipOrgIds: ['org_7'],
+      membershipsStatus: 'ready',
+      invitations: { status: 'idle', count: 0 },
+    },
+    { kind: 'activate-org', orgId: 'org_7' },
+  ],
+  [
+    'fresh sign-in: a failed memberships lookup is a session error, not onboarding',
+    { ...noOrg, membershipsStatus: 'error' },
+    { kind: 'session-error' },
+  ],
+  [
+    'memberships known to be empty with no invitations goes to onboarding',
+    {
+      ...noOrg,
+      membershipsStatus: 'ready',
+      invitations: { status: 'ready', count: 0 },
+    },
+    { kind: 'onboarding' },
+  ],
+  [
+    'memberships known to be empty with an invitation offers to join',
+    {
+      ...noOrg,
+      membershipsStatus: 'ready',
+      invitations: { status: 'ready', count: 1 },
+    },
+    { kind: 'join' },
+  ],
+  [
+    'token unavailable / /me 401 shows the session error, not onboarding',
+    { me: 'unauthorized' },
+    { kind: 'session-error' },
   ],
   ['active with org and /me ok shows tabs', {}, { kind: 'tabs' }],
 ];

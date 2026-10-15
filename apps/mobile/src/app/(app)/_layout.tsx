@@ -10,9 +10,11 @@ import { SessionErrorScreen } from '@/features/business/components/SessionErrorS
 import { JoinScreen } from '@/features/join/components/JoinScreen';
 import { usePendingInvitations } from '@/features/join/hooks';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import {
   resolveAppRoute,
   type InvitationsInput,
+  type LookupStatus,
   type MeStatus,
   type SessionTaskKey,
 } from '@/features/auth/appRoute';
@@ -28,6 +30,23 @@ function toInvitationsInput(
   return { status: query.isError ? 'error' : 'loading', count: 0 };
 }
 
+function toLookupStatus(
+  enabled: boolean,
+  query: { isSuccess: boolean; isError: boolean },
+): LookupStatus {
+  if (!enabled) return 'idle';
+  if (query.isSuccess) return 'ready';
+  return query.isError ? 'error' : 'loading';
+}
+
+/** A rejected session (401) or a missing token is not "no business". */
+function isUnauthorized(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    (error.status === 401 || error.code === 'NOT_SIGNED_IN')
+  );
+}
+
 function toMeStatus(
   enabled: boolean,
   me: { isSuccess: boolean; isError: boolean; error: unknown },
@@ -35,6 +54,7 @@ function toMeStatus(
   if (!enabled) return 'idle';
   if (me.isSuccess) return 'ok';
   if (me.isError) {
+    if (isUnauthorized(me.error)) return 'unauthorized';
     return isApiError(me.error) && me.error.code === 'NO_BUSINESS'
       ? 'no_business'
       : 'error';
@@ -67,14 +87,23 @@ export default function AppLayout() {
   const [inOnboarding, setInOnboarding] = React.useState(false);
   const [joinDeclined, setJoinDeclined] = React.useState(false);
 
-  const membershipOrgIds = React.useMemo(
+  const cachedOrgIds = React.useMemo(
     () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
     [user?.organizationMemberships],
   );
   const hasOrg = Boolean(isSignedIn && orgId);
-  // Invitations only matter to someone with no organisation to open.
+  // Clerk's cached memberships are empty right after a fresh sign-in, so with
+  // no active org and nothing cached, ask Clerk before deciding anything.
+  const asksMemberships = Boolean(
+    isSignedIn && userLoaded && !orgId && cachedOrgIds.length === 0,
+  );
+  const memberships = useMembershipOrgIds(asksMemberships);
+  const membershipOrgIds = cachedOrgIds.length
+    ? cachedOrgIds
+    : (memberships.data ?? cachedOrgIds);
+  // Invitations only matter to someone proven to have no organisation to open.
   const asksInvitations = Boolean(
-    isSignedIn && userLoaded && !orgId && membershipOrgIds.length === 0,
+    asksMemberships && memberships.isSuccess && membershipOrgIds.length === 0,
   );
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
@@ -93,6 +122,7 @@ export default function AppLayout() {
     userLoaded,
     activeOrgId: orgId ?? null,
     membershipOrgIds,
+    membershipsStatus: toLookupStatus(asksMemberships, memberships),
     me: toMeStatus(hasOrg, me),
     invitations: toInvitationsInput(asksInvitations, invitations),
     joinDeclined,
@@ -139,9 +169,11 @@ export default function AppLayout() {
     case 'session-error':
       return (
         <SessionErrorScreen
-          error={me.error}
-          onRetry={() => void me.refetch()}
-          isRetrying={me.isFetching}
+          error={memberships.error ?? me.error}
+          onRetry={() =>
+            void (memberships.isError ? memberships.refetch() : me.refetch())
+          }
+          isRetrying={memberships.isFetching || me.isFetching}
         />
       );
     case 'tabs':

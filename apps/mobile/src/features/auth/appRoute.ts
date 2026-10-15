@@ -8,7 +8,16 @@ export type SessionStatus = 'active' | 'pending';
 /** Clerk session task keys (`session.currentTask.key`). */
 export type SessionTaskKey =
   'choose-organization' | 'reset-password' | 'setup-mfa';
-export type MeStatus = 'idle' | 'loading' | 'ok' | 'no_business' | 'error';
+export type MeStatus =
+  | 'idle'
+  | 'loading'
+  | 'ok'
+  | 'no_business'
+  /** The API rejected the session (401) or no token could be obtained. */
+  | 'unauthorized'
+  | 'error';
+/** Progress of the lookup of the user's organisation memberships. */
+export type LookupStatus = 'idle' | 'loading' | 'ready' | 'error';
 /** Pending organisation invitations of the signed-in user. */
 export interface InvitationsInput {
   /** `idle` = not asked (the user already has an organisation). */
@@ -26,7 +35,13 @@ export interface AppRouteInput {
   /** True once the Clerk user (and its memberships) have loaded. */
   userLoaded: boolean;
   activeOrgId: string | null;
+  /**
+   * Organisation ids of the user. Clerk's cached list is empty right after a
+   * fresh sign-in, so the layout fetches it when nothing is cached.
+   */
   membershipOrgIds: readonly string[];
+  /** `idle` = not asked (an organisation is active or ids were cached). */
+  membershipsStatus: LookupStatus;
   me: MeStatus;
   /** Pending invitations, asked only while the user has no organisation. */
   invitations: InvitationsInput;
@@ -60,6 +75,10 @@ export function resolveAppRoute(input: AppRouteInput): AppRoute {
   if (!input.activeOrgId) {
     const first = input.membershipOrgIds[0];
     if (first) return { kind: 'activate-org', orgId: first };
+    // Never decide "no business" until the memberships are actually known: an
+    // unanswered or failed lookup is not an empty one.
+    if (input.membershipsStatus === 'loading') return { kind: 'splash' };
+    if (input.membershipsStatus === 'error') return { kind: 'session-error' };
     // Someone invited to a business joins it before creating their own. A
     // failed lookup falls through to onboarding: it needs an explicit action,
     // and blocking here would strand a user who has no invitation.
@@ -76,7 +95,8 @@ export function resolveAppRoute(input: AppRouteInput): AppRoute {
 
   if (input.inOnboarding || input.me === 'no_business')
     return { kind: 'onboarding' };
-  if (input.me === 'error') return { kind: 'session-error' };
+  if (input.me === 'error' || input.me === 'unauthorized')
+    return { kind: 'session-error' };
   if (input.me !== 'ok') return { kind: 'splash' };
   return { kind: 'tabs' };
 }
