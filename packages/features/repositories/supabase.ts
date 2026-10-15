@@ -10,9 +10,11 @@
  */
 import type { Database, Json, TablesUpdate } from '@booking/database';
 import type { Db } from '../lib/db.ts';
-import { AppError, mapDbError, type PostgrestLikeError } from '../lib/errors.ts';
+import { AppError, mapDbError } from '../lib/errors.ts';
 import { serializeTsRange } from '../lib/time.ts';
+import { check, count, maybe, one, rows, type Result } from './dbResult.ts';
 import type { WebhookEventRow } from './rows.ts';
+import { createSupabaseScheduleRepository } from './supabaseSchedule.ts';
 import type { BookingRepository } from './types.ts';
 
 type TableName = keyof Database['public']['Tables'];
@@ -29,33 +31,6 @@ const APPOINTMENT_COLS =
 const ATTEMPT_COLS =
   'id, business_id, channel, client_id, conversation_id, session_key, started_at, completed_at, step_count, outcome, appointment_id, error_code, steps';
 
-interface Result<T> {
-  data: T | null;
-  error: PostgrestLikeError | null;
-  count?: number | null;
-}
-
-function rows<T>(result: Result<unknown>): T[] {
-  if (result.error) throw mapDbError(result.error);
-  return (result.data ?? []) as T[];
-}
-
-function maybe<T>(result: Result<unknown>): T | null {
-  if (result.error) throw mapDbError(result.error);
-  return (result.data ?? null) as T | null;
-}
-
-function one<T>(result: Result<unknown>, entity: string): T {
-  const row = maybe<T>(result);
-  if (!row) throw new AppError('NOT_FOUND', `${entity} not found`);
-  return row;
-}
-
-function count(result: Result<unknown>): number {
-  if (result.error) throw mapDbError(result.error);
-  return result.count ?? 0;
-}
-
 /** RPCs returning a composite come back as an object (or a one-element array). */
 function rpcRow<T>(result: Result<unknown>, entity: string): T {
   if (result.error) throw mapDbError(result.error);
@@ -64,14 +39,13 @@ function rpcRow<T>(result: Result<unknown>, entity: string): T {
   return data as T;
 }
 
-function check(result: Result<unknown>): void {
-  if (result.error) throw mapDbError(result.error);
-}
 
 export function createSupabaseRepository(db: Db): BookingRepository {
   const t = <T extends TableName>(table: T) => db.from(table);
 
   return {
+    ...createSupabaseScheduleRepository(db),
+
     // ----- catalog -----
     async getBusiness(businessId) {
       return maybe(await t('businesses').select(BUSINESS_COLS).eq('id', businessId).maybeSingle());

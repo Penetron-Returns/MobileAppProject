@@ -14,6 +14,7 @@ import type {
   MeDTO,
   MemberRole,
   ServiceDTO,
+  StaffDayOverrideDTO,
   StaffDTO,
   UpdateBusinessRequest,
   UpdateServiceRequest,
@@ -24,20 +25,11 @@ import { AppError, notFound } from '../../lib/errors.ts';
 import { normalizePhone } from '../../lib/phone.ts';
 import { pick } from '../../lib/pick.ts';
 import { normaliseTimeOfDay } from '../../lib/time.ts';
+import { findRepeatedWeekday } from '../../availability/lib/hours.ts';
+import { toStaffDayOverrideDTO } from '../../availability/lib/mappers.ts';
 import { bookingRules, toBusinessDTO, toBusinessHours, toServiceDTO, toStaffDTO } from '../../bookings/lib/mappers.ts';
 import type { BookingRepository, ServiceValues, StaffValues } from '../../repositories/types.ts';
-import type { BusinessRow, OverrideRow } from '../../repositories/rows.ts';
-
-/** Not in @booking/types (additive, WS-B only): response of POST /v1/overrides. */
-export interface OverrideDTO {
-  id: UUID;
-  staff_id: UUID | null;
-  date: string;
-  is_closed: boolean;
-  start_time: string | null;
-  end_time: string | null;
-  reason: string | null;
-}
+import type { BusinessRow } from '../../repositories/rows.ts';
 
 /** Response of DELETE /v1/services/:id and /v1/staff/:id. */
 export interface DeleteResult {
@@ -118,6 +110,9 @@ export async function replaceBusinessHours(
   businessId: UUID,
   hours: BusinessHoursRow[],
 ): Promise<BusinessHoursRow[]> {
+  if (findRepeatedWeekday(hours) !== null) {
+    throw new AppError('VALIDATION_FAILED', 'Opening hours allow one range per weekday; use a staff break for a lunch gap');
+  }
   await repo.replaceBusinessHours(
     businessId,
     hours.map((h) => ({ weekday: h.weekday, opens_at: normaliseTimeOfDay(h.opens_at), closes_at: normaliseTimeOfDay(h.closes_at) })),
@@ -265,6 +260,9 @@ export async function replaceStaffAvailability(
   rules: AvailabilityRuleInput[],
 ): Promise<{ staff_id: UUID; rules: AvailabilityRuleInput[] }> {
   await requireStaff(repo, businessId, staffId);
+  if (findRepeatedWeekday(rules) !== null) {
+    throw new AppError('VALIDATION_FAILED', 'Working hours allow one range per weekday; use a break for a gap');
+  }
   const normalised = rules.map((r) => ({
     weekday: r.weekday,
     start_time: normaliseTimeOfDay(r.start_time),
@@ -276,29 +274,25 @@ export async function replaceStaffAvailability(
 
 // ---------- overrides ----------
 
-function toOverrideDTO(row: OverrideRow): OverrideDTO {
-  return {
-    id: row.id,
-    staff_id: row.staff_id,
-    date: row.date,
-    is_closed: row.is_closed,
-    start_time: row.start_time ? normaliseTimeOfDay(row.start_time) : null,
-    end_time: row.end_time ? normaliseTimeOfDay(row.end_time) : null,
-    reason: row.reason,
-  };
-}
-
-export async function createOverride(repo: BookingRepository, businessId: UUID, req: CreateOverrideRequest): Promise<OverrideDTO> {
-  if (req.staff_id) await requireStaff(repo, businessId, req.staff_id);
+/** A per-staff day override. Business-wide closed days and special hours are special days (POST /v1/special-days). */
+export async function createOverride(
+  repo: BookingRepository,
+  businessId: UUID,
+  req: CreateOverrideRequest,
+): Promise<StaffDayOverrideDTO> {
+  if (!req.staff_id) {
+    throw new AppError('VALIDATION_FAILED', 'staff_id is required; use POST /v1/special-days for business-wide days');
+  }
+  await requireStaff(repo, businessId, req.staff_id);
   const row = await repo.insertOverride(businessId, {
-    staff_id: req.staff_id ?? null,
+    staff_id: req.staff_id,
     date: req.date,
     is_closed: req.is_closed,
     start_time: req.is_closed ? null : normaliseTimeOfDay(req.start_time!),
     end_time: req.is_closed ? null : normaliseTimeOfDay(req.end_time!),
     reason: req.reason ?? null,
   });
-  return toOverrideDTO(row);
+  return toStaffDayOverrideDTO(row);
 }
 
 export async function deleteOverride(repo: BookingRepository, businessId: UUID, overrideId: UUID): Promise<{ id: UUID }> {

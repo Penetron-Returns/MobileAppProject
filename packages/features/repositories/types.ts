@@ -22,8 +22,11 @@ import type {
   ClientRow,
   OverrideRow,
   ServiceRow,
+  SpecialDayRow,
+  StaffBreakRow,
   StaffRow,
   StaffServiceRow,
+  TimeOffRow,
   UserRow,
   WebhookEventRow,
 } from './rows.ts';
@@ -37,6 +40,9 @@ export type ClientPatch = Partial<
   Pick<ClientRow, 'phone_e164' | 'name' | 'email' | 'notes' | 'tags' | 'is_blocked' | 'whatsapp_opt_in'>
 >;
 export type OverrideValues = Omit<OverrideRow, 'id' | 'business_id'>;
+export type SpecialDayValues = Omit<SpecialDayRow, 'id' | 'business_id'>;
+export type StaffBreakValues = Omit<StaffBreakRow, 'id' | 'business_id' | 'staff_id'>;
+export type TimeOffValues = Omit<TimeOffRow, 'id' | 'business_id' | 'staff_id'>;
 export type AttemptPatch = Partial<
   Pick<BookingAttemptRow, 'client_id' | 'completed_at' | 'step_count' | 'outcome' | 'appointment_id' | 'error_code' | 'steps'>
 >;
@@ -152,6 +158,29 @@ export interface CatalogRepository {
   countAppointments(businessId: UUID, filter: { serviceId?: UUID; staffId?: UUID }): Promise<number>;
 }
 
+/** Special days, staff breaks and time off (docs/booking-core.md rule order). */
+export interface ScheduleRepository {
+  /** Special days with date in [from, to], ordered by date */
+  listSpecialDays(businessId: UUID, from: string, to: string): Promise<SpecialDayRow[]>;
+  getSpecialDay(businessId: UUID, specialDayId: UUID): Promise<SpecialDayRow | null>;
+  /** A second special day on the same date fails with VALIDATION_FAILED (unique business + date) */
+  insertSpecialDay(businessId: UUID, values: SpecialDayValues): Promise<SpecialDayRow>;
+  updateSpecialDay(businessId: UUID, specialDayId: UUID, patch: Partial<SpecialDayValues>): Promise<SpecialDayRow | null>;
+  deleteSpecialDay(businessId: UUID, specialDayId: UUID): Promise<boolean>;
+
+  /** Breaks of the given staff, ordered by (start_time, label, id) */
+  listStaffBreaks(businessId: UUID, staffIds: UUID[]): Promise<StaffBreakRow[]>;
+  /** RPC replace_staff_breaks (caller verified ownership); overlapping breaks → RULE_VIOLATION OVERLAPPING_BREAKS */
+  replaceStaffBreaks(businessId: UUID, staffId: UUID, breaks: StaffBreakValues[]): Promise<StaffBreakRow[]>;
+
+  /** Time off overlapping [from, to] (inclusive dates), optionally for some staff, ordered by (starts_on, id) */
+  listTimeOff(businessId: UUID, from: string, to: string, staffIds?: UUID[]): Promise<TimeOffRow[]>;
+  getTimeOff(businessId: UUID, timeOffId: UUID): Promise<TimeOffRow | null>;
+  insertTimeOff(businessId: UUID, staffId: UUID, values: TimeOffValues): Promise<TimeOffRow>;
+  updateTimeOff(businessId: UUID, timeOffId: UUID, patch: Partial<TimeOffValues>): Promise<TimeOffRow | null>;
+  deleteTimeOff(businessId: UUID, timeOffId: UUID): Promise<boolean>;
+}
+
 export interface AppointmentRepository {
   /** Non-cancelled appointments of `staffIds` whose blocked range overlaps [from, to) */
   listBusy(businessId: UUID, staffIds: UUID[], fromIso: string, toIso: string): Promise<BusyRow[]>;
@@ -233,6 +262,7 @@ export interface MaintenanceRepository {
 
 export interface BookingRepository
   extends CatalogRepository,
+    ScheduleRepository,
     AppointmentRepository,
     ClientRepository,
     MemberRepository,

@@ -6,7 +6,7 @@
 import type { AvailableSlotsResponse, ISODate, ServiceDTO, StaffDTO, UUID } from '@booking/types';
 import { AppError, notFound, ruleViolation } from '../../lib/errors.ts';
 import { createLogger, type Logger } from '../../lib/logger.ts';
-import { addDays, dateInZone, dayBoundsInZone, rangeBounds } from '../../lib/time.ts';
+import { dateInZone, rangeBounds } from '../../lib/time.ts';
 import type {
   Actor,
   AppointmentChangeKind,
@@ -22,8 +22,8 @@ import {
   findSlot,
   freeStaffIgnoringHours,
   listAvailableDays as engineListDays,
-  type AvailabilityInput,
 } from '../../availability/lib/availability.ts';
+import { loadAvailabilityInput, type AvailabilityContextArgs } from '../lib/availabilityInput.ts';
 import { bookingRules, toAppointmentDTO, toBusinessDTO, toServiceDTO, toStaffDTO } from '../lib/mappers.ts';
 import type { BookingRepository } from '../../repositories/types.ts';
 import type { AppointmentRow, BusinessRow, ServiceRow, StaffRow } from '../../repositories/rows.ts';
@@ -80,55 +80,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     throw ruleViolation('STAFF_NOT_QUALIFIED', 'This staff member does not perform this service');
   }
 
-  interface ContextArgs {
-    business: BusinessRow;
-    durationMinutes: number;
-    staff: StaffRow[];
-    from: ISODate;
-    to: ISODate;
-    now: Date;
-    excludeAppointmentId?: UUID;
-  }
-
-  /** Loads everything the pure engine needs for dates [from, to]. */
-  async function availabilityInput(args: ContextArgs): Promise<AvailabilityInput> {
-    const { business, staff } = args;
-    const tz = business.timezone;
-    const ids = staff.map((s) => s.id);
-    const windowStart = new Date(dayBoundsInZone(args.from, tz).start).toISOString();
-    // One extra day covers buffers that spill past midnight.
-    const windowEnd = new Date(dayBoundsInZone(addDays(args.to, 1), tz).end).toISOString();
-    const [hours, rules, overrides, busy] = await Promise.all([
-      repo.listBusinessHours(business.id),
-      repo.listAvailabilityRules(business.id, ids),
-      repo.listOverrides(business.id, args.from, args.to),
-      repo.listBusy(business.id, ids, windowStart, windowEnd),
-    ]);
-    return {
-      timezone: tz,
-      rules: bookingRules(business),
-      businessHours: hours.map((h) => ({ weekday: h.weekday, start: h.opens_at, end: h.closes_at })),
-      overrides: overrides.map((o) => ({
-        staff_id: o.staff_id,
-        date: o.date,
-        is_closed: o.is_closed,
-        start_time: o.start_time,
-        end_time: o.end_time,
-      })),
-      staff: staff.map((s) => ({
-        id: s.id,
-        sort_order: s.sort_order,
-        rules: rules
-          .filter((r) => r.staff_id === s.id)
-          .map((r) => ({ weekday: r.weekday, start: r.start_time, end: r.end_time })),
-      })),
-      busy: busy
-        .filter((b) => b.id !== args.excludeAppointmentId)
-        .map((b) => ({ staff_id: b.staff_id, ...rangeBounds(b.blocked) })),
-      durationMinutes: args.durationMinutes,
-      now: args.now,
-    };
-  }
+  const availabilityInput = (args: AvailabilityContextArgs) => loadAvailabilityInput(repo, args);
 
   /** Candidate staff for a query: all bookable staff, or just the requested one. */
   async function candidates(businessId: UUID, serviceId: UUID, staffId?: UUID | null): Promise<StaffRow[]> {

@@ -16,10 +16,7 @@ export type UUID = string;
 
 export type MemberRole = 'owner' | 'staff';
 export type AppointmentStatus =
-  | 'confirmed'
-  | 'cancelled'
-  | 'completed'
-  | 'no_show';
+  'confirmed' | 'cancelled' | 'completed' | 'no_show';
 export type AppointmentSource = 'whatsapp' | 'app' | 'web' | 'nerova';
 export type ActorType = 'customer' | 'staff' | 'system' | 'nerova';
 
@@ -44,18 +41,9 @@ export interface EntitlementsDTO {
   features: FeatureEntitlementDTO[];
 }
 export type WhatsAppAccountStatus =
-  | 'pending'
-  | 'live'
-  | 'needs_reauth'
-  | 'disconnected'
-  | 'paused';
+  'pending' | 'live' | 'needs_reauth' | 'disconnected' | 'paused';
 export type TemplateStatus =
-  | 'draft'
-  | 'submitted'
-  | 'approved'
-  | 'rejected'
-  | 'paused'
-  | 'disabled';
+  'draft' | 'submitted' | 'approved' | 'rejected' | 'paused' | 'disabled';
 export type EscalationReason =
   | 'customer_requested'
   | 'unrecognised_input'
@@ -136,6 +124,7 @@ export interface BusinessHoursRow {
   closes_at: TimeOfDay;
 }
 
+/** PUT /v1/business/hours: at most ONE row per weekday (a lunch gap is a staff break). */
 export interface ReplaceBusinessHoursRequest {
   hours: BusinessHoursRow[];
 }
@@ -221,6 +210,7 @@ export interface AvailabilityRuleInput {
   end_time: TimeOfDay;
 }
 
+/** POST /v1/overrides. `staff_id` is required now: business-wide days moved to special days. */
 export interface CreateOverrideRequest {
   staff_id?: UUID | null;
   date: ISODate;
@@ -321,6 +311,153 @@ export interface AvailableSlotsResponse {
   date: ISODate;
   timezone: string;
   slots: SlotDTO[];
+}
+
+// ---------- hours, special days, breaks, time off ----------
+// Rule order (docs/booking-core.md): business hours → special days → staff hours →
+// breaks → time off → appointments, buffer, lead time, horizon.
+
+/** A per-staff day override (`POST /v1/overrides`). Business-wide days are special days instead. */
+export interface StaffDayOverrideDTO {
+  id: UUID;
+  staff_id: UUID;
+  date: ISODate;
+  is_closed: boolean;
+  start_time: TimeOfDay | null;
+  end_time: TimeOfDay | null;
+  reason: string | null;
+}
+
+export type SpecialDayKind = 'public_holiday' | 'closure' | 'special_hours';
+
+/** One business-wide date that is closed or has replacement hours (one range). */
+export interface SpecialDayDTO {
+  id: UUID;
+  date: ISODate;
+  name: string;
+  kind: SpecialDayKind;
+  is_closed: boolean;
+  /** Both null when closed, both set (start < end) otherwise */
+  start_time: TimeOfDay | null;
+  end_time: TimeOfDay | null;
+}
+
+/**
+ * POST /v1/special-days. `is_closed` defaults to true for `closure` and `public_holiday`
+ * and to false for `special_hours`; a `closure` must be closed and `special_hours` open.
+ */
+export interface CreateSpecialDayRequest {
+  date: ISODate;
+  name: string;
+  kind: SpecialDayKind;
+  is_closed?: boolean;
+  start_time?: TimeOfDay | null;
+  end_time?: TimeOfDay | null;
+}
+/** PATCH /v1/special-days/:id. The merged result is validated like a create. */
+export type UpdateSpecialDayRequest = Partial<CreateSpecialDayRequest>;
+
+/** One South African public holiday for GET /v1/special-days/suggestions. */
+export interface SpecialDaySuggestionDTO {
+  date: ISODate;
+  name: string;
+  kind: 'public_holiday';
+  is_closed: true;
+  /** A Sunday holiday observed on the Monday (Public Holidays Act 36 of 1994, s 2(1)) */
+  observed_for: ISODate | null;
+  /** A special day already exists on that date */
+  added: boolean;
+  special_day_id: UUID | null;
+}
+export interface SpecialDaySuggestionsResponse {
+  year: number;
+  suggestions: SpecialDaySuggestionDTO[];
+}
+
+/** A named recurring break. `weekdays` empty = every day the staff member works (0 = Sunday). */
+export interface StaffBreakDTO {
+  id: UUID;
+  staff_id: UUID;
+  label: string;
+  start_time: TimeOfDay;
+  end_time: TimeOfDay;
+  weekdays: number[];
+}
+export interface StaffBreakInput {
+  /** Defaults to "Break" */
+  label?: string;
+  start_time: TimeOfDay;
+  end_time: TimeOfDay;
+  weekdays?: number[];
+}
+/** PUT /v1/staff/:id/breaks (atomic replace; `[]` removes every break). Overlapping breaks are rejected. */
+export interface ReplaceStaffBreaksRequest {
+  breaks: StaffBreakInput[];
+}
+export interface ReplaceStaffBreaksResponse {
+  staff_id: UUID;
+  breaks: StaffBreakDTO[];
+}
+
+export type TimeOffReason = 'leave' | 'sick' | 'training' | 'other';
+
+/**
+ * A staff absence over `starts_on`..`ends_on` (inclusive, business timezone). Both times null =
+ * all day on every date of the range. Both set = those hours on EACH date of the range.
+ */
+export interface StaffTimeOffDTO {
+  id: UUID;
+  staff_id: UUID;
+  starts_on: ISODate;
+  ends_on: ISODate;
+  start_time: TimeOfDay | null;
+  end_time: TimeOfDay | null;
+  reason: TimeOffReason;
+  note: string | null;
+}
+/** POST /v1/staff/:id/time-off */
+export interface CreateStaffTimeOffRequest {
+  starts_on: ISODate;
+  ends_on?: ISODate;
+  start_time?: TimeOfDay | null;
+  end_time?: TimeOfDay | null;
+  reason?: TimeOffReason;
+  note?: string | null;
+}
+/** PATCH /v1/time-off/:id. The merged result is validated like a create. */
+export type UpdateStaffTimeOffRequest = Partial<CreateStaffTimeOffRequest>;
+
+/** One staff member's schedule inside GET /v1/availability/config. */
+export interface StaffAvailabilityConfigDTO {
+  staff_id: UUID;
+  /** One range per weekday; empty = inherits the business hours */
+  rules: AvailabilityRuleInput[];
+  breaks: StaffBreakDTO[];
+  /** Time off overlapping [from, to] */
+  time_off: StaffTimeOffDTO[];
+  /** Per-staff day overrides in [from, to] */
+  overrides: StaffDayOverrideDTO[];
+}
+
+/** GET /v1/availability/config?from&to: everything the hours screens render, in one call. */
+export interface AvailabilityConfigResponse {
+  from: ISODate;
+  to: ISODate;
+  timezone: string;
+  business_hours: BusinessHoursRow[];
+  /** Special days in [from, to] */
+  special_days: SpecialDayDTO[];
+  staff: StaffAvailabilityConfigDTO[];
+}
+
+/**
+ * GET /v1/availability/conflicts: confirmed appointments a proposed special day or time off
+ * would overlap. Never cancels anything. `mode=closed` (default): the window (whole days, or
+ * start_time..end_time on each date) becomes unavailable. `mode=open_only`: only the window stays
+ * available, so appointments outside it conflict (special hours).
+ */
+export interface AvailabilityConflictsResponse {
+  conflicts: AppointmentDTO[];
 }
 
 // ---------- appointments ----------

@@ -9,6 +9,8 @@ import type {
   AppointmentStatus,
   BookingRules,
   MemberRole,
+  SpecialDayKind,
+  TimeOffReason,
   UUID,
 } from '@booking/types';
 
@@ -98,12 +100,47 @@ export interface AvailabilityRuleRow {
 export interface OverrideRow {
   id: UUID;
   business_id: UUID;
-  staff_id: UUID | null;
+  staff_id: UUID;
   date: string;
   start_time: string | null;
   end_time: string | null;
   is_closed: boolean;
   reason: string | null;
+}
+
+export interface SpecialDayRow {
+  id: UUID;
+  business_id: UUID;
+  date: string;
+  name: string;
+  kind: SpecialDayKind;
+  is_closed: boolean;
+  /** Postgres `time` or null when closed */
+  start_time: string | null;
+  end_time: string | null;
+}
+
+export interface StaffBreakRow {
+  id: UUID;
+  business_id: UUID;
+  staff_id: UUID;
+  label: string;
+  start_time: string;
+  end_time: string;
+  /** Sorted, distinct; empty = every day */
+  weekdays: number[];
+}
+
+export interface TimeOffRow {
+  id: UUID;
+  business_id: UUID;
+  staff_id: UUID;
+  starts_on: string;
+  ends_on: string;
+  start_time: string | null;
+  end_time: string | null;
+  reason: TimeOffReason;
+  note: string | null;
 }
 
 export interface ClientRow {
