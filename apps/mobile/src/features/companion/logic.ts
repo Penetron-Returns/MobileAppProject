@@ -19,20 +19,25 @@ export function refreshDelayMs(expiresAt: string, now: number): number {
   return Math.max(end - REFRESH_LEAD_MS - now, 0);
 }
 
-/** What Nerova's frame tells the host page. */
+/**
+ * What Nerova's frame tells the host page. `busy`, `reply` and `idle` are the
+ * activity events: every `busy` is followed by exactly one `reply` (an answer
+ * landed) or `idle` (it ended without one).
+ */
 export type WidgetEvent =
   | { kind: 'ready' }
   | { kind: 'resize' }
   | { kind: 'session_expired' }
   | { kind: 'error' }
-  /** The companion began working on a reply (Nerova does not emit this yet). */
-  | { kind: 'reply_started' }
-  /** The reply finished streaming (Nerova does not emit this yet). */
-  | { kind: 'reply_finished' };
+  | { kind: 'busy' }
+  | { kind: 'reply' }
+  | { kind: 'idle' };
+
+const WIDGET_NAME = 'owner-chat';
 
 /**
- * Reads a message the bridge relayed from the frame. Anything that is not a
- * `nerova:widget` event (or not JSON) is ignored.
+ * Reads a message the bridge relayed from the frame. Anything that is not an
+ * `owner-chat` `nerova:widget` event with a known name (or not JSON) is ignored.
  */
 export function parseWidgetMessage(raw: string): WidgetEvent | null {
   let data: unknown;
@@ -44,12 +49,14 @@ export function parseWidgetMessage(raw: string): WidgetEvent | null {
   if (!data || typeof data !== 'object') return null;
   const msg = data as Record<string, unknown>;
   if (msg.type !== 'nerova:widget') return null;
-  const event = msg.event ?? msg.kind;
+  if (msg.widget !== undefined && msg.widget !== WIDGET_NAME) return null;
+  const event = msg.event;
   if (
     event === 'ready' ||
     event === 'resize' ||
-    event === 'reply_started' ||
-    event === 'reply_finished'
+    event === 'busy' ||
+    event === 'reply' ||
+    event === 'idle'
   ) {
     return { kind: event };
   }
@@ -61,6 +68,56 @@ export function parseWidgetMessage(raw: string): WidgetEvent | null {
   }
   return null;
 }
+
+/** The page tells the app the queued draft reached the frame. */
+export function isDraftSentMessage(raw: string): boolean {
+  try {
+    const data: unknown = JSON.parse(raw);
+    return (
+      !!data &&
+      typeof data === 'object' &&
+      (data as Record<string, unknown>).type === 'clovie:draft-sent'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The origin of Nerova's frame, or null when the URL is not an http(s) URL. */
+export function frameOrigin(sessionUrl: string): string | null {
+  try {
+    const url = new URL(sessionUrl);
+    return url.protocol === 'https:' || url.protocol === 'http:'
+      ? url.origin
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Nerova cuts a draft at this many characters; so do we, before sending. */
+export const MAX_DRAFT_CHARS = 4000;
+
+/** Cuts a draft to MAX_DRAFT_CHARS without splitting a surrogate pair. */
+export function truncateDraft(text: string): string {
+  if (text.length <= MAX_DRAFT_CHARS) return text;
+  const last = text.charCodeAt(MAX_DRAFT_CHARS - 1);
+  const isHighSurrogate = last >= 0xd800 && last <= 0xdbff;
+  return text.slice(0, isHighSurrogate ? MAX_DRAFT_CHARS - 1 : MAX_DRAFT_CHARS);
+}
+
+/**
+ * The script that hands a draft to the embed page. The text goes in as a JSON
+ * string literal, never spliced into code.
+ */
+export function draftScript(text: string): string {
+  // JSON is valid JS (U+2028/2029 included since ES2019), so this is a safe literal.
+  const literal = JSON.stringify(truncateDraft(text));
+  return `window.__clovieSetDraft&&window.__clovieSetDraft(${literal});true;`;
+}
+
+/** If the widget has not said `ready` this long after opening, show the transcript instead. */
+export const DRAFT_READY_TIMEOUT_MS = 10_000;
 
 /** How long Clovie keeps the "reply landed" reaction before going idle. */
 export const REPLIED_MS = 1500;
@@ -82,12 +139,16 @@ export function reduceActivity(
   now: number,
 ): ChatActivity {
   switch (event.kind) {
-    case 'reply_started':
-      return { phase: 'thinking', since: now };
-    case 'reply_finished':
+    case 'busy':
       return activity.phase === 'thinking'
-        ? { phase: 'replied', since: now }
-        : activity;
+        ? activity
+        : { phase: 'thinking', since: now };
+    case 'reply':
+      return { phase: 'replied', since: now };
+    case 'idle':
+      return activity.phase === 'idle'
+        ? activity
+        : { phase: 'idle', since: now };
     case 'error':
     case 'session_expired':
       return { phase: 'idle', since: now };
@@ -114,12 +175,22 @@ function attr(value: string): string {
 }
 
 /**
+ * The embed page's script. It only trusts messages from the Nerova frame
+ * (exact origin and the iframe's own window), relays them to the app, and
+ * posts a queued draft into the frame once the frame has said `ready`.
+ */
+function embedScript(origin: string | null): string {
+  const originLiteral = JSON.stringify(origin);
+  return `(function(){var frame=document.getElementById('companion');var origin=${originLiteral};var MAX=${MAX_DRAFT_CHARS};var ready=false,has=false,draft='';function bridge(o){if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(JSON.stringify(o))}function flush(){if(!ready||!has||!origin||!frame.contentWindow)return;frame.contentWindow.postMessage({type:'nerova:widget-draft',draftText:draft},origin);has=false;bridge({type:'clovie:draft-sent'})}window.__clovieSetDraft=function(text){if(typeof text!=='string')return;var t=text;if(t.length>MAX){t=t.slice(0,MAX);var c=t.charCodeAt(MAX-1);if(c>=55296&&c<=56319)t=t.slice(0,MAX-1)}draft=t;has=true;flush()};window.addEventListener('message',function(e){if(!origin||e.origin!==origin||e.source!==frame.contentWindow)return;var d=e.data;if(typeof d==='string'){try{d=JSON.parse(d)}catch(_){return}}if(!d||d.type!=='nerova:widget')return;if(d.event==='ready'){ready=true;flush()}bridge({type:d.type,version:d.version,widget:d.widget,event:d.event,reason:d.reason})})})();`;
+}
+
+/**
  * The page the WebView loads (with `baseUrl` set to the allowlisted origin):
  * one full-size sandboxed frame of the session URL, and a bridge that relays
- * Nerova's `nerova:widget` messages to the app.
+ * Nerova's `nerova:widget` messages to the app and the app's draft to the frame.
  */
 export function buildEmbedHtml(sessionUrl: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}iframe{position:fixed;top:0;left:0;width:100%;height:100%;border:0;background:transparent}</style></head><body><iframe title="Companion" src="${attr(sessionUrl)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-write"></iframe><script>window.addEventListener('message',function(e){var d=e.data;if(typeof d==='string'){try{d=JSON.parse(d)}catch(_){return}}if(d&&d.type==='nerova:widget'&&window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify({type:d.type,event:d.event,reason:d.reason}))}});</script></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}iframe{position:fixed;top:0;left:0;width:100%;height:100%;border:0;background:transparent}</style></head><body><iframe id="companion" title="Companion" src="${attr(sessionUrl)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-write"></iframe><script>${embedScript(frameOrigin(sessionUrl))}</script></body></html>`;
 }
 
 /** Nerova's `nextStep` values the app has words for. */

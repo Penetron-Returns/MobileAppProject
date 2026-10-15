@@ -16,8 +16,11 @@ import { CompanionWebView } from './CompanionWebView';
  */
 export function CompanionContent({
   onWidgetEvent,
+  draftText,
 }: {
   onWidgetEvent?: (event: WidgetEvent) => void;
+  /** Text to drop, unsent, into the chat box once the chat is ready. */
+  draftText?: string;
 } = {}) {
   const { t } = useTranslation();
   const { isDark } = useAppColorScheme();
@@ -28,6 +31,7 @@ export function CompanionContent({
     return (
       <CompanionWebView
         sessionUrl={state.url}
+        draftText={draftText}
         onEvent={(event) => {
           onWidgetEvent?.(event);
           if (event.kind === 'session_expired') session.onSessionExpired();
