@@ -137,7 +137,7 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 | `packages/database/` (`@booking/database`)                             | Supabase project; generated `database.types.ts` lives beside `supabase/`                                                                      |
 | `packages/types/` (`@booking/types`)                                   | types-only API contracts (`api.ts`)                                                                                                           |
 | `packages/config/` (`@booking/config`)                                 | shared presets: Prettier, API tsconfig, ESLint base                                                                                           |
-| `docs/`                                                                | `architecture` (binding), `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-system`, `clerk-setup`, `mcp`, `skills` |
+| `docs/`                                                                | `architecture` (binding), `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-language` (binding), `design-system`, `clerk-setup`, `mcp`, `skills` |
 | `.claude/rules/`, `.claude/skills/`, `.mcp.json`                       | AI tooling: rules, skills, MCP servers                                                                                                        |
 
 ---

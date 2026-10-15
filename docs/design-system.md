@@ -11,6 +11,10 @@ The visual language is the approved iPhone design (Foundations, `SOFT.md`, `DEPT
 soft, quiet colour, bigger fewer words, layered depth (shadows and gradients), iOS system blue as the only
 interactive colour. Android is first on device, so check every change there too.
 
+**Design language:** the app must look and behave like a first-party SwiftUI app with our Depth layer on top
+("Apple luxury"). [design-language.md](design-language.md) is the binding spec for behaviour, type, motion,
+haptics and the quality bar; this document covers the tokens and components that implement it.
+
 ## How it is wired
 
 | Concern | Where |
