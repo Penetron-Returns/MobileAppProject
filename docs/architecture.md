@@ -1,6 +1,6 @@
 # Repository architecture
 
-Status: **target structure, agreed 14 Oct 2026.** Migration step 2 (the move) is done on `colin/restructure`: `apps/api`, `packages/database`, `packages/types` and `packages/config` exist. Steps 3 onwards have not started, so the "Mapping from today" table below still describes the extraction. The migration order is at the end.
+Status: **target structure, agreed 14 Oct 2026.** Migration steps 2 (the move) and 3 (the extraction) are done on `colin/restructure`: `apps/api`, `packages/features`, `packages/companion`, `packages/app-store`, `packages/testing`, `packages/database`, `packages/types` and `packages/config` exist. `packages/ui` is unchanged; `extensions` and `apps/docs` come later. The migration order is at the end.
 
 The layout follows [cal.diy](https://github.com/calcom/cal.diy):
 - **Apps** are thin deployables.
@@ -78,7 +78,7 @@ docs/                     Internal engineering docs: BUILD_PLAN, scope, plans, t
 
 ## Dependency rules
 
-These are enforced by a boundary lint rule in CI (dependency-cruiser or eslint-plugin-boundaries) once the move lands.
+These are enforced in CI by dependency-cruiser ([.dependency-cruiser.cjs](../.dependency-cruiser.cjs), `npm run check:boundaries`). Change the rules and this section in the same PR.
 
 ```
 apps/*        → packages/*                 (apps never import other apps)
@@ -104,19 +104,29 @@ SOLID in practice:
 3. **`companion` instead of `platform`.** cal.diy's `platform` is its outward-facing surface (atoms, curated libraries, examples). Our outward-facing surface is the companion connector, so the package is named after that role. The minimal public example lives in `example-apps/`, as cal.diy does.
 4. **No app-store CLI yet.** The registry is hand-written until there are enough apps to justify a generator (YAGNI).
 
-## Mapping from today
+## Where things are now
 
-| Today | Target |
+| What | Where |
 | --- | --- |
-| `apps/backend/src/routes`, `middleware`, `container.ts`, `env.ts` | `apps/api/src/…` |
-| `apps/backend/src/booking`, `plans`, `ports.ts`, repositories | `packages/features/<feature>/` |
-| `apps/backend/src/nerova` | `packages/companion/connector` and `events` |
-| `apps/backend/src/whatsapp`, `apps/backend/whatsapp` | `packages/app-store/whatsapp` (the Free demo, removed after launch) |
-| `apps/backend/src/lib` (logger, crypto, Clerk admin) | `packages/features/lib` or `apps/api/src/lib`, whichever is the only consumer |
-| `apps/backend/test/fakes` | `packages/testing` |
-| `supabase/` | `packages/database/` (Supabase CLI with `--workdir`; the Edge Function entry stays a stub that imports `apps/api`) |
-| `packages/shared` | `packages/types` |
-| `packages/ui` | unchanged |
+| Routes, middleware, `env.ts`, `container.ts` (DI wiring), `getDb`, validation helpers | `apps/api/src/` |
+| `AppError`, logger, time, phone, crypto, PEM, the `Db` type | `packages/features/lib/` |
+| Ports (`BookingService`, `EntitlementService`, `ClerkAdmin`, `AccountEventsPort`) | `packages/features/ports.ts` (barrel) and each feature's `ports.ts` |
+| Booking service, attempts, cleanup job, mappers | `packages/features/bookings/` |
+| Availability engine | `packages/features/availability/` |
+| Business, services, staff, hours, `/me` (formerly `booking/admin.ts`) | `packages/features/catalog/` |
+| Client operations | `packages/features/clients/` |
+| Team, Clerk sync, member sync, devices, `ClerkAdmin` client | `packages/features/team/` |
+| Onboarding | `packages/features/onboarding/` |
+| Entitlements | `packages/features/plans/` |
+| Repository interfaces, Supabase implementation, row types | `packages/features/repositories/` |
+| `billing/` | not created yet (no code) |
+| Booking connector (MCP), account events, self-check script | `packages/companion/{connector,events,scripts}` |
+| WhatsApp demo (engine, flows, webhook, notifications, Meta Graph client) | `packages/app-store/whatsapp/`; routes stay in `apps/api/src/routes/whatsapp` |
+| Flow JSON, templates, key generation | `packages/app-store/whatsapp/{assets,scripts}` |
+| App registry and manifest type | `packages/app-store/{_registry,types}.ts`, `whatsapp/_metadata.ts` |
+| In-memory fakes (booking repository, Clerk, entitlements, WhatsApp) | `packages/testing/` |
+| Migrations, SQL tests, seed, Edge entry stub, generated DB types | `packages/database/` |
+| API DTOs | `packages/types/` |
 
 ## Migration order
 
@@ -127,9 +137,22 @@ SOLID in practice:
    - add `packages/config`
    - update CLAUDE.md, AGENTS.md, BUILD_PLAN, `.claude/rules`, the agents and the scripts
    - all checks green
-3. **Extraction PR:** move domain code to `packages/features`, the WhatsApp demo to `packages/app-store/whatsapp` (with the registry), and the fakes to `packages/testing`. Add the boundary lint rule.
-4. **Companion:** move the connector into `packages/companion`. The Pip work (Phase 6.3) is built there from the start, and `example-apps/companion-connector` follows.
+3. **Extraction PR: DONE.** Domain code in `packages/features`, the connector in `packages/companion`, the WhatsApp demo and registry in `packages/app-store`, fakes in `packages/testing`, boundary lint added.
+4. **Companion:** the connector already moved in step 3. The Pip work (Phase 6.3) is built there from the start, and `example-apps/companion-connector` follows.
 5. **Later:** `apps/docs` (the documentation site), extensions as they are built, and Turborepo for cached per-package tasks once there are enough packages to benefit.
+
+### Decisions made in the extraction PR
+
+- **Repositories:** the booking schema's interfaces (`repositories/types.ts`) and its Supabase implementation (`supabase.ts`) live in `packages/features/repositories`. They are one adapter over one schema that most services share, and `supabase-js` is runtime-neutral (only its `Db` type is imported; the client is created in `apps/api/src/lib/db.ts`). The WhatsApp tables keep their own repository in `app-store/whatsapp/supabaseRepo.ts`. The in-memory fakes are in `packages/testing`.
+- **Logger, errors, time, crypto:** the whole logger (port and redacting implementation) and `AppError` live in `packages/features/lib` because every layer needs them and neither touches Hono. `apps/api` keeps only HTTP-specific helpers (`validation.ts`, `background.ts`) and `getDb`.
+- **Env and container:** packages never import `apps/api`. Each reads a small structural type (`WhatsAppEnv`, `WaContainer`, `ConnectorEnv`, `EventsEnv`, `BookingContainer`) that `Env` and `Container` satisfy. `createBookingService` no longer takes `env` (it never used it).
+- **`booking/admin.ts` was split by feature:** catalog, clients, appointment extras (bookings) and device registration (team). `pick` moved to `features/lib`; `isInstant` moved to `features/lib/time.ts` so the companion does not import the WhatsApp app (`ids.ts` re-exports it).
+- **Notifications:** the `NotificationService` implementation is WhatsApp-specific, so it lives in `app-store/whatsapp/notifications`; the port stays in `features`. `container.ts` wires it.
+- **Registry:** `_registry.ts` holds the manifests; the WhatsApp routes and plan gates read `requiredFeature` from it (routes via the registry, internals via `_metadata.ts` to avoid a cycle).
+- **Resolution:** `apps/api/tsconfig.json` `paths`, `tsconfig.depcruise.json` and the Deno import map list the `@booking/*` packages (`testing` only in tsconfig). Vitest uses an alias plus a resolver that finds npm packages from `apps/api`, because the packages have no `node_modules` and are not workspace members (they declare no installs; npm dependencies are declared in `apps/api`). `npm run check:imports` fails on drift, including Deno npm pins versus `apps/api/package.json`.
+- **Tests** stay in `apps/api/test` (one Vitest root; the harnesses build the real app). They import fakes from `@booking/testing`. The WhatsApp route harness is `test/whatsapp/appHarness.ts`.
+- **Prettier:** the new package folders join `.prettierignore` like `apps/api`, so the moved code keeps its formatting and diffs stay reviewable.
+- **Boundaries:** `dependency-cruiser` (root dev dependency) enforces the rules above, plus "features never imports Hono" and "production code never imports testing". It runs in `npm run check` and the PR workflow.
 
 ### Decisions made in the move PR
 

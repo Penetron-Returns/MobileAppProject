@@ -1,25 +1,25 @@
 # Booking core (WS-B)
 
-This workstream covers the availability engine, the BookingService (`apps/api/src/ports.ts`), the `/v1` admin REST API, the public web-booking comparator, the Clerk webhook and the cleanup job. Everything lives in `apps/api/`.
+This workstream covers the availability engine, the BookingService (`packages/features/ports.ts`), the `/v1` admin REST API, the public web-booking comparator, the Clerk webhook and the cleanup job. The domain lives in `packages/features/`; routes live in `apps/api/`.
 
 ```
-apps/api/src/booking/
-  availability.ts      pure engine (no I/O, injected `now`)
-  service.ts           BookingService over a repository
-  repository.ts        BookingRepository interface + Supabase implementation
-  memoryRepository.ts  in-memory fake with RPC semantics (for our tests and WS-C's)
-  rows.ts, mappers.ts  explicit row types, row → DTO mapping
-  admin.ts             owner/staff CRUD used by /v1
-  attempts.ts          booking_attempts instrumentation (web channel)
-  clerkSync.ts         Clerk org/user/membership mirror
-  rateLimit.ts         best-effort per-IP limiter for /public POSTs
-  jobs.ts              runCleanupJob
-  index.ts             createBookingService, getBookingRepository
+packages/features/
+  availability/lib/availability.ts   pure engine (no I/O, injected `now`)
+  bookings/services/bookingService.ts  BookingService over a repository
+  repositories/types.ts, supabase.ts   BookingRepository interfaces + Supabase implementation
+  repositories/rows.ts, bookings/lib/mappers.ts  explicit row types, row → DTO mapping
+  catalog/services/catalog.ts, clients/services/clients.ts  owner/staff operations used by /v1
+  bookings/services/attempts.ts      booking_attempts instrumentation (web channel)
+  team/services/clerkSync.ts         Clerk org/user/membership mirror
+  bookings/lib/rateLimit.ts          best-effort per-IP limiter for /public POSTs
+  bookings/services/cleanupJob.ts    runCleanupJob
+  bookings/index.ts                  createBookingService, getBookingRepository
+packages/testing/bookingMemoryRepository.ts  in-memory fake with RPC semantics
 apps/api/src/routes/v1/**       /v1 routes + zod v4 schemas
 apps/api/src/routes/public.ts   /public comparator
 apps/api/src/routes/clerk.ts    /webhooks/clerk
-apps/api/src/lib/time.ts        tstzrange + timestamptz parsing, wall-clock helpers (luxon)
-apps/api/src/lib/phone.ts       E.164 normalisation (libphonenumber-js, default region ZA)
+packages/features/lib/time.ts     tstzrange + timestamptz parsing, wall-clock helpers (luxon)
+packages/features/lib/phone.ts    E.164 normalisation (libphonenumber-js, default region ZA)
 test/booking/**        tests
 ```
 
