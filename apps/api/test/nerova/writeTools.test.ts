@@ -304,6 +304,7 @@ describe('cancellation window by origin channel', () => {
     ['whatsapp', { source: 'nerova', channel: 'whatsapp' }, false],
     ['owner', { source: 'nerova', channel: 'owner' }, true],
     ['owner_chat', { source: 'nerova', channel: 'owner_chat' }, true],
+    ['owner_whatsapp', { source: 'nerova', channel: 'owner_whatsapp' }, true],
     ['system', { source: 'nerova', channel: 'system' }, true],
     ['conformance', { source: 'nerova', channel: 'conformance' }, true],
   ];

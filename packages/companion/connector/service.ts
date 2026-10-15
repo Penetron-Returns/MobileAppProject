@@ -80,11 +80,12 @@ function nerovaActor(origin?: { conversationId?: string }): Actor {
 }
 
 /**
- * Origin channels that are not a customer and so skip the cancellation window: `owner` and `owner_chat` (the
- * owner directing Pip) and `system` / `conformance` (Nerova's own jobs and its connection certification, which
- * books the soonest slot and then moves and cancels it).
+ * Origin channels that are not a customer and so skip the cancellation window: `owner`, `owner_chat` and
+ * `owner_whatsapp` (the owner directing Pip) and `system` / `conformance` (Nerova's own jobs and its connection
+ * certification, which books the soonest slot and then moves and cancels it). Nerova sends `owner_chat` or
+ * `owner_whatsapp` for owner changes and never `owner`; it stays because it is harmless.
  */
-const WINDOW_EXEMPT_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_chat', 'system', 'conformance']);
+const WINDOW_EXEMPT_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_chat', 'owner_whatsapp', 'system', 'conformance']);
 
 /**
  * Changes are held to the cancellation window by default. Customer channels (`whatsapp`, `voice`, `flow`, ...)
