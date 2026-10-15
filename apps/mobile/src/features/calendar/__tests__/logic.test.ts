@@ -581,6 +581,14 @@ describe('staffBlocks', () => {
     ).toEqual([]);
   });
 
+  it('does not draw a break that sits inside time off', () => {
+    expect(
+      staffBlocks({ ...base, breaks: [lunch], timeOff: [leave()] }).map(
+        (b) => b.kind,
+      ),
+    ).toEqual(['time_off']);
+  });
+
   it('clips a block to the working hours', () => {
     expect(
       staffBlocks({

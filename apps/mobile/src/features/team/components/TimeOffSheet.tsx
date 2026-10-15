@@ -160,7 +160,7 @@ export function TimeOffSheet({
               min={draft.startsOn}
               onChange={(endsOn) => patch({ endsOn })}
             />
-            <GroupBlock showSeparator>
+            <GroupBlock showSeparator className="px-4">
               <SwitchRow
                 title={t('team.timeOff.allDay')}
                 checked={draft.allDay}

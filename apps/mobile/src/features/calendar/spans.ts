@@ -264,9 +264,20 @@ export function staffBlocks(opts: {
             : { startMin: 0, endMin: 24 * 60 },
       })),
   ];
-  return sources
-    .flatMap(({ span, kind, label }) =>
-      intersectSpans([span], working).map((s) => ({ ...s, kind, label })),
+  const blocks = sources.flatMap(({ span, kind, label }) =>
+    intersectSpans([span], working).map((s) => ({ ...s, kind, label })),
+  );
+  // A break inside time off adds nothing: drawn alone it would print over it.
+  return blocks
+    .filter(
+      (b) =>
+        b.kind !== 'break' ||
+        !blocks.some(
+          (o) =>
+            o.kind === 'time_off' &&
+            o.startMin <= b.startMin &&
+            o.endMin >= b.endMin,
+        ),
     )
     .sort((x, y) => x.startMin - y.startMin);
 }
