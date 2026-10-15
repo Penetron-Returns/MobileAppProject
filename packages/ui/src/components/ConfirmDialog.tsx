@@ -11,8 +11,6 @@ import {
   AlertDialogTitle,
 } from '../rnr/alert-dialog';
 import { Text } from '../primitives/Text';
-import { buttonTextVariants } from './Button';
-import { cn } from '../lib/cn';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -52,17 +50,9 @@ export function ConfirmDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             onPress={onConfirm}
-            className={cn(
-              destructive && 'bg-destructive active:bg-destructive/90',
-            )}
+            variant={destructive ? 'destructive' : 'default'}
           >
-            <Text
-              className={cn(
-                destructive && buttonTextVariants({ variant: 'destructive' }),
-              )}
-            >
-              {confirmLabel}
-            </Text>
+            <Text>{confirmLabel}</Text>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

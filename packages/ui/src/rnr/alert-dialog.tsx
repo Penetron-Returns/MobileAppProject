@@ -2,6 +2,7 @@ import { buttonTextVariants, buttonVariants } from '../components/Button';
 import { NativeOnlyAnimatedView } from '../primitives/NativeOnlyAnimatedView';
 import { TextClassContext } from '../primitives/Text';
 import { cn } from '../lib/cn';
+import { type VariantProps } from 'class-variance-authority';
 import * as AlertDialogPrimitive from '@rn-primitives/alert-dialog';
 import * as React from 'react';
 import { Platform, View, type ViewProps } from 'react-native';
@@ -126,14 +127,23 @@ function AlertDialogDescription({
   );
 }
 
+/**
+ * The label gets its colour from `variant` only. Container classes (`bg-*`,
+ * `active:*`) must never reach the label: an `active:` class on a Text makes
+ * NativeWind wrap it in press handlers, which on Android turned the label into
+ * a focusable responder that swallowed taps meant for the button.
+ */
 function AlertDialogAction({
   className,
+  variant,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
+  variant?: VariantProps<typeof buttonVariants>['variant'];
+}) {
   return (
-    <TextClassContext.Provider value={buttonTextVariants({ className })}>
+    <TextClassContext.Provider value={buttonTextVariants({ variant })}>
       <AlertDialogPrimitive.Action
-        className={cn(buttonVariants(), className)}
+        className={cn(buttonVariants({ variant }), className)}
         {...props}
       />
     </TextClassContext.Provider>
@@ -146,7 +156,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <TextClassContext.Provider
-      value={buttonTextVariants({ className, variant: 'outline' })}
+      value={buttonTextVariants({ variant: 'outline' })}
     >
       <AlertDialogPrimitive.Cancel
         className={cn(buttonVariants({ variant: 'outline' }), className)}
