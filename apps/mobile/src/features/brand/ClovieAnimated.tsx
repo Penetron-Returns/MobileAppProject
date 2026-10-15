@@ -30,11 +30,13 @@ const BREATHE = { ...TIMING.pageInOut, duration: 1600 } as const;
 /** How far Clovie rises (fraction of its size) and how much it swells at the top of a breath. */
 const BREATHE_LIFT = 0.04;
 const BREATHE_SWELL = 0.03;
+/** Slack after the live layer's fade-in before the still beneath it is removed. */
+const HANDOFF_SLACK_MS = 40;
 
 interface ClovieAnimatedProps {
   /** `default` is idle (looks around, blinks, hops now and then); `working` hops and laughs. */
   state?: ClovieState;
-  /** Fires once, when the live canvas has painted its first frame (the still then cross-fades away). */
+  /** Fires when the live canvas has painted its first frame (again after a WebView restart). */
   onReady?: () => void;
   /** Fires once, when the still artwork has loaded, so a caller can hide a splash behind it. */
   onStillLoad?: () => void;
@@ -44,9 +46,12 @@ interface ClovieAnimatedProps {
 
 /**
  * The bot-avatars Clovie, drawn offline in a transparent WebView. The still
- * artwork shows until the page reports its first paint, then cross-fades to
- * the live canvas; if the WebView fails, or the OS asks for reduced motion,
- * only the still stays. Decorative: the caller labels the screen.
+ * artwork shows (opacity 1 from the first frame, no fade) until the page
+ * reports its first paint. The live layer then fades in OVER the still, and
+ * only once it is fully opaque is the still removed, so there is never a
+ * frame where both are partly transparent. If the WebView restarts, the still
+ * returns until it reports ready again; if it fails to load, or the OS asks
+ * for reduced motion, only the still stays. Decorative: the caller labels the screen.
  *
  * Idle motion has two layers. Inside the page the library looks around and
  * blinks (its own reduced-motion check is neutralised, see clovieHtml: the
@@ -64,7 +69,10 @@ export function ClovieAnimated({
   const reduceMotion = useReduceMotion();
   const { isDark } = useAppColorScheme();
   const [ready, setReady] = React.useState(false);
+  const [liveOpaque, setLiveOpaque] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
+  /** Bumped to remount the WebView after its process dies. */
+  const [webKey, setWebKey] = React.useState(0);
   const html = React.useMemo(() => buildClovieHtml(state, size), [state, size]);
   const live = !reduceMotion && !failed;
   const showLive = live && ready;
@@ -78,6 +86,21 @@ export function ClovieAnimated({
     [onReady],
   );
   const onFail = React.useCallback(() => setFailed(true), []);
+  const onRestart = React.useCallback(() => {
+    setReady(false);
+    setLiveOpaque(false);
+    setWebKey((k) => k + 1);
+  }, []);
+
+  // The still leaves only after the live layer has finished fading in.
+  React.useEffect(() => {
+    if (!showLive) return;
+    const id = setTimeout(
+      () => setLiveOpaque(true),
+      TIMING.quick.duration + HANDOFF_SLACK_MS,
+    );
+    return () => clearTimeout(id);
+  }, [showLive]);
 
   const breath = useSharedValue(0);
   React.useEffect(() => {
@@ -99,11 +122,13 @@ export function ClovieAnimated({
     ],
   }));
 
+  // Fade in when ready; snap back to hidden on a restart.
   const liveStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(showLive ? 1 : 0, TIMING.quick),
+    opacity: showLive ? withTiming(1, TIMING.quick) : 0,
   }));
+  // Opaque (no fade) until the live layer is fully in, then it fades out beneath it.
   const stillStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(showLive ? 0 : 1, TIMING.quick),
+    opacity: liveOpaque ? withTiming(0, TIMING.quick) : 1,
   }));
 
   const box = size * OVERSCAN;
@@ -127,6 +152,7 @@ export function ClovieAnimated({
           <Image
             testID="clovie-still"
             onLoad={onStillLoad}
+            fadeDuration={0}
             source={
               isDark
                 ? require('@/assets/images/companion-default-dark.png')
@@ -143,6 +169,7 @@ export function ClovieAnimated({
         </Animated.View>
         {live ? (
           <Animated.View
+            key={webKey}
             testID="clovie-live-layer"
             style={[
               {
@@ -171,8 +198,8 @@ export function ClovieAnimated({
               onMessage={onMessage}
               onError={onFail}
               onHttpError={onFail}
-              onRenderProcessGone={onFail}
-              onContentProcessDidTerminate={onFail}
+              onRenderProcessGone={onRestart}
+              onContentProcessDidTerminate={onRestart}
             />
           </Animated.View>
         ) : null}
