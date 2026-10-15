@@ -1,6 +1,7 @@
 import { TextClassContext, TextStyleContext } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 import { cn } from '../lib/cn';
+import { haptics } from '../lib/haptics';
 import { cva, type VariantProps } from 'class-variance-authority';
 import {
   ActivityIndicator,
@@ -130,6 +131,20 @@ const buttonTextVariants = cva(
   },
 );
 
+/**
+ * Half of each size's height. The pressed inset shadow and fill are drawn from
+ * the view's own corner radius; `rounded-full` (9999) is far past half the
+ * height and Android draws those layers as a square. An explicit radius keeps
+ * every pressed layer inside the capsule.
+ */
+export const BUTTON_RADIUS = {
+  default: 22,
+  sm: 18,
+  lg: 26,
+  xl: 28,
+  icon: 22,
+} as const;
+
 const PRESSED_NUDGE = { transform: [{ translateY: 1 }] } as const;
 /** The primary button's label sits on a 1px soft shadow (the boards' text-shadow). */
 const PRIMARY_LABEL = {
@@ -143,6 +158,12 @@ type ButtonProps = Omit<React.ComponentProps<typeof Pressable>, 'children'> &
   VariantProps<typeof buttonVariants> & {
     /** Shows a spinner before the label and blocks presses (an action in flight). */
     loading?: boolean;
+    /**
+     * Light tap on press, for the primary button only. Pass `false` where the
+     * action fires its own outcome haptic (success, warning, error), so one
+     * user action never plays two.
+     */
+    haptic?: boolean;
     children?: React.ReactNode;
   };
 
@@ -152,8 +173,10 @@ function Button({
   size,
   style,
   loading,
+  haptic = true,
   disabled,
   children,
+  onPress,
   ...props
 }: ButtonProps) {
   const depth = useDepth();
@@ -197,9 +220,18 @@ function Button({
             busy: Boolean(loading),
           }}
           disabled={disabled || loading}
+          onPress={
+            onPress
+              ? (event) => {
+                  if (isTactile && haptic) haptics.light();
+                  onPress(event);
+                }
+              : undefined
+          }
           // Small buttons are 36pt tall: the slop brings the touch target to 44pt.
           hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}
           style={(state: PressableStateCallbackType) => [
+            { borderRadius: BUTTON_RADIUS[size ?? 'default'] },
             depthStyle(state.pressed),
             typeof style === 'function' ? style(state) : style,
           ]}

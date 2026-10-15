@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { haptics } from '../lib/haptics';
 import { Pressable } from '../primitives/Pressable';
 import { Surface } from '../primitives/Surface';
 import { Text } from '../primitives/Text';
@@ -41,6 +42,11 @@ export function TimeWheel({
   const depth = useDepth();
   const [hh, mm] = value.split(':').map(Number);
   const minuteIndex = Math.round(mm / MINUTE_STEP);
+  // One tick per row moved, like the wheel's detents.
+  const tick = (next: string) => {
+    haptics.selection();
+    onChange(next);
+  };
   return (
     <Surface variant="wheel" radius={16} className="h-[180px] overflow-hidden">
       <Surface
@@ -61,7 +67,7 @@ export function TimeWheel({
                 offset={offset}
                 label={ok ? pad(hour) : ''}
                 accessibilityLabel={ok ? hourLabel(pad(hour)) : undefined}
-                onPress={ok ? () => onChange(`${pad(hour)}:${pad(mm)}`) : null}
+                onPress={ok ? () => tick(`${pad(hour)}:${pad(mm)}`) : null}
                 color={depth.colors.label}
               />
             );
@@ -86,7 +92,7 @@ export function TimeWheel({
                 offset={offset}
                 label={ok ? minutes : ''}
                 accessibilityLabel={ok ? minuteLabel(minutes) : undefined}
-                onPress={ok ? () => onChange(`${pad(hh)}:${minutes}`) : null}
+                onPress={ok ? () => tick(`${pad(hh)}:${minutes}`) : null}
                 color={depth.colors.label}
               />
             );

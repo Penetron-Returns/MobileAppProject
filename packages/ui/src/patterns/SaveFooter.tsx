@@ -26,6 +26,8 @@ export function SaveFooter({
         disabled={disabled}
         accessibilityLabel={label}
         className="h-12"
+        // Saving plays its own success haptic.
+        haptic={false}
       >
         <Text>{label}</Text>
       </Button>

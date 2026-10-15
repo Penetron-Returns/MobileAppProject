@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
+import { haptics } from '../lib/haptics';
 import { Skeleton } from '../primitives/Skeleton';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
@@ -49,7 +50,10 @@ export function DayChips({ days, selected, onSelect, label }: DayChipsProps) {
         return (
           <Pressable
             key={d.value}
-            onPress={() => onSelect(d.value)}
+            onPress={() => {
+              haptics.selection();
+              onSelect(d.value);
+            }}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
             accessibilityLabel={d.accessibilityLabel}

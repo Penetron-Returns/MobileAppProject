@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
+import { haptics } from '../lib/haptics';
 import { cn } from '../lib/cn';
 import { Pressable } from '../primitives/Pressable';
 import { Text } from '../primitives/Text';
@@ -45,7 +46,10 @@ export function Chip({
       };
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptics.light();
+        onPress();
+      }}
       feedback="none"
       accessibilityRole={isRadio ? 'radio' : 'button'}
       accessibilityState={
