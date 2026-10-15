@@ -11,6 +11,9 @@ describe('notReadyKey', () => {
   it.each([
     [{ reason: 'account_not_found' }, 'reasons.account_not_found'],
     [{ reason: 'not_provisioned' }, 'reasons.not_provisioned'],
+    [{ reason: 'account_not_available' }, 'reasons.account_not_available'],
+    [{ reason: 'origin_not_registered' }, 'reasons.origin_not_registered'],
+    [{ reason: 'key_not_authorized' }, 'reasons.key_not_authorized'],
     [{ reason: 'setup_incomplete' }, 'reasons.setup_incomplete'],
     [{ reason: 'unavailable' }, 'reasons.unavailable'],
     [
