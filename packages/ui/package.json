@@ -40,6 +40,7 @@
     "class-variance-authority": "*",
     "clsx": "*",
     "expo-blur": "*",
+    "expo-haptics": "*",
     "expo-router": "*",
     "lucide-react-native": "*",
     "nativewind": "^4",

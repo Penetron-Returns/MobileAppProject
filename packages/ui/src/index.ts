@@ -27,7 +27,19 @@ export type {
   DepthTokens,
   SystemColorKey,
 } from './tokens/depth';
-export { MOTION, TOAST_TTL } from './tokens/motion';
+export {
+  BEZIER,
+  DURATION,
+  EASING,
+  MOTION,
+  SCALE,
+  SPRING,
+  STAGGER,
+  TOAST_TTL,
+  springConfig,
+  staggerDelay,
+  timingConfig,
+} from './tokens/motion';
 export { RADII } from './tokens/radii';
 export type { RadiusStep } from './tokens/radii';
 export { LAYOUT, SPACING } from './tokens/spacing';
@@ -87,6 +99,10 @@ export { ConfirmDialog } from './components/ConfirmDialog';
 export { DestructiveRow } from './components/DestructiveRow';
 export type { DestructiveRowProps } from './components/DestructiveRow';
 export { Disclosure } from './components/Disclosure';
+export { Reveal } from './components/Reveal';
+export type { RevealProps } from './components/Reveal';
+export { Turn } from './components/Turn';
+export type { TurnProps } from './components/Turn';
 export type { DisclosureProps } from './components/Disclosure';
 export { DoneCard } from './components/DoneCard';
 export type { DoneCardProps } from './components/DoneCard';
