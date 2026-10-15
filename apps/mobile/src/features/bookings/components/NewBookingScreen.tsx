@@ -1,17 +1,21 @@
 import {
   BlockedActionSheet,
   Button,
+  ConfirmDialog,
   DoneCard,
+  goBack,
+  IconButton,
   Screen,
   StackHeader,
   Text,
   useOfflineGuard,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { BackHandler, View } from 'react-native';
 
 import {
   useBookingRules,
@@ -36,7 +40,12 @@ import {
 } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { bookableStaff, bookingHorizonDays, toCreateRequest } from '../logic';
+import {
+  bookableStaff,
+  bookingHorizonDays,
+  hasUnsavedInput,
+  toCreateRequest,
+} from '../logic';
 import { ClientStep, type ClientChoice } from './ClientStep';
 import { WhenStep, type WhenState } from './WhenStep';
 
@@ -54,7 +63,13 @@ const EMPTY_WHEN: WhenState = {
   sendWhatsApp: true,
 };
 
-/** New booking: who and what, then when (live), then confirm. */
+/** Closes the sheet, falling back to Today when opened from a deep link. */
+const closeSheet = () => goBack('/');
+
+/**
+ * New booking: who and what, then when (live), then confirm. Presented as a
+ * full-screen modal, so it mounts fresh each time and closing discards it.
+ */
 export function NewBookingScreen({
   initialClientId,
   startWithNewClient,
@@ -62,17 +77,13 @@ export function NewBookingScreen({
   initialClientId?: string;
   startWithNewClient?: boolean;
 }) {
-  // The Add tab stays mounted, so a new key after each booking gives an empty form.
-  const [formKey, setFormKey] = React.useState(0);
   return (
     <BusinessGate>
       {(business) => (
         <NewBookingFlow
-          key={formKey}
           business={business}
           initialClientId={initialClientId}
           startWithNewClient={startWithNewClient}
-          onReset={() => setFormKey((k) => k + 1)}
         />
       )}
     </BusinessGate>
@@ -83,12 +94,10 @@ function NewBookingFlow({
   business,
   initialClientId,
   startWithNewClient,
-  onReset,
 }: {
   business: BusinessSummary;
   initialClientId?: string;
   startWithNewClient?: boolean;
-  onReset: () => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -107,6 +116,7 @@ function NewBookingFlow({
     id: string;
     label: string;
   } | null>(null);
+  const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
 
   // Route params preselect the client once. Background refetches hand back a
   // new object for the same client, and must not undo what the user picked since.
@@ -164,6 +174,43 @@ function NewBookingFlow({
     notes: when.notes,
     sendWhatsApp: when.sendWhatsApp,
   };
+  const isDirty = hasUnsavedInput(
+    {
+      client: {
+        mode: choice.mode,
+        hasClient: Boolean(choice.client),
+        name: choice.newName,
+        phone: choice.newPhone,
+      },
+      serviceId,
+      notes: when.notes,
+    },
+    Boolean(initialClientId) && choice.client?.id === initialClientId,
+  );
+  // ✕ and the Android back button share one path: ask only when input would be lost.
+  const requestClose = () => {
+    if (booked || !isDirty) closeSheet();
+    else setConfirmingDiscard(true);
+  };
+  const requestCloseRef = React.useRef(requestClose);
+  requestCloseRef.current = requestClose;
+  useFocusEffect(
+    React.useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        requestCloseRef.current();
+        return true;
+      });
+      return () => sub.remove();
+    }, []),
+  );
+  const closeButton = (
+    <IconButton
+      icon={X}
+      label={t('common.close')}
+      onPress={requestClose}
+      variant="plain"
+    />
+  );
   const firstName =
     (choice.mode === 'new' ? choice.newName : (choice.client?.name ?? ''))
       .trim()
@@ -171,7 +218,15 @@ function NewBookingFlow({
 
   if (booked) {
     return (
-      <Screen header={<StackHeader title={t('newBooking.title')} hideBack />}>
+      <Screen
+        header={
+          <StackHeader
+            title={t('newBooking.title')}
+            hideBack
+            right={closeButton}
+          />
+        }
+      >
         <DoneCard
           title={t('newBooking.done')}
           lines={[
@@ -187,11 +242,8 @@ function NewBookingFlow({
         <View className="mt-6 gap-2.5">
           <Button
             size="lg"
-            onPress={() => {
-              router.setParams({ clientId: '', mode: '' });
-              onReset();
-              router.navigate('/' as never);
-            }}
+            accessibilityLabel={t('common.done')}
+            onPress={closeSheet}
           >
             <Text className="text-title">{t('common.done')}</Text>
           </Button>
@@ -199,10 +251,8 @@ function NewBookingFlow({
             variant="secondary"
             size="lg"
             onPress={() => {
-              const id = booked.id;
-              router.setParams({ clientId: '', mode: '' });
-              onReset();
-              router.push(`/bookings/${id}` as never);
+              closeSheet();
+              router.push(`/bookings/${booked.id}` as never);
             }}
           >
             <Text className="text-title">{t('newBooking.view')}</Text>
@@ -249,6 +299,7 @@ function NewBookingFlow({
           title={t('newBooking.title')}
           hideBack={step === 1}
           onBack={() => setStep(1)}
+          right={closeButton}
         />
       }
       footer={
@@ -290,6 +341,16 @@ function NewBookingFlow({
         />
       ) : null}
       <BlockedActionSheet {...sheetProps} />
+      <ConfirmDialog
+        open={confirmingDiscard}
+        onOpenChange={setConfirmingDiscard}
+        title={t('newBooking.discard.title')}
+        description={t('newBooking.discard.description')}
+        confirmLabel={t('newBooking.discard.confirm')}
+        cancelLabel={t('newBooking.discard.keep')}
+        destructive
+        onConfirm={closeSheet}
+      />
     </Screen>
   );
 }

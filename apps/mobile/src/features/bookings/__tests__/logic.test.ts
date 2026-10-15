@@ -8,6 +8,7 @@ import {
   closestSlots,
   dayRange,
   dayRelation,
+  hasUnsavedInput,
   isLateCancellation,
   pickDay,
   primaryAction,
@@ -289,5 +290,64 @@ describe('bookingHorizonDays', () => {
     [null, 60],
   ])('reads %j as %i', (rules, expected) => {
     expect(bookingHorizonDays(rules)).toBe(expected);
+  });
+});
+
+describe('hasUnsavedInput', () => {
+  const empty = {
+    client: {
+      mode: 'existing' as const,
+      hasClient: false,
+      name: '',
+      phone: '',
+    },
+    serviceId: null,
+    notes: '',
+  };
+  it.each([
+    ['an empty form', empty, false, false],
+    [
+      'a picked client',
+      { ...empty, client: { ...empty.client, hasClient: true } },
+      false,
+      true,
+    ],
+    [
+      'a client preselected from a profile',
+      { ...empty, client: { ...empty.client, hasClient: true } },
+      true,
+      false,
+    ],
+    [
+      'a preselected client plus a service',
+      {
+        ...empty,
+        client: { ...empty.client, hasClient: true },
+        serviceId: 's-1',
+      },
+      true,
+      true,
+    ],
+    [
+      'a typed new client name',
+      {
+        ...empty,
+        client: { ...empty.client, mode: 'new' as const, name: 'Zo' },
+      },
+      false,
+      true,
+    ],
+    [
+      'a new client with only spaces',
+      {
+        ...empty,
+        client: { ...empty.client, mode: 'new' as const, name: '  ' },
+      },
+      false,
+      false,
+    ],
+    ['a note', { ...empty, notes: 'Bring photo' }, false, true],
+  ])('%s', (_label, draft, preselected, expected) => {
+    expect(hasUnsavedInput(draft, preselected)).toBe(expected);
   });
 });
