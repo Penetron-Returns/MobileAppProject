@@ -79,6 +79,9 @@ const NEXT_STEPS = new Set([
 
 const REASONS: ReadonlySet<CompanionNotReadyReason> = new Set([
   'account_not_found',
+  'account_not_available',
+  'origin_not_registered',
+  'key_not_authorized',
   'not_provisioned',
   'setup_incomplete',
   'unavailable',

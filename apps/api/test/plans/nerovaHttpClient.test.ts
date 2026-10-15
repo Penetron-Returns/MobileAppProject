@@ -73,12 +73,12 @@ describe('createHttpNerovaClient', () => {
     expect(f.calls[0]?.url).toBe('https://api.nerova.si/v1/accounts/acct_1/outcomes/summary?year=2026&month=10');
   });
 
-  it.each([401, 403, 422, 500])('maps a %i to UPSTREAM_COMPANION_ERROR without echoing the key', async (status) => {
-    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(status, { code: 'widget.origin_not_registered', detail: `key ${NEROVA_KEY}` })).impl });
+  it.each([400, 401, 403, 422, 500])('maps an undocumented %i to UPSTREAM_COMPANION_ERROR without echoing the key', async (status) => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(status, { code: 'widget.something_new', detail: `key ${NEROVA_KEY}` })).impl });
     const error = await client
       .createOwnerChatSession({ accountId: 'acct_1', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' })
       .catch((e) => e);
-    expect(error).toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', status: 502, details: { status, nerova_code: 'widget.origin_not_registered' } });
+    expect(error).toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', status: 502, details: { status, nerova_code: 'widget.something_new' } });
     expect(JSON.stringify(error.details) + error.message).not.toContain(NEROVA_KEY);
   });
 
@@ -105,6 +105,53 @@ describe('createHttpNerovaClient', () => {
     await expect(
       client.createOwnerChatSession({ accountId: 'a', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' }),
     ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR' });
+  });
+});
+
+describe('not-ready mapping', () => {
+  const session = { accountId: 'a', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light' as const, idempotencyKey: 'abcdefgh' };
+  const withStatus = (status: number, code: string | null, logger?: { warn: (m: string, d?: unknown) => void }) =>
+    createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(status, code ? { code } : {})).impl, ...(logger ? { logger: logger as never } : {}) });
+
+  it('maps a 403 auth.account_not_available on lookup and setup to account_not_available without the key', async () => {
+    const client = withStatus(403, 'auth.account_not_available');
+    for (const call of [client.getAccount('x'), client.getCompanionSetup('x')]) {
+      const error = await call.catch((e: unknown) => e);
+      expect(error).toMatchObject({ code: 'COMPANION_NOT_READY', details: { reason: 'account_not_available' } });
+      expect(JSON.stringify(error)).not.toContain(NEROVA_KEY);
+    }
+  });
+
+  it.each([
+    [403, 'auth.something_else'],
+    [500, null],
+    [401, 'auth.invalid_key'],
+  ])('keeps %s %s on the account lookup as UPSTREAM_COMPANION_ERROR', async (status, code) => {
+    await expect(withStatus(status, code).getAccount('x')).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR' });
+  });
+
+  it.each([
+    [422, 'widget.origins_not_registered', 'origin_not_registered'],
+    [422, 'widget.origin_not_registered', 'origin_not_registered'],
+    [403, 'widget.authorization_invalid', 'key_not_authorized'],
+    [403, 'auth.account_not_available', 'account_not_available'],
+  ])('maps session %s %s to COMPANION_NOT_READY / %s', async (status, code, reason) => {
+    await expect(withStatus(status, code).createOwnerChatSession(session)).rejects.toMatchObject({ code: 'COMPANION_NOT_READY', details: { reason } });
+  });
+
+  it('logs the configured origin when it is not registered', async () => {
+    const warnings: unknown[][] = [];
+    const client = withStatus(422, 'widget.origins_not_registered', { warn: (...args) => void warnings.push(args) });
+    await client.createOwnerChatSession(session).catch(() => undefined);
+    expect(warnings).toEqual([['companion_origin_not_registered', { origin: 'https://x.test' }]]);
+  });
+
+  it.each([
+    [500, null],
+    [422, 'validation.failed'],
+    [400, 'widget.other'],
+  ])('keeps session %s %s as UPSTREAM_COMPANION_ERROR', async (status, code) => {
+    await expect(withStatus(status, code).createOwnerChatSession(session)).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR' });
   });
 });
 

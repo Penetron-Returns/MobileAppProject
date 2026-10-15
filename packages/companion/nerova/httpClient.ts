@@ -1,6 +1,7 @@
 /** fetch implementation of NerovaClient. Bearer key, per-call timeout, every failure mapped to an AppError. */
-import type { CompanionOutcomesDTO } from '@booking/types';
+import type { CompanionNotReadyReason, CompanionOutcomesDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
+import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { NerovaAccount, NerovaClient, NerovaOwnerChatSession, NerovaSetupStatus } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
 
@@ -17,22 +18,25 @@ export interface HttpNerovaClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  logger?: Logger;
 }
 
 type Json = Record<string, unknown>;
 
 const upstream = (message: string, details?: Record<string, unknown>) => new AppError('UPSTREAM_COMPANION_ERROR', message, details);
+const notReady = (reason: CompanionNotReadyReason) => new AppError('COMPANION_NOT_READY', 'The companion is not ready yet', { reason });
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null);
 
 export function createHttpNerovaClient(options: HttpNerovaClientOptions): NerovaClient {
   const doFetch = options.fetch ?? fetch;
+  const logger = options.logger ?? createLogger({ module: 'companion_http' });
   const base = (options.baseUrl ?? NEROVA_API_BASE_URL).replace(/\/+$/, '');
 
   /** One request. Returns null on 404 when `allowNotFound`; every other failure is an upstream AppError. */
   async function request(
     method: 'GET' | 'POST',
     path: string,
-    init: { body?: unknown; idempotencyKey?: string; allowNotFound?: boolean } = {},
+    init: { body?: unknown; idempotencyKey?: string; allowNotFound?: boolean; notReadyOn?: (status: number, code: string | null) => CompanionNotReadyReason | null } = {},
   ): Promise<Json | null> {
     let response: Response;
     try {
@@ -54,17 +58,33 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
     if (response.status === 404 && init.allowNotFound) return null;
     const payload = (await response.json().catch(() => null)) as Json | null;
     if (!response.ok) {
+      const reason = init.notReadyOn?.(response.status, text(payload?.code));
+      if (reason) throw notReady(reason);
       // Nerova error bodies are RFC 9457 problem details with a stable `code`; never echo the request.
       throw upstream('The companion service rejected the request', { status: response.status, nerova_code: text(payload?.code) });
     }
     return payload ?? {};
   }
 
+  /** Nerova answers 403 for both "no such account" and "key has no grant for it": a not-set-up-yet state. */
+  const accountNotAvailable = (status: number, code: string | null): CompanionNotReadyReason | null =>
+    status === 403 && code === 'auth.account_not_available' ? 'account_not_available' : null;
+
+  /** Documented widget-session errors, all configuration the operator can fix. */
+  const widgetSessionError = (origin: string) => (status: number, code: string | null): CompanionNotReadyReason | null => {
+    if (status === 422 && (code === 'widget.origins_not_registered' || code === 'widget.origin_not_registered')) {
+      logger.warn('companion_origin_not_registered', { origin });
+      return 'origin_not_registered';
+    }
+    if (status === 403 && code === 'widget.authorization_invalid') return 'key_not_authorized';
+    return accountNotAvailable(status, code);
+  };
+
   const account = (idOrReference: string) => `/v1/accounts/${encodeURIComponent(idOrReference)}`;
 
   return {
     async getAccount(idOrReference): Promise<NerovaAccount | null> {
-      const body = await request('GET', account(idOrReference), { allowNotFound: true });
+      const body = await request('GET', account(idOrReference), { allowNotFound: true, notReadyOn: accountNotAvailable });
       if (!body) return null;
       const id = text(body.id);
       if (!id) throw upstream('The companion service returned an unexpected account');
@@ -72,13 +92,14 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
     },
 
     async getCompanionSetup(idOrReference): Promise<NerovaSetupStatus | null> {
-      const body = await request('GET', `${account(idOrReference)}/companion/setup`, { allowNotFound: true });
+      const body = await request('GET', `${account(idOrReference)}/companion/setup`, { allowNotFound: true, notReadyOn: accountNotAvailable });
       return body ? { nextStep: text(body.nextStep) } : null;
     },
 
     async createOwnerChatSession(input): Promise<NerovaOwnerChatSession> {
       const body = await request('POST', `${account(input.accountId)}/widgets/sessions`, {
         idempotencyKey: input.idempotencyKey,
+        notReadyOn: widgetSessionError(input.origin),
         body: {
           widget: 'owner_chat',
           origin: input.origin,

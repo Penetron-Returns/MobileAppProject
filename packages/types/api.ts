@@ -680,7 +680,13 @@ export interface CompanionSessionDTO {
 
 /** `details.reason` of COMPANION_NOT_READY (HTTP 409) */
 export type CompanionNotReadyReason =
-  'account_not_found' | 'not_provisioned' | 'setup_incomplete' | 'unavailable';
+  | 'account_not_found'
+  | 'account_not_available'
+  | 'origin_not_registered'
+  | 'key_not_authorized'
+  | 'not_provisioned'
+  | 'setup_incomplete'
+  | 'unavailable';
 
 export interface CompanionNotReadyDetails {
   reason: CompanionNotReadyReason;

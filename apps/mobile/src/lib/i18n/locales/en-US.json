@@ -1237,7 +1237,19 @@
       "reasons": {
         "account_not_found": {
           "title": "Your companion is being set up",
-          "description": "We're linking your business. This usually takes a few minutes."
+          "description": "Your companion is being set up. This usually takes a few minutes after you subscribe."
+        },
+        "account_not_available": {
+          "title": "Your companion is being set up",
+          "description": "Your companion is being set up. This usually takes a few minutes after you subscribe."
+        },
+        "origin_not_registered": {
+          "title": "Your companion isn't connected yet",
+          "description": "Your companion isn't connected to this app yet."
+        },
+        "key_not_authorized": {
+          "title": "Your companion isn't connected yet",
+          "description": "Your companion isn't connected to this app yet."
         },
         "not_provisioned": {
           "title": "Your companion is being set up",

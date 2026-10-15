@@ -110,6 +110,9 @@ describe('CompanionContent', () => {
 
   it.each([
     [{ reason: 'account_not_found' }, 'Your companion is being set up'],
+    [{ reason: 'account_not_available' }, 'Your companion is being set up'],
+    [{ reason: 'origin_not_registered' }, "Your companion isn't connected yet"],
+    [{ reason: 'key_not_authorized' }, "Your companion isn't connected yet"],
     [{ reason: 'setup_incomplete' }, 'Finish setting up your companion'],
     [{ reason: 'unavailable' }, 'Your companion is unavailable right now'],
     [

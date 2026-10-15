@@ -71,6 +71,14 @@ describe('POST /v1/companion/session', () => {
     expect(r.body.error.details).toEqual({ reason: 'unavailable' });
   });
 
+  it.each(['account_not_available', 'origin_not_registered', 'key_not_authorized'] as const)('is 409 COMPANION_NOT_READY / %s when Nerova reports it', async (reason) => {
+    const h = plansHarness({ plan: 'growth', accounts: [ready] });
+    h.nerova.failWith = new AppError('COMPANION_NOT_READY', 'The companion is not ready yet', { reason });
+    const r = await h.call('POST', '/v1/companion/session', { body: { color_mode: 'light' } });
+    expect(r.status).toBe(409);
+    expect(r.body.error).toMatchObject({ code: 'COMPANION_NOT_READY', details: { reason } });
+  });
+
   it('maps a Nerova outage to 502 UPSTREAM_COMPANION_ERROR', async () => {
     const h = plansHarness({ plan: 'growth', accounts: [ready] });
     h.nerova.failWith = new AppError('UPSTREAM_COMPANION_ERROR', 'The companion service timed out', { reason: 'timeout' });
