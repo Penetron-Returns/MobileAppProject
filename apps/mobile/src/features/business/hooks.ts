@@ -6,7 +6,7 @@ import { qk, useApiMutation } from '@/lib/query';
 import type { MutationCallbacks } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
-async function fetchBusiness() {
+export async function fetchBusiness() {
   // RLS returns only the business of the active Clerk organisation.
   const res = await supabase
     .from('businesses')

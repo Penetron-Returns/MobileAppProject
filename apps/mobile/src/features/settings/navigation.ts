@@ -8,6 +8,7 @@ export type SettingsItem =
   | 'rules'
   | 'whatsapp'
   | 'companion'
+  | 'voice'
   | 'plan'
   | 'notifications';
 
@@ -23,11 +24,13 @@ export interface SettingsGroup {
  * business", "Customize" and "Account"; staff only an untitled group with
  * Notifications (the API refuses the rest anyway). Customize holds WhatsApp
  * on Free and the Companion on paid plans (`mode`); Account leads with Plan.
+ * Hey Clovie (`options.hasVoice`, Android only) follows that row.
  * Extensions, connected apps and Help are not in v1 (docs/v1-scope.md).
  */
 export function settingsGroups(
   isOwner: boolean,
   mode: AppMode = 'free',
+  options: { hasVoice?: boolean } = {},
 ): SettingsGroup[] {
   if (!isOwner) {
     return [{ id: 'account', items: ['notifications'], titled: false }];
@@ -40,7 +43,10 @@ export function settingsGroups(
     },
     {
       id: 'customize',
-      items: [mode === 'ai' ? 'companion' : 'whatsapp'],
+      items: [
+        mode === 'ai' ? 'companion' : 'whatsapp',
+        ...(options.hasVoice ? (['voice'] as const) : []),
+      ],
       titled: true,
     },
     { id: 'account', items: ['plan', 'notifications'], titled: true },

@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.clovievoice'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.clovievoice"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // Runs the three wake-word models. Stable, more than two weeks old.
+  implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
+  implementation 'androidx.core:core-ktx:1.13.1'
+}
