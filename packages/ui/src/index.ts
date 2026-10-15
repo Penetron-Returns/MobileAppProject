@@ -108,6 +108,8 @@ export type { InlineInsetInputProps } from './components/InlineInsetInput';
 export { AmountInsetField, LabeledInsetField } from './components/InsetFields';
 export { InsetInput } from './components/InsetInput';
 export type { InsetInputProps } from './components/InsetInput';
+export { MonthGrid } from './components/MonthGrid';
+export type { MonthCell, MonthGridProps } from './components/MonthGrid';
 export { OptionSheet } from './components/OptionSheet';
 export type { SheetOption } from './components/OptionSheet';
 export { SearchField } from './components/SearchField';
