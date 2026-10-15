@@ -167,13 +167,13 @@ class VoiceService : Service() {
     val isFinished = outcome.status == "done" || outcome.status == "error"
     if (hasOverlay) {
       if (isFinished) {
-        overlay.setMessage(outcome.message)
+        overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
         overlay.setState(outcome.status)
         main.postDelayed(dismiss, RESULT_MS)
       } else {
         // JS could not finish it (or did not answer): the owner taps to continue in the app.
         overlay.setMessage("")
-        overlay.setState("done")
+        overlay.setState("request")
         overlay.setAction(OPEN_LABEL)
         main.postDelayed(dismiss, OPEN_MS)
       }

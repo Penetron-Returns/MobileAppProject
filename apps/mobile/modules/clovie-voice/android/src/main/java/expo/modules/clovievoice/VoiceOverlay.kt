@@ -2,6 +2,7 @@ package expo.modules.clovievoice
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
@@ -89,6 +90,8 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       params = layout
       isAttached = true
       view.visibility = View.VISIBLE
+      val isNight = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+      run("setTheme('${if (isNight) "dark" else "light"}')")
       true
     } catch (_: RuntimeException) {
       false // permission revoked meanwhile, or no window token
@@ -177,7 +180,7 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
 
   private companion object {
     const val PAGE_URL = "file:///android_asset/overlay/overlay.html"
-    const val HEIGHT_FRACTION = 0.4f
+    const val HEIGHT_FRACTION = 0.5f // the glow rises to about half the screen; its top fades out
     const val FRAME_MS = 33L // ~30 Hz
   }
 }
