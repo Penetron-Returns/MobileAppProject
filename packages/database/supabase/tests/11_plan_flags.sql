@@ -38,7 +38,7 @@ begin
   perform tests.eq((select min(plan::text) from public.business_features(a)), 'free', 'business_features reports the plan');
   update public.businesses set plan = 'growth' where id = b;
   perform tests.eq((select array_agg(feature order by feature) from public.business_features(b)),
-                   array['assistant_bookings','companion','desktop_app','extensions'], 'growth business gets the companion set, no inbox');
+                   array['assistant_bookings','companion','desktop_app','extensions','reports'], 'growth business gets the companion set, no inbox');
   perform tests.eq((select count(*) from public.business_features(gen_random_uuid()))::int, 0, 'unknown business has no features');
 end
 $$;

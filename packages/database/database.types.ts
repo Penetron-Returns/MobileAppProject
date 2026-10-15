@@ -497,6 +497,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          nerova_account_id: string | null
           onboarded_at: string | null
           phone: string | null
           plan: Database["public"]["Enums"]["plan_key"]
@@ -514,6 +515,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          nerova_account_id?: string | null
           onboarded_at?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["plan_key"]
@@ -531,6 +533,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          nerova_account_id?: string | null
           onboarded_at?: string | null
           phone?: string | null
           plan?: Database["public"]["Enums"]["plan_key"]
@@ -1544,6 +1547,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      completed_jobs_in_month: {
+        Args: {
+          p_business_id: string
+          p_month: string
+          p_now?: string
+        }
+        Returns: number
+      }
       create_appointment: {
         Args: {
           p_actor: Database["public"]["Enums"]["actor_type"]
@@ -1590,6 +1601,14 @@ export type Database = {
       dashboard_summary: {
         Args: {
           p_date: string
+        }
+        Returns: Json
+      }
+      month_report: {
+        Args: {
+          p_business_id: string
+          p_month: string
+          p_now?: string
         }
         Returns: Json
       }
