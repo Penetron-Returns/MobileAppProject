@@ -1,6 +1,6 @@
-import { useAppColorScheme } from '@booking/ui';
 import { router } from 'expo-router';
 
+import { useClovieMood } from '../useClovieMood';
 import { CompanionContent } from './CompanionContent';
 import { CompanionSheet } from './CompanionSheet';
 
@@ -9,17 +9,10 @@ const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /** The companion sheet route: Nerova's owner chat over whatever screen opened it. */
 export function CompanionScreen() {
-  const { isDark } = useAppColorScheme();
+  const { mood, onWidgetEvent } = useClovieMood();
   return (
-    <CompanionSheet
-      character={
-        isDark
-          ? require('@/assets/images/companion-default-dark.png')
-          : require('@/assets/images/companion-default.png')
-      }
-      onClose={close}
-    >
-      <CompanionContent />
+    <CompanionSheet mood={mood} onClose={close}>
+      <CompanionContent onWidgetEvent={onWidgetEvent} />
     </CompanionSheet>
   );
 }

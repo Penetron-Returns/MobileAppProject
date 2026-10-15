@@ -23,7 +23,11 @@ export type WidgetEvent =
   | { kind: 'ready' }
   | { kind: 'resize' }
   | { kind: 'session_expired' }
-  | { kind: 'error' };
+  | { kind: 'error' }
+  /** The companion began working on a reply (Nerova does not emit this yet). */
+  | { kind: 'reply_started' }
+  /** The reply finished streaming (Nerova does not emit this yet). */
+  | { kind: 'reply_finished' };
 
 /**
  * Reads a message the bridge relayed from the frame. Anything that is not a
@@ -40,7 +44,14 @@ export function parseWidgetMessage(raw: string): WidgetEvent | null {
   const msg = data as Record<string, unknown>;
   if (msg.type !== 'nerova:widget') return null;
   const event = msg.event ?? msg.kind;
-  if (event === 'ready' || event === 'resize') return { kind: event };
+  if (
+    event === 'ready' ||
+    event === 'resize' ||
+    event === 'reply_started' ||
+    event === 'reply_finished'
+  ) {
+    return { kind: event };
+  }
   if (event === 'error') {
     const reason = String(msg.reason ?? '').replace(/-/g, '_');
     return reason === 'session_expired'
@@ -48,6 +59,48 @@ export function parseWidgetMessage(raw: string): WidgetEvent | null {
       : { kind: 'error' };
   }
   return null;
+}
+
+/** How long Clovie keeps the "reply landed" reaction before going idle. */
+export const REPLIED_MS = 1500;
+
+export type ClovieMood = 'idle' | 'thinking' | 'replied';
+
+/** What the chat last did, and when (ms since epoch, from an injected clock). */
+export interface ChatActivity {
+  phase: ClovieMood;
+  since: number;
+}
+
+export const IDLE_ACTIVITY: ChatActivity = { phase: 'idle', since: 0 };
+
+/** Folds a widget event into the chat activity; events that say nothing about replies change nothing. */
+export function reduceActivity(
+  activity: ChatActivity,
+  event: WidgetEvent,
+  now: number,
+): ChatActivity {
+  switch (event.kind) {
+    case 'reply_started':
+      return { phase: 'thinking', since: now };
+    case 'reply_finished':
+      return activity.phase === 'thinking'
+        ? { phase: 'replied', since: now }
+        : activity;
+    case 'error':
+    case 'session_expired':
+      return { phase: 'idle', since: now };
+    default:
+      return activity;
+  }
+}
+
+/** The mood at `now`: "replied" decays to idle after REPLIED_MS. */
+export function clovieMood(activity: ChatActivity, now: number): ClovieMood {
+  if (activity.phase === 'replied' && now - activity.since >= REPLIED_MS) {
+    return 'idle';
+  }
+  return activity.phase;
 }
 
 /** Escapes a value for a double-quoted HTML attribute. */

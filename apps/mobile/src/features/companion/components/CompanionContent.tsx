@@ -6,7 +6,7 @@ import { useAppColorScheme } from '@booking/ui';
 import { describeError } from '@/lib/toast';
 
 import { useCompanionSession } from '../hooks';
-import { notReadyKey } from '../logic';
+import { notReadyKey, type WidgetEvent } from '../logic';
 import { CompanionWebView } from './CompanionWebView';
 
 /**
@@ -14,7 +14,11 @@ import { CompanionWebView } from './CompanionWebView';
  * it is, a friendly explanation when the companion isn't set up, and a retry
  * when Nerova or the connection fails.
  */
-export function CompanionContent() {
+export function CompanionContent({
+  onWidgetEvent,
+}: {
+  onWidgetEvent?: (event: WidgetEvent) => void;
+} = {}) {
   const { t } = useTranslation();
   const { isDark } = useAppColorScheme();
   const session = useCompanionSession(isDark ? 'dark' : 'light');
@@ -25,6 +29,7 @@ export function CompanionContent() {
       <CompanionWebView
         sessionUrl={state.url}
         onEvent={(event) => {
+          onWidgetEvent?.(event);
           if (event.kind === 'session_expired') session.onSessionExpired();
         }}
       />
