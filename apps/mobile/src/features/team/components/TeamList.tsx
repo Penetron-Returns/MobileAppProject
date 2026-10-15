@@ -6,6 +6,7 @@ import {
   Text,
   TintLink,
   useDepth,
+  Reveal,
 } from '@booking/ui';
 import { Plus, UserPlus, Users } from 'lucide-react-native';
 import * as React from 'react';
@@ -47,24 +48,25 @@ export function TeamList({
           {people.map((person, i) => {
             const subtitle = personSubtitle(person, t);
             return (
-              <GroupRow
-                key={person.key}
-                showSeparator={i > 0}
-                avatarName={person.name}
-                avatarRing={resolveSystemColor(
-                  person.staff?.color,
-                  depth.scheme,
-                )}
-                title={person.name}
-                subtitle={subtitle}
-                accessibilityLabel={t('team.openPerson', {
-                  name: person.name,
-                  meta: [person.job, t(`team.accessSpoken.${person.access}`)]
-                    .filter(Boolean)
-                    .join(', '),
-                })}
-                onPress={() => onOpen(person.key)}
-              />
+              <Reveal key={person.key} scope="team" index={i}>
+                <GroupRow
+                  showSeparator={i > 0}
+                  avatarName={person.name}
+                  avatarRing={resolveSystemColor(
+                    person.staff?.color,
+                    depth.scheme,
+                  )}
+                  title={person.name}
+                  subtitle={subtitle}
+                  accessibilityLabel={t('team.openPerson', {
+                    name: person.name,
+                    meta: [person.job, t(`team.accessSpoken.${person.access}`)]
+                      .filter(Boolean)
+                      .join(', '),
+                  })}
+                  onPress={() => onOpen(person.key)}
+                />
+              </Reveal>
             );
           })}
         </Group>

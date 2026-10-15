@@ -12,6 +12,7 @@ import { cn } from '../lib/cn';
 import { Icon } from '../primitives/Icon';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
+import { DURATION, SPRING } from '../tokens/motion';
 import { Z_INDEX } from '../tokens/zIndex';
 import { dismissToast, useToasts, type ToastItem } from './toastStore';
 import { useDsText } from '../lib/strings';
@@ -23,8 +24,13 @@ function ToastCard({ item }: { item: ToastItem }) {
   const depth = useDepth();
   return (
     <Animated.View
-      entering={FadeInUp.reduceMotion(ReduceMotion.System)}
-      exiting={FadeOutUp.reduceMotion(ReduceMotion.System)}
+      entering={FadeInUp.springify()
+        .damping(SPRING.gentle.damping)
+        .stiffness(SPRING.gentle.stiffness)
+        .reduceMotion(ReduceMotion.System)}
+      exiting={FadeOutUp.duration(DURATION.quick).reduceMotion(
+        ReduceMotion.System,
+      )}
     >
       <View
         style={{ boxShadow: depth.floating.boxShadow }}

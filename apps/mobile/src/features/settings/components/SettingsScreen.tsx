@@ -11,6 +11,7 @@ import {
   useAppColorScheme,
   useDepth,
   type GlyphComponent,
+  Reveal,
 } from '@booking/ui';
 import { useOrganization, useUser } from '@clerk/expo';
 import Constants from 'expo-constants';
@@ -83,9 +84,9 @@ export function SettingsScreen() {
     whatsapp: whatsappDetail(t, whatsapp.data),
   };
 
-  const renderGroup = (group: SettingsGroup) => {
+  const renderGroup = (group: SettingsGroup, index: number) => {
     const content = (
-      <React.Fragment key={group.id}>
+      <Reveal key={group.id} scope="settings" index={index}>
         {group.titled ? (
           <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
         ) : (
@@ -121,7 +122,7 @@ export function SettingsScreen() {
             />
           ) : null}
         </Group>
-      </React.Fragment>
+      </Reveal>
     );
     // Our own WhatsApp booking menu is a Free-plan feature.
     return group.id === 'customize' ? (
@@ -171,7 +172,7 @@ export function SettingsScreen() {
         </View>
       )}
 
-      {settingsGroups(isOwner).map(renderGroup)}
+      {settingsGroups(isOwner).map((group, index) => renderGroup(group, index))}
 
       <Pressable
         onPress={() => void signOut()}

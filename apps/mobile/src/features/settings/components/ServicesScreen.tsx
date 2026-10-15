@@ -10,12 +10,12 @@ import {
   SectionTitle,
   Text,
   TintLink,
+  Reveal,
 } from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Sparkles } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { isFailed, loadError } from '@/lib/offline';
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
@@ -79,8 +79,8 @@ export function ServicesScreen() {
       <BusinessGate>
         {(biz) =>
           groupByCategory(services.data, t('services.other')).map(
-            ([category, rows]) => (
-              <View key={category}>
+            ([category, rows], index) => (
+              <Reveal key={category} scope="services" index={index}>
                 <SectionTitle className="mt-5">{category}</SectionTitle>
                 <Group>
                   {rows.map((service, i) => {
@@ -106,7 +106,7 @@ export function ServicesScreen() {
                     );
                   })}
                 </Group>
-              </View>
+              </Reveal>
             ),
           )
         }

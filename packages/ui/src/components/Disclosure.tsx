@@ -1,11 +1,11 @@
 import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
-import { View } from 'react-native';
 
 import { cn } from '../lib/cn';
 import { Pressable } from '../primitives/Pressable';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
+import { Turn } from './Turn';
 
 export interface DisclosureProps {
   label: string;
@@ -44,12 +44,9 @@ export function Disclosure({
         >
           {label}
         </Text>
-        <View
-          importantForAccessibility="no-hide-descendants"
-          style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}
-        >
+        <Turn open={expanded} degrees={90}>
           <ChevronRight size={14} strokeWidth={2.8} color={depth.colors.tint} />
-        </View>
+        </Turn>
       </Pressable>
     );
   }
@@ -67,13 +64,9 @@ export function Disclosure({
       <Text style={{ color: depth.colors.tint }} className="text-title">
         {label}
       </Text>
-      {/* The turn is on a View: a transform on the SVG icon itself drops it on Android. */}
-      <View
-        importantForAccessibility="no-hide-descendants"
-        style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-      >
+      <Turn open={expanded} degrees={180}>
         <ChevronDown size={14} strokeWidth={3} color={depth.colors.tint} />
-      </View>
+      </Turn>
     </Pressable>
   );
 }

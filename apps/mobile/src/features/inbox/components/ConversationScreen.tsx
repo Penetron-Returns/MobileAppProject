@@ -8,6 +8,7 @@ import {
   InsetInput,
   Skeleton,
   Text,
+  Turn,
   useDepth,
 } from '@booking/ui';
 import { router } from 'expo-router';
@@ -117,13 +118,9 @@ export function ConversationScreen({
               <Text className="text-subtitle text-muted-foreground">
                 {t('conversation.menuGroup', { count: item.messages.length })}
               </Text>
-              <ChevronDown
-                size={16}
-                color={depth.colors.secondary}
-                style={{
-                  transform: [{ rotate: menuOpen ? '180deg' : '0deg' }],
-                }}
-              />
+              <Turn open={menuOpen}>
+                <ChevronDown size={16} color={depth.colors.secondary} />
+              </Turn>
             </Pressable>
           ) : null,
         )}

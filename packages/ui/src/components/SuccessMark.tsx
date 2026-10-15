@@ -1,15 +1,30 @@
 import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
+import { springConfig } from '../tokens/motion';
 
 /** The large green completion dome (design: 88pt on the done screen). */
 export function SuccessMark({ size = 88 }: { size?: number }) {
   const depth = useDepth();
+  // The dome pops in with a gentle overshoot; reduced motion lands it at once.
+  const pop = useSharedValue(0);
+  React.useEffect(() => {
+    pop.value = withSpring(1, springConfig('gentle'));
+  }, [pop]);
+  const popStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pop.value * 2),
+    transform: [{ scale: 0.6 + 0.4 * pop.value }],
+  }));
   return (
-    <View
+    <Animated.View
       accessible={false}
       importantForAccessibility="no-hide-descendants"
       style={[
@@ -24,10 +39,11 @@ export function SuccessMark({ size = 88 }: { size?: number }) {
           alignItems: 'center',
           justifyContent: 'center',
         },
+        popStyle,
       ]}
     >
       <Check size={size * 0.59} strokeWidth={2.6} color={depth.colors.onFill} />
-    </View>
+    </Animated.View>
   );
 }
 
