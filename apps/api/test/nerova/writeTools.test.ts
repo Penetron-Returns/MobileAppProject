@@ -293,3 +293,36 @@ describe('appointments_create racing on the same idempotencyKey', () => {
     expect(code(other)).toBe('conflict');
   });
 });
+
+describe('cancellation window by origin channel', () => {
+  const soon = '2026-09-28'; // "now" is Monday 08:00 SAST, window 24h: 15:00 is inside it
+  const later = '2026-10-05';
+  const move = (h: NerovaHarness, appointmentId: string, extra: Record<string, unknown>) =>
+    h.tool('appointments_reschedule', { accountId: h.business.id, appointmentId, ...extra });
+  const origins: Array<[string, { source: 'nerova'; channel?: string } | undefined, boolean]> = [
+    ['no origin', undefined, false],
+    ['whatsapp', { source: 'nerova', channel: 'whatsapp' }, false],
+    ['owner', { source: 'nerova', channel: 'owner' }, true],
+    ['owner_chat', { source: 'nerova', channel: 'owner_chat' }, true],
+    ['system', { source: 'nerova', channel: 'system' }, true],
+    ['conformance', { source: 'nerova', channel: 'conformance' }, true],
+  ];
+
+  describe.each([['inside', soon], ['outside', later]])('%s the window', (where, date) => {
+    it.each(origins)('reschedule with %s', async (_name, origin, exempt) => {
+      const h = nerovaHarness();
+      const a = await h.ok('appointments_create', createArgs(h, { startTime: sast('15:00', date), origin: undefined }));
+      const res = await move(h, a.externalAppointmentId, { newStartTime: sast('16:00', date), ...(origin ? { origin } : {}) });
+      if (where === 'inside' && !exempt) expect(code(res)).toBe('conflict');
+      else expect(res.isError).toBeUndefined();
+    });
+
+    it.each(origins)('cancel with %s', async (_name, origin, exempt) => {
+      const h = nerovaHarness();
+      const a = await h.ok('appointments_create', createArgs(h, { startTime: sast('15:00', date), origin: undefined }));
+      const res = await h.tool('appointments_cancel', { accountId: h.business.id, appointmentId: a.externalAppointmentId, ...(origin ? { origin } : {}) });
+      if (where === 'inside' && !exempt) expect(code(res)).toBe('conflict');
+      else expect(res.structuredContent.status).toBe('Cancelled');
+    });
+  });
+});
