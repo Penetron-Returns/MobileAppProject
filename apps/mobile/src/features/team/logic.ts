@@ -103,14 +103,24 @@ export function buildTeam(
   return people;
 }
 
-/** i18n key suffix of the access status shown under a person's name. */
-export type AccessNote = 'owner' | 'invited' | 'none' | null;
+/**
+ * Whether the list may offer "Remove from team" on a swipe: a login that is
+ * neither the owner nor the signed-in person (who cannot remove themselves).
+ */
+export function canRemoveMember(person: TeamPerson): boolean {
+  const { member } = person;
+  return member !== null && !member.is_self && member.role !== 'owner';
+}
 
-/** What the list row adds after the job: Owner, Invite pending, No app access. */
+/** i18n key suffix of the access status shown under a person's name. */
+export type AccessNote = 'owner' | 'staff' | 'invited' | 'none';
+
+/** What the list row adds after the job: Owner, Staff, Invite pending, No app access. */
 export function accessNote(person: TeamPerson): AccessNote {
   if (person.access === 'invited') return 'invited';
   if (person.access === 'none') return 'none';
-  return person.role === 'owner' ? 'owner' : null;
+  // A login always shows its role, so the line is never empty.
+  return person.role === 'owner' ? 'owner' : 'staff';
 }
 
 /**

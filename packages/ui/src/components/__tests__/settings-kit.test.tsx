@@ -576,3 +576,32 @@ describe('MonthGrid', () => {
     });
   });
 });
+
+describe('FormSheet footer', () => {
+  it('sits on its own hairline and leaves room under the list for the last row', () => {
+    const tree = render(
+      <FormSheet
+        open
+        onClose={jest.fn()}
+        title="Add special day"
+        footer={<>{'save here'}</>}
+      >
+        {'rows'}
+      </FormSheet>,
+    );
+    const footer = tree.root.find(
+      (n) =>
+        typeof n.type === 'string' &&
+        StyleSheet.flatten(n.props.style)?.borderTopWidth ===
+          StyleSheet.hairlineWidth,
+    );
+    expect(footer).toBeTruthy();
+    const list = tree.root.find(
+      (n) => n.props.contentContainerStyle?.paddingBottom !== undefined,
+    );
+    // Footer height (96) + the bottom inset (34) + breathing room.
+    expect(
+      list.props.contentContainerStyle.paddingBottom,
+    ).toBeGreaterThanOrEqual(96 + 34);
+  });
+});

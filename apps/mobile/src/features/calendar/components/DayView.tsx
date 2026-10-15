@@ -42,7 +42,12 @@ export function DayView({
   const { t } = useTranslation();
   const depth = useDepth();
   const { colors } = useAppColorScheme();
-  const { width } = useWindowDimensions();
+  const windowWidth = useWindowDimensions().width;
+  // Measure the grid itself: columns are sized to the room next to the gutter,
+  // not to the window, or the first column can slide under the gutter.
+  const [measured, setMeasured] = React.useState<number | null>(null);
+  const width = measured ?? windowWidth;
+  const horizontal = React.useRef<ScrollView>(null);
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const vertical = React.useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -52,6 +57,11 @@ export function DayView({
   const height = minutesToPx(window.endMin - window.startMin);
   const nowMin = nowMinute(now, timezone, date, window);
   const top = (min: number) => minutesToPx(min - window.startMin);
+
+  // A new day or staff list always starts at the first column.
+  React.useEffect(() => {
+    horizontal.current?.scrollTo({ x: 0, animated: false });
+  }, [date, columns.length]);
 
   // Open on the now line (or the first working hour) once per day shown.
   React.useEffect(() => {
@@ -79,8 +89,18 @@ export function DayView({
   for (let m = window.startMin; m < window.endMin; m += 60) hours.push(m);
 
   return (
-    <View className="flex-1 flex-row">
-      <View style={{ width: GUTTER }} className="overflow-hidden">
+    <View
+      className="flex-1 flex-row"
+      onLayout={(e) => setMeasured(e.nativeEvent.layout.width)}
+    >
+      <View
+        style={{
+          width: GUTTER,
+          zIndex: 1,
+          backgroundColor: depth.ground.backgroundColor,
+        }}
+        className="overflow-hidden"
+      >
         <View style={{ height: HEADER }} />
         <View className="flex-1 overflow-hidden">
           <Animated.View
@@ -125,7 +145,18 @@ export function DayView({
         </View>
       </View>
 
-      <ScrollView horizontal nestedScrollEnabled className="flex-1">
+      <ScrollView
+        ref={horizontal}
+        horizontal
+        nestedScrollEnabled
+        // One or two columns fill the screen exactly, so nothing to scroll.
+        scrollEnabled={columns.length > 2}
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        contentOffset={{ x: 0, y: 0 }}
+        style={{ flex: 1 }}
+      >
         <View style={{ width: colWidth * columns.length }}>
           <Animated.ScrollView
             ref={vertical as React.Ref<never>}
