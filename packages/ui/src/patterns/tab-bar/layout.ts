@@ -29,7 +29,6 @@ export type TabRouteName =
 const TAB_ROOT_PATHS = new Set([
   '/',
   '/calendar',
-  '/add',
   '/clients',
   '/settings',
   '/inbox',

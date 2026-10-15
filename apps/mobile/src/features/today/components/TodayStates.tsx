@@ -120,7 +120,7 @@ export function TodayEmpty() {
         variant="secondary"
         size="lg"
         className="mt-3"
-        onPress={() => router.navigate('/add' as never)}
+        onPress={() => router.push('/new-booking' as never)}
       >
         <Text className="text-title">{t('today.empty.addBooking')}</Text>
       </Button>
