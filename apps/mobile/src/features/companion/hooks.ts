@@ -1,8 +1,15 @@
-import type { CompanionColorMode, CompanionSessionDTO } from '@booking/types';
+import type {
+  CompanionColorMode,
+  CompanionSessionDTO,
+  CompanionWhatsAppConnectSessionDTO,
+} from '@booking/types';
+import { useQuery } from '@tanstack/react-query';
+import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
+import { AppState } from 'react-native';
 
 import { api, isApiError } from '@/lib/api';
-import { useApiMutation } from '@/lib/query';
+import { qk, useApiMutation } from '@/lib/query';
 
 import { REFRESH_RETRY_MS, refreshDelayMs } from './logic';
 
@@ -96,4 +103,76 @@ export function useCompanionSession(colorMode: CompanionColorMode) {
     ),
     retry: React.useCallback(() => void refresh({ silent: false }), [refresh]),
   };
+}
+
+/**
+ * Nerova's setup state for the owner: the next step and whether WhatsApp is
+ * connected. `pollMs` (while the connect tab is open) re-asks on a timer;
+ * either way it refetches when the app returns to the foreground, since the
+ * owner leaves for the browser tab and comes back.
+ */
+export function useCompanionSetup(
+  opts: { enabled: boolean; pollMs?: number | false } = { enabled: true },
+) {
+  const query = useQuery({
+    queryKey: qk.companionSetup,
+    queryFn: api.companionSetup,
+    enabled: opts.enabled,
+    refetchInterval: opts.pollMs || false,
+    staleTime: 30_000,
+  });
+  const { refetch } = query;
+  React.useEffect(() => {
+    if (!opts.enabled) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void refetch();
+    });
+    return () => sub.remove();
+  }, [opts.enabled, refetch]);
+  return query;
+}
+
+/**
+ * Starts the WhatsApp connect flow: mints a launch URL and opens it in the
+ * system browser tab (the chat widget's own popup is blocked in the
+ * WebView). The URL is a secret and is never logged. `onClosed` fires when
+ * the tab is dismissed. The card shows its own errors, so no toast.
+ */
+export function useConnectWhatsApp(handlers: {
+  onOpened: () => void;
+  onClosed: () => void;
+  onAlreadyConnected: () => void;
+  onFailed: (error: unknown) => void;
+}) {
+  const handlersRef = React.useRef(handlers);
+  handlersRef.current = handlers;
+  const mint = useApiMutation<void, CompanionWhatsAppConnectSessionDTO>({
+    mutationFn: (_vars, key) => api.createCompanionWhatsAppSession(key),
+    onError: (error) => {
+      if (isApiError(error) && error.code === 'WHATSAPP_ALREADY_CONNECTED') {
+        handlersRef.current.onAlreadyConnected();
+      } else {
+        handlersRef.current.onFailed(error);
+      }
+      return true;
+    },
+  });
+  const { mutateAsync } = mint;
+  const start = React.useCallback(async () => {
+    let session: CompanionWhatsAppConnectSessionDTO;
+    try {
+      session = await mutateAsync();
+    } catch {
+      return; // reported through onError above
+    }
+    try {
+      handlersRef.current.onOpened();
+      await WebBrowser.openBrowserAsync(session.launch_url);
+    } catch (error) {
+      handlersRef.current.onFailed(error);
+      return;
+    }
+    handlersRef.current.onClosed();
+  }, [mutateAsync]);
+  return { start, isStarting: mint.isPending };
 }

@@ -17,6 +17,33 @@ export interface NerovaAccount {
 export interface NerovaSetupStatus {
   /** connect_booking_system | verify_booking_connection | provision_account | connect_whatsapp | go_live | none */
   nextStep: string | null;
+  whatsapp: {
+    connected: boolean;
+    /** Nerova's WhatsAppOnboardingState, passed through */
+    state: string;
+    displayPhoneNumber: string | null;
+    businessVerified: boolean;
+  };
+  /** The receptionist (companion) is live on WhatsApp */
+  receptionistLive: boolean;
+  /** Activation version (int64): the `expectedVersion` of the next activation command; null when Nerova omits it */
+  version: number | null;
+}
+
+export interface CreateConnectionSessionInput {
+  accountId: string;
+  /** Exact https origin of the embedding page; must be on the Nerova embed allowlist */
+  embedOrigin: string;
+  expectedVersion: number;
+  /** 8 to 255 characters, derived from the logical command so a retry replays the same session */
+  idempotencyKey: string;
+}
+
+export interface NerovaConnectionSession {
+  /** Hosted WhatsApp connect page. Carries `#state=` (a secret): pass it through untouched, never log it. */
+  launchUrl: string;
+  /** ISO-8601 instant (about 10 minutes out) */
+  expiresAt: string;
 }
 
 export interface CreateOwnerChatSessionInput {
@@ -42,6 +69,11 @@ export interface NerovaClient {
   getAccount(idOrReference: string): Promise<NerovaAccount | null>;
   /** Null when the account is unknown (404) */
   getCompanionSetup(idOrReference: string): Promise<NerovaSetupStatus | null>;
+  /**
+   * Starts a hosted WhatsApp connect session. Throws COMPANION_NOT_READY for an unprovisioned account, and an
+   * UPSTREAM_COMPANION_ERROR with `details.nerova_code: "activation.version_conflict"` (HTTP 409) when `expectedVersion` is stale.
+   */
+  createConnectionSession(input: CreateConnectionSessionInput): Promise<NerovaConnectionSession>;
   createOwnerChatSession(input: CreateOwnerChatSessionInput): Promise<NerovaOwnerChatSession>;
   /** Outcome counts for one UTC calendar month (`month` 1-12) */
   getOutcomeSummary(idOrReference: string, period: { year: number; month: number }): Promise<CompanionOutcomesDTO>;
