@@ -101,6 +101,30 @@ object SttPolicy {
   }
 }
 
+/** What to do when the cloud transcription of an already captured clip fails. */
+sealed interface AfterCloudFailure {
+  /** Speak an error; `listenAgain` keeps a follow-up conversation going. */
+  data class SpeakError(val listenAgain: Boolean) : AfterCloudFailure
+
+  /** Only before capture: the recogniser is still a valid fallback. */
+  object Recogniser : AfterCloudFailure
+}
+
+/** Whether the on-device recogniser may still run after a cloud failure. Pure. */
+object CloudFallback {
+  /**
+   * The recogniser is only a fallback BEFORE capture (cloud off, no token, capture failed). Once a clip with speech
+   * exists the owner has already spoken, so it would hear silence: speak an error instead, and keep a follow-up
+   * conversation going within its turn cap.
+   */
+  fun afterFailure(isClipCaptured: Boolean, isFollowUpTurn: Boolean, followUpsDone: Int, pendingRemaining: Int): AfterCloudFailure =
+    if (!isClipCaptured) {
+      AfterCloudFailure.Recogniser
+    } else {
+      AfterCloudFailure.SpeakError(isFollowUpTurn && followUpsDone < FollowUp.maxTurns(pendingRemaining))
+    }
+}
+
 /** Picks the recognition language from what the phone reports. Pure. */
 object SttLanguages {
   private val PREFERRED = listOf("en-ZA", "en-GB", "en-US")

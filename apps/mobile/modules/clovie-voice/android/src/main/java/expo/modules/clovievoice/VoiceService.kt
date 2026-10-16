@@ -246,10 +246,7 @@ class VoiceService : Service() {
    */
   private fun warmUpBackend() {
     if (!CloudStt.isEnabled(this)) return
-    val credentials = VoiceTokenStore.forContext(this).read()
-    if (credentials != null) {
-      Thread({ VoiceTimings.external("pingMs", CloudTranscriber.warm(credentials)) }, "clovie-warm").start()
-    }
+    warmUpConnection()
     try {
       startService(
         Intent(this, VoiceCommandTaskService::class.java)
@@ -258,6 +255,12 @@ class VoiceService : Service() {
     } catch (_: Exception) {
       // The headless task starts again for the command itself.
     }
+  }
+
+  private fun warmUpConnection() {
+    if (!CloudStt.isEnabled(this)) return
+    val credentials = VoiceTokenStore.forContext(this).read() ?: return
+    Thread({ VoiceTimings.external("pingMs", CloudTranscriber.warm(credentials)) }, "clovie-warm").start()
   }
 
   /** Android's SpeechRecognizer; the short delay lets the audio HAL hand the microphone over. */
@@ -315,11 +318,34 @@ class VoiceService : Service() {
         if (text.isEmpty()) showOutcome(CommandOutcome("error", NOT_HEARD)) else runCommand(text)
       }
       is CloudResult.Failure -> {
-        Log.w(TAG, "cloud transcription failed ${result.describe()}: falling back to the recogniser")
+        Log.w(TAG, "cloud transcription failed ${result.describe()}")
         // The app replaces a refused token the next time it is on screen.
         if (result.status == 401) VoiceTokenStore.forContext(this).markRejected()
-        startRecogniser()
+        onCloudLost()
       }
+    }
+  }
+
+  /**
+   * A captured clip could not be transcribed. The owner has already spoken, so the on-device recogniser would only
+   * hear silence: say so instead, and keep a follow-up conversation going (its approval state kept) within its cap.
+   */
+  private fun onCloudLost() {
+    val decision = CloudFallback.afterFailure(true, isFollowUpTurn, followUpsDone, followUp.pendingRemaining)
+    if (decision is AfterCloudFailure.SpeakError) {
+      showOutcome(
+        CommandOutcome(
+          "error", SpokenReply.LOST_CONNECTION_SPOKEN,
+          expectsReply = decision.listenAgain,
+          pendingApprovalId = followUp.pendingApprovalId,
+          pendingKind = followUp.pendingKind,
+          pendingQueue = followUp.pendingQueue,
+          pendingRemaining = followUp.pendingRemaining,
+          reason = "network",
+        ),
+      )
+    } else {
+      startRecogniser()
     }
   }
 
@@ -346,8 +372,8 @@ class VoiceService : Service() {
     deleteClip()
     if (isDestroyed) return
     if (outcome.status == "fallback") {
-      Log.w(TAG, "cloud transcription failed ${outcome.message.ifEmpty { "status=? code=?" }}: falling back to the recogniser")
-      startRecogniser()
+      Log.w(TAG, "cloud transcription failed ${outcome.message.ifEmpty { "status=? code=?" }}")
+      onCloudLost()
       return
     }
     lastTranscript = outcome.transcript
@@ -428,7 +454,7 @@ class VoiceService : Service() {
       if (isFinished) {
         overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
         overlay.setState(outcome.status)
-        dismissReason = outcome.status
+        dismissReason = outcome.reason.ifEmpty { outcome.status }
         if (listenAgain) {
           waitForSpeechThenListenAgain(cue, spoken)
           return
@@ -475,6 +501,7 @@ class VoiceService : Service() {
   /** The soft wake cue, then one more clip with the same capture and VAD; 6 s without speech gives up quietly. */
   private fun listenAgain() {
     if (isDestroyed) return
+    warmUpConnection() // a follow-up comes ~30 s after the last upload: the pooled socket may be dead by now
     followUpsDone += 1
     isFollowUpTurn = true
     Log.i(TAG, "follow-up turn=$followUpsDone pending=${followUp.hasPending} remaining=${followUp.pendingRemaining}")

@@ -23,6 +23,8 @@ data class CommandOutcome(
   /** JSON of the approvals still to read after the pending one; echoed back to JS as-is. */
   val pendingQueue: String = "",
   val pendingRemaining: Int = 0,
+  /** Overrides `status` as the overlay dismiss reason when not blank (`network`). */
+  val reason: String = "",
 )
 
 /**

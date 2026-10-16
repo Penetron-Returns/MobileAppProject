@@ -5,6 +5,8 @@ import java.util.Locale
 /** What Clovie says aloud for an outcome. Pure, so the wording rules are unit tested. */
 object SpokenReply {
   const val NOT_HEARD_SPOKEN = "Sorry, I didn't catch that."
+  /** Shown and spoken when the clip could not be uploaded, even after a retry. */
+  const val LOST_CONNECTION_SPOKEN = "Sorry, I lost the connection. Please say that again."
   const val SPEECH_UNAVAILABLE_SPOKEN = "Speech isn't set up on this phone."
 
   /** For replies that need the app: never read the transcript back, it can hold a client's name. */

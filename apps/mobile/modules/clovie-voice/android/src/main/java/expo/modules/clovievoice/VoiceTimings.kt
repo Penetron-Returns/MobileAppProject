@@ -73,6 +73,7 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
       record("proxyMs", it)
       if (roundTrip >= 0) record("networkMs", maxOf(0L, roundTrip - it))
     }
+    timing.authMs?.let { record("authMs", it) }
     timing.nerovaMs?.let {
       record("nerovaMs", it)
       timing.proxyMs?.let { proxy -> record("proxyOverheadMs", maxOf(0L, proxy - it)) }

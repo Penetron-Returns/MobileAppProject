@@ -1,6 +1,7 @@
 package expo.modules.clovievoice
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -167,5 +168,56 @@ class TimingRecorderTest {
     recorder.wake()
     recorder.commandDone()
     assertEquals(-1L, recorder.values["commandMs"])
+  }
+}
+
+class CloudFallbackTest {
+  @Test
+  fun recogniserIsOnlyAFallbackBeforeAClipIsCaptured() {
+    assertEquals(AfterCloudFailure.Recogniser, CloudFallback.afterFailure(false, false, 0, 0))
+    assertEquals(AfterCloudFailure.Recogniser, CloudFallback.afterFailure(false, true, 1, 0))
+  }
+
+  @Test
+  fun aCapturedClipSpeaksAnErrorInsteadOfListeningToSilence() {
+    assertEquals(AfterCloudFailure.SpeakError(false), CloudFallback.afterFailure(true, false, 0, 0))
+  }
+
+  @Test
+  fun aFollowUpKeepsListeningWithinTheTurnCap() {
+    assertEquals(AfterCloudFailure.SpeakError(true), CloudFallback.afterFailure(true, true, 2, 0))
+    assertEquals(AfterCloudFailure.SpeakError(false), CloudFallback.afterFailure(true, true, FollowUp.BASE_TURNS, 0))
+    assertEquals(AfterCloudFailure.SpeakError(true), CloudFallback.afterFailure(true, true, FollowUp.BASE_TURNS, 1))
+  }
+
+  @Test
+  fun anErrorOnlyListensAgainWhenItAsksTo() {
+    assertTrue(FollowUp.shouldListenAgain("error", true, 1, 0))
+    assertFalse(FollowUp.shouldListenAgain("error", false, 1, 0))
+    assertFalse(FollowUp.shouldListenAgain("open_app", true, 1, 0))
+  }
+}
+
+class UploadPolicyTest {
+  @Test
+  fun aFreshProcessIsNeverStale() {
+    assertFalse(UploadPolicy.isStale(UploadPolicy.UNSET, 1_000_000L))
+  }
+
+  @Test
+  fun aConnectionIdleForTenSecondsIsStale() {
+    assertFalse(UploadPolicy.isStale(1_000L, 1_000L + UploadPolicy.IDLE_MS - 1))
+    assertTrue(UploadPolicy.isStale(1_000L, 1_000L + UploadPolicy.IDLE_MS))
+    assertTrue(UploadPolicy.isStale(5_770L, 35_770L)) // the 30 s follow-up gap from the device test
+  }
+
+  @Test
+  fun retriesOnceAndOnlyWhenTheServerWasNeverReached() {
+    val network = CloudResult.Failure(0, "NETWORK_ERROR")
+    assertTrue(UploadPolicy.shouldRetry(1, network))
+    assertFalse(UploadPolicy.shouldRetry(2, network))
+    assertFalse(UploadPolicy.shouldRetry(1, CloudResult.Failure(401, "UNAUTHENTICATED")))
+    assertFalse(UploadPolicy.shouldRetry(1, CloudResult.Failure(0, "CLIENT_ERROR")))
+    assertFalse(UploadPolicy.shouldRetry(1, CloudResult.Text("hi")))
   }
 }

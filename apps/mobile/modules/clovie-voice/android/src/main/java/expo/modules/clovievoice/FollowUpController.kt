@@ -45,8 +45,9 @@ object FollowUp {
 
   /**
    * True when the outcome finished and wants an answer, and `turnsDone` follow-ups have not yet used up the limit.
-   * Errors, `open_app` and plain statements never listen again.
+   * An error listens again only when it asks to (a lost connection mid-conversation); `open_app` and plain
+   * statements never do.
    */
   fun shouldListenAgain(status: String, expectsReply: Boolean, turnsDone: Int, pendingRemaining: Int): Boolean =
-    status == "done" && expectsReply && turnsDone < maxTurns(pendingRemaining)
+    (status == "done" || status == "error") && expectsReply && turnsDone < maxTurns(pendingRemaining)
 }

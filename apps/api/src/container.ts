@@ -81,7 +81,11 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     clock,
   });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
-  const voiceTokens = createDeviceTokenService({ repo: createSupabaseDeviceTokenRepository(db), clock });
+  const voiceTokens = createDeviceTokenService({
+    repo: createSupabaseDeviceTokenRepository(db),
+    clock,
+    defer: (task) => runInBackground(task, createLogger({ module: 'voice_tokens' }), 'voice_token_touch_failed'),
+  });
   const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
   return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, voiceAsk, clerkAdmin, voiceTokens, clock };
 }

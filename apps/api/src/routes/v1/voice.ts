@@ -6,6 +6,8 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
+import type { EntitlementService } from '@booking/features/ports.ts';
+import { withEntitlementCache } from '@booking/companion/connector/staticReadCache.ts';
 import type { DeviceTokenDTO, TranscriptionDTO, VoiceTodayDTO } from '@booking/types';
 import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { listVoiceToday } from '@booking/features/bookings/services/voiceToday.ts';
@@ -75,13 +77,27 @@ async function readUpload(c: Context<AppEnv>): Promise<{ file: File; language: s
 }
 
 /**
+ * The plan check is cached for 60 s per isolate (the existing entitlement cache): a plan change reaches voice
+ * within a minute, and a clip does not pay a database round trip for it.
+ */
+const entitlementCaches = new WeakMap<EntitlementService, EntitlementService>();
+function voiceEntitlements(entitlements: EntitlementService): EntitlementService {
+  let cached = entitlementCaches.get(entitlements);
+  if (!cached) {
+    cached = withEntitlementCache(entitlements);
+    entitlementCaches.set(entitlements, cached);
+  }
+  return cached;
+}
+
+/**
  * The plan check and the body read are independent, so they run side by side. The plan error still wins when both
  * fail, so a Free-plan caller is told about the plan, not about the upload.
  */
 async function readUploadForPlan(c: Context<AppEnv>): Promise<{ file: File; language: string | undefined }> {
   const { businessId } = c.get('auth');
   const [allowed, upload] = await Promise.allSettled([
-    c.get('container').entitlements.hasFeature(businessId, 'companion'),
+    voiceEntitlements(c.get('container').entitlements).hasFeature(businessId, 'companion'),
     readUpload(c),
   ]);
   if (allowed.status === 'rejected') throw allowed.reason;
@@ -91,9 +107,11 @@ async function readUploadForPlan(c: Context<AppEnv>): Promise<{ file: File; lang
 }
 
 /** `nerova;dur=…, proxy;dur=…`: lets the phone subtract each hop from its own round trip. Timings only. */
-export function serverTimingHeader(nerovaMs: number | null | undefined, proxyMs: number): string {
+export function serverTimingHeader(nerovaMs: number | null | undefined, proxyMs: number, authMs?: number | null): string {
   const entries = typeof nerovaMs === 'number' ? [`nerova;dur=${Math.round(nerovaMs)}`] : [];
-  return [...entries, `proxy;dur=${Math.round(proxyMs)}`].join(', ');
+  entries.push(`proxy;dur=${Math.round(proxyMs)}`);
+  if (typeof authMs === 'number') entries.push(`auth;dur=${Math.round(authMs)}`);
+  return entries.join(', ');
 }
 
 voiceRoutes.post('/voice/transcriptions', voiceEnabled, limitContentLength, async (c) => {
@@ -113,7 +131,7 @@ voiceRoutes.post('/voice/transcriptions', voiceEnabled, limitContentLength, asyn
     nerova_ms: result.nerova_ms ?? null,
   });
   const data: TranscriptionDTO = { text: result.text, duration_ms: result.duration_ms, language: result.language };
-  c.header('Server-Timing', serverTimingHeader(result.nerova_ms, proxyMs));
+  c.header('Server-Timing', serverTimingHeader(result.nerova_ms, proxyMs, c.get('authMs')));
   return c.json({ data });
 });
 
@@ -121,7 +139,11 @@ voiceRoutes.post('/voice/transcriptions', voiceEnabled, limitContentLength, asyn
  * Cheap authenticated no-op the phone calls when the wake word fires, so DNS, TLS and the Edge Function (and its
  * device-token lookup) are already warm when the clip is uploaded a few seconds later. Touches nothing else.
  */
-voiceRoutes.get('/voice/ping', (c) => c.json({ data: { ok: true } }));
+voiceRoutes.get('/voice/ping', (c) => {
+  const authMs = c.get('authMs');
+  if (typeof authMs === 'number') c.header('Server-Timing', `auth;dur=${Math.round(authMs)}`);
+  return c.json({ data: { ok: true } });
+});
 
 const mintDeviceTokenSchema = z.object({ device_label: z.string().trim().min(1).max(80).optional() });
 

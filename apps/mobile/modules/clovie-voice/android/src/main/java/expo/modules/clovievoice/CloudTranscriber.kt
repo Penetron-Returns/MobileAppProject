@@ -19,6 +19,22 @@ sealed interface CloudResult {
   }
 }
 
+/** Pure decisions for the upload: when a kept-alive connection is suspect, and when to retry. */
+object UploadPolicy {
+  const val UNSET = -1L
+
+  /** The gateway drops idle connections after roughly 15 to 30 s; past this the socket may already be dead. */
+  const val IDLE_MS = 10_000L
+  const val MAX_ATTEMPTS = 2
+
+  /** True when the last good response is older than [IDLE_MS]. Never true before the first request (nothing pooled). */
+  fun isStale(lastSuccessAtMs: Long, nowMs: Long): Boolean = lastSuccessAtMs != UNSET && nowMs - lastSuccessAtMs >= IDLE_MS
+
+  /** Retry only when the server was never reached (a network error or timeout) and an attempt is left. */
+  fun shouldRetry(attemptsMade: Int, result: CloudResult): Boolean =
+    attemptsMade < MAX_ATTEMPTS && result is CloudResult.Failure && result.code == "NETWORK_ERROR"
+}
+
 /**
  * Uploads a captured clip (m4a, or WAV as a fallback) straight to the backend with the device voice token,
  * so voice works with no JS runtime. No `language` field is sent: the server auto-detects (English or
@@ -29,26 +45,42 @@ sealed interface CloudResult {
  * connection (DNS, TLS, and the Edge Function) when the wake word fires, before the clip has ended.
  */
 object CloudTranscriber {
-  private const val CONNECT_TIMEOUT_MS = 5_000
-  private const val READ_TIMEOUT_MS = 20_000
+  private const val CONNECT_TIMEOUT_MS = 4_000
+  private const val READ_TIMEOUT_MS = 12_000
+
+  /** A probe of a possibly dead pooled socket: a healthy one answers in well under a second. */
+  private const val PROBE_READ_TIMEOUT_MS = 3_000
   private const val MAX_RESPONSE_BYTES = 64 * 1024
 
+  /** Elapsed-realtime ms of the last request that got a response; [UploadPolicy.UNSET] before any. */
+  @Volatile private var lastSuccessAtMs = UploadPolicy.UNSET
+
+  init {
+    // Best effort (read once, when the platform's HTTP stack starts): drop pooled sockets before the gateway does.
+    if (System.getProperty("http.keepAliveDuration") == null) System.setProperty("http.keepAliveDuration", "8000")
+  }
+
+  private fun nowMs() = android.os.SystemClock.elapsedRealtime()
+
   /** `GET /v1/voice/ping`: a cheap authenticated call whose only job is to leave a warm pooled connection. Returns its ms. */
-  fun warm(credentials: VoiceCredentials): Long {
+  fun warm(credentials: VoiceCredentials, readTimeoutMs: Int = READ_TIMEOUT_MS): Long {
     val started = System.nanoTime()
+    var connection: HttpURLConnection? = null
     try {
-      val connection = (URL(credentials.apiUrl + "/v1/voice/ping").openConnection() as HttpURLConnection).apply {
+      connection = (URL(credentials.apiUrl + "/v1/voice/ping").openConnection() as HttpURLConnection).apply {
         requestMethod = "GET"
         connectTimeout = CONNECT_TIMEOUT_MS
-        readTimeout = READ_TIMEOUT_MS
+        readTimeout = readTimeoutMs
         setRequestProperty("Authorization", "Bearer " + credentials.token)
         setRequestProperty("Accept", "application/json")
       }
       drain(connection)
+      lastSuccessAtMs = nowMs()
     } catch (_: IOException) {
-      // Best effort: the upload will open its own connection.
+      // Best effort: a dead socket is evicted so the upload opens a fresh one.
+      connection?.disconnect()
     } catch (_: RuntimeException) {
-      // Same.
+      connection?.disconnect()
     }
     return (System.nanoTime() - started) / 1_000_000L
   }
@@ -59,20 +91,41 @@ object CloudTranscriber {
     (if (status in 200..299) connection.inputStream else connection.errorStream)?.use { readLimited(it) }
   }
 
+  /**
+   * Uploads `clip`. A connection idle past [UploadPolicy.IDLE_MS] is probed first (a dead one is evicted), and a
+   * network failure is retried once on a fresh connection with the same clip and the same `Idempotency-Key`.
+   */
   fun transcribe(credentials: VoiceCredentials, clip: File): CloudResult {
     val boundary = "clovie" + UUID.randomUUID().toString().replace("-", "")
+    val idempotencyKey = UUID.randomUUID().toString()
+    val body = try {
+      multipartBody(boundary, clip.name, clip.readBytes(), AudioFormats.forFileName(clip.name).contentType)
+    } catch (_: IOException) {
+      return CloudResult.Failure(0, "CLIENT_ERROR")
+    }
+    VoiceTimings.uploadStarted(body.size.toLong())
+    if (UploadPolicy.isStale(lastSuccessAtMs, nowMs())) warm(credentials, PROBE_READ_TIMEOUT_MS)
+    var attempts = 0
+    var result: CloudResult
+    do {
+      attempts += 1
+      result = uploadOnce(credentials, body, boundary, idempotencyKey)
+    } while (UploadPolicy.shouldRetry(attempts, result))
+    VoiceTimings.external("uploadAttempts", attempts.toLong())
+    return result
+  }
+
+  private fun uploadOnce(credentials: VoiceCredentials, body: ByteArray, boundary: String, idempotencyKey: String): CloudResult {
+    var connection: HttpURLConnection? = null
     return try {
-      val format = AudioFormats.forFileName(clip.name)
-      val body = multipartBody(boundary, clip.name, clip.readBytes(), format.contentType)
-      VoiceTimings.uploadStarted(body.size.toLong())
-      val connection = (URL(credentials.apiUrl + "/v1/voice/transcriptions").openConnection() as HttpURLConnection).apply {
+      connection = (URL(credentials.apiUrl + "/v1/voice/transcriptions").openConnection() as HttpURLConnection).apply {
         requestMethod = "POST"
         connectTimeout = CONNECT_TIMEOUT_MS
         readTimeout = READ_TIMEOUT_MS
         doOutput = true
         setFixedLengthStreamingMode(body.size)
         setRequestProperty("Authorization", "Bearer " + credentials.token)
-        setRequestProperty("Idempotency-Key", UUID.randomUUID().toString())
+        setRequestProperty("Idempotency-Key", idempotencyKey)
         setRequestProperty("Accept", "application/json")
         setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
       }
@@ -80,14 +133,17 @@ object CloudTranscriber {
       val status = connection.responseCode
       val stream = if (status in 200..299) connection.inputStream else connection.errorStream
       val text = stream?.use { readLimited(it) }
+      lastSuccessAtMs = nowMs()
       if (status in 200..299) {
         parseText(text, ServerTiming.parse(connection.getHeaderField("Server-Timing"))) ?: CloudResult.Failure(status, "BAD_RESPONSE")
       } else {
         CloudResult.Failure(status, errorCode(text))
       }
     } catch (_: IOException) {
+      connection?.disconnect() // evicts the broken socket so the retry cannot reuse it
       CloudResult.Failure(0, "NETWORK_ERROR")
     } catch (_: RuntimeException) {
+      connection?.disconnect()
       CloudResult.Failure(0, "CLIENT_ERROR")
     }
   }
