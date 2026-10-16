@@ -1,5 +1,10 @@
-/** Appointments that have started or start within this long can be checked in by voice. */
-export const CHECK_IN_LEAD_MS = 15 * 60_000;
+import { formatTime } from '@/lib/time';
+
+/**
+ * Appointments that have started or start within this long can be checked in by voice. Salon
+ * clients often arrive 20 to 30 minutes early, so this is wider than a plain "about to start".
+ */
+export const CHECK_IN_LEAD_MS = 30 * 60_000;
 
 /** What picking a client to check in needs from an appointment. */
 export interface CheckInCandidate {
@@ -13,7 +18,12 @@ export interface CheckInCandidate {
 
 export type CheckInPick<T extends CheckInCandidate> =
   | { kind: 'match'; appointment: T }
-  | { kind: 'none'; reason: 'no_appointment' | 'no_name_match' };
+  | {
+      kind: 'none';
+      reason: 'no_appointment' | 'no_name_match';
+      /** The next confirmed, not-checked-in booking after `now`, for the reply ("your next client is..."). */
+      next: T | null;
+    };
 
 const fold = (value: string) =>
   value
@@ -63,9 +73,47 @@ export function nameMatches(
   );
 }
 
+/** The earliest confirmed, not-checked-in booking that starts after `now` (ties by id), or null. */
+export function nextAppointment<T extends CheckInCandidate>(
+  appointments: readonly T[],
+  now: number,
+): T | null {
+  const upcoming = appointments.filter(
+    (a) =>
+      a.status === 'confirmed' &&
+      !a.checked_in_at &&
+      Date.parse(a.starts_at) > now,
+  );
+  upcoming.sort(
+    (a, b) =>
+      Date.parse(a.starts_at) - Date.parse(b.starts_at) ||
+      a.id.localeCompare(b.id),
+  );
+  return upcoming[0] ?? null;
+}
+
+/**
+ * What to say when nobody can be checked in: who is next and when, or that the day is done.
+ * Pure: the caller passes the translator and the business timezone.
+ */
+export function noOneDueMessage(
+  next: CheckInCandidate | null,
+  options: {
+    timezone: string;
+    t: (key: string, values?: Record<string, unknown>) => string;
+  },
+): string {
+  if (!next) return options.t('voice.noMoreClients');
+  const full = next.client?.name ?? options.t('today.unknownClient');
+  return options.t('voice.noOneDueNext', {
+    name: full.split(' ')[0],
+    time: formatTime(next.starts_at, options.timezone),
+  });
+}
+
 /**
  * The appointment "client has arrived" refers to: confirmed, not checked in,
- * started (and not finished) or starting within 15 minutes, nearest to `now`
+ * started (and not finished) or starting within 30 minutes, nearest to `now`
  * first (ties by id). When a name was said only a client matching it is
  * picked: checking in the wrong person is worse than asking again. Pure:
  * `now` is injected.
@@ -98,5 +146,6 @@ export function pickAppointmentToCheckIn<T extends CheckInCandidate>(
   return {
     kind: 'none',
     reason: spoken && open.length > 0 ? 'no_name_match' : 'no_appointment',
+    next: nextAppointment(appointments, now),
   };
 }

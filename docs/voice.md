@@ -16,10 +16,10 @@ Both end the same way:
 one-tap:    tile / widget / shortcut / side key ─▶ VoiceTalkActivity (transparent) ─▶ foreground service
 hands-free: opening hours + charger + pause ─▶ foreground service ─▶ voice gate ─▶ wake word (3 ONNX models)
                       │ (one-tap starts here; hands-free: wake word detected)
-                      ├─ chime + haptic tick + overlay window with the cinematic entrance, mic opens at once
+                      ├─ wake chime + haptic tick + overlay window with the cinematic entrance, mic opens at once
                       ├─ Android SpeechRecognizer (on-device, en-ZA then en-US) ──▶ transcript
                       ├─ headless JS task ──▶ parse ──▶ check-in through the app's API client
-                      └─ overlay: "Checked in Sipho" (2 s)   or   [Open Clovie] button, then the exit; one-tap service stops
+                      └─ success/failure cue, reply read aloud; overlay: "Checked in Sipho" (2 s, or until spoken)   or   [Open Clovie] button, then the exit; one-tap service stops
 ```
 
 ### One-tap entry points
@@ -88,6 +88,25 @@ Until a "hey clovie" classifier is trained, the app uses the pre-trained `hey_li
 **Voice gate.** Before the wake-word models, a cheap energy gate (`SpeechGate`) decides whether speech is likely: a chunk's level against an adaptive noise floor, with a 2.2 s hangover. The three ONNX models run only while it is open (about every 160 ms); in silence they do not run at all. The 2 s ring buffer keeps filling regardless, so the start of "Hey..." is already in it (2 s of pre-roll) when the gate opens. Trade-off: it is an energy gate, not a neural VAD. It opens on any loud sound (a door, a dryer), which costs a few model runs, and a very quiet voice far from the phone could be gated out. Silero VAD (MIT, about 2 MB, also an ONNX model) would cut the false opens; it is a follow-up because it needs its own streaming state and tuning on device.
 
 **Wake lock.** A partial wake lock is held only while the microphone is open (on duty), and released in standby. We cannot also release it between sounds while on duty: with the screen off the CPU would sleep, the audio stream would stall and wake words would be missed. So the saving comes from the conditions and the gate, not from dropping the lock.
+
+### Sounds and spoken replies (accessibility)
+
+The owner may not be able to read the overlay (dyslexia) or may have her hands full, so every state has a sound and the reply is read aloud. Both are settings in Settings > Clovie voice > Replies, on by default, stored natively (`VoiceFeedbackSettings`, read by the service with no JS running).
+
+| State | Cue (all synthesized in `VoiceCues.kt`, nothing bundled) |
+| --- | --- |
+| Wake | A5 then E6, a bright rising fifth, 300 ms (the entrance timing), with the two haptic ticks |
+| Processing | D5 then G5, a quiet rising fourth, 260 ms, when listening ends. After 1.5 s of waiting, a very faint D5 pulse every 1.6 s until the result arrives |
+| Success | C5, E5, G5 rising major triad with a warm tail, 560 ms |
+| Failure, "didn't catch that", nothing to do | G4 down to D4, a soft falling fifth, pure sine, 460 ms |
+
+Sounds use `USAGE_ASSISTANT` (the system stream behind `USAGE_ASSISTANCE_SONIFICATION` is muted in vibrate mode) and play at normal and vibrate ringer modes. They are silent only in total silence (ringer silent, or Do Not Disturb set to "total silence"). The system "touch sounds" setting no longer gates them.
+
+With "Read replies aloud" on, the service reads the outcome with the phone's own text-to-speech (offline; English South Africa, else en-GB, else the default voice), after the cue, holding transient audio focus that lets other audio duck. The overlay stays up until the speech ends or its usual time, whichever is later (12 s watchdog). The `open_app` outcome is never read verbatim (it carries the transcript, which can hold a client name): it says "I need the app for that. Tap Open Clovie." Message text is never logged.
+
+### Check-in replies
+
+A booking can be checked in by voice from 30 minutes before it starts (`CHECK_IN_LEAD_MS`), since salon clients arrive early. When nobody can be checked in, the reply says what is next: "No one's due yet. Your next client, Thandi, is at 20:30." (first name, business-local HH:mm), or "No more clients today." `pickAppointmentToCheckIn` returns the next booking on a `none` result.
 
 ### Android constraints, and what we do about them
 

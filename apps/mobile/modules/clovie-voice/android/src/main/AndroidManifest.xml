@@ -6,6 +6,10 @@
     <intent>
       <action android:name="android.speech.RecognitionService" />
     </intent>
+    <!-- Android 11+ package visibility: lets the service find the phone's text-to-speech engine to read replies aloud. -->
+    <intent>
+      <action android:name="android.intent.action.TTS_SERVICE" />
+    </intent>
   </queries>
 
   <application>

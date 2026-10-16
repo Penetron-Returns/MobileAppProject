@@ -1,5 +1,9 @@
 import type { ClovieVoiceCommandOutcome } from './clovieVoice';
-import { pickAppointmentToCheckIn, type CheckInCandidate } from './checkIn';
+import {
+  noOneDueMessage,
+  pickAppointmentToCheckIn,
+  type CheckInCandidate,
+} from './checkIn';
 import { parseVoiceCommand } from './logic';
 
 type Translate = (key: string, values?: Record<string, unknown>) => string;
@@ -10,8 +14,11 @@ export interface HeadlessDeps {
   t: Translate;
   /** False when no signed-in session is available (the app UI never started). */
   isSignedIn: () => Promise<boolean>;
-  /** Today's bookings in the business timezone. */
-  loadToday: () => Promise<readonly CheckInCandidate[]>;
+  /** Today's bookings and the business timezone (for the times in replies). */
+  loadToday: () => Promise<{
+    appointments: readonly CheckInCandidate[];
+    timezone: string;
+  }>;
   checkIn: (appointmentId: string) => Promise<unknown>;
 }
 
@@ -33,7 +40,8 @@ export async function runVoiceCommandHeadless(
     if (!(await deps.isSignedIn())) {
       return { status: 'open_app', message: transcript };
     }
-    const pick = pickAppointmentToCheckIn(await deps.loadToday(), {
+    const today = await deps.loadToday();
+    const pick = pickAppointmentToCheckIn(today.appointments, {
       now: deps.now(),
       name: command.name,
     });
@@ -43,7 +51,10 @@ export async function runVoiceCommandHeadless(
         message:
           pick.reason === 'no_name_match' && command.name
             ? deps.t('voice.noNameMatch', { name: command.name })
-            : deps.t('voice.noAppointment'),
+            : noOneDueMessage(pick.next, {
+                timezone: today.timezone,
+                t: deps.t,
+              }),
       };
     }
     await deps.checkIn(pick.appointment.id);

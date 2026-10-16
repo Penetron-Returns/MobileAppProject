@@ -9,7 +9,7 @@ import { useEntitlements } from '@/features/plans/hooks';
 import { todayISO } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
-import { pickAppointmentToCheckIn } from './checkIn';
+import { noOneDueMessage, pickAppointmentToCheckIn } from './checkIn';
 
 const goToday = () => router.replace('/');
 
@@ -48,7 +48,7 @@ export function useCheckInByVoice(timezone: string, name: string | undefined) {
       toast.info(
         pick.reason === 'no_name_match' && name
           ? t('voice.noNameMatch', { name })
-          : t('voice.noAppointment'),
+          : noOneDueMessage(pick.next, { timezone, t }),
       );
     } else {
       const full = pick.appointment.client?.name ?? t('today.unknownClient');
@@ -56,7 +56,7 @@ export function useCheckInByVoice(timezone: string, name: string | undefined) {
       mutate(pick.appointment.id);
     }
     goToday();
-  }, [fresh, day.isError, day.data, day.error, name, t, mutate]);
+  }, [fresh, day.isError, day.data, day.error, name, t, mutate, timezone]);
 }
 
 /** Anything else: open the companion sheet with the transcript (paid plans only). */

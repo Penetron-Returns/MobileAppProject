@@ -11,8 +11,11 @@ function lookup(path: string): unknown {
     );
 }
 
+// The app renamed the Today tab to Home; the package default keeps its generic wording.
+const APP_OVERRIDES: Record<string, string> = { 'tabs.today': 'Home' };
+
 describe('design system strings in the app locale', () => {
-  it.each(Object.entries(DS_STRINGS))(
+  it.each(Object.entries({ ...DS_STRINGS, ...APP_OVERRIDES }))(
     'translates %s the same as the package default',
     (key, expected) => {
       expect(lookup(key)).toBe(expected);

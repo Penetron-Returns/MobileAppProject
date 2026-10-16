@@ -4,7 +4,8 @@ import { runVoiceCommandHeadless, type HeadlessDeps } from '../headless';
 const NOW = new Date('2026-10-15T08:00:00Z');
 
 const TEXT: Record<string, string> = {
-  'voice.noAppointment': 'No one is due',
+  'voice.noOneDueNext': 'Not yet. Next: {{name}} at {{time}}',
+  'voice.noMoreClients': 'No more clients today',
   'voice.noNameMatch': 'Nobody named {{name}}',
   'voice.failed': 'Could not check in',
   'voice.checkedIn': 'Checked in {{name}}',
@@ -22,6 +23,10 @@ function appt(id: string, name: string | null): CheckInCandidate {
   };
 }
 
+function today(appointments: CheckInCandidate[]) {
+  return { appointments, timezone: 'Africa/Johannesburg' };
+}
+
 function deps(patch: Partial<HeadlessDeps> = {}): HeadlessDeps {
   return {
     now: () => NOW,
@@ -30,7 +35,7 @@ function deps(patch: Partial<HeadlessDeps> = {}): HeadlessDeps {
         String(values?.[k] ?? ''),
       ),
     isSignedIn: async () => true,
-    loadToday: async () => [appt('a1', 'Sipho Dlamini')],
+    loadToday: async () => today([appt('a1', 'Sipho Dlamini')]),
     checkIn: jest.fn(async () => ({})),
     ...patch,
   };
@@ -47,20 +52,35 @@ describe('runVoiceCommandHeadless', () => {
 
   it('uses the name that was said to pick the client', async () => {
     const d = deps({
-      loadToday: async () => [
-        appt('a1', 'Sipho Dlamini'),
-        appt('a2', 'Thandi Mokoena'),
-      ],
+      loadToday: async () =>
+        today([appt('a1', 'Sipho Dlamini'), appt('a2', 'Thandi Mokoena')]),
     });
     await runVoiceCommandHeadless('Thandi has arrived', d);
     expect(d.checkIn).toHaveBeenCalledWith('a2');
   });
 
   it('reports when nobody is due, without checking anyone in', async () => {
-    const d = deps({ loadToday: async () => [] });
+    const d = deps({ loadToday: async () => today([]) });
     await expect(
       runVoiceCommandHeadless('client has arrived', d),
-    ).resolves.toEqual({ status: 'error', message: 'No one is due' });
+    ).resolves.toEqual({ status: 'error', message: 'No more clients today' });
+    expect(d.checkIn).not.toHaveBeenCalled();
+  });
+
+  it('says who is next, in business-local time, when the next client is too far off', async () => {
+    // 18:30Z is 20:30 in Johannesburg, 150 minutes after NOW.
+    const later = {
+      ...appt('a9', 'Thandi Mokoena'),
+      starts_at: '2026-10-15T18:30:00Z',
+      ends_at: '2026-10-15T19:15:00Z',
+    };
+    const d = deps({ loadToday: async () => today([later]) });
+    await expect(
+      runVoiceCommandHeadless('client has arrived', d),
+    ).resolves.toEqual({
+      status: 'error',
+      message: 'Not yet. Next: Thandi at 20:30',
+    });
     expect(d.checkIn).not.toHaveBeenCalled();
   });
 

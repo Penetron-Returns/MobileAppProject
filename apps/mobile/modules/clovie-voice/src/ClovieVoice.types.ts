@@ -42,6 +42,14 @@ export interface ClovieVoiceCommandOutcome {
   transcript?: string;
 }
 
+/** The owner's audio choices for voice replies. Both default to on. */
+export interface ClovieVoiceFeedbackSettings {
+  /** A distinct soft sound for waking, processing, success and failure. */
+  sounds: boolean;
+  /** Reads the reply aloud with the phone's own text-to-speech. */
+  readAloud: boolean;
+}
+
 /** Why hands-free is (not) listening right now. */
 export type ClovieVoiceDuty =
   'on_duty' | 'off_hours' | 'waiting_charger' | 'paused' | 'stopped';

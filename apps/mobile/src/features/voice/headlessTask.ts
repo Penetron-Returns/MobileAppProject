@@ -35,7 +35,13 @@ async function loadToday() {
   const clerk = await resolveBearer({ allowDeviceToken: false }).catch(
     () => null,
   );
-  if (!clerk) return toCheckInCandidates(await api.voiceToday());
+  if (!clerk) {
+    const today = await api.voiceToday();
+    return {
+      appointments: toCheckInCandidates(today),
+      timezone: today.timezone,
+    };
+  }
   const business = await queryClient.fetchQuery({
     queryKey: qk.business,
     queryFn: fetchBusiness,
@@ -45,7 +51,13 @@ async function loadToday() {
     todayISO(business.timezone),
     business.timezone,
   );
-  return fetchAppointmentsBetween(from.toISOString(), to.toISOString());
+  return {
+    appointments: await fetchAppointmentsBetween(
+      from.toISOString(),
+      to.toISOString(),
+    ),
+    timezone: business.timezone,
+  };
 }
 
 /** What a spoken command needs with no screen: the app's clock, strings and API client. */
