@@ -4,7 +4,7 @@ import org.json.JSONObject
 
 /**
  * Builds a [CommandOutcome] from the follow-up fields JS sends as one JSON string
- * (`completeCommandWithReply`): `spoken`, `expectsReply`, `pendingApprovalId`, `pendingKind`, `pendingQueue`,
+ * (`completeCommandWithReply`): `spoken`, `expectsReply`, `pendingApprovalId`, `pendingKind`, `pendingTitle`, `pendingQueue`,
  * `pendingRemaining`. Anything missing or malformed leaves that field at its default, so a bad string still
  * delivers the plain outcome.
  */
@@ -22,6 +22,7 @@ fun commandOutcomeWithReply(status: String, message: String, transcript: String,
     expectsReply = extras.optBoolean("expectsReply", false),
     pendingApprovalId = extras.optString("pendingApprovalId", ""),
     pendingKind = extras.optString("pendingKind", ""),
+    pendingTitle = extras.optString("pendingTitle", ""),
     pendingQueue = extras.optString("pendingQueue", ""),
     pendingRemaining = extras.optInt("pendingRemaining", 0),
   )

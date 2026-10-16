@@ -42,6 +42,10 @@ class ClipCapture(
   @Volatile
   private var isCancelled = false
 
+  /** The owner tapped stop: the clip ends now and keeps what was said. */
+  @Volatile
+  private var isStopRequested = false
+
   fun start(onDone: (ClipResult) -> Unit) {
     isCancelled = false
     Thread({
@@ -50,6 +54,11 @@ class ClipCapture(
         if (isCancelled) (result as? ClipResult.Captured)?.file?.delete() else onDone(result)
       }
     }, "clovie-clip").start()
+  }
+
+  /** Ends the recording now and hands back what was captured (no speech heard gives `NoSpeech`). */
+  fun stop() {
+    isStopRequested = true
   }
 
   /** Stops recording; any partial file is dropped. */
@@ -124,7 +133,7 @@ class ClipCapture(
     session.begin()
     try {
       recorder.startRecording()
-      while (!isCancelled && decision == ClipDecision.CONTINUE) {
+      while (!isCancelled && !isStopRequested && decision == ClipDecision.CONTINUE) {
         val n = recorder.read(frame, 0, FRAME_SAMPLES)
         if (n < 0) return ClipResult.Failed
         val level = ClipVad.rms(frame, n)
@@ -146,6 +155,9 @@ class ClipCapture(
       recorder.release()
     }
     if (isCancelled) return ClipResult.Failed
+    if (isStopRequested && decision == ClipDecision.CONTINUE) {
+      decision = if (vad.hasSpeech) ClipDecision.END_OF_SPEECH else ClipDecision.NO_SPEECH
+    }
     if (decision == ClipDecision.NO_SPEECH) {
       Log.i(TAG, "clip no speech ms=${vad.elapsedMs} peakRms=${"%.4f".format(java.util.Locale.US, vad.peakRms)}")
       return ClipResult.NoSpeech

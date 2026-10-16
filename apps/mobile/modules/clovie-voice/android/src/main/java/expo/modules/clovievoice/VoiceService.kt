@@ -43,6 +43,10 @@ class VoiceService : Service() {
   private var clip: ClipCapture? = null
   private var clipFile: java.io.File? = null
   private lateinit var overlay: VoiceOverlay
+  private val appSurface = AppVoiceSurface()
+
+  /** Where the current interaction is drawn: the overlay, or the in-app drawer when the app is open. */
+  private lateinit var surface: VoiceSurface
   private lateinit var feedback: VoiceFeedback
   private lateinit var speaker: VoiceSpeaker
   private var speakTask: Runnable? = null
@@ -54,11 +58,21 @@ class VoiceService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private var powerReceiver: BroadcastReceiver? = null
   private var isHandsFree = false
-  private var hasOverlay = false
+  private var hasSurface = false
   private var lastTranscript = ""
+  @Volatile
   private var isDestroyed = false
   /** True from the wake word until the overlay has gone; the microphone stays closed meanwhile. */
+  @Volatile
   private var isInteracting = false
+
+  /** The approval a yes or no now applies to (read from other threads by `answerApproval`). Empty when none. */
+  @Volatile
+  private var pendingApprovalId = ""
+
+  /** Bumped when an interaction starts or is cancelled: a late upload or command result of an older one is dropped. */
+  private var epoch = 0
+  private val startClipTask = Runnable { startClip() }
   private var rearmFailures = 0
   private var dismissReason = "timeout"
   /** The conversation so far (what JS left pending), the follow-up turns used, and whether the current capture is one. */
@@ -68,8 +82,8 @@ class VoiceService : Service() {
   private val dismiss = Runnable {
     Log.i(TAG, "overlay dismissed reason=$dismissReason")
     stopSpeech()
-    overlay.hide()
-    main.postDelayed(::finishInteraction, VoiceOverlay.EXIT_MS + 60)
+    surface.hide()
+    main.postDelayed(::finishInteraction, surface.exitMs + 60)
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
@@ -81,10 +95,11 @@ class VoiceService : Service() {
     policy = HandsFreePolicy(this)
     notifications = VoiceNotifications(this, config)
     overlay = VoiceOverlay(this, ::onOverlayAction)
+    surface = overlay
     feedback = VoiceFeedback(this)
     speaker = VoiceSpeaker(this)
     instance = this
-    speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { overlay.pushRms(it) }
+    speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { surface.pushRms(it) }
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -216,21 +231,24 @@ class VoiceService : Service() {
 
   private fun startInteraction() {
     isInteracting = true
+    epoch += 1
+    pendingApprovalId = ""
     followUp = FollowUpState.NONE
     followUpsDone = 0
     isFollowUpTurn = false
     VoiceTimings.wake()
     VoiceState.update(VoiceStatus.BUSY)
     main.removeCallbacks(dismiss)
-    hasOverlay = overlay.show() // plays the entrance on the first visible frame
-    if (hasOverlay) {
-      overlay.setAction(null)
-      overlay.setMessage("")
-      overlay.setTranscript("")
-      overlay.setState("listening")
+    surface = chooseSurface()
+    hasSurface = surface.show() // plays the entrance on the first visible frame
+    if (hasSurface) {
+      surface.setAction(null)
+      surface.setMessage("")
+      surface.setTranscript("")
+      surface.setState("listening")
       VoiceTimings.overlayShown()
     }
-    Log.i(TAG, "overlay shown=$hasOverlay")
+    Log.i(TAG, "overlay shown=$hasSurface inApp=${surface === appSurface}")
     feedback.ignite() // chime and haptic tick, in step with the entrance
     // Start the text-to-speech engine now: it takes a moment, and the answer should not wait for it.
     if (VoiceFeedbackSettings.isReadAloudEnabled(this)) speaker.warmUp()
@@ -238,6 +256,13 @@ class VoiceService : Service() {
     // The wake-word recorder is already stopped and released (listener == null).
     if (CloudStt.isEnabled(this)) startClip() else startRecogniser()
   }
+
+  /** The in-app drawer when the app is on screen and its JS draws it; the system overlay otherwise. */
+  private fun chooseSurface(): VoiceSurface =
+    when (VoiceRouting.surfaceFor(AppPresence.isForeground, AppPresence.isUiAttached)) {
+      SurfaceKind.IN_APP -> appSurface
+      SurfaceKind.OVERLAY -> overlay
+    }
 
   /**
    * While the owner is still speaking, opens the connection to our API (DNS, TLS, the Edge Function and its
@@ -266,7 +291,7 @@ class VoiceService : Service() {
   /** Android's SpeechRecognizer; the short delay lets the audio HAL hand the microphone over. */
   private fun startRecogniser() {
     Log.i(TAG, "stt path=recogniser wakeRecorderReleased=${listener == null} handoffMs=$MIC_HANDOFF_MS")
-    if (hasOverlay) overlay.setState("listening")
+    if (hasSurface) surface.setState("listening")
     speech.listen(MIC_HANDOFF_MS, onStarted = VoiceTimings::sttStarted, onDone = ::onTranscript)
   }
 
@@ -275,7 +300,7 @@ class VoiceService : Service() {
     Log.i(TAG, "stt path=clip")
     VoiceTimings.sttStarted()
     val noSpeechMs = if (isFollowUpTurn) FollowUp.NO_SPEECH_MS else ClipVad.NO_SPEECH_MS
-    val capture = ClipCapture(this, noSpeechMs) { overlay.pushLevel(it) }
+    val capture = ClipCapture(this, noSpeechMs) { surface.pushLevel(it) }
     clip = capture
     capture.start(::onClip)
   }
@@ -302,16 +327,17 @@ class VoiceService : Service() {
   private fun uploadClip(file: java.io.File, credentials: VoiceCredentials) {
     clipFile = file
     enterProcessing()
+    val ticket = epoch
     Thread({
       val result = CloudTranscriber.transcribe(credentials, file)
       VoiceTimings.uploadFinished((result as? CloudResult.Text)?.timing ?: ServerTiming.NONE)
-      main.post { onUploaded(result) }
+      main.post { onUploaded(result, ticket) }
     }, "clovie-upload").start()
   }
 
-  private fun onUploaded(result: CloudResult) {
+  private fun onUploaded(result: CloudResult, ticket: Int) {
     deleteClip()
-    if (isDestroyed) return
+    if (isDestroyed || ticket != epoch) return // cancelled while uploading
     when (result) {
       is CloudResult.Text -> {
         val text = result.text.trim()
@@ -377,7 +403,7 @@ class VoiceService : Service() {
       return
     }
     lastTranscript = outcome.transcript
-    if (hasOverlay && outcome.transcript.isNotEmpty()) overlay.setTranscript(outcome.transcript)
+    if (hasSurface && outcome.transcript.isNotEmpty()) surface.setTranscript(outcome.transcript)
     showOutcome(outcome)
   }
 
@@ -400,7 +426,7 @@ class VoiceService : Service() {
   /** Hands a transcript to the app's JS (headless task); without JS it times out into "Open Clovie". */
   private fun runCommand(text: String) {
     lastTranscript = text
-    if (hasOverlay) overlay.setTranscript(text)
+    if (hasSurface) surface.setTranscript(text)
     enterProcessing()
     VoiceTimings.commandStarted()
     val id = VoiceCommandBridge.register(onOutcome = ::showOutcome)
@@ -435,7 +461,7 @@ class VoiceService : Service() {
 
   /** Listening has ended and the words are being understood: the overlay's processing state and its soft cue. */
   private fun enterProcessing() {
-    if (hasOverlay) overlay.setState("processing")
+    if (hasSurface) surface.setState("processing")
     feedback.processing()
   }
 
@@ -449,22 +475,29 @@ class VoiceService : Service() {
     val spoken = SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE, outcome.spoken)
     // What JS says is pending (an approval just read aloud) is echoed back with the next turn; cleared otherwise.
     followUp = FollowUpState.after(outcome)
+    pendingApprovalId = followUp.pendingApprovalId
     val listenAgain = FollowUp.shouldListenAgain(outcome.status, outcome.expectsReply, followUpsDone, outcome.pendingRemaining)
-    if (hasOverlay) {
+    if (hasSurface) {
+      surface.onOutcome(outcome)
       if (isFinished) {
-        overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
-        overlay.setState(outcome.status)
+        surface.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
+        surface.setState(outcome.status)
         dismissReason = outcome.reason.ifEmpty { outcome.status }
         if (listenAgain) {
           waitForSpeechThenListenAgain(cue, spoken)
           return
         }
+        if (isHoldingForApproval()) {
+          // The card stays up until the owner decides or closes the drawer: nothing dismisses it.
+          speakAfterCue(cue, spoken, watch = true) { holdForAnswer() }
+          return
+        }
         dismissAfterSpeech(cue, spoken, if (outcome.status == "error") ERROR_MS else RESULT_MS)
       } else {
         // JS could not finish it (or did not answer): the owner taps to continue in the app.
-        overlay.setMessage("")
-        overlay.setState("request")
-        overlay.setAction(OPEN_LABEL)
+        surface.setMessage("")
+        surface.setState("request")
+        surface.setAction(OPEN_LABEL)
         dismissReason = "open_timeout"
         dismissAfterSpeech(cue, spoken, OPEN_MS)
       }
@@ -487,7 +520,7 @@ class VoiceService : Service() {
    */
   private fun waitForSpeechThenListenAgain(cue: Cue, spoken: String?) {
     dismissReason = "follow_up_watchdog"
-    speakAfterCue(cue, spoken, watch = hasOverlay) { listenAgain() }
+    speakAfterCue(cue, spoken, watch = hasSurface) { listenAgain() }
   }
 
   /** A short filler from JS ("One sec, checking.") while the companion thinks; the final reply queues behind it. */
@@ -505,19 +538,102 @@ class VoiceService : Service() {
     followUpsDone += 1
     isFollowUpTurn = true
     Log.i(TAG, "follow-up turn=$followUpsDone pending=${followUp.hasPending} remaining=${followUp.pendingRemaining}")
-    if (hasOverlay) {
-      overlay.setTranscript("")
-      overlay.setState("listening") // the reply text stays on screen
+    if (hasSurface) {
+      surface.setTranscript("")
+      surface.setState("listening") // the reply text stays on screen
     }
     feedback.listeningAgain()
     // The microphone opens after the cue so the chime is not recorded.
-    main.postDelayed(::startClip, feedback.leadInMs(Cue.WAKE))
+    main.postDelayed(startClipTask, feedback.leadInMs(Cue.WAKE))
   }
 
   /** Nothing said (or the microphone failed) in a follow-up: close without a sound or an error. */
   private fun endFollowUpQuietly() {
+    if (isHoldingForApproval()) return holdForAnswer()
     dismissReason = "follow_up_silent"
     dismiss.run()
+  }
+
+  // ---- in-app drawer: what its buttons do ----
+
+  /** In the drawer an approval card is on screen, so it is not dismissed on a timer like the overlay's text. */
+  private fun isHoldingForApproval() = surface === appSurface && followUp.hasPending
+
+  /** The microphone is closed and nothing is spoken; the card waits for a tap or a mic tap, bounded so it cannot linger. */
+  private fun holdForAnswer() {
+    if (isDestroyed) return
+    dismissReason = "app_hold"
+    main.removeCallbacks(dismiss)
+    main.postDelayed(dismiss, APP_HOLD_MS)
+    surface.setWaiting()
+  }
+
+  /** Drops everything in flight (capture, speech, command, timers) without ending the interaction. */
+  private fun abortInFlight() {
+    epoch += 1
+    main.removeCallbacks(dismiss)
+    main.removeCallbacks(startClipTask)
+    clip?.cancel()
+    clip = null
+    speech.cancel()
+    stopSpeech()
+    feedback.cancel()
+    VoiceCommandBridge.cancelAll()
+    deleteClip()
+  }
+
+  /** Stop: ends the recording now and sends what was said. */
+  fun stopListeningFromApp() {
+    main.post { if (!isDestroyed && isInteracting) clip?.stop() }
+  }
+
+  /** Cancel while thinking: drops the request and listens again, with the conversation (a pending approval) kept. */
+  fun cancelFromApp() {
+    main.post {
+      if (isDestroyed || !isInteracting || surface !== appSurface) return@post
+      abortInFlight()
+      isFollowUpTurn = false
+      surface.setTranscript("")
+      surface.setState("listening")
+      feedback.listeningAgain()
+      main.postDelayed(startClipTask, feedback.leadInMs(Cue.WAKE))
+    }
+  }
+
+  /** The drawer was closed (Show chat, back): ends the interaction at once. */
+  fun endFromApp() {
+    main.post {
+      if (isDestroyed || !isInteracting) return@post
+      abortInFlight()
+      dismissReason = "app_closed"
+      dismiss.run()
+    }
+  }
+
+  /** The mic button: stops reading and listens for the answer now. False when no interaction is open to do it. */
+  fun listenAgainFromApp(): Boolean {
+    if (isDestroyed || !isInteracting) return false
+    main.post {
+      if (isDestroyed || !isInteracting || surface !== appSurface) return@post
+      abortInFlight()
+      listenAgain()
+    }
+    return true
+  }
+
+  /**
+   * Approve or Decline in the drawer: sent through the same path as a spoken yes or no, so it binds to the approval
+   * the service holds (the one just shown) and nothing else. False when `id` is not that approval (it was replaced
+   * or has gone): the caller must not decide it.
+   */
+  fun answerApprovalFromApp(id: String, isYes: Boolean): Boolean {
+    if (isDestroyed || !isInteracting || id.isEmpty() || id != pendingApprovalId) return false
+    main.post {
+      if (isDestroyed || !isInteracting || id != followUp.pendingApprovalId) return@post
+      abortInFlight()
+      runCommand(if (isYes) "yes" else "no")
+    }
+    return true
   }
 
   /** The conversation state JS sent with the previous outcome, passed back so a yes or no binds to its approval. */
@@ -535,7 +651,7 @@ class VoiceService : Service() {
    */
   private fun dismissAfterSpeech(cue: Cue, spoken: String?, holdMs: Long) {
     val startedAt = SystemClock.uptimeMillis()
-    speakAfterCue(cue, spoken, watch = hasOverlay) {
+    speakAfterCue(cue, spoken, watch = hasSurface) {
       val remaining = startedAt + holdMs - SystemClock.uptimeMillis()
       main.postDelayed(dismiss, maxOf(remaining, AFTER_SPEECH_MS))
     }
@@ -670,6 +786,7 @@ class VoiceService : Service() {
     main.removeCallbacksAndMessages(null)
     VoiceCommandBridge.cancelAll()
     overlay.destroy()
+    appSurface.hide() // stops its level ticks and tells an open drawer the interaction is over
     listener?.stop()
     listener = null
     engine?.close()
@@ -709,6 +826,9 @@ class VoiceService : Service() {
     private const val OPEN_MS = 10_000L
     private const val AFTER_SPEECH_MS = 450L
     private const val PAUSE_MS = 60L * 60L * 1000L
+
+    /** How long the in-app card waits for a tap with nothing happening before the interaction closes. */
+    private const val APP_HOLD_MS = 120_000L
     private const val NOT_HEARD = "Didn't catch that"
 
     /** Sent to the overlay page as the error message; it maps it to text. Notifications use the plain text below. */

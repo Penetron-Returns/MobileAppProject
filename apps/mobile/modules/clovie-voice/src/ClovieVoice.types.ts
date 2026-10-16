@@ -48,6 +48,8 @@ export interface ClovieVoiceCommandOutcome {
   pendingApprovalId?: string;
   /** That approval's kind (`create_appointment`, ...), for the wording of the result. */
   pendingKind?: string;
+  /** That approval's card title, for the in-app drawer's approval card. Not echoed back to the service. */
+  pendingTitle?: string;
   /** JSON array of the approvals still to read, after the pending one: `[{ id, kind, title }]`. Echoed back as-is. */
   pendingQueue?: string;
   /** How many approvals are still queued after the pending one (lets the service allow a few more turns). */
@@ -92,3 +94,39 @@ export type ClovieVoiceTileResult =
 
 /** The device voice token the native service holds. `rejected`: the server refused it (401). */
 export type ClovieVoiceTokenState = 'none' | 'ok' | 'rejected';
+
+/**
+ * What the in-app voice drawer draws. `waiting`: nothing is captured or spoken but an approval still waits for a
+ * tap or the mic. `idle`: the interaction has ended, so the drawer closes.
+ */
+export type ClovieVoiceUiState =
+  'listening' | 'thinking' | 'speaking' | 'waiting' | 'idle';
+
+/** `onVoiceState`: a state change, or (state `listening`) a microphone level in 0..1, ~15 per second. */
+export interface ClovieVoiceStateEvent {
+  state: ClovieVoiceUiState;
+  level?: number;
+  /** Reserved for a recogniser that streams words; the cloud path never sets it (no faked partials). */
+  partialTranscript?: string;
+}
+
+/** `onVoiceTranscript`: what was heard. Arrives once per command, before the thinking state. */
+export interface ClovieVoiceTranscriptEvent {
+  text: string;
+}
+
+/** `onVoiceOutcome`: the finished command, with the approval the service now holds (if any). */
+export interface ClovieVoiceOutcomeEvent {
+  status: 'done' | 'error' | 'open_app' | 'fallback';
+  message: string;
+  transcript: string;
+  expectsReply: boolean;
+  pendingApprovalId: string;
+  pendingKind: string;
+  pendingTitle: string;
+  pendingRemaining: number;
+  reason: string;
+}
+
+/** A yes or no on the approval in the drawer. */
+export type ClovieVoiceAnswer = 'yes' | 'no';

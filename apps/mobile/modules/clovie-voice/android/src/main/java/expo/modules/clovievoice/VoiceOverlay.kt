@@ -27,7 +27,7 @@ import org.json.JSONObject
  * Page API (all called here on the main thread): setState, setLevel, setTranscript, setMessage, setAction.
  * Needs SYSTEM_ALERT_WINDOW; `canShow` says whether the owner granted it.
  */
-class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
+class VoiceOverlay(context: Context, private val onAction: () -> Unit) : VoiceSurface {
   private val context = context.applicationContext
   private val main = Handler(Looper.getMainLooper())
   private val windowManager = this.context.getSystemService(WindowManager::class.java)
@@ -81,8 +81,10 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
     web = view
   }
 
+  override val exitMs = EXIT_MS
+
   /** Adds the window. Returns false when the permission is missing. */
-  fun show(): Boolean {
+  override fun show(): Boolean {
     if (!canShow()) return false
     main.removeCallbacks(finishHide)
     main.removeCallbacks(pauseWeb)
@@ -131,7 +133,7 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   }
 
   /** Plays the exit (the glow sinks, Clovie dips, the line retracts), then removes the window. */
-  fun hide(animated: Boolean = true) {
+  override fun hide(animated: Boolean) {
     stopMetering()
     if (!isAttached || web == null) return
     main.removeCallbacks(finishHide)
@@ -173,26 +175,26 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
     }
   }
 
-  fun setState(state: String) {
+  override fun setState(state: String) {
     run("setState(${JSONObject.quote(state)})")
     if (state == "listening") startMetering() else stopMetering()
   }
 
-  fun setTranscript(text: String) = run("setTranscript(${JSONObject.quote(text)})")
+  override fun setTranscript(text: String) = run("setTranscript(${JSONObject.quote(text)})")
 
-  fun setMessage(text: String) = run("setMessage(${JSONObject.quote(text)})")
+  override fun setMessage(text: String) = run("setMessage(${JSONObject.quote(text)})")
 
   /** Shows a button (and makes the window touchable) or, with null, hides it again. */
-  fun setAction(label: String?) {
+  override fun setAction(label: String?) {
     run("setAction(${if (label == null) "null" else JSONObject.quote(label)})")
     setTouchable(label != null)
   }
 
   /** A raw recogniser level in dB; the page gets a smoothed 0..1 at ~30 Hz. */
-  fun pushRms(rmsDb: Float) = meter.push(rmsDb)
+  override fun pushRms(rmsDb: Float) = meter.push(rmsDb)
 
   /** An already-normalised 0..1 level (our own capture); same smoothing and ~30 Hz delivery. */
-  fun pushLevel(level: Float) = meter.pushLevel(level)
+  override fun pushLevel(level: Float) = meter.pushLevel(level)
 
   fun destroy() {
     main.removeCallbacks(pauseWeb)

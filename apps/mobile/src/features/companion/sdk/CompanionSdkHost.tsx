@@ -13,6 +13,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useEntitlements } from '@/features/plans/hooks';
+import { InAppVoiceLayer } from '@/features/voice/inApp/InAppVoiceLayer';
 import { companionSdkEnabled, nerovaApi } from '@/lib/env';
 
 import { buildCompanionAppearance } from './companionAppearance';
@@ -149,6 +150,7 @@ function EnabledHost({
             onFailedChange={setHasFailed}
             onLiveChange={setLive}
           />
+          <InAppVoiceLayer />
         </View>
       ) : null}
     </CompanionSheetControlProvider>
