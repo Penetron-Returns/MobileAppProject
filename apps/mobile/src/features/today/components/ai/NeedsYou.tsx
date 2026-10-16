@@ -23,6 +23,20 @@ function AllClear() {
   );
 }
 
+/** The companion's follow-up after an approval, in place of the card for a moment. */
+function Confirmation({ text }: { text: string }) {
+  const depth = useDepth();
+  return (
+    <View
+      accessibilityLiveRegion="polite"
+      className="flex-row items-center gap-2 px-5 pt-4"
+    >
+      <Check size={16} strokeWidth={2.4} color={depth.colors.tint} />
+      <Text className="flex-1 text-subtitle">{text}</Text>
+    </View>
+  );
+}
+
 /**
  * "Needs you": all clear is a quiet line; pending approvals are one raised
  * amber card showing the first, with Approve and Not now. Not now follows the
@@ -32,10 +46,13 @@ function AllClear() {
 export function NeedsYou({
   pending,
   busyId,
+  confirmation = null,
   onApprove,
   onOpenClovie,
 }: {
   pending: readonly Approval[];
+  /** The companion's follow-up line to show instead of the card, if any. */
+  confirmation?: string | null;
   /** The approval being approved right now, if any. */
   busyId: string | null;
   onApprove: (id: string) => void;
@@ -48,6 +65,7 @@ export function NeedsYou({
   const first = open[0];
   const waiting = pending.length - open.length;
 
+  if (confirmation) return <Confirmation text={confirmation} />;
   if (pending.length === 0) return <AllClear />;
   if (!first) {
     return (

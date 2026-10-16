@@ -48,8 +48,11 @@ function Header({ caption }: { caption: string }) {
   );
 }
 
+/** How long the companion's follow-up line stays before the home returns to normal. */
+const CONFIRMATION_MS = 3000;
+
 /**
- * Today for the plans with the companion: Clovie and what she is doing, the
+ *Today for the plans with the companion: Clovie and what she is doing, the
  * day's numbers, anything that needs the owner, and what changed so far.
  * Announcements are left out until there is a source for them.
  */
@@ -61,13 +64,22 @@ export function TodayAiScreen() {
   const openClovie = useOpenCompanion();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [confirmation, setConfirmation] = React.useState<string | null>(null);
+
+  // The companion's follow-up replaces the card briefly, then the usual state returns.
+  React.useEffect(() => {
+    if (!confirmation) return;
+    const timer = setTimeout(() => setConfirmation(null), CONFIRMATION_MS);
+    return () => clearTimeout(timer);
+  }, [confirmation]);
 
   const approve = React.useCallback(
     async (id: string) => {
       if (!live) return;
       setBusyId(id);
       try {
-        await live.approve(id);
+        const approved = await live.approve(id);
+        setConfirmation(approved?.followUp?.text.trim() || null);
       } catch (error) {
         toast.failed(t('today.ai.needs.approveFailed'), error);
       } finally {
@@ -133,6 +145,7 @@ export function TodayAiScreen() {
               <NeedsYou
                 pending={live?.pending ?? []}
                 busyId={busyId}
+                confirmation={confirmation}
                 onApprove={(id) => void approve(id)}
                 onOpenClovie={openClovie}
               />
