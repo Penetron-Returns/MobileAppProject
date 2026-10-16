@@ -16,7 +16,10 @@ import {
 type Translate = (key: string, values?: Record<string, unknown>) => string;
 
 /** What running a spoken command with no screen needs; injected so it is testable. */
-export interface HeadlessDeps extends Pick<AskDeps, 'ask' | 'decide'> {
+export interface HeadlessDeps extends Pick<
+  AskDeps,
+  'ask' | 'decide' | 'speakInterim' | 'nextTurn'
+> {
   now: () => Date;
   t: Translate;
   /** False when no signed-in session is available (the app UI never started). */

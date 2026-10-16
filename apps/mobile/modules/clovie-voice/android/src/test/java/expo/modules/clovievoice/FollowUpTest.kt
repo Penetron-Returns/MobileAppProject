@@ -89,3 +89,24 @@ class SpokenReplyFollowUpTest {
     assertEquals(SpokenReply.NOT_HEARD_SPOKEN, say("error", "Didn't catch that", "anything"))
   }
 }
+
+class SpeechWatchdogTest {
+  @Test
+  fun theDoneBoundGrowsWithTheTextAndIsCapped() {
+    assertEquals(6_000L, SpeechWatchdog.doneBoundMs(0))
+    assertEquals(6_000L, SpeechWatchdog.doneBoundMs(-4))
+    assertEquals(6_000L + 90L * 200, SpeechWatchdog.doneBoundMs(200))
+    assertEquals(60_000L, SpeechWatchdog.doneBoundMs(10_000))
+  }
+
+  @Test
+  fun aLongSpokenReplyOutlastsTheOldFixedWatchdog() {
+    // ~14 s of speech is about 220 characters; the old bound was 2 s + 12 s.
+    assertTrue(SpeechWatchdog.doneBoundMs(220) > 14_000L)
+  }
+
+  @Test
+  fun speechMustStartWithinAFewSeconds() {
+    assertTrue(SpeechWatchdog.START_WAIT_MS in 3_000L..8_000L)
+  }
+}

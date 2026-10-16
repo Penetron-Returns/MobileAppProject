@@ -16,6 +16,7 @@ export {
   requestOverlayPermission,
   setCloudStt,
   setReadAloudEnabled,
+  speakInterim,
   setSoundsEnabled,
   setLauncherIconEnabled,
   setVoiceToken,

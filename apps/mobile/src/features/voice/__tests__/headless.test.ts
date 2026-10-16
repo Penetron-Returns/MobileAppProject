@@ -145,3 +145,59 @@ describe('runVoiceCommandHeadless', () => {
     ).resolves.toEqual({ status: 'error', message: 'Could not check in' });
   });
 });
+
+describe('spoken filler while the companion thinks', () => {
+  it('speaks a filler before awaiting a companion turn', async () => {
+    const order: string[] = [];
+    const d = deps({
+      speakInterim: jest.fn(() => void order.push('filler')),
+      nextTurn: () => 0,
+      ask: jest.fn(async () => {
+        order.push('ask');
+        return { reply: 'Two bookings.', approvals: [] };
+      }),
+    });
+    await runVoiceCommandHeadless('what is on today', d);
+    expect(order).toEqual(['filler', 'ask']);
+    expect(d.speakInterim).toHaveBeenCalledWith('voice.ask.interim.0');
+  });
+
+  it('rotates the filler by turn number', async () => {
+    const spoken: string[] = [];
+    let turn = 0;
+    const d = deps({
+      speakInterim: (text) => void spoken.push(text),
+      nextTurn: () => turn++,
+    });
+    for (let i = 0; i < 4; i += 1)
+      await runVoiceCommandHeadless('hello there', d);
+    expect(spoken).toEqual([
+      'voice.ask.interim.0',
+      'voice.ask.interim.1',
+      'voice.ask.interim.2',
+      'voice.ask.interim.0',
+    ]);
+  });
+
+  it('stays silent for the local check-in path', async () => {
+    const d = deps({ speakInterim: jest.fn() });
+    await runVoiceCommandHeadless('client has arrived', d);
+    expect(d.speakInterim).not.toHaveBeenCalled();
+  });
+
+  it('stays silent for a yes or no on a pending approval', async () => {
+    const d = deps({ speakInterim: jest.fn() });
+    await runVoiceCommandHeadless('yes', d, {
+      pendingApprovalId: 'ap1',
+      pendingKind: 'create_appointment',
+    });
+    expect(d.speakInterim).not.toHaveBeenCalled();
+    expect(d.decide).toHaveBeenCalledWith('ap1', 'approve');
+  });
+
+  it('works when the build has no filler function', async () => {
+    await expect(
+      runVoiceCommandHeadless('what is on today', deps()),
+    ).resolves.toMatchObject({ status: 'done' });
+  });
+});

@@ -48,6 +48,8 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   getFeedbackSettings?(): ClovieVoiceFeedbackSettings;
   setSoundsEnabled?(enabled: boolean): void;
   setReadAloudEnabled?(enabled: boolean): void;
+  // Optional: a dev build made before this existed has no such function.
+  speakInterim?(text: string): void;
   // Optional: a dev build made before these existed has no such functions.
   setVoiceToken?(token: string, apiUrl: string): void;
   clearVoiceToken?(): void;
@@ -192,6 +194,11 @@ export function setSoundsEnabled(enabled: boolean): void {
 
 export function setReadAloudEnabled(enabled: boolean): void {
   native?.setReadAloudEnabled?.(enabled);
+}
+
+/** Speaks a short filler now, when read-aloud is on; the final reply queues behind it. No-op on older builds. */
+export function speakInterim(text: string): void {
+  native?.speakInterim?.(text);
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */

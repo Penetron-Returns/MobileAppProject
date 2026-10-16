@@ -1601,6 +1601,11 @@
     "noCompanion": "Your plan does not include the companion.",
     "failed": "Could not check in. Try again from Today.",
     "ask": {
+      "interim": {
+        "0": "One sec, checking.",
+        "1": "Let me look into that.",
+        "2": "On it, one moment."
+      },
       "sayYesOrNo": "Say yes or no.",
       "several": "I have {{count}} changes to confirm, one at a time.",
       "next": "Next.",

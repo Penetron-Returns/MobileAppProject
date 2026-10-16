@@ -24,9 +24,16 @@ class VoiceSpeaker(private val context: Context) {
   private var isFailed = false
   private var queued: Pending? = null
   private var current: Pending? = null
+  /** A reply that arrived while a filler was still speaking: it starts when the filler is done, never cutting it off. */
+  private var following: Pending? = null
   private var focus: AudioFocusRequest? = null
 
-  private class Pending(val text: String, val onDone: () -> Unit) {
+  private class Pending(
+    val text: String,
+    val onDone: () -> Unit,
+    val onStart: () -> Unit = {},
+    val isInterim: Boolean = false,
+  ) {
     val id: String = UUID.randomUUID().toString()
   }
 
@@ -36,10 +43,30 @@ class VoiceSpeaker(private val context: Context) {
     engine = TextToSpeech(context.applicationContext) { status -> main.post { onInit(status) } }
   }
 
-  /** Speaks `text`, then calls `onDone` (also when speech is impossible, so callers never wait for nothing). */
-  fun speak(text: String, onDone: () -> Unit) {
+  /** A short filler ("One sec, checking."): spoken at once; a later [speak] queues behind it. */
+  fun speakInterim(text: String) {
     stop()
-    val pending = Pending(text, onDone)
+    val pending = Pending(text, {}, isInterim = true)
+    if (isFailed) return
+    if (!isReady) {
+      queued = pending
+      warmUp()
+      return
+    }
+    start(pending)
+  }
+
+  /**
+   * Speaks `text`, then calls `onDone` (also when speech is impossible, so callers never wait for nothing).
+   * `onStart` runs when the engine really begins, so a watchdog can track the speech. Waits for a filler to end.
+   */
+  fun speak(text: String, onStart: () -> Unit = {}, onDone: () -> Unit) {
+    val pending = Pending(text, onDone, onStart)
+    if (current?.isInterim == true || queued?.isInterim == true) {
+      following = pending
+      return
+    }
+    stop()
     if (isFailed) return finish(pending)
     if (!isReady) {
       queued = pending
@@ -52,6 +79,7 @@ class VoiceSpeaker(private val context: Context) {
   /** Cuts speech off; the pending `onDone` is dropped. */
   fun stop() {
     queued = null
+    following = null
     current = null
     engine?.stop()
     abandonFocus()
@@ -71,12 +99,16 @@ class VoiceSpeaker(private val context: Context) {
       engine = null
       queued?.let(::finish)
       queued = null
+      following?.let(::finish)
+      following = null
       return
     }
     chooseVoice(tts)
     tts.setAudioAttributes(VoiceAudio.attributes(AudioAttributes.CONTENT_TYPE_SPEECH))
     tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-      override fun onStart(utteranceId: String?) = Unit
+      override fun onStart(utteranceId: String?) {
+        main.post { current?.takeIf { it.id == utteranceId }?.onStart?.invoke() }
+      }
 
       override fun onDone(utteranceId: String?) {
         main.post { complete(utteranceId) }
@@ -119,7 +151,14 @@ class VoiceSpeaker(private val context: Context) {
     finish(pending)
   }
 
-  private fun finish(pending: Pending) = pending.onDone()
+  /** Reports the end of `pending`, then starts the reply that was waiting behind a filler. */
+  private fun finish(pending: Pending) {
+    pending.onDone()
+    if (!pending.isInterim) return
+    val next = following ?: return
+    following = null
+    if (isFailed) finish(next) else start(next)
+  }
 
   private fun requestFocus() {
     val manager = audio ?: return
