@@ -15,7 +15,7 @@ import { upsertClient } from '@booking/features/clients/services/clients.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { tryNormalizePhone } from '@booking/features/lib/phone.ts';
-import { addDays, dateInZone, dateRange } from '@booking/features/lib/time.ts';
+import { addDays, dateInZone } from '@booking/features/lib/time.ts';
 import type { Actor, BookingService, EntitlementService } from '@booking/features/ports.ts';
 import type { ToolArgs } from './args.ts';
 import { connectorNotFound, invalidRequest } from './errors.ts';
@@ -30,7 +30,13 @@ import {
 } from './mappers.ts';
 
 export interface NerovaConnectorDeps {
+  /** Live booking service: every write, and appointment reads */
   booking: BookingService;
+  /**
+   * Booking service over a read-through cache of the static data (business, catalogue, staff, hours), used for
+   * the account, services and availability reads. Defaults to `booking`. Writes never use it.
+   */
+  readBooking?: BookingService;
   entitlements: EntitlementService;
   repo: BookingRepository;
   clock: () => Date;
@@ -41,22 +47,6 @@ const DAY_MS = 86_400_000;
 const MAX_WINDOW_DAYS = 31;
 const DEFAULT_PAGE = 50;
 const EXCEPTION_HORIZON_DAYS = 180;
-/** Days of availability computed at once: each one is several queries, and a window can span 31 days. */
-const AVAILABILITY_CONCURRENCY = 4;
-
-/** Like Promise.all(items.map(fn)) but with at most `limit` calls in flight; results keep the input order. */
-async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await fn(items[index]!);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
 
 const isUuid = (value: string | undefined): value is UUID => !!value && UUID_RE.test(value);
 
@@ -98,6 +88,7 @@ const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && WIN
 
 export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
+  const reads = deps.readBooking ?? booking;
 
   /** The business behind an account id, or not_found when it is unknown, malformed or not on a companion plan. */
   async function requireAccount(accountId: string): Promise<UUID> {
@@ -111,14 +102,65 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     return accountId;
   }
 
+  /**
+   * Runs a read while the plan gate is checked, so the two round trips overlap instead of queueing. The gate
+   * decides the outcome: for a non-entitled or unknown account the read result is discarded and never returned.
+   * Only for reads; a write always waits for the gate (requireAccount) first.
+   */
+  async function gated<T>(accountId: string, read: (businessId: UUID) => Promise<T>): Promise<T> {
+    if (!isUuid(accountId)) throw connectorNotFound('Account');
+    const result = read(accountId);
+    result.catch(() => undefined); // the gate may reject first; this keeps the discarded read from going unhandled
+    await requireAccount(accountId);
+    return result;
+  }
+
   async function accountView(businessId: UUID) {
-    const business = await booking.getBusiness(businessId);
+    const business = await reads.getBusiness(businessId);
     const today = dateInZone(deps.clock(), business.timezone);
     const [hours, specialDays] = await Promise.all([
       repo.listBusinessHours(businessId),
       repo.listSpecialDays(businessId, today, addDays(today, EXCEPTION_HORIZON_DAYS)),
     ]);
     return toAccount(business, toOpeningHours(business.id, hours, specialDays));
+  }
+
+  async function searchAvailability(businessId: UUID, args: ToolArgs<'availability_search'>) {
+    const start = Date.parse(args.start);
+    const end = Date.parse(args.end);
+    if (end <= start) throw invalidRequest('end must be after start');
+    if (end - start > MAX_WINDOW_DAYS * DAY_MS) throw invalidRequest(`window is at most ${MAX_WINDOW_DAYS} days`);
+    if (!isUuid(args.serviceId)) throw connectorNotFound('Service');
+    if (args.staffId && !isUuid(args.staffId)) throw connectorNotFound('Staff');
+    // Warm the cached reads the range load needs while the business and staff checks are in flight, so a cold
+    // call takes two round-trip stages instead of four. Failures surface from the real reads below.
+    void Promise.allSettled([
+      repo.getService(businessId, args.serviceId),
+      repo.listStaff(businessId),
+      repo.listStaffServices(businessId),
+      repo.listBusinessHours(businessId),
+    ]);
+    const [staff, { timezone }] = await Promise.all([
+      args.staffId ? repo.getStaff(businessId, args.staffId) : Promise.resolve(null),
+      reads.getBusiness(businessId),
+    ]);
+    if (args.staffId && !staff) throw connectorNotFound('Staff');
+    // One schedule load for the whole window; the slots per date are computed in memory.
+    const days = await reads.listAvailableSlotsForRange({
+      businessId,
+      serviceId: args.serviceId,
+      staffId: args.staffId,
+      from: dateInZone(new Date(start), timezone),
+      to: dateInZone(new Date(end - 1), timezone),
+      now: deps.clock(),
+    });
+    const data = days
+      .flatMap((day) => day.slots)
+      .filter((slot) => Date.parse(slot.starts_at) >= start && Date.parse(slot.ends_at) <= end)
+      .flatMap((slot) =>
+        slot.staff_ids.map((staffId) => ({ startTime: slot.starts_at, endTime: slot.ends_at, externalStaffId: staffId })),
+      );
+    return { data };
   }
 
   async function appointmentOf(businessId: UUID, appointmentId: string): Promise<AppointmentDTO> {
@@ -152,60 +194,40 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     },
 
     async accountsGet(args: ToolArgs<'accounts_get'>) {
-      return accountView(await requireAccount(args.accountId));
+      return gated(args.accountId, accountView);
     },
 
     async servicesList(args: ToolArgs<'services_list'>) {
-      const businessId = await requireAccount(args.accountId);
-      const [business, services] = await Promise.all([
-        booking.getBusiness(businessId),
-        booking.listServices(businessId, { activeOnly: true }),
-      ]);
-      return { data: services.map((s) => toService(s, business.currency)) };
+      return gated(args.accountId, async (businessId) => {
+        const [business, services] = await Promise.all([
+          reads.getBusiness(businessId),
+          reads.listServices(businessId, { activeOnly: true }),
+        ]);
+        return { data: services.map((s) => toService(s, business.currency)) };
+      });
     },
 
     async staffList(args: ToolArgs<'staff_list'>) {
-      const businessId = await requireAccount(args.accountId);
-      const [staff, links, services] = await Promise.all([
-        repo.listStaff(businessId),
-        repo.listStaffServices(businessId),
-        repo.listServices(businessId, { activeOnly: true }),
-      ]);
-      const active = new Set(services.map((s) => s.id));
-      const data = staff
-        .filter((s) => s.is_active && s.accepts_bookings)
-        .map((s) => toStaff(s, links.filter((l) => l.staff_id === s.id && active.has(l.service_id)).map((l) => l.service_id)));
-      return { data };
+      return gated(args.accountId, async (businessId) => {
+        const [staff, links, services] = await Promise.all([
+          repo.listStaff(businessId),
+          repo.listStaffServices(businessId),
+          repo.listServices(businessId, { activeOnly: true }),
+        ]);
+        const active = new Set(services.map((s) => s.id));
+        const data = staff
+          .filter((s) => s.is_active && s.accepts_bookings)
+          .map((s) => toStaff(s, links.filter((l) => l.staff_id === s.id && active.has(l.service_id)).map((l) => l.service_id)));
+        return { data };
+      });
     },
 
     async availabilitySearch(args: ToolArgs<'availability_search'>) {
-      const businessId = await requireAccount(args.accountId);
-      const start = Date.parse(args.start);
-      const end = Date.parse(args.end);
-      if (end <= start) throw invalidRequest('end must be after start');
-      if (end - start > MAX_WINDOW_DAYS * DAY_MS) throw invalidRequest(`window is at most ${MAX_WINDOW_DAYS} days`);
-      if (!isUuid(args.serviceId)) throw connectorNotFound('Service');
-      if (args.staffId && (!isUuid(args.staffId) || !(await repo.getStaff(businessId, args.staffId)))) {
-        throw connectorNotFound('Staff');
-      }
-      const { timezone } = await booking.getBusiness(businessId);
-      const dates = dateRange(dateInZone(new Date(start), timezone), dateInZone(new Date(end - 1), timezone));
-      const now = deps.clock();
-      const days = await mapWithConcurrency(dates, AVAILABILITY_CONCURRENCY, (date) =>
-        booking.listAvailableSlots({ businessId, serviceId: args.serviceId, staffId: args.staffId, date, now }),
-      );
-      const data = days
-        .flatMap((day) => day.slots)
-        .filter((slot) => Date.parse(slot.starts_at) >= start && Date.parse(slot.ends_at) <= end)
-        .flatMap((slot) =>
-          slot.staff_ids.map((staffId) => ({ startTime: slot.starts_at, endTime: slot.ends_at, externalStaffId: staffId })),
-        );
-      return { data };
+      return gated(args.accountId, (businessId) => searchAvailability(businessId, args));
     },
 
     async appointmentsGet(args: ToolArgs<'appointments_get'>) {
-      const businessId = await requireAccount(args.accountId);
-      return toAppointment(await appointmentOf(businessId, args.appointmentId));
+      return gated(args.accountId, async (businessId) => toAppointment(await appointmentOf(businessId, args.appointmentId)));
     },
 
     async appointmentsList(args: ToolArgs<'appointments_list'>) {
@@ -294,11 +316,12 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     async appointmentsReschedule(args: ToolArgs<'appointments_reschedule'>) {
       const businessId = await requireAccount(args.accountId);
-      const current = await appointmentOf(businessId, args.appointmentId);
+      // The booking service loads and scopes the appointment itself (NOT_FOUND maps to not_found), so no pre-read.
+      if (!isUuid(args.appointmentId)) throw connectorNotFound('Appointment');
       if (args.newExternalStaffId && !isUuid(args.newExternalStaffId)) throw connectorNotFound('Staff');
       const appointment = await booking.rescheduleAppointment({
         businessId,
-        appointmentId: current.id,
+        appointmentId: args.appointmentId,
         startsAt: args.newStartTime,
         staffId: args.newExternalStaffId ?? null,
         actor: nerovaActor(args.origin),
@@ -311,10 +334,10 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     async appointmentsCancel(args: ToolArgs<'appointments_cancel'>) {
       const businessId = await requireAccount(args.accountId);
-      const current = await appointmentOf(businessId, args.appointmentId);
+      if (!isUuid(args.appointmentId)) throw connectorNotFound('Appointment');
       const appointment = await booking.cancelAppointment({
         businessId,
-        appointmentId: current.id,
+        appointmentId: args.appointmentId,
         actor: nerovaActor(args.origin),
         reason: args.reason ?? null,
         notifyCustomer: false,

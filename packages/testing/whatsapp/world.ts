@@ -165,6 +165,15 @@ export function fakeBooking(world: World): BookingService {
       const slots = (world.slots[q.date] ?? []).filter((s) => !q.staffId || s.staff_ids.includes(q.staffId));
       return { date: q.date, timezone: world.business.timezone, slots };
     },
+    async listAvailableSlotsForRange(q) {
+      log('listAvailableSlotsForRange', q);
+      const out = [];
+      for (let d = q.from; d <= q.to; d = new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)) {
+        const slots = (world.slots[d] ?? []).filter((s) => !q.staffId || s.staff_ids.includes(q.staffId));
+        out.push({ date: d, timezone: world.business.timezone, slots });
+      }
+      return out;
+    },
     async createAppointment(input) {
       log('createAppointment', input);
       const existing = world.appointments.find((a) => (a as AppointmentDTO & { key?: string }).key === input.idempotencyKey);

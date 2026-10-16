@@ -6,7 +6,7 @@
 import type { AvailableSlotsResponse, ISODate, ServiceDTO, StaffDTO, UUID } from '@booking/types';
 import { AppError, notFound, ruleViolation } from '../../lib/errors.ts';
 import { createLogger, type Logger } from '../../lib/logger.ts';
-import { dateInZone, rangeBounds } from '../../lib/time.ts';
+import { dateInZone, dateRange, rangeBounds } from '../../lib/time.ts';
 import type {
   Actor,
   AppointmentChangeKind,
@@ -34,6 +34,11 @@ export interface BookingServiceOptions {
   logger?: Logger;
   /** Default clock when a call does not pass `now` */
   clock?: () => Date;
+  /**
+   * Runs a Nerova-originated change notification after the response instead of before it (edge: waitUntil).
+   * Other actors' notifications stay inline. Omitted = inline for everyone (tests, scripts).
+   */
+  defer?: (task: () => Promise<unknown>) => void;
 }
 
 const MINUTE = 60_000;
@@ -136,17 +141,21 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
   }
 
   async function notify(businessId: UUID, row: AppointmentRow, kind: AppointmentChangeKind, actor: Actor, notifyCustomer?: boolean) {
-    try {
-      await options.notifications.appointmentChanged({
-        businessId,
-        appointmentId: row.id,
-        kind,
-        actor,
-        notifyCustomer: notifyCustomer ?? false,
-      });
-    } catch (error) {
-      logger.error('appointment_notification_failed', { appointment_id: row.id, kind, error });
-    }
+    const send = async () => {
+      try {
+        await options.notifications.appointmentChanged({
+          businessId,
+          appointmentId: row.id,
+          kind,
+          actor,
+          notifyCustomer: notifyCustomer ?? false,
+        });
+      } catch (error) {
+        logger.error('appointment_notification_failed', { appointment_id: row.id, kind, error });
+      }
+    };
+    if (options.defer && actor.type === 'nerova') options.defer(send);
+    else await send();
   }
 
   /** Customers must act at least cancellation_window_minutes before the start. */
@@ -183,8 +192,10 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     },
 
     async listAvailableSlots(query) {
-      const business = await requireBusiness(query.businessId);
-      const service = await requireService(query.businessId, query.serviceId);
+      const [business, service] = await Promise.all([
+        requireBusiness(query.businessId),
+        requireService(query.businessId, query.serviceId),
+      ]);
       const result: AvailableSlotsResponse = { date: query.date, timezone: business.timezone, slots: [] };
       if (!service.is_active) return result;
       const staff = await candidates(query.businessId, query.serviceId, query.staffId);
@@ -200,9 +211,32 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       return { ...result, slots: computeSlots(input, query.date) };
     },
 
+    async listAvailableSlotsForRange(query) {
+      const [business, service] = await Promise.all([
+        requireBusiness(query.businessId),
+        requireService(query.businessId, query.serviceId),
+      ]);
+      const dates = dateRange(query.from, query.to);
+      const empty = (date: ISODate): AvailableSlotsResponse => ({ date, timezone: business.timezone, slots: [] });
+      if (!service.is_active || dates.length === 0) return dates.map(empty);
+      const staff = await candidates(query.businessId, query.serviceId, query.staffId);
+      if (staff.length === 0) return dates.map(empty);
+      const input = await availabilityInput({
+        business,
+        durationMinutes: service.duration_minutes,
+        staff,
+        from: query.from,
+        to: query.to,
+        now: query.now ?? clock(),
+      });
+      return dates.map((date) => ({ ...empty(date), slots: computeSlots(input, date) }));
+    },
+
     async listAvailableDays(query) {
-      const business = await requireBusiness(query.businessId);
-      const service = await requireService(query.businessId, query.serviceId);
+      const [business, service] = await Promise.all([
+        requireBusiness(query.businessId),
+        requireService(query.businessId, query.serviceId),
+      ]);
       if (!service.is_active) return [];
       const now = query.now ?? clock();
       const bounds = bookableDateRange({ timezone: business.timezone, rules: bookingRules(business), now });
@@ -221,8 +255,10 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
 
       const now = input.now ?? clock();
       const startsAt = parseInstant(input.startsAt, 'starts_at');
-      const business = await requireBusiness(input.businessId);
-      const service = await requireService(input.businessId, input.serviceId);
+      const [business, service] = await Promise.all([
+        requireBusiness(input.businessId),
+        requireService(input.businessId, input.serviceId),
+      ]);
       if (!service.is_active) throw ruleViolation('SERVICE_INACTIVE', 'This service is not currently offered');
 
       const staffId = await resolveStaff({
@@ -252,8 +288,10 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     async rescheduleAppointment(input: RescheduleAppointmentInput) {
       const now = input.now ?? clock();
       const startsAt = parseInstant(input.startsAt, 'starts_at');
-      const business = await requireBusiness(input.businessId);
-      const current = await requireAppointment(input.businessId, input.appointmentId, input.actor);
+      const [business, current] = await Promise.all([
+        requireBusiness(input.businessId),
+        requireAppointment(input.businessId, input.appointmentId, input.actor),
+      ]);
       if (current.status !== 'confirmed') {
         throw ruleViolation('INVALID_STATUS', 'Only confirmed appointments can be rescheduled');
       }
@@ -282,8 +320,10 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
 
     async cancelAppointment(input: CancelAppointmentInput) {
       const now = input.now ?? clock();
-      const business = await requireBusiness(input.businessId);
-      const current = await requireAppointment(input.businessId, input.appointmentId, input.actor);
+      const [business, current] = await Promise.all([
+        requireBusiness(input.businessId),
+        requireAppointment(input.businessId, input.appointmentId, input.actor),
+      ]);
       assertCustomerWindow(business, current, input.actor, now, input.enforceCancellationWindow);
       const row = await repo.cancelAppointment({
         appointmentId: current.id,

@@ -15,6 +15,8 @@ export type { BookingRepository } from '../repositories/types.ts';
 export interface BookingDeps {
   db: Db;
   notifications: NotificationService;
+  /** See BookingServiceOptions.defer */
+  defer?: (task: () => Promise<unknown>) => void;
 }
 
 const repositories = new WeakMap<object, BookingRepository>();
@@ -32,6 +34,7 @@ export function createBookingService(deps: BookingDeps): BookingService {
   return createBookingServiceFromRepository({
     repository: supabaseRepositoryFor(deps.db),
     notifications: deps.notifications,
+    defer: deps.defer,
     logger: createLogger({ module: 'booking' }),
   });
 }
