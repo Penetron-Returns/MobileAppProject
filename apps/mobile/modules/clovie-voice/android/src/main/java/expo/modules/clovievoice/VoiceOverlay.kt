@@ -8,6 +8,7 @@ import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -60,6 +61,7 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String) {
           isPageReady = true
+          Log.i(TAG, "overlay page loaded queued=${queued.size}")
           queued.forEach { view.evaluateJavascript(it, null) }
           queued.clear()
         }
@@ -87,19 +89,28 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+        // A service-added window is not hardware accelerated by default, which can leave a WebView blank.
+        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
       PixelFormat.TRANSLUCENT,
-    ).apply { gravity = Gravity.BOTTOM }
+    ).apply {
+      gravity = Gravity.BOTTOM
+      // Android clamps the alpha of a not-touchable overlay to this anyway (and logs a warning).
+      // Say it outright; the page is designed for it. Kept while touchable so the level never jumps.
+      alpha = MAX_OBSCURING_ALPHA
+    }
     return try {
       windowManager.addView(view, layout)
       params = layout
       isAttached = true
       view.visibility = View.VISIBLE
+      Log.i(TAG, "overlay window added pageReady=$isPageReady")
       val isNight = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
       run("setTheme('${if (isNight) "dark" else "light"}')")
       run("play('enter')") // the first visible frame is the ignition
       true
-    } catch (_: RuntimeException) {
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "overlay window add failed ${e.javaClass.simpleName}")
       false // permission revoked meanwhile, or no window token
     }
   }
@@ -199,6 +210,9 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   }
 
   companion object {
+    private const val TAG = "ClovieVoice"
+    /** Android's cap on the opacity of a window that lets touches through. */
+    const val MAX_OBSCURING_ALPHA = 0.8f
     const val PAGE_URL = "file:///android_asset/overlay/overlay.html"
     const val HEIGHT_FRACTION = 0.5f // the glow rises to about half the screen; its top fades out
     const val EXIT_MS = 480L // the page's exit runs ~450 ms

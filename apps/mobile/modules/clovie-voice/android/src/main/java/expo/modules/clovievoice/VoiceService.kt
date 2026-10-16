@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
 
@@ -48,13 +49,17 @@ class VoiceService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private var powerReceiver: BroadcastReceiver? = null
   private var isHandsFree = false
-  private var isOneShot = false
   private var hasOverlay = false
   private var lastTranscript = ""
   private var isDestroyed = false
+  /** True from the wake word until the overlay has gone; the microphone stays closed meanwhile. */
+  private var isInteracting = false
+  private var rearmFailures = 0
+  private var dismissReason = "timeout"
   private val dismiss = Runnable {
+    Log.i(TAG, "overlay dismissed reason=$dismissReason")
     overlay.hide()
-    if (isOneShot) main.postDelayed({ shutdown() }, VoiceOverlay.EXIT_MS + 60)
+    main.postDelayed(::finishInteraction, VoiceOverlay.EXIT_MS + 60)
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
@@ -112,7 +117,7 @@ class VoiceService : Service() {
     HandsFreeController.schedule(this, policy, now)
     notifications.update(notifications.handsFree(duty, policy, now))
     when {
-      speech.isBusy -> Unit // an interaction is running; it re-checks when it ends
+      isInteracting -> Unit // an interaction is running; it re-arms when it ends
       duty.state == DutyState.ON_DUTY -> ensureListening()
       duty.state == DutyState.STOPPED -> shutdown()
       else -> standBy()
@@ -163,14 +168,25 @@ class VoiceService : Service() {
 
   private fun startListening() {
     val current = engine ?: return
-    listener = WakeWordListener(current, gate, onWake = ::onWake, onError = ::fail).also { it.start() }
+    listener = WakeWordListener(current, gate, onWake = ::onWake, onError = ::onListenerError).also { it.start() }
     VoiceState.update(VoiceStatus.LISTENING)
+  }
+
+  /** A failed microphone right after a recogniser run is usually still being released: retry before giving up. */
+  private fun onListenerError(reason: String) {
+    if (isDestroyed) return
+    val retryIn = if (reason == VoiceError.AUDIO_FAILED) InteractionPolicy.rearmRetryDelayMs(++rearmFailures) else null
+    if (retryIn == null) return fail(reason)
+    Log.w(TAG, "wake listener failed reason=$reason retryInMs=$retryIn failures=$rearmFailures")
+    listener = null
+    main.postDelayed(::reevaluate, retryIn)
   }
 
   /** The wake listener has already released the microphone. */
   private fun onWake() {
     if (isDestroyed) return
     listener = null
+    rearmFailures = 0
     startInteraction()
   }
 
@@ -179,7 +195,6 @@ class VoiceService : Service() {
   private fun beginTalk() {
     val wasHandsFree = isHandsFree
     if (!enterForeground(currentNotification(talking = !wasHandsFree))) return
-    if (!wasHandsFree) isOneShot = true
     listener?.stop()
     listener = null
     startInteraction()
@@ -188,6 +203,7 @@ class VoiceService : Service() {
   // ---- one interaction ----
 
   private fun startInteraction() {
+    isInteracting = true
     VoiceTimings.wake()
     VoiceState.update(VoiceStatus.BUSY)
     main.removeCallbacks(dismiss)
@@ -199,15 +215,17 @@ class VoiceService : Service() {
       overlay.setState("listening")
       VoiceTimings.overlayShown()
     }
+    Log.i(TAG, "overlay shown=$hasOverlay")
     feedback.ignite() // chime and haptic tick, in step with the entrance
-    // Listening starts at once; the chime and the entrance play while the recogniser is already coming up.
-    speech.listen(onStarted = VoiceTimings::sttStarted, onDone = ::onTranscript)
+    // The wake-word recorder is already stopped and released; the short delay lets the audio HAL
+    // hand the microphone over before the recogniser asks for it.
+    speech.listen(MIC_HANDOFF_MS, onStarted = VoiceTimings::sttStarted, onDone = ::onTranscript)
   }
 
-  private fun onTranscript(text: String?) {
+  private fun onTranscript(result: SttOutcome) {
     if (isDestroyed) return
     VoiceTimings.sttFinished()
-    if (isHandsFree) reevaluate() // the wake word is live again while the command runs
+    val text = result.text
     if (text == null) {
       showOutcome(CommandOutcome("error", NOT_HEARD))
       return
@@ -230,6 +248,22 @@ class VoiceService : Service() {
     }
   }
 
+  /** The interaction is over (overlay gone): re-arm the wake word, or stop when this was a one-shot. */
+  private fun finishInteraction() {
+    if (isDestroyed) return
+    isInteracting = false
+    when (InteractionPolicy.after(isHandsFree)) {
+      InteractionPolicy.After.REARM -> {
+        Log.i(TAG, "rearmed")
+        reevaluate()
+      }
+      InteractionPolicy.After.STOP -> {
+        Log.i(TAG, "stopped")
+        shutdown()
+      }
+    }
+  }
+
   private fun showOutcome(outcome: CommandOutcome) {
     if (isDestroyed) return
     VoiceTimings.commandDone()
@@ -238,12 +272,14 @@ class VoiceService : Service() {
       if (isFinished) {
         overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
         overlay.setState(outcome.status)
-        main.postDelayed(dismiss, RESULT_MS)
+        dismissReason = outcome.status
+        main.postDelayed(dismiss, if (outcome.status == "error") ERROR_MS else RESULT_MS)
       } else {
         // JS could not finish it (or did not answer): the owner taps to continue in the app.
         overlay.setMessage("")
         overlay.setState("request")
         overlay.setAction(OPEN_LABEL)
+        dismissReason = "open_timeout"
         main.postDelayed(dismiss, OPEN_MS)
       }
       return
@@ -253,12 +289,13 @@ class VoiceService : Service() {
     } else {
       notifications.result("Clovie heard you", lastTranscript, lastTranscript)
     }
-    if (isOneShot) main.postDelayed({ shutdown() }, 800L)
+    main.postDelayed(::finishInteraction, 800L)
   }
 
   /** A tap on the overlay's button: a user gesture, so Android lets it open the app. */
   private fun onOverlayAction() {
     main.removeCallbacks(dismiss)
+    dismissReason = "action"
     try {
       startActivity(notifications.deepLink(lastTranscript))
     } catch (_: Exception) {
@@ -332,6 +369,7 @@ class VoiceService : Service() {
   }
 
   private fun shutdown() {
+    Log.i(TAG, "stopped")
     cleanup()
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
@@ -375,7 +413,10 @@ class VoiceService : Service() {
     const val ACTION_REEVALUATE = "expo.modules.clovievoice.REEVALUATE"
     const val EXTRA_CLASSIFIER = "classifier"
     const val EXTRA_THRESHOLD = "threshold"
+    private const val TAG = "ClovieVoice"
     private const val RESULT_MS = 2_000L
+    private const val ERROR_MS = 2_500L
+    private const val MIC_HANDOFF_MS = 150L
     private const val OPEN_MS = 10_000L
     private const val PAUSE_MS = 60L * 60L * 1000L
     private const val NOT_HEARD = "Didn't catch that"
