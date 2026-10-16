@@ -1,6 +1,8 @@
 /** Route harness for plans, usage, companion and reports: the real Hono app over in-memory fakes. */
 import { createApp } from '../../src/app.ts';
 import type { Container } from '../../src/container.ts';
+import type { Env } from '../../src/env.ts';
+import type { NerovaClient } from '@booking/companion/nerova/client.ts';
 import type { ClerkClaims } from '../../src/middleware/auth.ts';
 import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
 import type { Db } from '@booking/features/lib/db.ts';
@@ -50,6 +52,10 @@ export function plansHarness(
     nativeAppId?: string;
     forwardReturnUrl?: boolean;
     now?: Date;
+    /** Extra env (e.g. VOICE_CLOUD_STT) */
+    env?: Partial<Env>;
+    /** Replaces the Nerova client the companion service uses (e.g. the real HTTP client over a fake fetch) */
+    nerovaClient?: NerovaClient;
   } = {},
 ): PlansHarness {
   const plan = opts.plan ?? 'growth';
@@ -62,11 +68,11 @@ export function plansHarness(
   const nerova = createFakeNerovaClient({ accounts: opts.accounts, clock });
   const container: Container = testContainer({
     db: authDb(),
-    env: { ...TEST_ENV, NEROVA_API_KEY: NEROVA_KEY },
+    env: { ...TEST_ENV, NEROVA_API_KEY: NEROVA_KEY, ...opts.env },
     entitlements: fakeEntitlements(plan),
     usage: createUsageService({ repo: plans, clock }),
     companion: createCompanionService({
-      nerova,
+      nerova: opts.nerovaClient ?? nerova,
       plans,
       embedOrigin: 'embedOrigin' in opts ? opts.embedOrigin : EMBED_ORIGIN,
       nativeSessions: opts.nativeSessions ?? false,

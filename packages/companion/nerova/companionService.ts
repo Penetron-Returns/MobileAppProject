@@ -18,7 +18,7 @@ import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { PlanRepository } from '@booking/features/ports.ts';
-import type { NerovaAccount, NerovaClient } from './client.ts';
+import type { NerovaAccount, NerovaClient, TranscribeFile } from './client.ts';
 
 /** Nerova accepts idempotency keys of 8 to 128 characters. */
 const MAX_KEY_LENGTH = 128;
@@ -47,8 +47,16 @@ export interface CompanionService {
    * WHATSAPP_ALREADY_CONNECTED (409) when WhatsApp is already connected. The launch URL is a secret.
    */
   createWhatsAppConnectSession(businessId: UUID, options?: { returnUrl?: string | undefined }): Promise<CompanionWhatsAppConnectSessionDTO>;
+  /** Speech-to-text through the business's Nerova account. COMPANION_NOT_READY (409) without an account; other errors as NerovaClient.transcribe. */
+  transcribe(businessId: UUID, file: TranscribeFile, opts?: { language?: string | undefined }): Promise<TranscriptionResult>;
   /** Nerova's outcome counts for the month, or null when Nerova is unavailable. Never throws. */
   getOutcomes(businessId: UUID, month: MonthKey): Promise<CompanionOutcomesDTO | null>;
+}
+
+export interface TranscriptionResult {
+  text: string;
+  duration_ms: number;
+  language: string | null;
 }
 
 export interface CompanionServiceDeps {
@@ -207,5 +215,13 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     }
   }
 
-  return { createSession, getSetup, createWhatsAppConnectSession, getOutcomes };
+  async function transcribe(businessId: UUID, file: TranscribeFile, opts: { language?: string | undefined } = {}): Promise<TranscriptionResult> {
+    const profile = await plans.getProfile(businessId);
+    const account = await resolveAccount(businessId, profile.nerovaAccountId);
+    if (!account) throw notReady('account_not_found', 'connect_booking_system');
+    const result = await nerova.transcribe(account.id, file, opts);
+    return { text: result.text, duration_ms: result.durationMs, language: result.language };
+  }
+
+  return { createSession, getSetup, createWhatsAppConnectSession, transcribe, getOutcomes };
 }

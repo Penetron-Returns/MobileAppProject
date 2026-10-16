@@ -65,6 +65,10 @@ export function idempotency(
     if (!clientKey) throw new AppError('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key header is required');
     if (!KEY_RE.test(clientKey)) throw new AppError('VALIDATION_FAILED', 'Malformed Idempotency-Key');
 
+    // Multipart uploads (voice clips) skip replay storage: the boundary differs on every retry so the body can never
+    // hash the same, and a stored response would hold the transcript. The key is still required and validated.
+    if ((c.req.header('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) return next();
+
     const store = storeFactory(c);
     const endpoint = `${c.req.method} ${c.req.path}`;
     const body = await c.req.text();

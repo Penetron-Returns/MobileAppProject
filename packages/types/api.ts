@@ -75,7 +75,18 @@ export type ApiErrorCode =
   | 'COMPANION_NOT_READY'
   | 'WHATSAPP_ALREADY_CONNECTED'
   | 'UPSTREAM_COMPANION_ERROR'
+  | 'PAYLOAD_TOO_LARGE'
+  | 'UNSUPPORTED_MEDIA_TYPE'
+  | 'TRANSCRIPTION_UNAVAILABLE'
   | 'INTERNAL';
+
+/** POST /v1/voice/transcriptions response data (multipart request: field `audio`, optional `language`) */
+export interface TranscriptionDTO {
+  text: string;
+  duration_ms: number;
+  /** Detected (or requested) language code; null when Nerova does not say */
+  language: string | null;
+}
 
 export interface ApiErrorBody {
   error: {

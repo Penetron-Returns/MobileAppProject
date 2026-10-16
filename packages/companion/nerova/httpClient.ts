@@ -2,10 +2,12 @@
 import type { CompanionNotReadyReason, CompanionOutcomesDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
-import type { NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus } from './client.ts';
+import type { NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
 
 export const NEROVA_API_BASE_URL = 'https://api.nerova.si';
+/** Speech-to-text of a short clip is slower than a JSON call. */
+export const TRANSCRIBE_TIMEOUT_MS = 15_000;
 
 /** The slice of the API environment the client reads. apps/api's Env is assignable to it. */
 export interface NerovaEnv {
@@ -37,6 +39,29 @@ function mapConfigRejection(error: unknown): never {
 }
 const record = (value: unknown): Json => (typeof value === 'object' && value !== null ? (value as Json) : {});
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null);
+
+/** Maps a Nerova transcription problem response (stable `code`) to our AppError. */
+function transcriptionError(status: number, code: string | null, retryAfter: string | null): AppError {
+  const reason = code ?? `http_${status}`;
+  if (status === 404) return new AppError('TRANSCRIPTION_UNAVAILABLE', 'Cloud transcription is not available');
+  if (status === 400) return new AppError('VALIDATION_FAILED', 'The audio was rejected', { reason });
+  if (status === 413) return new AppError('PAYLOAD_TOO_LARGE', 'The audio clip is too long', { reason });
+  if (status === 415) return new AppError('UNSUPPORTED_MEDIA_TYPE', 'Unsupported audio format', { reason });
+  if (status === 429) {
+    const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
+    return new AppError('RATE_LIMITED', 'Transcription is rate limited, try again shortly', {
+      reason,
+      ...(Number.isFinite(seconds) && seconds >= 0 ? { retry_after_s: seconds } : {}),
+    });
+  }
+  return upstream('The transcription service could not process the request', { reason, status });
+}
+
+/** Provider time from a `Server-Timing` header (the first `dur`, in ms), or null. */
+function serverTimingMs(header: string | null): number | null {
+  const match = header?.match(/dur=([0-9.]+)/);
+  return match ? Number(match[1]) : null;
+}
 
 export function createHttpNerovaClient(options: HttpNerovaClientOptions): NerovaClient {
   const doFetch = options.fetch ?? fetch;
@@ -94,6 +119,41 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
   /** Connection-session errors: an unprovisioned account is a state the owner or Nerova setup can resolve. */
   const connectionSessionError = (status: number, code: string | null): CompanionNotReadyReason | null =>
     status === 409 && code === 'activation.not_provisioned' ? 'not_provisioned' : accountNotAvailable(status, code);
+
+  async function transcribe(accountId: string, file: TranscribeFile, opts: { language?: string | undefined } = {}): Promise<NerovaTranscription> {
+    // A fresh FormData: the part is the Blob under the field name Nerova documents.
+    const form = new FormData();
+    form.append('audio', file.data, file.filename);
+    if (opts.language) form.append('language', opts.language);
+    const started = Date.now();
+    let response: Response;
+    try {
+      response = await doFetch(`${base}${account(accountId)}/transcriptions`, {
+        method: 'POST',
+        // No Content-Type: fetch sets the multipart boundary itself.
+        headers: { Authorization: `Bearer ${options.apiKey}`, Accept: 'application/json' },
+        body: form,
+        signal: AbortSignal.timeout(options.timeoutMs ?? TRANSCRIBE_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+      throw upstream(timedOut ? 'The transcription service timed out' : 'The transcription service is unreachable', { reason: timedOut ? 'timeout' : 'network' });
+    }
+    // Sizes and timings only: never the audio or the transcript.
+    logger.info('nerova_transcription', {
+      status: response.status,
+      size_bytes: file.data.size,
+      provider_ms: serverTimingMs(response.headers.get('server-timing')),
+      round_trip_ms: Date.now() - started,
+    });
+    const payload = (await response.json().catch(() => null)) as Json | null;
+    if (!response.ok) throw transcriptionError(response.status, text(payload?.code), response.headers.get('retry-after'));
+    const durationMs = payload?.durationMs;
+    if (typeof payload?.text !== 'string' || typeof durationMs !== 'number') {
+      throw upstream('The transcription service returned an unexpected response', { reason: 'unexpected_response' });
+    }
+    return { text: payload.text, durationMs, language: text(payload.language) };
+  }
 
   const account = (idOrReference: string) => `/v1/accounts/${encodeURIComponent(idOrReference)}`;
 
@@ -171,6 +231,8 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
       return { url, expiresAt, ...(input.native && sessionId ? { sessionId } : {}), ...(input.native && state ? { state } : {}) };
     },
 
+    transcribe,
+
     async getOutcomeSummary(idOrReference, period): Promise<CompanionOutcomesDTO> {
       const query = `?year=${period.year}&month=${period.month}`;
       const body = await request('GET', `${account(idOrReference)}/outcomes/summary${query}`);
@@ -184,7 +246,7 @@ export const unconfiguredNerovaClient: NerovaClient = (() => {
   const fail = async (): Promise<never> => {
     throw new AppError('COMPANION_NOT_READY', 'The companion is not available yet', { reason: 'unavailable' });
   };
-  return { getAccount: fail, getCompanionSetup: fail, createConnectionSession: fail, createOwnerChatSession: fail, getOutcomeSummary: fail };
+  return { getAccount: fail, getCompanionSetup: fail, createConnectionSession: fail, createOwnerChatSession: fail, transcribe: fail, getOutcomeSummary: fail };
 })();
 
 export function createNerovaClientFromEnv(env: NerovaEnv, options: Omit<HttpNerovaClientOptions, 'apiKey'> = {}): NerovaClient {
