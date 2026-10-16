@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { useBusiness, useWhatsAppAccount } from '@/features/business/hooks';
+import { useNow } from '@/hooks/useNow';
 import { isFailed, loadError } from '@/lib/offline';
 import { qk } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
@@ -42,16 +43,6 @@ async function fetchToday(window: TodayWindow): Promise<TodayAppointment[]> {
       .order('starts_at')
       .order('id'),
   );
-}
-
-/** A clock that re-renders every `intervalMs`, so "in 20 min" stays true. */
-export function useNow(intervalMs = 30_000): Date {
-  const [now, setNow] = React.useState(() => new Date());
-  React.useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
 }
 
 export type TodayView =

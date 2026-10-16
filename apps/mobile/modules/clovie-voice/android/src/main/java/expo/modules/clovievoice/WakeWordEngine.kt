@@ -31,7 +31,8 @@ class WakeWordEngine private constructor(
     if (pcm.size < MIN_MEL_SAMPLES) return 0f
     val count = minOf(pcm.size, MAX_MEL_SAMPLES)
     val offset = pcm.size - count // keep the most recent audio
-    val audio = FloatArray(count) { pcm[offset + it] / 32768f }
+    val audio = audioBuffer(count)
+    for (i in 0 until count) audio[i] = pcm[offset + i] / 32768f
 
     val melOut = runMel(audio)
     val frames = melOut.size / MEL_BINS
@@ -42,6 +43,15 @@ class WakeWordEngine private constructor(
     val batch = embeddingBatch(melOut, windowCount - CLASSIFIER_EMBEDDINGS)
     val embeddings = runEmbedding(batch)
     return runClassifier(embeddings)
+  }
+
+  // The listener always scores a full window, so these are allocated once and reused for every prediction.
+  private var audioScratch = FloatArray(0)
+  private var batchScratch = FloatArray(0)
+
+  private fun audioBuffer(count: Int): FloatArray {
+    if (audioScratch.size != count) audioScratch = FloatArray(count)
+    return audioScratch
   }
 
   private fun runMel(audio: FloatArray): FloatArray {
@@ -86,7 +96,8 @@ class WakeWordEngine private constructor(
   /** The last 16 windows of 76 mel frames, stride 8, as one (16, 76, 32, 1) batch. */
   private fun embeddingBatch(melFrames: FloatArray, startWindow: Int): FloatArray {
     val perWindow = EMBEDDING_WINDOW * MEL_BINS
-    val batch = FloatArray(CLASSIFIER_EMBEDDINGS * perWindow)
+    if (batchScratch.size != CLASSIFIER_EMBEDDINGS * perWindow) batchScratch = FloatArray(CLASSIFIER_EMBEDDINGS * perWindow)
+    val batch = batchScratch
     for (b in 0 until CLASSIFIER_EMBEDDINGS) {
       val src = (startWindow + b) * EMBEDDING_STRIDE * MEL_BINS
       System.arraycopy(melFrames, src, batch, b * perWindow, perWindow)
@@ -109,11 +120,18 @@ class WakeWordEngine private constructor(
     private const val CLASSIFIER_EMBEDDINGS = 16
     private const val MIN_MEL_SAMPLES = 16_000
     private const val MAX_MEL_SAMPLES = 48_000
+    const val ORT_INTRA_OP_THREADS = 1
 
     /** Loads the bundled mel and embedding models and the classifier named by `classifier`. */
     fun load(context: Context, classifier: String): WakeWordEngine {
       val env = OrtEnvironment.getEnvironment()
-      val options = OrtSession.SessionOptions().apply { setIntraOpNumThreads(2) }
+      // One intra-op thread: the models are tiny, and a second thread only adds wake-ups and contention
+      // on the little cores. Sequential execution keeps the inter-op pool to one thread too.
+      val options = OrtSession.SessionOptions().apply {
+        setIntraOpNumThreads(ORT_INTRA_OP_THREADS)
+        setInterOpNumThreads(1)
+        setExecutionMode(OrtSession.SessionOptions.ExecutionMode.SEQUENTIAL)
+      }
       val sessions = ArrayList<OrtSession>(3)
       try {
         for (spec in listOf(VoiceConfig.MEL_ASSET, VoiceConfig.EMBEDDING_ASSET, classifier)) {

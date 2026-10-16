@@ -1,15 +1,15 @@
-import { TIMING, useAppColorScheme, useReduceMotion } from '@booking/ui';
+import { TIMING, useAppColorScheme } from '@booking/ui';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 import Animated, {
-  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+
+import { useIdlePulse } from '@/hooks/useIdlePulse';
+import { useMotionActive } from '@/hooks/useMotionActive';
 
 import { buildClovieHtml, type ClovieState } from './clovieHtml';
 
@@ -27,6 +27,15 @@ const STILL_DROP = 0.11;
 
 /** One half of the native breathe: a slow in-out, from a precomputed token (a plain object, worklet-safe). */
 const BREATHE = { ...TIMING.pageInOut, duration: 1600 } as const;
+/** Pause between breaths: one calm breath every few seconds, not a 60 fps loop. */
+const BREATHE_REST_MS = 3500;
+/**
+ * Idle duty cycle: the live canvas is a WebView drawing every frame, so after
+ * LIVE_WINDOW_MS of idle it is dropped for REST_MS (the still keeps breathing
+ * natively), then it returns for another window. `working` never rests.
+ */
+const LIVE_WINDOW_MS = 9000;
+const REST_MS = 45000;
 /** How far Clovie rises (fraction of its size) and how much it swells at the top of a breath. */
 const BREATHE_LIFT = 0.04;
 const BREATHE_SWELL = 0.03;
@@ -72,7 +81,7 @@ export function ClovieAnimated({
   size,
   isPaused = false,
 }: ClovieAnimatedProps) {
-  const reduceMotion = useReduceMotion();
+  const isMotionActive = useMotionActive();
   const { isDark } = useAppColorScheme();
   const [ready, setReady] = React.useState(false);
   const [liveOpaque, setLiveOpaque] = React.useState(false);
@@ -80,15 +89,33 @@ export function ClovieAnimated({
   /** Bumped to remount the WebView after its process dies. */
   const [webKey, setWebKey] = React.useState(0);
   const html = React.useMemo(() => buildClovieHtml(state, size), [state, size]);
-  const live = !reduceMotion && !failed && !isPaused;
+  const [isResting, setIsResting] = React.useState(false);
+  const live =
+    isMotionActive &&
+    !failed &&
+    !isPaused &&
+    !(isResting && state === 'default');
   const showLive = live && ready;
 
-  // A paused canvas is gone: the next resume starts from the still again.
+  // Idle duty cycle (see LIVE_WINDOW_MS): live for a while, rest, repeat.
   React.useEffect(() => {
-    if (!isPaused) return;
+    if (!isMotionActive || isPaused || failed || state !== 'default') {
+      setIsResting(false);
+      return;
+    }
+    const id = setTimeout(
+      () => setIsResting((rest) => !rest),
+      isResting ? REST_MS : LIVE_WINDOW_MS,
+    );
+    return () => clearTimeout(id);
+  }, [isMotionActive, isPaused, failed, state, isResting]);
+
+  // A resting, parked or hidden canvas is gone: the next start begins from the still.
+  React.useEffect(() => {
+    if (live) return;
     setReady(false);
     setLiveOpaque(false);
-  }, [isPaused]);
+  }, [live]);
 
   const onMessage = React.useCallback(
     (event: WebViewMessageEvent) => {
@@ -116,18 +143,11 @@ export function ClovieAnimated({
   }, [showLive]);
 
   const breath = useSharedValue(0);
-  React.useEffect(() => {
-    if (reduceMotion) {
-      cancelAnimation(breath);
-      breath.value = 0;
-      return;
-    }
-    breath.value = withRepeat(
-      withSequence(withTiming(1, BREATHE), withTiming(0, BREATHE)),
-      -1,
-    );
-    return () => cancelAnimation(breath);
-  }, [reduceMotion, breath]);
+  useIdlePulse(breath, {
+    isActive: isMotionActive,
+    half: BREATHE,
+    restMs: BREATHE_REST_MS,
+  });
   const breatheStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: -size * BREATHE_LIFT * breath.value },

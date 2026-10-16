@@ -1,23 +1,15 @@
-import {
-  Pressable,
-  Text,
-  TIMING,
-  useDepth,
-  useReduceMotion,
-} from '@booking/ui';
+import { Pressable, Text, TIMING, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import Animated, {
-  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+import { useIdlePulse } from '@/hooks/useIdlePulse';
+import { useMotionActive } from '@/hooks/useMotionActive';
 
 import type { NowLine, NowRow as NowRowData } from '../../aiLogic';
 
@@ -29,6 +21,9 @@ const HALO_HEIGHT = 190;
 /** One half of the halo's slow breathe. */
 const HALO_HALF = { ...TIMING.pageInOut, duration: 5000 } as const;
 
+/** Pause between halo swells (it breathes once, then rests). */
+const HALO_REST_MS = 4000;
+
 const haloImage = (isDark: boolean) =>
   `radial-gradient(closest-side, rgba(42,161,214,${isDark ? 0.34 : 0.3}), rgba(42,161,214,0))`;
 const contactImage = (isDark: boolean) =>
@@ -36,20 +31,12 @@ const contactImage = (isDark: boolean) =>
 
 /** A soft blue glow behind Clovie that swells and fades slowly; still under reduced motion. */
 function Halo({ isDark }: { isDark: boolean }) {
-  const reduceMotion = useReduceMotion();
   const calm = useSharedValue(0);
-  React.useEffect(() => {
-    if (reduceMotion) {
-      cancelAnimation(calm);
-      calm.value = 0;
-      return;
-    }
-    calm.value = withRepeat(
-      withSequence(withTiming(1, HALO_HALF), withTiming(0, HALO_HALF)),
-      -1,
-    );
-    return () => cancelAnimation(calm);
-  }, [reduceMotion, calm]);
+  useIdlePulse(calm, {
+    isActive: useMotionActive(),
+    half: HALO_HALF,
+    restMs: HALO_REST_MS,
+  });
   const style = useAnimatedStyle(() => ({
     opacity: 0.72 + 0.28 * calm.value,
     transform: [{ scale: 0.94 + 0.12 * calm.value }],

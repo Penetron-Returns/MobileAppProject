@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
 import { useBusiness } from '@/features/business/hooks';
+import { useNow } from '@/hooks/useNow';
 import { isFailed, loadError } from '@/lib/offline';
 import { qk } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
@@ -16,7 +17,6 @@ import {
   type Digest,
   type NowRow,
 } from './aiLogic';
-import { useNow } from './hooks';
 import { dayWindow, todayWindow, type TodayWindow } from './logic';
 
 const APPOINTMENT_SELECT =

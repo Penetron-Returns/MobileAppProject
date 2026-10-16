@@ -17,7 +17,7 @@ import { isFailed, loadError } from '@/lib/offline';
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { useBusiness } from '@/features/business/hooks';
 
-import { useInboxRealtime, useInboxThreads } from '../hooks';
+import { useInboxThreads } from '../hooks';
 import { filterThreads, needsReply, type InboxView } from '../logic';
 import { ThreadRow } from './ThreadRow';
 
@@ -28,7 +28,6 @@ export function InboxScreen() {
   const business = useBusiness();
   const threads = useInboxThreads();
   const [view, setView] = React.useState<InboxView>('needs');
-  useInboxRealtime(true);
   const updatedAt = threads.dataUpdatedAt;
   const now = React.useMemo(
     () => new Date(updatedAt || Date.now()),

@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
 import { qk, useApiMutation } from '@/lib/query';
@@ -69,33 +68,6 @@ export function useThreadMessages(conversationId: string) {
     queryFn: () => fetchMessages(conversationId),
     enabled: Boolean(conversationId),
   });
-}
-
-/** Realtime: any change to conversations, messages or escalations refreshes the inbox queries. */
-export function useInboxRealtime(enabled: boolean) {
-  const queryClient = useQueryClient();
-  // supabase-js reuses a channel per topic and refuses `.on` after subscribe, so each caller needs its own topic.
-  const topic = `inbox-changes-${React.useId()}`;
-  React.useEffect(() => {
-    if (!enabled) return;
-    const refresh = () => {
-      void queryClient.invalidateQueries({ queryKey: qk.conversations });
-      void queryClient.invalidateQueries({ queryKey: ['messages'] });
-      void queryClient.invalidateQueries({ queryKey: ['escalations'] });
-    };
-    let channel = supabase.channel(topic);
-    for (const table of ['conversations', 'messages', 'escalations']) {
-      channel = channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        refresh,
-      );
-    }
-    channel.subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [enabled, queryClient, topic]);
 }
 
 const INBOX_KEYS = [qk.conversations, ['messages'], ['escalations']];

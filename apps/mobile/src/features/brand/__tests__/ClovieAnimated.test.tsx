@@ -96,19 +96,41 @@ describe('ClovieAnimated', () => {
     act(() => {
       web(tree)[0].props.onError({});
     });
-    expect(web(tree)).toHaveLength(0);
+    expect(web(tree).length).toBe(0);
     expect(opacity(tree, 'clovie-still-layer')).toBe(1);
   });
 
   it('renders the still only under reduced motion', () => {
     mockReduce = true;
     const tree = mount(<ClovieAnimated state="default" size={120} />);
-    expect(web(tree)).toHaveLength(0);
+    expect(web(tree).length).toBe(0);
     expect(opacity(tree, 'clovie-still-layer')).toBe(1);
   });
 
   it('asks for the idle pose by default', () => {
     const tree = mount(<ClovieAnimated size={120} />);
     expect(web(tree)[0].props.source.html).toContain('"state":"default"');
+  });
+
+  it('drops the live WebView after an idle window and brings it back after a rest', () => {
+    const tree = mount(<ClovieAnimated size={120} />);
+    expect(web(tree).length).toBeGreaterThan(0);
+    act(() => {
+      jest.advanceTimersByTime(9_000);
+    });
+    expect(web(tree).length).toBe(0);
+    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+    expect(web(tree).length).toBeGreaterThan(0);
+  });
+
+  it('keeps the live WebView while working', () => {
+    const tree = mount(<ClovieAnimated state="working" size={120} />);
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(web(tree).length).toBeGreaterThan(0);
   });
 });

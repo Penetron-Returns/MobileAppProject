@@ -25,7 +25,6 @@ jest.mock('expo-router', () => ({
 jest.mock('../hooks', () => ({
   useConversation: () => mockHead(),
   useThreadMessages: () => mockMessages(),
-  useInboxRealtime: jest.fn(),
   useSendReply: () => ({ mutate: jest.fn(), isPending: false }),
   useReleaseConversation: () => ({ mutate: jest.fn(), isPending: false }),
 }));

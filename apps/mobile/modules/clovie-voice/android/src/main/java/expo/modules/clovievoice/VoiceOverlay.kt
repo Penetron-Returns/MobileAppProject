@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -40,10 +41,15 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
 
   fun canShow(): Boolean = Settings.canDrawOverlays(context)
 
-  /** Loads the page ahead of time, detached, so showing the overlay on a wake word is instant. */
+  /**
+   * Loads the page ahead of time, detached, so showing the overlay on a wake word is instant. A
+   * hidden page is paused (its animations and timers stop) and, if unused for IDLE_DESTROY_MS, the
+   * WebView is destroyed to give its memory back; `show` recreates it on demand.
+   */
   @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
   fun preload() {
     if (web != null || !canShow()) return
+    val startedAt = SystemClock.elapsedRealtime()
     val view = WebView(context).apply {
       setBackgroundColor(Color.TRANSPARENT)
       settings.javaScriptEnabled = true
@@ -61,9 +67,13 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       webViewClient = object : WebViewClient() {
         override fun onPageFinished(view: WebView, url: String) {
           isPageReady = true
-          Log.i(TAG, "overlay page loaded queued=${queued.size}")
+          Log.i(TAG, "overlay page loaded queued=${queued.size} loadMs=${SystemClock.elapsedRealtime() - startedAt}")
           queued.forEach { view.evaluateJavascript(it, null) }
           queued.clear()
+          if (!isAttached) { // preloaded for later: rest until shown
+            main.postDelayed(pauseWeb, PAUSE_DELAY_MS)
+            main.postDelayed(destroyIdle, IDLE_DESTROY_MS)
+          }
         }
       }
       loadUrl(PAGE_URL)
@@ -75,13 +85,18 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   fun show(): Boolean {
     if (!canShow()) return false
     main.removeCallbacks(finishHide)
+    main.removeCallbacks(pauseWeb)
+    main.removeCallbacks(destroyIdle)
     if (isAttached) {
       // Still on screen from the last command (its exit may be running): play the entrance again.
       run("play('enter')")
       return true
     }
+    val wasCold = web == null
     preload()
     val view = web ?: return false
+    if (wasCold) Log.i(TAG, "overlay recreated on demand (cold start)")
+    view.onResume() // a hidden page is paused; this restarts its animations
     val height = (context.resources.displayMetrics.heightPixels * HEIGHT_FRACTION).toInt()
     val layout = WindowManager.LayoutParams(
       WindowManager.LayoutParams.MATCH_PARENT,
@@ -141,6 +156,21 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
       isAttached = false
     }
     run("setAction(null);setMessage('');setTranscript('');setLevel(0);setState('idle')")
+    // Idle state stops every animation in the page; pausing the view then stops its rendering and timers.
+    // Only this view: WebView.pauseTimers() is process-wide and would freeze the app's own WebViews too.
+    main.postDelayed(pauseWeb, PAUSE_DELAY_MS)
+    main.postDelayed(destroyIdle, IDLE_DESTROY_MS)
+  }
+
+  private val pauseWeb = Runnable {
+    if (!isAttached) web?.onPause()
+  }
+
+  private val destroyIdle = Runnable {
+    if (!isAttached && web != null) {
+      Log.i(TAG, "overlay webview destroyed after idle")
+      destroy()
+    }
   }
 
   fun setState(state: String) {
@@ -165,10 +195,15 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   fun pushLevel(level: Float) = meter.pushLevel(level)
 
   fun destroy() {
+    main.removeCallbacks(pauseWeb)
+    main.removeCallbacks(destroyIdle)
     hide(animated = false)
+    main.removeCallbacks(pauseWeb)
+    main.removeCallbacks(destroyIdle)
     web?.destroy()
     web = null
     isPageReady = false
+    queued.clear()
   }
 
   private fun setTouchable(isTouchable: Boolean) {
@@ -220,6 +255,8 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
     const val HEIGHT_FRACTION = 0.5f // the glow rises to about half the screen; its top fades out
     const val EXIT_MS = 480L // the page's exit runs ~450 ms
     const val FRAME_MS = 33L // ~30 Hz
+    const val PAUSE_DELAY_MS = 150L // lets the idle script run before the view is paused
+    const val IDLE_DESTROY_MS = 120_000L // a hidden overlay older than this is torn down
   }
 }
 
