@@ -24,6 +24,14 @@ export const env = {
 export const companionOrigin: string =
   originOf(process.env.EXPO_PUBLIC_COMPANION_ORIGIN ?? '') || originOf(apiUrl);
 
+/**
+ * Opt-in flag for Nerova's native companion SDK: '1' swaps the iframe sheet
+ * for the SDK sheet. Anything else (including unset) keeps the iframe. Not in
+ * `env`: it is optional, so it must never reach the missing-config screen.
+ */
+export const companionSdkEnabled: boolean =
+  process.env.EXPO_PUBLIC_COMPANION_SDK === '1';
+
 export type EnvKey = keyof typeof env;
 
 const ENV_NAMES: Record<EnvKey, string> = {

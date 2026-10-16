@@ -30,8 +30,8 @@ jest.mock('@/features/inbox/components/InboxScreen', () => ({
 jest.mock('@/features/inbox/components/ConversationScreen', () => ({
   ConversationScreen: () => 'CONVERSATION_SCREEN',
 }));
-jest.mock('@/features/companion/components/CompanionScreen', () => ({
-  CompanionScreen: () => 'COMPANION_SCREEN',
+jest.mock('@/features/companion/components/CompanionSwitch', () => ({
+  CompanionSwitch: () => 'COMPANION_SCREEN',
 }));
 jest.mock('@/features/reports/components/ReportsScreen', () => ({
   ReportsScreen: () => 'REPORTS_SCREEN',
