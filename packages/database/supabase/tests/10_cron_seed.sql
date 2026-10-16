@@ -4,6 +4,7 @@ begin;
 do $$
 begin
   perform tests.ok(private.invoke_cron_job('reminders') is null, 'invoke_cron_job is a no-op without vault/pg_net');
+  perform tests.ok(private.invoke_cron_job('warm') is null, 'warm is a whitelisted job (no-op without vault/pg_net)');
   perform tests.throws($q$select private.invoke_cron_job('rm -rf')$q$, 'P0001', 'unknown cron job%', 'invoke_cron_job rejects unknown jobs');
   perform tests.ok(not exists (select 1 from pg_extension where extname in ('pg_cron', 'pg_net')),
                    'cron migration skipped cleanly without pg_cron/pg_net');

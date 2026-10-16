@@ -10,6 +10,7 @@ import { dateInZone, dateRange, rangeBounds } from '../../lib/time.ts';
 import type {
   Actor,
   AppointmentChangeKind,
+  AppointmentEventsPort,
   BookingService,
   CancelAppointmentInput,
   CreateAppointmentInput,
@@ -23,6 +24,7 @@ import {
   freeStaffIgnoringHours,
   listAvailableDays as engineListDays,
 } from '../../availability/lib/availability.ts';
+import { createAppointmentEventPublisher } from '../lib/appointmentEvents.ts';
 import { loadAvailabilityInput, type AvailabilityContextArgs } from '../lib/availabilityInput.ts';
 import { bookingRules, toAppointmentDTO, toBusinessDTO, toServiceDTO, toStaffDTO } from '../lib/mappers.ts';
 import type { BookingRepository } from '../../repositories/types.ts';
@@ -34,9 +36,11 @@ export interface BookingServiceOptions {
   logger?: Logger;
   /** Default clock when a call does not pass `now` */
   clock?: () => Date;
+  /** Outbound lifecycle events (Nerova), published after commit through `defer`. Omitted or disabled = nothing sent. */
+  appointmentEvents?: AppointmentEventsPort;
   /**
-   * Runs a Nerova-originated change notification after the response instead of before it (edge: waitUntil).
-   * Other actors' notifications stay inline. Omitted = inline for everyone (tests, scripts).
+   * Runs a Nerova-originated change notification, and every outbound appointment event, after the response
+   * instead of before it (edge: waitUntil). Other actors' notifications stay inline. Omitted = inline (tests, scripts).
    */
   defer?: (task: () => Promise<unknown>) => void;
 }
@@ -55,6 +59,12 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
   const repo = options.repository;
   const logger = options.logger ?? createLogger({ module: 'booking' });
   const clock = options.clock ?? (() => new Date());
+  const publishEvent = createAppointmentEventPublisher({
+    repository: repo,
+    events: options.appointmentEvents,
+    logger,
+    defer: options.defer,
+  });
 
   async function requireBusiness(businessId: UUID): Promise<BusinessRow> {
     const business = await repo.getBusiness(businessId);
@@ -282,6 +292,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         ...actorRef(input.actor),
       });
       await notify(input.businessId, row, 'created', input.actor, input.notifyCustomer);
+      await publishEvent(row, 'created', input.actor);
       return toAppointmentDTO(row);
     },
 
@@ -315,6 +326,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         ...actorRef(input.actor),
       });
       await notify(input.businessId, row, 'rescheduled', input.actor, input.notifyCustomer);
+      await publishEvent(row, 'rescheduled', input.actor);
       return toAppointmentDTO(row);
     },
 
@@ -331,6 +343,14 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         ...actorRef(input.actor),
       });
       await notify(input.businessId, row, 'cancelled', input.actor, input.notifyCustomer);
+      await publishEvent(row, 'cancelled', input.actor);
+      return toAppointmentDTO(row);
+    },
+
+    async setAppointmentStatus(businessId, appointmentId, status, actor) {
+      await requireAppointment(businessId, appointmentId, actor);
+      const row = await repo.setAppointmentStatus({ appointmentId, status, ...actorRef(actor) });
+      await publishEvent(row, status, actor);
       return toAppointmentDTO(row);
     },
 

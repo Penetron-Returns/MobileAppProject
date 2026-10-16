@@ -287,6 +287,17 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         'Appointment',
       );
     },
+    async findLatestAppointmentEventId(appointmentId, type) {
+      const result = await t('appointment_events')
+        .select('id')
+        .eq('appointment_id', appointmentId)
+        .eq('type', type as 'created')
+        .order('occurred_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return maybe<{ id: string }>(result)?.id ?? null;
+    },
     async checkInAppointment(appointmentId, actorId) {
       return rpcRow(
         await db.rpc('check_in_appointment', { p_appointment_id: appointmentId, p_actor_id: actorId ?? '' }),

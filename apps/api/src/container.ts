@@ -6,6 +6,7 @@ import { getDb } from './lib/db.ts';
 import { runInBackground } from './lib/background.ts';
 import { createLogger } from '@booking/features/lib/logger.ts';
 import { createAccountEvents, eventSenderFromEnv } from '@booking/companion/events/events.ts';
+import { appointmentEventsFromEnv } from '@booking/companion/events/appointmentEvents.ts';
 import { createCompanionService, type CompanionService } from '@booking/companion/nerova/companionService.ts';
 import { createNerovaClientFromEnv } from '@booking/companion/nerova/httpClient.ts';
 import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
@@ -38,12 +39,13 @@ export interface Container {
 export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const notifications = createNotificationService({ env, db });
   const bookingLogger = createLogger({ module: 'booking' });
+  const entitlements = createEntitlementService({ db });
   const booking = createBookingService({
     db,
     notifications,
+    appointmentEvents: appointmentEventsFromEnv(env, entitlements),
     defer: (task) => runInBackground(task, bookingLogger, 'appointment_notification_deferred_failed'),
   });
-  const entitlements = createEntitlementService({ db });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
   const clock = () => new Date();
   const planRepo = createPlanRepository({ db });

@@ -117,3 +117,25 @@ describe('lib', () => {
     expect(orgFromClaims({ sub: 'u', o: { id: 'org_2', rol: 'member' } })).toEqual({ orgId: 'org_2', role: 'staff' });
   });
 });
+
+describe('cron warm job', () => {
+  it('is registered in CRON_JOBS and whitelisted and scheduled by its migration', async () => {
+    const { CRON_JOBS } = await import('../src/routes/cron.ts');
+    expect(Object.keys(CRON_JOBS)).toContain('warm');
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const dir = new URL('../../../packages/database/supabase/migrations/', import.meta.url);
+    const file = readdirSync(dir).find((f) => f.endsWith('_cron_warm.sql'));
+    const sql = readFileSync(new URL(file!, dir), 'utf8');
+    expect(sql).toContain("'cleanup', 'warm')");
+    expect(sql).toContain("cron.schedule('api-warm', '* * * * *'");
+  });
+
+  it('answers 200 without touching the database and still needs the cron secret', async () => {
+    // testContainer().db throws on any use, so a 200 proves the job does no database work.
+    const app = createApp({ getContainer: () => testContainer() });
+    expect((await app.request('/cron/warm', { method: 'POST' })).status).toBe(401);
+    const res = await app.request('/cron/warm', { method: 'GET', headers: { 'x-cron-secret': 'cron-secret' } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: { job: 'warm', result: {} } });
+  });
+});

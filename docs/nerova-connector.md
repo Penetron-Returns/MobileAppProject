@@ -103,7 +103,17 @@ Nerova can be told when an account changed instead of waiting for its daily reco
 - Best effort, one attempt, 5 s timeout. Delivery runs in the background (`EdgeRuntime.waitUntil` on Supabase, a caught promise elsewhere), so a slow or failing Nerova never delays or fails the owner's request. Nerova reconciles daily.
 - **Disabled unless** `NEROVA_EVENTS_ENABLED=true` and `NEROVA_EVENTS_URL` (https, or loopback for tests) and `NEROVA_EVENTS_SIGNING_SECRET` (`whsec_...`) are set. Nothing is sent to Production by default.
 
-Appointment changes made in our app are not events: Nerova reads appointments live through `appointments_list` and `appointments_get`.
+### Appointment events (built, OFF, contract unconfirmed)
+
+Behind a separate flag, `NEROVA_APPOINTMENT_EVENTS_ENABLED=true` (default off; also needs the events URL and signing secret, but not `NEROVA_EVENTS_ENABLED`). Nerova has not confirmed this contract, so every name lives in `packages/companion/events/appointmentEvents.ts` (`APPOINTMENT_EVENT_TYPES`, `APPOINTMENT_EVENT_ID_PREFIX`).
+
+- Types: `appointment.created`, `appointment.rescheduled`, `appointment.cancelled`, `appointment.completed`, `appointment.no_show`. Same Standard Webhooks envelope as above; `data` is `{ id, accountId, startsAt, status, source }` (appointment id, business id, ISO-8601 UTC start, status, source). No client data.
+- Emitted by `BookingService` (create, reschedule, cancel, set status) after the RPC commits, in the background (`waitUntil`), never delaying or failing the request.
+- Event id is `evt_apt_<appointment_events.id>` of the row the change wrote, so a retry or replay carries the same id.
+- Changes whose actor is `nerova` are not sent (no loops). Businesses without the `companion` feature are never announced.
+- Best effort, one attempt, failures are logged without PII.
+
+Until Nerova confirms, appointments are still read live through `appointments_list` and `appointments_get`.
 
 ## Environment variables
 
@@ -113,6 +123,7 @@ Appointment changes made in our app are not events: Nerova reads appointments li
 | `NEROVA_EVENTS_ENABLED` | `true` to send account events |
 | `NEROVA_EVENTS_URL` | The connection's `events.url` |
 | `NEROVA_EVENTS_SIGNING_SECRET` | The connection's `events.signingSecret` (`whsec_...`) |
+| `NEROVA_APPOINTMENT_EVENTS_ENABLED` | `true` to also send `appointment.*` events (off by default, see above) |
 | `NEROVA_NATIVE_SESSIONS` | `true` lets `platform: "native"` companion session requests use Nerova native sessions. Anything else: always web |
 | `NEROVA_APP_ID` | `nativeApps` appId for native sessions (default `si.nerova.booking.dev`) |
 | `VOICE_CLOUD_STT` | `true` enables `POST /v1/voice/transcriptions` (Nerova speech-to-text). Default off: the route answers 503 `TRANSCRIPTION_UNAVAILABLE`. |

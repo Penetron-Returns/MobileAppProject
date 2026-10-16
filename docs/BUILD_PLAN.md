@@ -140,7 +140,7 @@ All raise with SQLSTATE-coded errors that the API maps:
 15. `month_report(p_business_id uuid, p_month date, p_now timestamptz default now()) returns jsonb`: `{ completed_jobs, revenue_cents (sum of price_cents over the completed jobs), bookings_created: {whatsapp, nerova, app, web} (created_at in the month, any status), no_shows, cancellations (appointments STARTING in the month), busiest: {weekday 0=Sunday, hour} | null (completed jobs by local start, ties to the earliest), weekly: [{week_start (Monday), completed_jobs}] (every Monday-start week touching the month, zeros included; a job belongs to the week of its local end date) }`. `service_role` only.
 
 pg_cron (guarded migration) calls the API via `pg_net` with header `x-cron-secret`, using settings from Vault (`api_base_url`, `cron_secret`):
-`reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30.
+`reminders` every 5 min · `conversation-expiry` every 15 min · `waba-health` hourly · `token-refresh` daily 03:00 · `cleanup` daily 03:30 · `warm` every minute (migration `20261020000001_cron_warm`: `/cron/warm` does no I/O and only keeps an `api` isolate loaded, because cold isolates cost the Nerova connector 0.3-1 s per call).
 
 ## 4. API contract (apps/api/, Hono on Supabase Edge Functions)
 
@@ -219,7 +219,7 @@ DTO shapes live in `packages/types/api.ts`.
 | POST | `/v1/conversations/:id/messages` | member | staff free-text reply (only inside the 24h window, else `WINDOW_CLOSED`) |
 | POST | `/v1/conversations/:id/release` | member | hand back to the bot (state → `menu`) |
 | POST | `/v1/escalations/:id/resolve` | member | `{ note? }` |
-| POST | `/cron/reminders` · `/cron/conversation-expiry` · `/cron/waba-health` · `/cron/token-refresh` | cron secret | |
+| POST | `/cron/reminders` · `/cron/conversation-expiry` · `/cron/waba-health` · `/cron/token-refresh` · `/cron/warm` | cron secret | `warm` returns `{ data: { job: 'warm', result: {} } }` without touching the database |
 
 ### Plans and entitlements
 
@@ -301,7 +301,7 @@ Lets Nerova's AI companion (Pip) read and act on the bookings of **paid-plan bus
 
 ## 7. Backend environment
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push), `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` (optional, reserved for planned subscriptions), `NEROVA_CONNECTOR_TOKEN_HASHES` (csv of SHA-256 hex hashes of accepted connector bearer tokens; empty = connector off), `NEROVA_EVENTS_ENABLED` / `NEROVA_EVENTS_URL` / `NEROVA_EVENTS_SIGNING_SECRET` (optional signed account events, off by default), `NEROVA_API_KEY` (optional, Nerova REST: companion sessions and outcome counts), `VOICE_CLOUD_STT` (`true` enables `POST /v1/voice/transcriptions`; default off), `NEROVA_EMBED_ORIGIN` (origin on Nerova's embed allowlist), `NEROVA_NATIVE_SESSIONS` / `NEROVA_APP_ID` / `NEROVA_WHATSAPP_RETURN_URL` (optional, default off: native widget sessions, their appId, and forwarding the WhatsApp returnUrl; need Nerova PR #946). Environments and secret handling: `docs/environments.md`.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (injected by Supabase), `API_BASE_URL`, `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` (PEM, networkless verify), `CLERK_AUTHORIZED_PARTIES` (csv), `CLERK_WEBHOOK_SECRET`, `META_APP_ID`, `META_APP_SECRET`, `META_GRAPH_VERSION` (default `v23.0`), `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_FLOW_PRIVATE_KEY` (PEM), `WHATSAPP_FLOW_PRIVATE_KEY_PASSPHRASE`, `WHATSAPP_REGISTRATION_PIN`, `TOKEN_ENCRYPTION_KEY` (32-byte base64, AES-256-GCM for Meta tokens), `FLOW_TOKEN_SECRET`, `CRON_SECRET`, `PUBLIC_WEB_BOOKING_URL`, `EXPO_ACCESS_TOKEN` (optional, push), `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` (optional, reserved for planned subscriptions), `NEROVA_CONNECTOR_TOKEN_HASHES` (csv of SHA-256 hex hashes of accepted connector bearer tokens; empty = connector off), `NEROVA_EVENTS_ENABLED` / `NEROVA_EVENTS_URL` / `NEROVA_EVENTS_SIGNING_SECRET` (optional signed account events, off by default), `NEROVA_APPOINTMENT_EVENTS_ENABLED` (optional signed `appointment.*` events over the same URL and secret, off by default, unconfirmed contract), `NEROVA_API_KEY` (optional, Nerova REST: companion sessions and outcome counts), `VOICE_CLOUD_STT` (`true` enables `POST /v1/voice/transcriptions`; default off), `NEROVA_EMBED_ORIGIN` (origin on Nerova's embed allowlist), `NEROVA_NATIVE_SESSIONS` / `NEROVA_APP_ID` / `NEROVA_WHATSAPP_RETURN_URL` (optional, default off: native widget sessions, their appId, and forwarding the WhatsApp returnUrl; need Nerova PR #946). Environments and secret handling: `docs/environments.md`.
 
 ## 8. Workstreams and sequencing
 

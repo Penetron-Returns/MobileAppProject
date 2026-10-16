@@ -116,6 +116,13 @@ export interface BookingService {
   listAppointments(query: AppointmentWindowQuery): Promise<AppointmentDTO[]>;
   /** Confirmed appointments starting after `now`, ascending */
   listUpcomingForClient(businessId: UUID, clientId: UUID, now?: Date): Promise<AppointmentDTO[]>;
+  /** confirmed → completed | no_show (staff action; the RPC rejects any other transition) */
+  setAppointmentStatus(
+    businessId: UUID,
+    appointmentId: UUID,
+    status: 'completed' | 'no_show',
+    actor: Actor,
+  ): Promise<AppointmentDTO>;
 }
 
 export type AppointmentChangeKind = 'created' | 'rescheduled' | 'cancelled';
@@ -132,4 +139,24 @@ export interface AppointmentChangedEvent {
 export interface NotificationService {
   /** Must never throw for delivery failures; failures are logged + escalated. */
   appointmentChanged(event: AppointmentChangedEvent): Promise<void>;
+}
+
+export type AppointmentEventKind = 'created' | 'rescheduled' | 'cancelled' | 'completed' | 'no_show';
+
+export interface AppointmentLifecycleEvent {
+  businessId: UUID;
+  kind: AppointmentEventKind;
+  appointment: AppointmentDTO;
+  actor: Actor;
+  /** `appointment_events.id` of the row the change wrote: the basis of the idempotent outbound event id */
+  eventRowId: UUID;
+}
+
+/**
+ * Tells an external platform (Nerova) about a committed appointment change. Called after commit, never
+ * inline with the request; must never throw. `enabled` lets the booking service skip the event lookup.
+ */
+export interface AppointmentEventsPort {
+  readonly enabled: boolean;
+  appointmentChanged(event: AppointmentLifecycleEvent): Promise<void>;
 }
