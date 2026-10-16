@@ -1,5 +1,5 @@
 import { SPRING, useReduceMotion } from '@booking/ui';
-import type { CompanionSheetProps } from '@nerova/react-native';
+import type { RenderAvatarState } from '@nerova/react-native';
 import * as React from 'react';
 import Animated, {
   useAnimatedStyle,
@@ -12,10 +12,6 @@ import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 
 const POP_SCALE = 1.18;
 
-type AvatarArgs = Parameters<
-  NonNullable<CompanionSheetProps['renderAvatar']>
->[0];
-
 /**
  * The one Clovie of the SDK sheet, drawn by the SDK's `renderAvatar` (with
  * `avatar="hidden"` its own plush character is not rendered). Driven by the
@@ -25,7 +21,13 @@ type AvatarArgs = Parameters<
  * avatar button announces "{name}, {state}" from `companion.sdk.avatarButton`
  * and `avatarState*`, the single source of the label.
  */
-export function SdkClovie({ state, size }: Pick<AvatarArgs, 'state' | 'size'>) {
+export function SdkClovie({
+  state,
+  size,
+}: {
+  state: RenderAvatarState;
+  size: number;
+}) {
   const reduceMotion = useReduceMotion();
   const scale = useSharedValue(1);
 
