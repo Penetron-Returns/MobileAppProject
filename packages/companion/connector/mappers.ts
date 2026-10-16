@@ -73,6 +73,17 @@ export function toStaff(staff: StaffRow, serviceIds: string[]) {
   return { externalStaffId: staff.id, name: staff.name, externalServiceIds: serviceIds };
 }
 
+/** Nerova client: lastVisitAt is clients.last_seen_at, which every booking bumps (upsert_client_by_phone). */
+export function toClient(client: Pick<ClientRow, 'id' | 'name' | 'phone_e164' | 'email' | 'last_seen_at'>) {
+  return {
+    externalClientId: client.id,
+    name: client.name || client.phone_e164,
+    ...(client.phone_e164 ? { phone: client.phone_e164 } : {}),
+    ...(client.email ? { email: client.email } : {}),
+    ...(client.last_seen_at ? { lastVisitAt: new Date(client.last_seen_at).toISOString() } : {}),
+  };
+}
+
 export interface WireOptions {
   /** capability confirm_appointments is on: also expose clientConfirmedAt (off keeps the certified shape) */
   clientConfirmation?: boolean;

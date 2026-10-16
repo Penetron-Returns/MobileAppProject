@@ -1,4 +1,4 @@
-/** zod argument schemas for the ten tools. Unknown arguments are ignored (v1 only adds). */
+/** zod argument schemas for the connector tools. Unknown arguments are ignored (v1 only adds). */
 import { z } from 'zod';
 
 import { isInstant, normaliseInstant } from '@booking/features/lib/time.ts';
@@ -73,6 +73,21 @@ export const argSchemas = {
     origin,
   }),
   appointments_cancel: z.object({ ...account, appointmentId: text, reason: optionalText, origin }),
+  // At least one of phone/email/name is checked in the service (invalid_request), blank strings count as absent.
+  clients_search: z.object({
+    ...account,
+    phone: z.string().max(40).optional(),
+    email: z.string().max(254).optional(),
+    name: z.string().max(200).optional(),
+    limit: z.number().int().min(1).max(25).optional(),
+  }),
+  clients_create: z.object({
+    ...account,
+    idempotencyKey: z.string().min(1).max(200),
+    name: text,
+    phone: z.string().max(40).optional(),
+    email: z.string().max(254).optional(),
+  }),
 } as const;
 
 export type ToolName = keyof typeof argSchemas;

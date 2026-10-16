@@ -49,7 +49,7 @@ describe('connector handshake fast paths', () => {
     expect(initialized.status).toBe(202);
     expect(initialized.body).toBeNull();
     expect((await h.rpc('ping')).body.result).toEqual({});
-    expect((await h.rpc('tools/list')).body.result.tools).toHaveLength(10);
+    expect((await h.rpc('tools/list')).body.result.tools).toHaveLength(12);
     expect(repo.total()).toBe(0);
     expect(entitlements.total()).toBe(0);
     expect(booking.total()).toBe(0);

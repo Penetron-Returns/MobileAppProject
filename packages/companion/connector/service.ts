@@ -18,12 +18,14 @@ import { tryNormalizePhone } from '@booking/features/lib/phone.ts';
 import { addDays, dateInZone } from '@booking/features/lib/time.ts';
 import type { Actor, BookingService, EntitlementService } from '@booking/features/ports.ts';
 import type { ToolArgs } from './args.ts';
+import { candidatePatterns, nameWords, NAME_CANDIDATE_CAP, rankClientsByName } from './clientSearch.ts';
 import { connectorNotFound, invalidRequest } from './errors.ts';
 import {
   fromWireStatus,
   toAccount,
   toAppointment,
   toAppointmentListItem,
+  toClient,
   toOpeningHours,
   toService,
   toStaff,
@@ -49,6 +51,7 @@ const DAY_MS = 86_400_000;
 const MAX_WINDOW_DAYS = 31;
 const DEFAULT_PAGE = 50;
 const EXCEPTION_HORIZON_DAYS = 180;
+const DEFAULT_CLIENT_LIMIT = 10;
 
 const isUuid = (value: string | undefined): value is UUID => !!value && UUID_RE.test(value);
 
@@ -244,6 +247,47 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     };
   }
 
+  /** Phone and email are exact matches (best first), then the ranked name matches; each client once. */
+  async function searchClients(businessId: UUID, args: ToolArgs<'clients_search'>) {
+    const name = args.name?.trim();
+    const email = args.email?.trim().toLowerCase();
+    const rawPhone = args.phone?.trim();
+    if (!name && !email && !rawPhone) throw invalidRequest('phone, email or name is required');
+    const phone = rawPhone ? tryNormalizePhone(rawPhone) : null;
+    if (rawPhone && !phone) throw invalidRequest('phone is not a valid phone number');
+    if (name && nameWords(name).length === 0) throw invalidRequest('name must contain letters or digits');
+
+    const [byPhone, byEmail, byName] = await Promise.all([
+      phone ? repo.findClientByPhone(businessId, phone) : null,
+      email ? repo.findClientByEmail(businessId, email) : null,
+      name ? repo.listClientsByNamePatterns(businessId, candidatePatterns(name), NAME_CANDIDATE_CAP) : [],
+    ]);
+    const ranked = name ? rankClientsByName(name, byName) : [];
+    const found = [byPhone, byEmail, ...ranked].filter((c): c is NonNullable<typeof c> => c !== null);
+    const unique = found.filter((c, i) => found.findIndex((other) => other.id === c.id) === i);
+    return { data: unique.slice(0, args.limit ?? DEFAULT_CLIENT_LIMIT).map(toClient) };
+  }
+
+  /**
+   * An existing client (by phone, then email) is returned as it is; otherwise one is created through the same upsert
+   * as appointments_create. Idempotent by construction: the same key and details always resolve to the same client.
+   */
+  async function createClient(businessId: UUID, args: ToolArgs<'clients_create'>) {
+    const rawPhone = args.phone?.trim();
+    const phone = rawPhone ? tryNormalizePhone(rawPhone) : null;
+    if (rawPhone && !phone) throw invalidRequest('phone is not a valid phone number');
+    const email = args.email?.trim().toLowerCase() || undefined;
+    if (!phone && !email) throw invalidRequest('phone or email is required');
+
+    if (phone && (await repo.findClientByPhone(businessId, phone))) {
+      const row = await upsertClient(repo, businessId, { phone, name: args.name.trim(), email }, { onlyFillBlank: true });
+      return toClient(row);
+    }
+    const byEmail = email ? await repo.findClientByEmail(businessId, email) : null;
+    if (byEmail) return toClient(byEmail);
+    if (!phone) throw invalidRequest('phone is required to create a new client');
+    return toClient(await upsertClient(repo, businessId, { phone, name: args.name.trim(), email }, { onlyFillBlank: true }));
+  }
 
   return {
     async accountsList(args: ToolArgs<'accounts_list'>) {
@@ -332,6 +376,15 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
         }
         throw error;
       }
+    },
+
+    async clientsSearch(args: ToolArgs<'clients_search'>) {
+      return gated(args.accountId, (businessId) => searchClients(businessId, args));
+    },
+
+    /** Gated like every write (the plan check first); the clients table's audit trigger records the insert. */
+    async clientsCreate(args: ToolArgs<'clients_create'>) {
+      return createClient(await requireAccount(args.accountId), args);
     },
 
     async appointmentsReschedule(args: ToolArgs<'appointments_reschedule'>) {

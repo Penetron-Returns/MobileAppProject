@@ -216,6 +216,10 @@ export interface AppointmentRepository {
 export interface ClientRepository {
   getClient(businessId: UUID, clientId: UUID): Promise<ClientRow | null>;
   findClientByPhone(businessId: UUID, phoneE164: string): Promise<ClientRow | null>;
+  /** Most recently seen client with this (already lower-cased) email, compared case-insensitively */
+  findClientByEmail(businessId: UUID, emailLower: string): Promise<ClientRow | null>;
+  /** Clients whose name matches ANY LIKE pattern (`%`, `_`; case-insensitive), most recently seen first, at most `limit` */
+  listClientsByNamePatterns(businessId: UUID, patterns: string[], limit: number): Promise<ClientRow[]>;
   /** Clients by id, in no particular order; unknown ids are skipped */
   listClientsByIds(businessId: UUID, clientIds: UUID[]): Promise<ClientRow[]>;
   /** RPC upsert_client_by_phone: inserts or bumps last_seen_at; only fills name when null */
