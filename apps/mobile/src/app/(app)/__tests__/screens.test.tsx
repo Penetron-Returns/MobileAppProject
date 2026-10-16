@@ -128,7 +128,7 @@ jest.mock('@/features/calendar/hooks', () => ({
   useCalendarWeek: mockHook('useCalendarWeek'),
 }));
 jest.mock('@/features/clients/hooks', () => ({
-  useClientList: mockHook('useClientList'),
+  useClientBook: mockHook('useClientBook'),
   useClientSearch: mockHook('useClientSearch'),
   useClient: mockHook('useClient'),
   useClientNotes: mockHook('useClientNotes'),
@@ -136,6 +136,9 @@ jest.mock('@/features/clients/hooks', () => ({
   useAddClientNote: mockMutation,
   useDeleteClientNote: mockMutation,
   useUpdateClient: mockMutation,
+}));
+jest.mock('@/features/inbox/hooks', () => ({
+  useInboxThreads: mockHook('useInboxThreads'),
 }));
 jest.mock('@/features/catalog/hooks', () => ({
   useServices: mockHook('useServices'),
@@ -234,6 +237,8 @@ const HOURS = [1, 2, 3, 4, 5, 6].map((weekday) => ({
   closes_at: '18:00:00',
 }));
 
+const NOW_MS = Date.parse('2026-10-12T12:00:00.000Z');
+
 const CLIENT_ROWS = [
   {
     id: 'c-1',
@@ -242,7 +247,12 @@ const CLIENT_ROWS = [
     tags: ['VIP'],
     last_seen_at: null,
     appointments: [
-      { starts_at: '2026-09-01T08:00:00.000Z', status: 'completed' },
+      {
+        starts_at: '2026-09-01T08:00:00.000Z',
+        created_at: '2026-08-20T08:00:00.000Z',
+        status: 'completed',
+        service: { name: 'Balayage' },
+      },
     ],
   },
   {
@@ -443,11 +453,8 @@ beforeEach(() => {
     useAppointmentsBetween: success(APPOINTMENTS),
     useAppointment: success(APPOINTMENT_DETAIL),
     useAvailableSlots: { ...success(undefined), isPending: true },
-    useClientList: {
-      ...success({ pages: [CLIENT_ROWS] }),
-      hasNextPage: true,
-      fetchNextPage: jest.fn(),
-    },
+    useClientBook: { ...success(CLIENT_ROWS), dataUpdatedAt: NOW_MS },
+    useInboxThreads: success([]),
     useClientSearch: success(CLIENT_ROWS),
     useClient: success(CLIENT),
     useClientNotes: success([
@@ -520,10 +527,14 @@ function renderScreen(ui: React.ReactElement) {
   return tree;
 }
 
-/** Serialises the tree, skipping `refreshControl` (a circular React element). */
+/** Serialises the tree, skipping props that hold React elements (circular). */
 function toJson(tree: renderer.ReactTestRenderer) {
   return JSON.stringify(tree.toJSON(), (key, value) =>
-    key === 'refreshControl' ? undefined : value,
+    key === 'refreshControl' ||
+    key === 'ListHeaderComponent' ||
+    key === 'ListEmptyComponent'
+      ? undefined
+      : value,
   );
 }
 
@@ -563,19 +574,20 @@ describe('Calendar', () => {
 });
 
 describe('Clients', () => {
-  it('lists clients with VIP badges, last visit and paging', () => {
+  it('lists clients in A-Z groups with VIP, last service and an index', () => {
     const json = render(<ClientsRoute />);
     expect(json).toContain('Olivia Bennett');
     expect(json).toContain('James Wilson');
+    expect(json).toContain('Balayage · 1 Sep');
     expect(json).toContain('VIP');
     expect(json).toContain('No visits yet');
-    expect(json).toContain('Show more clients');
+    expect(json).toContain('Jump to J');
   });
 
-  it('shows an empty state when no clients match', () => {
-    mockHooks.useClientList.mockReturnValue({
-      ...success({ pages: [[]] }),
-      hasNextPage: false,
+  it('shows an empty state when there are no clients yet', () => {
+    mockHooks.useClientBook.mockReturnValue({
+      ...success([]),
+      dataUpdatedAt: NOW_MS,
     });
     expect(render(<ClientsRoute />)).toContain('No clients yet');
   });

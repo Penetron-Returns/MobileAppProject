@@ -38,8 +38,7 @@ export const qk = {
   clientAppointments: (clientId: string) =>
     ['appointments', 'client', clientId] as const,
   clients: ['clients'] as const,
-  clientList: (filter: string, search: string) =>
-    ['clients', 'list', filter, search] as const,
+  clientBook: ['clients', 'book'] as const,
   clientSearch: (q: string) => ['clients', 'search', q] as const,
   client: (id: string) => ['clients', 'one', id] as const,
   clientNotes: (id: string) => ['clients', 'notes', id] as const,

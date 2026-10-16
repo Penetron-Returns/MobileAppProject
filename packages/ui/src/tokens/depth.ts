@@ -92,6 +92,10 @@ export interface DepthColors {
   destructiveText: string;
   /** Hairline between the halves of a control (the stepper's centre line). */
   hairline: string;
+  /** Translucent fill behind a sticky section header (Clients A-Z board). */
+  stickyHeader: string;
+  /** Solid fill of a row inside a raised group (Clients A-Z board). */
+  groupRow: string;
 }
 
 /** The eight system colours a person picks for their calendar column. */
@@ -173,6 +177,8 @@ export interface DepthTokens {
   sheetFade: SurfaceStyle;
   grabber: string;
   scrim: string;
+  /** The quiet VIP label of a client row: neutral fill, pressed-in. */
+  vipCapsule: SurfaceStyle;
   /** Avatar with a coloured ring: neutral fill under a lit dome. */
   domeRing: SurfaceStyle;
   /** Tint-filled avatar (the business row of Settings). */
@@ -226,6 +232,8 @@ const LIGHT = {
     onFill: '#FFFFFF',
     destructiveText: '#D70015',
     hairline: 'rgba(60,60,67,0.29)',
+    stickyHeader: 'rgba(244,245,249,0.8)',
+    groupRow: '#FCFCFD',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },
@@ -288,6 +296,7 @@ const LIGHT = {
   sheetFade: 'rgba(242,242,247,0.85)',
   grabber: 'rgba(60,60,67,0.3)',
   ringFill: 'rgba(118,118,128,0.12)',
+  vipInset: 'inset 0 1px 1px rgba(0,0,0,0.06)',
   tintWashAlpha: 0.15,
 } as const;
 
@@ -305,6 +314,8 @@ const DARK = {
     onFill: '#FFFFFF',
     destructiveText: '#FF453A',
     hairline: 'rgba(84,84,88,0.6)',
+    stickyHeader: 'rgba(14,15,20,0.78)',
+    groupRow: '#1A1B20',
   },
   capsule: {
     neutral: { fill: 'rgba(118,118,128,0.14)', text: null },
@@ -367,6 +378,7 @@ const DARK = {
   sheetFade: 'rgba(0,0,0,0.85)',
   grabber: 'rgba(235,235,245,0.3)',
   ringFill: 'rgba(118,118,128,0.24)',
+  vipInset: 'inset 0 1px 1px rgba(0,0,0,0.25)',
   tintWashAlpha: 0.22,
 } as const;
 
@@ -451,6 +463,7 @@ export function getDepth(
     sheetFade: { backgroundColor: s.sheetFade },
     grabber: s.grabber,
     scrim: 'rgba(0,0,0,0.32)',
+    vipCapsule: { backgroundColor: s.ringFill, boxShadow: s.vipInset },
     domeRing: {
       backgroundColor: s.ringFill,
       experimental_backgroundImage: domeLight(s.dome.highlight),

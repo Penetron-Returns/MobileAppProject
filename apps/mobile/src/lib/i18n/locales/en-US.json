@@ -432,36 +432,15 @@
     "new": "New",
     "addNew": "Add new client",
     "searchPlaceholder": "Search clients",
-    "filters": {
-      "all": "All",
-      "recent": "Recent",
-      "vip": "VIP",
-      "regulars": "Regulars"
-    },
     "vip": "VIP",
-    "appointmentToday": "Booked today at {{time}}",
-    "lastVisit": "Last visit {{when}}",
     "noVisits": "No visits yet",
-    "loadMore": "Show more clients",
     "empty": {
       "title": "No clients yet",
-      "search": "No clients match \"{{query}}\".",
-      "filter": "No clients here yet.",
+      "search": "No clients match “{{query}}”.",
       "description": "Clients appear here after their first booking.",
       "add": "Add a client"
     },
     "searchLabel": "Search clients",
-    "filterLabel": "Filter clients",
-    "listTitle": {
-      "all": "Everyone",
-      "recent": "Recent",
-      "regulars": "Regulars"
-    },
-    "matches_one": "{{count}} match",
-    "matches_other": "{{count}} matches",
-    "regular": "Regular",
-    "noShows_one": "{{count}} no-show",
-    "noShows_other": "{{count}} no-shows",
     "profile": {
       "notFound": "This client couldn't be found.",
       "since": "Client since {{date}}",
@@ -498,7 +477,15 @@
       "notePlaceholder": "Add a note",
       "addNote": "Add",
       "deleteNote": "Delete note"
-    }
+    },
+    "recent": "Recent",
+    "recentLabel": "Recent clients",
+    "indexLabel": "Jump to letter",
+    "jumpTo": "Jump to {{letter}}",
+    "today": "today",
+    "rowLabel": "{{name}}, last visit {{when}}",
+    "rowLabelNone": "{{name}}, no visits yet",
+    "rowLabelVip": "{{label}}, VIP"
   },
   "clientProfile": {
     "title": "Client Profile",
@@ -1582,6 +1569,25 @@
   "voice": {
     "title": "Clovie voice",
     "toggle": "Hey Clovie",
+    "inApp": {
+      "dialog": "Clovie voice",
+      "showChat": "Show chat",
+      "listening": "Listening…",
+      "stop": "Stop listening",
+      "stopHint": "Tap to stop",
+      "thinking": "One sec, checking…",
+      "heard": "You said: {{text}}",
+      "cancel": "Cancel",
+      "readingAloud": "Reading aloud",
+      "approve": "Approve",
+      "decline": "Decline",
+      "orSayYesOrNo": "or just say yes or no",
+      "tapToAnswer": "Tap to answer",
+      "mic": "Speak to Clovie",
+      "notHeard": "I didn't catch that. Tap the mic to try again.",
+      "speechUnavailable": "Speech isn't set up on this phone. Install English in the phone's speech settings.",
+      "couldNot": "I couldn't finish that here. Try again in the chat."
+    },
     "working": "Handling what you said",
     "status": {
       "not_configured": "Not set up in this build",

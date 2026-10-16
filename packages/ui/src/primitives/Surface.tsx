@@ -12,6 +12,7 @@ export type SurfaceVariant =
   | 'dome'
   | 'domeRing'
   | 'domeTint'
+  | 'vipCapsule'
   | 'knob'
   | 'engrave'
   | 'wheel'
@@ -27,6 +28,7 @@ const RADIUS: Record<SurfaceVariant, number | undefined> = {
   dome: undefined,
   domeRing: undefined,
   domeTint: undefined,
+  vipCapsule: undefined,
   knob: undefined,
   engrave: undefined,
   wheel: undefined,
