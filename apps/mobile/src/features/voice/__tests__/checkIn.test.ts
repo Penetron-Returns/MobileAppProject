@@ -1,5 +1,6 @@
 import {
   nameMatches,
+  noOneDueMessage,
   pickAppointmentToCheckIn,
   type CheckInCandidate,
 } from '../checkIn';
@@ -36,17 +37,17 @@ describe('pickAppointmentToCheckIn', () => {
     expect(idOf(pickAppointmentToCheckIn(list, { now: NOW }))).toBe('near');
   });
 
-  it('picks one starting within 15 minutes, but not 16', () => {
+  it('picks one starting within 30 minutes, but not 31', () => {
     expect(
       idOf(
-        pickAppointmentToCheckIn([appt('a', '2026-10-15T08:15:00Z')], {
+        pickAppointmentToCheckIn([appt('a', '2026-10-15T08:30:00Z')], {
           now: NOW,
         }),
       ),
     ).toBe('a');
     expect(
       idOf(
-        pickAppointmentToCheckIn([appt('a', '2026-10-15T08:16:00Z')], {
+        pickAppointmentToCheckIn([appt('a', '2026-10-15T08:31:00Z')], {
           now: NOW,
         }),
       ),
@@ -129,6 +130,81 @@ describe('pickAppointmentToCheckIn', () => {
     const now = new Date('2026-10-15T23:50:00Z');
     const list = [appt('a', '2026-10-16T00:00:00Z')];
     expect(idOf(pickAppointmentToCheckIn(list, { now }))).toBe('a');
+  });
+});
+
+describe('pickAppointmentToCheckIn next appointment', () => {
+  const nextOf = (
+    list: CheckInCandidate[],
+    options: { name?: string } = {},
+  ) => {
+    const pick = pickAppointmentToCheckIn(list, { now: NOW, ...options });
+    return pick.kind === 'none' ? (pick.next?.id ?? null) : 'match';
+  };
+
+  it.each([
+    ['an empty day', [], null],
+    [
+      'nothing later today',
+      [
+        appt('past', '2026-10-15T06:00:00Z', {
+          ends_at: '2026-10-15T06:30:00Z',
+        }),
+      ],
+      null,
+    ],
+    [
+      'the earliest booking after the lead window',
+      [appt('b', '2026-10-15T10:00:00Z'), appt('a', '2026-10-15T09:00:00Z')],
+      'a',
+    ],
+    [
+      'skips a cancelled booking',
+      [
+        appt('c', '2026-10-15T09:00:00Z', { status: 'cancelled' }),
+        appt('d', '2026-10-15T10:00:00Z'),
+      ],
+      'd',
+    ],
+    [
+      'skips a checked-in booking',
+      [
+        appt('e', '2026-10-15T09:00:00Z', {
+          checked_in_at: '2026-10-15T08:50:00Z',
+        }),
+      ],
+      null,
+    ],
+  ])('%s', (_label, list, expected) => {
+    expect(nextOf(list)).toBe(expected);
+  });
+
+  it('still reports the next booking when a named client is not due', () => {
+    const list = [
+      appt('a', '2026-10-15T07:59:00Z', { client: { name: 'Sipho Dlamini' } }),
+      appt('n', '2026-10-15T09:00:00Z', { client: { name: 'Thandi Mokoena' } }),
+    ];
+    expect(nextOf(list, { name: 'Thandi' })).toBe('n');
+  });
+});
+
+describe('noOneDueMessage', () => {
+  const t = (key: string, values?: Record<string, unknown>) =>
+    `${key}|${String(values?.name ?? '')}|${String(values?.time ?? '')}`;
+
+  it('names the next client and the local time', () => {
+    const next = appt('a', '2026-10-15T18:30:00Z', {
+      client: { name: 'Thandi Mokoena' },
+    });
+    expect(noOneDueMessage(next, { timezone: 'Africa/Johannesburg', t })).toBe(
+      'voice.noOneDueNext|Thandi|20:30',
+    );
+  });
+
+  it('says the day is done when there is no next client', () => {
+    expect(noOneDueMessage(null, { timezone: 'Africa/Johannesburg', t })).toBe(
+      'voice.noMoreClients||',
+    );
   });
 });
 

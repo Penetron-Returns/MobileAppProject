@@ -5,10 +5,13 @@ import {
   addStatusListener,
   canDrawOverlays,
   configureHandsFree,
+  getFeedbackSettings,
   getHandsFree,
   getStatus,
   isSupported,
   requestOverlayPermission,
+  setReadAloudEnabled,
+  setSoundsEnabled,
   start,
   stop,
   type ClovieVoiceHandsFree,
@@ -16,6 +19,20 @@ import {
 } from './clovieVoice';
 import type { DutyConditions } from './duty';
 import { requestVoicePermissions } from './permissions';
+
+/** The two audio choices for replies, kept natively so a service started without the app honours them. */
+export function useVoiceFeedbackSettings() {
+  const [settings, setSettings] = React.useState(getFeedbackSettings);
+  const setSounds = React.useCallback((on: boolean) => {
+    setSoundsEnabled(on);
+    setSettings(getFeedbackSettings());
+  }, []);
+  const setReadAloud = React.useCallback((on: boolean) => {
+    setReadAloudEnabled(on);
+    setSettings(getFeedbackSettings());
+  }, []);
+  return { ...settings, setSounds, setReadAloud };
+}
 
 /** The duty text changes with the clock and the charger: re-read now and then. */
 const REFRESH_MS = 30_000;

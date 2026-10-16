@@ -7,16 +7,19 @@ function deps(patch: Partial<ClipDeps> = {}): ClipDeps {
     now: () => NOW,
     t: (key, values) => `${key}:${String(values?.name ?? '')}`,
     isSignedIn: async () => true,
-    loadToday: async () => [
-      {
-        id: 'a1',
-        starts_at: '2026-10-15T07:55:00Z',
-        ends_at: '2026-10-15T08:40:00Z',
-        status: 'confirmed',
-        checked_in_at: null,
-        client: { name: 'Sipho Dlamini' },
-      },
-    ],
+    loadToday: async () => ({
+      timezone: 'Africa/Johannesburg',
+      appointments: [
+        {
+          id: 'a1',
+          starts_at: '2026-10-15T07:55:00Z',
+          ends_at: '2026-10-15T08:40:00Z',
+          status: 'confirmed',
+          checked_in_at: null,
+          client: { name: 'Sipho Dlamini' },
+        },
+      ],
+    }),
     checkIn: jest.fn(async () => ({})),
     transcribe: jest.fn(async () => ({ text: 'Sipho has arrived' })),
     ...patch,

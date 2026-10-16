@@ -84,3 +84,27 @@ object CloudStt {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, enabled).apply()
   }
 }
+
+/**
+ * The owner's two audio choices for voice replies, both on by default. Persisted natively (like
+ * [CloudStt]) because the tile, widget and side key start the service with no JS running.
+ */
+object VoiceFeedbackSettings {
+  private const val PREFS = "clovie_voice_feedback"
+  private const val SOUNDS = "sounds"
+  private const val READ_ALOUD = "read_aloud"
+
+  private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+  fun isSoundsEnabled(context: Context): Boolean = prefs(context).getBoolean(SOUNDS, true)
+
+  fun isReadAloudEnabled(context: Context): Boolean = prefs(context).getBoolean(READ_ALOUD, true)
+
+  fun setSoundsEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(SOUNDS, enabled).apply()
+  }
+
+  fun setReadAloudEnabled(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(READ_ALOUD, enabled).apply()
+  }
+}

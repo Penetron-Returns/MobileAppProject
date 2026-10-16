@@ -52,6 +52,9 @@ const mockNative = {
   requestAddTile: jest.fn(),
   setLauncherIcon: jest.fn(),
   launcherIcon: false,
+  feedback: { sounds: true, readAloud: true },
+  setSounds: jest.fn(),
+  setReadAloud: jest.fn(),
 };
 jest.mock('../clovieVoice', () => ({
   isSupported: () => true,
@@ -66,6 +69,9 @@ jest.mock('../clovieVoice', () => ({
   requestAddTile: () => mockNative.requestAddTile(),
   setLauncherIconEnabled: (on: boolean) => mockNative.setLauncherIcon(on),
   isLauncherIconEnabled: () => mockNative.launcherIcon,
+  getFeedbackSettings: () => mockNative.feedback,
+  setSoundsEnabled: (on: boolean) => mockNative.setSounds(on),
+  setReadAloudEnabled: (on: boolean) => mockNative.setReadAloud(on),
   addStatusListener: () => () => undefined,
 }));
 
@@ -99,6 +105,13 @@ beforeEach(() => {
   mockNative.handsFree = OFF;
   mockNative.canOverlay = true;
   mockNative.launcherIcon = false;
+  mockNative.feedback = { sounds: true, readAloud: true };
+  mockNative.setSounds.mockImplementation((on: boolean) => {
+    mockNative.feedback = { ...mockNative.feedback, sounds: on };
+  });
+  mockNative.setReadAloud.mockImplementation((on: boolean) => {
+    mockNative.feedback = { ...mockNative.feedback, readAloud: on };
+  });
   mockNative.start.mockImplementation(async () => {
     mockNative.handsFree = { ...OFF, enabled: true, duty: 'on_duty' };
     return { ...mockNative.state, status: 'starting' };
@@ -149,6 +162,26 @@ describe('one-tap section', () => {
     await flush();
     expect(mockPermissions).toHaveBeenCalledTimes(1);
     expect(mockNative.startTalk).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('replies section', () => {
+  it('has sounds and read-aloud on by default', async () => {
+    const tree = mount(<VoiceSettingsScreen />);
+    await flush();
+    expect(toggle(tree, 'Sounds').props.checked).toBe(true);
+    expect(toggle(tree, 'Read replies aloud').props.checked).toBe(true);
+  });
+
+  it('saves each choice natively and shows it', async () => {
+    const tree = mount(<VoiceSettingsScreen />);
+    await flush();
+    act(() => toggle(tree, 'Read replies aloud').props.onCheckedChange(false));
+    act(() => toggle(tree, 'Sounds').props.onCheckedChange(false));
+    expect(mockNative.setReadAloud).toHaveBeenCalledWith(false);
+    expect(mockNative.setSounds).toHaveBeenCalledWith(false);
+    expect(toggle(tree, 'Read replies aloud').props.checked).toBe(false);
+    expect(toggle(tree, 'Sounds').props.checked).toBe(false);
   });
 });
 

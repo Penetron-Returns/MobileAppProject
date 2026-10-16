@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import type {
   ClovieVoiceCommandOutcome,
+  ClovieVoiceFeedbackSettings,
   ClovieVoiceHandsFree,
   ClovieVoiceHandsFreeConfig,
   ClovieVoiceStartOptions,
@@ -35,6 +36,10 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
     transcript: string,
   ): boolean;
   setCloudStt(enabled: boolean): void;
+  // Optional: a dev build made before these existed has no such functions.
+  getFeedbackSettings?(): ClovieVoiceFeedbackSettings;
+  setSoundsEnabled?(enabled: boolean): void;
+  setReadAloudEnabled?(enabled: boolean): void;
   // Optional: a dev build made before these existed has no such functions.
   setVoiceToken?(token: string, apiUrl: string): void;
   clearVoiceToken?(): void;
@@ -141,6 +146,19 @@ export function clearVoiceToken(): void {
 /** `rejected` means the server answered 401 to the service: mint a new token. */
 export function getVoiceTokenState(): ClovieVoiceTokenState {
   return native?.getVoiceTokenState?.() ?? 'none';
+}
+
+/** "Sounds" and "Read replies aloud", as the service reads them. Both on until the owner turns them off. */
+export function getFeedbackSettings(): ClovieVoiceFeedbackSettings {
+  return native?.getFeedbackSettings?.() ?? { sounds: true, readAloud: true };
+}
+
+export function setSoundsEnabled(enabled: boolean): void {
+  native?.setSoundsEnabled?.(enabled);
+}
+
+export function setReadAloudEnabled(enabled: boolean): void {
+  native?.setReadAloudEnabled?.(enabled);
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */

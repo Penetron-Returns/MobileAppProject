@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useVoiceScheduleSync } from '../scheduleSync';
 import { HandsFreeSection } from './HandsFreeSection';
 import { OneTapSection } from './OneTapSection';
+import { RepliesSection } from './RepliesSection';
 
 /**
  * Settings > Clovie voice (Android). Two ways to talk to Clovie: one tap (tile, widget, shortcut,
@@ -20,6 +21,7 @@ export function VoiceSettingsScreen() {
       backFallback="/settings"
     >
       <OneTapSection />
+      <RepliesSection />
       <HandsFreeSection />
     </Page>
   );

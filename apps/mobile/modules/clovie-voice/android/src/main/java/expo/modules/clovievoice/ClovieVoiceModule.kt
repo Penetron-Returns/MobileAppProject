@@ -138,6 +138,16 @@ class ClovieVoiceModule : Module() {
     Function("clearVoiceToken") { VoiceTokenStore.forContext(context).clear() }
     Function("getVoiceTokenState") { VoiceTokenStore.forContext(context).state().wire }
 
+    // "Sounds" (a distinct cue per voice state) and "Read replies aloud" (on-device text-to-speech). Both default on.
+    Function("getFeedbackSettings") {
+      mapOf(
+        "sounds" to VoiceFeedbackSettings.isSoundsEnabled(context),
+        "readAloud" to VoiceFeedbackSettings.isReadAloudEnabled(context),
+      )
+    }
+    Function("setSoundsEnabled") { enabled: Boolean -> VoiceFeedbackSettings.setSoundsEnabled(context, enabled) }
+    Function("setReadAloudEnabled") { enabled: Boolean -> VoiceFeedbackSettings.setReadAloudEnabled(context, enabled) }
+
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
   }

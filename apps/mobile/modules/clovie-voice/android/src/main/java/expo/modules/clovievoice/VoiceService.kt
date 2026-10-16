@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
@@ -43,6 +44,8 @@ class VoiceService : Service() {
   private var clipFile: java.io.File? = null
   private lateinit var overlay: VoiceOverlay
   private lateinit var feedback: VoiceFeedback
+  private lateinit var speaker: VoiceSpeaker
+  private var speakTask: Runnable? = null
   private var gate = WakeWordGate()
   private var classifier: String? = null
   private var engine: WakeWordEngine? = null
@@ -60,6 +63,7 @@ class VoiceService : Service() {
   private var dismissReason = "timeout"
   private val dismiss = Runnable {
     Log.i(TAG, "overlay dismissed reason=$dismissReason")
+    stopSpeech()
     overlay.hide()
     main.postDelayed(::finishInteraction, VoiceOverlay.EXIT_MS + 60)
   }
@@ -74,6 +78,7 @@ class VoiceService : Service() {
     notifications = VoiceNotifications(this, config)
     overlay = VoiceOverlay(this, ::onOverlayAction)
     feedback = VoiceFeedback(this)
+    speaker = VoiceSpeaker(this)
     speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { overlay.pushRms(it) }
   }
 
@@ -219,6 +224,8 @@ class VoiceService : Service() {
     }
     Log.i(TAG, "overlay shown=$hasOverlay")
     feedback.ignite() // chime and haptic tick, in step with the entrance
+    // Start the text-to-speech engine now: it takes a moment, and the answer should not wait for it.
+    if (VoiceFeedbackSettings.isReadAloudEnabled(this)) speaker.warmUp()
     // The wake-word recorder is already stopped and released (listener == null).
     if (CloudStt.isEnabled(this)) startClip() else startRecogniser()
   }
@@ -260,7 +267,7 @@ class VoiceService : Service() {
   /** Native upload of the clip with the device voice token; the transcript then goes down the normal command path. */
   private fun uploadClip(file: java.io.File, credentials: VoiceCredentials) {
     clipFile = file
-    if (hasOverlay) overlay.setState("processing")
+    enterProcessing()
     Thread({
       val result = CloudTranscriber.transcribe(credentials, file)
       main.post { onUploaded(result) }
@@ -286,7 +293,7 @@ class VoiceService : Service() {
 
   private fun transcribeClip(file: java.io.File) {
     clipFile = file
-    if (hasOverlay) overlay.setState("processing")
+    enterProcessing()
     VoiceTimings.commandStarted()
     val id = VoiceCommandBridge.register(VoiceCommandBridge.CLIP_TIMEOUT_MS, "fallback", ::onClipOutcome)
     try {
@@ -333,10 +340,8 @@ class VoiceService : Service() {
   /** Hands a transcript to the app's JS (headless task); without JS it times out into "Open Clovie". */
   private fun runCommand(text: String) {
     lastTranscript = text
-    if (hasOverlay) {
-      overlay.setTranscript(text)
-      overlay.setState("processing")
-    }
+    if (hasOverlay) overlay.setTranscript(text)
+    enterProcessing()
     VoiceTimings.commandStarted()
     val id = VoiceCommandBridge.register(onOutcome = ::showOutcome)
     try {
@@ -366,23 +371,33 @@ class VoiceService : Service() {
     }
   }
 
+  /** Listening has ended and the words are being understood: the overlay's processing state and its soft cue. */
+  private fun enterProcessing() {
+    if (hasOverlay) overlay.setState("processing")
+    feedback.processing()
+  }
+
   private fun showOutcome(outcome: CommandOutcome) {
     if (isDestroyed) return
     VoiceTimings.commandDone()
     val isFinished = outcome.status == "done" || outcome.status == "error"
+    // The sound for the state (the processing pulse stops here), then the spoken reply after it.
+    val cue = CuePolicy.cueFor(if (isFinished) outcome.status else "request") ?: Cue.FAILURE
+    feedback.result(cue)
+    val spoken = SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE)
     if (hasOverlay) {
       if (isFinished) {
         overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
         overlay.setState(outcome.status)
         dismissReason = outcome.status
-        main.postDelayed(dismiss, if (outcome.status == "error") ERROR_MS else RESULT_MS)
+        dismissAfterSpeech(cue, spoken, if (outcome.status == "error") ERROR_MS else RESULT_MS)
       } else {
         // JS could not finish it (or did not answer): the owner taps to continue in the app.
         overlay.setMessage("")
         overlay.setState("request")
         overlay.setAction(OPEN_LABEL)
         dismissReason = "open_timeout"
-        main.postDelayed(dismiss, OPEN_MS)
+        dismissAfterSpeech(cue, spoken, OPEN_MS)
       }
       return
     }
@@ -391,7 +406,38 @@ class VoiceService : Service() {
     } else {
       notifications.result("Clovie heard you", lastTranscript, lastTranscript)
     }
-    main.postDelayed(::finishInteraction, 800L)
+    speakAfterCue(cue, spoken) { main.postDelayed(::finishInteraction, 800L) }
+  }
+
+  /**
+   * Keeps the overlay up for `holdMs`, or until the reply has been spoken if that is later, so the
+   * text and the voice line up. A watchdog dismisses it if speech never reports back.
+   */
+  private fun dismissAfterSpeech(cue: Cue, spoken: String?, holdMs: Long) {
+    val startedAt = SystemClock.uptimeMillis()
+    main.postDelayed(dismiss, holdMs + MAX_SPEECH_WAIT_MS)
+    speakAfterCue(cue, spoken) {
+      main.removeCallbacks(dismiss)
+      val remaining = startedAt + holdMs - SystemClock.uptimeMillis()
+      main.postDelayed(dismiss, maxOf(remaining, AFTER_SPEECH_MS))
+    }
+  }
+
+  /** Speaks `text` once the cue has played, then calls `onDone`; at once when there is nothing to say or reading aloud is off. */
+  private fun speakAfterCue(cue: Cue, text: String?, onDone: () -> Unit) {
+    if (text == null || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return onDone()
+    val task = Runnable {
+      speakTask = null
+      speaker.speak(text) { if (!isDestroyed) onDone() }
+    }
+    speakTask = task
+    main.postDelayed(task, feedback.leadInMs(cue))
+  }
+
+  private fun stopSpeech() {
+    speakTask?.let { main.removeCallbacks(it) }
+    speakTask = null
+    speaker.stop()
   }
 
   /** A tap on the overlay's button: a user gesture, so Android lets it open the app. */
@@ -479,6 +525,7 @@ class VoiceService : Service() {
 
   private fun cleanup() {
     speech.cancel()
+    speaker.shutdown()
     clip?.cancel()
     clip = null
     deleteClip()
@@ -523,6 +570,8 @@ class VoiceService : Service() {
     private const val ERROR_MS = 2_500L
     private const val MIC_HANDOFF_MS = 150L
     private const val OPEN_MS = 10_000L
+    private const val MAX_SPEECH_WAIT_MS = 12_000L
+    private const val AFTER_SPEECH_MS = 450L
     private const val PAUSE_MS = 60L * 60L * 1000L
     private const val NOT_HEARD = "Didn't catch that"
 

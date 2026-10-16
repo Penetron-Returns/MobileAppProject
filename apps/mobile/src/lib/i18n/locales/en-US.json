@@ -1588,10 +1588,23 @@
     },
     "battery": "Listening all day uses some battery. On a locked phone, tap the notification to open Clovie.",
     "checkedIn": "Checked in {{name}}",
-    "noAppointment": "No one is due to check in right now.",
+    "noOneDueNext": "No one's due yet. Your next client, {{name}}, is at {{time}}.",
+    "noMoreClients": "No more clients today.",
     "noNameMatch": "No appointment for {{name}} is due right now.",
     "noCompanion": "Your plan does not include the companion.",
     "failed": "Could not check in. Try again from Today.",
+    "replies": {
+      "section": "Replies",
+      "intro": "How Clovie answers when you talk to it. Handy when your hands are busy or reading is hard.",
+      "sounds": {
+        "title": "Sounds",
+        "hint": "A soft sound when Clovie wakes, thinks, finishes or can't help."
+      },
+      "readAloud": {
+        "title": "Read replies aloud",
+        "hint": "Clovie says the answer out loud. Works without internet."
+      }
+    },
     "overlay": {
       "title": "Show over other apps",
       "granted": "On: Clovie answers on top of any app",
