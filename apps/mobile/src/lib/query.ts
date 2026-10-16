@@ -66,7 +66,9 @@ export const qk = {
   plans: ['plans'] as const,
   billingUsage: (month: string | null) =>
     ['billing-usage', month ?? 'current'] as const,
-  report: (month: string) => ['reports', month] as const,
+  /** Appointments (and the clients created in the window) behind the Reports screen; under `appointments` so Realtime refreshes them. */
+  reportRows: (from: string, to: string) =>
+    ['appointments', 'report', from, to] as const,
   attendance: ['attendance'] as const,
   accountDeletionPreview: ['account', 'deletion-preview'] as const,
   openEscalations: ['escalations', 'open-count'] as const,

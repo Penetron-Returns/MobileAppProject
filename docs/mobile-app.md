@@ -162,7 +162,7 @@ One app, two modes, chosen by the entitlements from `/v1/me` (`useAppMode()`: `c
 | --- | --- | --- |
 | `/sign-in` | `(auth)` | custom welcome → email → code screens (`features/auth`, `useSignIn`/`useSignUp`/`useSSO`; prebuilt `AuthView` no longer used) / web `<SignIn />`; redirects to `/` if already signed in |
 | `/` | `(app)` (tabs) | Today (`features/today`): today's `appointments` (business timezone), Up next hero + check-in, Later today, expected total; loading / empty / error / offline states |
-| `/reports` | `(app)` | Paid plans only (`reports`): month report; opened from the centre tab button |
+| `/reports` | `(app)` | Paid plans only (`reports`): month report; an ordinary tab |
 | `/companion` | `(app)` | Paid plans only (`companion`): companion sheet over the current screen; opened from the dome or Settings |
 | `/settings/plan` | `(app)` | Plan & billing (owner only) |
 | `/inbox` | `(app)` (hidden tab) | Free only; paid plans are redirected. Stub: opened from the floating Inbox dome; conversations and escalations come later |

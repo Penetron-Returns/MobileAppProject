@@ -14,7 +14,7 @@ export default function TabsLayout() {
   return (
     <Tabs
       backBehavior="history"
-      // The floating capsule draws itself (icons, labels and the centre button).
+      // The floating capsule draws itself (icons, labels and the Free-plan "+" button).
       tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
