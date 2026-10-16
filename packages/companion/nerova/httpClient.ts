@@ -25,6 +25,16 @@ type Json = Record<string, unknown>;
 
 const upstream = (message: string, details?: Record<string, unknown>) => new AppError('UPSTREAM_COMPANION_ERROR', message, details);
 const notReady = (reason: CompanionNotReadyReason) => new AppError('COMPANION_NOT_READY', 'The companion is not ready yet', { reason });
+/** Setup mismatches between us and Nerova (any status, 400 or 422): a clear upstream error with a stable reason. */
+const CONFIG_REJECTIONS = ['return_url_not_allowed', 'app_not_registered', 'origin_unexpected'] as const;
+function mapConfigRejection(error: unknown): never {
+  const code = error instanceof AppError ? text(error.details?.nerova_code) : null;
+  const reason = code ? CONFIG_REJECTIONS.find((r) => code === r || code.endsWith(`.${r}`)) : undefined;
+  if (reason && error instanceof AppError) {
+    throw upstream(`The companion service rejected the request (${reason})`, { status: error.details?.status, nerova_code: code, reason });
+  }
+  throw error;
+}
 const record = (value: unknown): Json => (typeof value === 'object' && value !== null ? (value as Json) : {});
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null);
 
@@ -119,8 +129,14 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
       const body = await request('POST', `${account(input.accountId)}/connection-sessions`, {
         idempotencyKey: input.idempotencyKey,
         notReadyOn: connectionSessionError,
-        body: { channel: 'whats_app', embedOrigin: input.embedOrigin, expectedVersion: input.expectedVersion },
-      });
+        body: {
+          channel: 'whats_app',
+          embedOrigin: input.embedOrigin,
+          expectedVersion: input.expectedVersion,
+          // returnUrl travels with the registered appId (Nerova checks the scheme against that app's returnUrlSchemes).
+          ...(input.returnUrl ? { returnUrl: input.returnUrl, appId: input.appId } : {}),
+        },
+      }).catch(mapConfigRejection);
       const launchUrl = text(body?.launchUrl);
       const expiresAt = text(body?.expiresAt);
       if (!launchUrl || !expiresAt) throw upstream('The companion service returned an unexpected connection session');
@@ -130,22 +146,29 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
     async createOwnerChatSession(input): Promise<NerovaOwnerChatSession> {
       const body = await request('POST', `${account(input.accountId)}/widgets/sessions`, {
         idempotencyKey: input.idempotencyKey,
-        notReadyOn: widgetSessionError(input.origin),
+        notReadyOn: widgetSessionError(input.origin ?? ''),
         body: {
           widget: 'owner_chat',
-          origin: input.origin,
           ownerReference: input.ownerReference,
           theme: { colorMode: input.colorMode },
-          // The app frames the chat in its own sheet and draws its own character, so Nerova must fill the frame and hide its avatar.
-          // An invalid value is a 400 `widget.presentation_invalid`, surfaced as UPSTREAM_COMPANION_ERROR with that nerova_code.
-          layout: 'fill',
-          avatar: 'hidden',
+          ...(input.native
+            ? { platform: 'native', appId: input.native.appId }
+            : {
+                origin: input.origin,
+                // The app frames the chat in its own sheet and draws its own character, so Nerova must fill the frame and hide its avatar.
+                // An invalid value is a 400 `widget.presentation_invalid`, surfaced as UPSTREAM_COMPANION_ERROR with that nerova_code.
+                layout: 'fill',
+                avatar: 'hidden',
+              }),
         },
-      });
+      }).catch(mapConfigRejection);
       const url = text(body?.url);
       const expiresAt = text(body?.expiresAt);
       if (!url || !expiresAt) throw upstream('The companion service returned an unexpected session');
-      return { url, expiresAt };
+      const sessionId = text(body?.sessionId);
+      const state = text(body?.state);
+      // sessionId and state are native-only; the web session keeps its two-field shape.
+      return { url, expiresAt, ...(input.native && sessionId ? { sessionId } : {}), ...(input.native && state ? { state } : {}) };
     },
 
     async getOutcomeSummary(idOrReference, period): Promise<CompanionOutcomesDTO> {

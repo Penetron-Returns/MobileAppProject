@@ -46,6 +46,9 @@ export function plansHarness(
     cachedAccountId?: string | null;
     timezone?: string;
     embedOrigin?: string | undefined;
+    nativeSessions?: boolean;
+    nativeAppId?: string;
+    forwardReturnUrl?: boolean;
     now?: Date;
   } = {},
 ): PlansHarness {
@@ -66,6 +69,9 @@ export function plansHarness(
       nerova,
       plans,
       embedOrigin: 'embedOrigin' in opts ? opts.embedOrigin : EMBED_ORIGIN,
+      nativeSessions: opts.nativeSessions ?? false,
+      nativeAppId: opts.nativeAppId,
+      forwardReturnUrl: opts.forwardReturnUrl ?? false,
       clock,
     }),
     clock,

@@ -671,12 +671,18 @@ export type CompanionColorMode = 'light' | 'dark';
 /** POST /v1/companion/session (member, feature `companion`) */
 export interface CreateCompanionSessionRequest {
   color_mode: CompanionColorMode;
+  /** Default 'web'. 'native' only changes the Nerova request when the backend has NEROVA_NATIVE_SESSIONS=true. */
+  platform?: 'web' | 'native';
 }
 
 export interface CompanionSessionDTO {
   /** Frame this URL; it carries the session secret and expires at expires_at (15 minutes) */
   url: string;
   expires_at: ISODateTime;
+  /** Native sessions only (platform 'native' with NEROVA_NATIVE_SESSIONS on): Nerova's session id */
+  session_id?: string;
+  /** Native sessions only: a secret the native widget needs with the url; never log it */
+  state?: string | null;
 }
 
 /** `details.reason` of COMPANION_NOT_READY (HTTP 409) */

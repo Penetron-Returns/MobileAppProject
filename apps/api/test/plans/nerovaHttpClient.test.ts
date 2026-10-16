@@ -125,6 +125,63 @@ describe('createHttpNerovaClient', () => {
     ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', status: 502, details: { status: 400, nerova_code: 'widget.presentation_invalid' } });
   });
 
+  it('posts a native session with platform and appId, no origin, layout or avatar, and maps sessionId and state', async () => {
+    const f = fakeFetch(() => json(200, { sessionId: 'wsn_1', url: 'https://chat.example/n/abc', expiresAt: '2026-10-13T10:15:00Z', state: 'st_secret' }));
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    const session = await client.createOwnerChatSession({
+      accountId: 'acct_1',
+      native: { appId: 'si.nerova.booking.dev' },
+      ownerReference: 'user_1',
+      colorMode: 'light',
+      idempotencyKey: 'companion-session-acct_1-user_1-2026-10-13T10:00-light-native',
+    });
+    expect(session).toEqual({ url: 'https://chat.example/n/abc', expiresAt: '2026-10-13T10:15:00Z', sessionId: 'wsn_1', state: 'st_secret' });
+    expect(JSON.parse(f.calls[0]!.init.body as string)).toEqual({
+      widget: 'owner_chat',
+      ownerReference: 'user_1',
+      theme: { colorMode: 'light' },
+      platform: 'native',
+      appId: 'si.nerova.booking.dev',
+    });
+  });
+
+  it('does not surface sessionId or state for a web session', async () => {
+    const f = fakeFetch(() => json(200, { sessionId: 'wsn_1', url: 'https://chat.example/s/abc', expiresAt: '2026-10-13T10:15:00Z', state: 'x' }));
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    const session = await client.createOwnerChatSession({ accountId: 'a', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' });
+    expect(session).toEqual({ url: 'https://chat.example/s/abc', expiresAt: '2026-10-13T10:15:00Z' });
+  });
+
+  it('sends returnUrl on the connection session only when given', async () => {
+    const f = fakeFetch(() => json(201, { launchUrl: 'https://app.nerova.si/c#state=a', expiresAt: '2026-10-13T10:10:00Z' }));
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    const base = { accountId: 'acct_1', embedOrigin: 'https://x.test', expectedVersion: 1, idempotencyKey: 'abcdefgh' };
+    await client.createConnectionSession({ ...base, returnUrl: 'bookingadmin://companion/whatsapp-return', appId: 'si.nerova.booking.dev' });
+    await client.createConnectionSession(base);
+    expect(JSON.parse(f.calls[0]!.init.body as string)).toMatchObject({ returnUrl: 'bookingadmin://companion/whatsapp-return', appId: 'si.nerova.booking.dev' });
+    expect(JSON.parse(f.calls[1]!.init.body as string)).not.toHaveProperty('returnUrl');
+    expect(JSON.parse(f.calls[1]!.init.body as string)).not.toHaveProperty('appId');
+  });
+
+  it.each([
+    [400, 'return_url_not_allowed', 'return_url_not_allowed'],
+    [422, 'activation.return_url_not_allowed', 'return_url_not_allowed'],
+    [400, 'activation.app_not_registered', 'app_not_registered'],
+    [422, 'activation.app_not_registered', 'app_not_registered'],
+  ])('maps a connection session %i %s to UPSTREAM_COMPANION_ERROR reason %s', async (status, code, reason) => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(status, { code })).impl });
+    await expect(
+      client.createConnectionSession({ accountId: 'a', embedOrigin: 'https://x.test', expectedVersion: 1, idempotencyKey: 'abcdefgh', returnUrl: 'bookingadmin://companion/whatsapp-return' }),
+    ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', status: 502, details: { status, nerova_code: code, reason } });
+  });
+
+  it('maps a 422 widget.origin_unexpected on a native session to reason origin_unexpected', async () => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(422, { code: 'widget.origin_unexpected' })).impl });
+    await expect(
+      client.createOwnerChatSession({ accountId: 'a', native: { appId: 'si.nerova.booking.dev' }, ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' }),
+    ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', details: { status: 422, reason: 'origin_unexpected' } });
+  });
+
   it('asks for the outcome summary of a UTC month', async () => {
     const f = fakeFetch(() => json(200, { 'booking.created': { total: 7, byActor: { customerAgent: 5, ownerCompanion: 2, flow: 0 } } }));
     const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });

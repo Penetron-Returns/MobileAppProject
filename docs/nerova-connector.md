@@ -113,6 +113,9 @@ Appointment changes made in our app are not events: Nerova reads appointments li
 | `NEROVA_EVENTS_ENABLED` | `true` to send account events |
 | `NEROVA_EVENTS_URL` | The connection's `events.url` |
 | `NEROVA_EVENTS_SIGNING_SECRET` | The connection's `events.signingSecret` (`whsec_...`) |
+| `NEROVA_NATIVE_SESSIONS` | `true` lets `platform: "native"` companion session requests use Nerova native sessions. Anything else: always web |
+| `NEROVA_APP_ID` | `nativeApps` appId for native sessions (default `si.nerova.booking.dev`) |
+| `NEROVA_WHATSAPP_RETURN_URL` | `true` forwards the allowlisted `return_url` (`bookingadmin://companion/whatsapp-return`) to connection-sessions as `returnUrl` |
 
 All are in `apps/api/.env.example` with comments.
 
@@ -133,6 +136,15 @@ Do this against Nerova **Test**, never Production, and only after the migration 
 - `npm run check:edge && npm run test:edge` proves the connector boots and lists its tools under Deno.
 - `scripts/db/test.sh` includes `packages/database/supabase/tests/12_nerova_actor.sql` (the `nerova` source and actor).
 - **`@nerova/connector-check`:** the docs describe version `0.3.0-preview.1` (MCP is its default mode, `--rest` checks a Custom connector), but only `0.1.0-preview.1` (an older merchant-based REST checker with no MCP mode) is published on npm. Until the MCP-capable release ships, use our mirror of its documented checks: `node packages/companion/scripts/nerova-selfcheck.mjs <mcp-url> --credential <token> [--account-id <id>] --write` (handshake, ten tools and schemas, bearer enforcement, accounts, availability, create with read-back, idempotent replay, conflict, reschedule, cancel, error codes). When `@nerova/connector-check` with MCP support is available, run `npx @nerova/connector-check <mcp-url> --credential "$TOKEN" --write` too. Use a test account with `--write`.
+
+## Switching on native sessions and the WhatsApp returnUrl (Nerova PR #946)
+
+Built behind config, off by default; no code change is needed to enable. Once Nerova confirms #946 is live:
+
+1. Run `NEROVA_API_KEY=... node apps/api/scripts/register-nerova-native-app.mjs --dry-run`, then without `--dry-run`. It GETs `/v1/embed-origins`, keeps the existing `origins` (and other native apps), and PUTs `nativeApps: [{ appId: "si.nerova.booking.dev", returnUrlSchemes: ["bookingadmin"] }]`. It never runs automatically.
+2. Set `NEROVA_NATIVE_SESSIONS=true` and/or `NEROVA_WHATSAPP_RETURN_URL=true` as Supabase secrets.
+
+**Contract (confirmed by Nerova from main):** native widget body `{ widget, ownerReference, theme, platform: "native", appId }` with no `origin` (an origin is 422 `widget.origin_unexpected`); response `{ sessionId, url, expiresAt, state }` (`state` null for web). GET `/v1/embed-origins` returns `{ origins, nativeApps }`; PUT requires `origins` (always the existing list, which must include the Supabase API origin) plus `nativeApps: [{ appId, returnUrlSchemes, returnUrlOrigins? }]`, max 10 apps. The script refuses to PUT when GET returns no origins. Connection-sessions send `returnUrl` together with `appId`. Errors are 422 with prefixed codes `activation.return_url_not_allowed` and `activation.app_not_registered`; we map those (and `widget.origin_unexpected`), whether 400 or 422, to 502 `UPSTREAM_COMPANION_ERROR` with `details.reason` `return_url_not_allowed` / `app_not_registered` / `origin_unexpected`.
 
 ## Connecting WhatsApp from the app
 

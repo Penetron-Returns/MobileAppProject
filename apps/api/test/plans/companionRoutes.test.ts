@@ -26,6 +26,57 @@ describe('POST /v1/companion/session', () => {
     ]);
   });
 
+  describe('platform', () => {
+    const native = { color_mode: 'dark', platform: 'native' };
+
+    it('keeps the exact web request when platform is native but NEROVA_NATIVE_SESSIONS is off', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready] });
+      const r = await h.call('POST', '/v1/companion/session', { body: native });
+      expect(r.status).toBe(200);
+      expect(r.body.data).not.toHaveProperty('state');
+      expect(r.body.data).not.toHaveProperty('session_id');
+      expect(h.nerova.sessionRequests[0]).toEqual({
+        accountId: 'acct_100',
+        origin: EMBED_ORIGIN,
+        ownerReference: OWNER_ID,
+        colorMode: 'dark',
+        idempotencyKey: `companion-session-acct_100-${OWNER_ID}-2026-10-13T10:00-dark`,
+      });
+    });
+
+    it('sends a native request (appId, no origin) and returns session_id, state and expires_at when the flag is on', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true });
+      const r = await h.call('POST', '/v1/companion/session', { body: native });
+      expect(r.status).toBe(200);
+      expect(r.body.data).toEqual({
+        url: 'https://chat.nerova.test/s/acct_100?secret=session-secret',
+        expires_at: new Date(NOW.getTime() + 15 * 60_000).toISOString(),
+        session_id: 'wsn_acct_100',
+        state: 'native-state-secret',
+      });
+      const sent = h.nerova.sessionRequests[0]!;
+      expect(sent.native).toEqual({ appId: 'si.nerova.booking.dev' });
+      expect(sent).not.toHaveProperty('origin');
+      expect(sent.idempotencyKey).toBe(`companion-session-acct_100-${OWNER_ID}-2026-10-13T10:00-dark-native`);
+    });
+
+    it('uses NEROVA_APP_ID when set, and a web platform stays web even with the flag on', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true, nativeAppId: 'si.nerova.booking' });
+      await h.call('POST', '/v1/companion/session', { body: native });
+      await h.call('POST', '/v1/companion/session', { body: { color_mode: 'dark', platform: 'web' } });
+      expect(h.nerova.sessionRequests[0]?.native).toEqual({ appId: 'si.nerova.booking' });
+      expect(h.nerova.sessionRequests[1]).toMatchObject({ origin: EMBED_ORIGIN });
+      expect(h.nerova.sessionRequests[1]).not.toHaveProperty('native');
+    });
+
+    it('rejects an unknown platform with VALIDATION_FAILED', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true });
+      const r = await h.call('POST', '/v1/companion/session', { body: { color_mode: 'dark', platform: 'tv' } });
+      expect(r.status).toBe(400);
+      expect(r.body.error.code).toBe('VALIDATION_FAILED');
+    });
+  });
+
   it('resolves the account by our business id (externalReference) and caches the acct_ id', async () => {
     const h = plansHarness({ plan: 'starter', accounts: [ready] });
     expect((await h.plans.getProfile(BIZ)).nerovaAccountId).toBeNull();

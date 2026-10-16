@@ -42,6 +42,12 @@ const EnvSchema = z.object({
   NEROVA_API_KEY: optional,
   /** Origin of the owner web app that frames the companion; must be on Nerova's embed allowlist (scheme://host[:port]) */
   NEROVA_EMBED_ORIGIN: optional,
+  /** "true" lets platform:'native' session requests use Nerova's native sessions (needs Nerova PR #946 live and the app registered). Off = always web. */
+  NEROVA_NATIVE_SESSIONS: optional,
+  /** Nerova nativeApps appId used for native sessions (default si.nerova.booking.dev) */
+  NEROVA_APP_ID: optional,
+  /** "true" forwards the allowlisted return_url to Nerova connection-sessions as returnUrl (needs #946 live). Off = dropped. */
+  NEROVA_WHATSAPP_RETURN_URL: optional,
 
   /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
   STRIPE_SECRET_KEY: optional,
