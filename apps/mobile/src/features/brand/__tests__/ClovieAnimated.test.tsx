@@ -29,11 +29,14 @@ const opacity = (tree: ReturnType<typeof mount>, id: string) =>
     .props.style.flat()
     .find((s: { opacity?: number }) => s && 'opacity' in s).opacity;
 
+const stillShown = (tree: ReturnType<typeof mount>) =>
+  tree.root.findAllByProps({ testID: 'clovie-still-layer' }).length > 0;
+
 describe('ClovieAnimated', () => {
   it('keeps the still at full opacity until ready, then fades the live layer in over it', () => {
     const tree = mount(<ClovieAnimated state="working" size={140} />);
     expect(web(tree)[0].props.source.html).toContain('"state":"working"');
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
     expect(opacity(tree, 'clovie-live-layer')).toBe(0);
 
     act(() => {
@@ -41,13 +44,13 @@ describe('ClovieAnimated', () => {
     });
     // Live is fading in; the still has not started to fade yet.
     expect(opacity(tree, 'clovie-live-layer')).toBe(1);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
 
     act(() => {
       jest.advanceTimersByTime(1000);
     });
     expect(opacity(tree, 'clovie-live-layer')).toBe(1);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(0);
+    expect(stillShown(tree)).toBe(false);
   });
 
   it('loads the still without a fade', () => {
@@ -65,12 +68,12 @@ describe('ClovieAnimated', () => {
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(opacity(tree, 'clovie-still-layer')).toBe(0);
+    expect(stillShown(tree)).toBe(false);
     act(() => {
       web(tree)[0].props.onRenderProcessGone({});
     });
     expect(web(tree).length).toBeGreaterThan(0);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
     expect(opacity(tree, 'clovie-live-layer')).toBe(0);
   });
 
@@ -88,7 +91,7 @@ describe('ClovieAnimated', () => {
     act(() => {
       web(tree)[0].props.onMessage({ nativeEvent: { data: 'hello' } });
     });
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
   });
 
   it('keeps the still and drops the WebView when it fails', () => {
@@ -97,14 +100,14 @@ describe('ClovieAnimated', () => {
       web(tree)[0].props.onError({});
     });
     expect(web(tree).length).toBe(0);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
   });
 
   it('renders the still only under reduced motion', () => {
     mockReduce = true;
     const tree = mount(<ClovieAnimated state="default" size={120} />);
     expect(web(tree).length).toBe(0);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
   });
 
   it('asks for the idle pose by default', () => {
@@ -119,7 +122,7 @@ describe('ClovieAnimated', () => {
       jest.advanceTimersByTime(9_000);
     });
     expect(web(tree).length).toBe(0);
-    expect(opacity(tree, 'clovie-still-layer')).toBe(1);
+    expect(stillShown(tree)).toBe(true);
     act(() => {
       jest.advanceTimersByTime(45_000);
     });
@@ -132,5 +135,35 @@ describe('ClovieAnimated', () => {
       jest.advanceTimersByTime(60_000);
     });
     expect(web(tree).length).toBeGreaterThan(0);
+  });
+
+  it('shows the still again at rest after the live canvas had fully taken over', () => {
+    const tree = mount(<ClovieAnimated size={120} />);
+    act(() => {
+      web(tree)[0].props.onMessage({ nativeEvent: { data: 'ready' } });
+    });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(stillShown(tree)).toBe(false);
+    act(() => {
+      jest.advanceTimersByTime(9_000);
+    });
+    expect(web(tree).length).toBe(0);
+    expect(stillShown(tree)).toBe(true);
+  });
+
+  it('reports when the live canvas starts and stops so pulses can follow it', () => {
+    const onLiveChange = jest.fn();
+    mount(<ClovieAnimated size={120} onLiveChange={onLiveChange} />);
+    expect(onLiveChange).toHaveBeenLastCalledWith(true);
+    act(() => {
+      jest.advanceTimersByTime(9_000);
+    });
+    expect(onLiveChange).toHaveBeenLastCalledWith(false);
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+    expect(onLiveChange).toHaveBeenLastCalledWith(true);
   });
 });

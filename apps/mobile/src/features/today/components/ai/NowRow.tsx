@@ -30,10 +30,11 @@ const contactImage = (isDark: boolean) =>
   `radial-gradient(closest-side, ${isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.3)'}, rgba(0,0,0,0))`;
 
 /** A soft blue glow behind Clovie that swells and fades slowly; still under reduced motion. */
-function Halo({ isDark }: { isDark: boolean }) {
+function Halo({ isDark, isLive }: { isDark: boolean; isLive: boolean }) {
   const calm = useSharedValue(0);
   useIdlePulse(calm, {
-    isActive: useMotionActive(),
+    // Pulses only while the live Clovie runs; at rest it holds still and costs no frames.
+    isActive: useMotionActive() && isLive,
     half: HALO_HALF,
     restMs: HALO_REST_MS,
   });
@@ -98,9 +99,10 @@ export function NowRow({
   const depth = useDepth();
   const lineText = useNowLineText();
   const isDark = depth.scheme === 'dark';
+  const [isLive, setIsLive] = React.useState(false);
   return (
     <View style={{ height: HERO_HEIGHT, alignItems: 'center', marginTop: 2 }}>
-      <Halo isDark={isDark} />
+      <Halo isDark={isDark} isLive={isLive} />
       <View
         pointerEvents="none"
         style={{
@@ -128,6 +130,7 @@ export function NowRow({
           state={isBusy ? 'working' : 'default'}
           size={CLOVIE_SIZE}
           isPaused={isPaused}
+          onLiveChange={setIsLive}
         />
       </Pressable>
       <View

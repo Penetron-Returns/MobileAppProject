@@ -47,6 +47,8 @@ interface ClovieAnimatedProps {
   state?: ClovieState;
   /** Fires when the live canvas has painted its first frame (again after a WebView restart). */
   onReady?: () => void;
+  /** Fires when the live canvas starts or stops (the idle duty cycle), so callers can pulse only while it runs. */
+  onLiveChange?: (isLive: boolean) => void;
   /** Fires once, when the still artwork has loaded, so a caller can hide a splash behind it. */
   onStillLoad?: () => void;
   /** Layout size in pt. The hop overscan spills outside it, so do not clip the parent. */
@@ -78,6 +80,7 @@ export function ClovieAnimated({
   state = 'default',
   onReady,
   onStillLoad,
+  onLiveChange,
   size,
   isPaused = false,
 }: ClovieAnimatedProps) {
@@ -96,6 +99,7 @@ export function ClovieAnimated({
     !isPaused &&
     !(isResting && state === 'default');
   const showLive = live && ready;
+  React.useEffect(() => onLiveChange?.(live), [live, onLiveChange]);
 
   // Idle duty cycle (see LIVE_WINDOW_MS): live for a while, rest, repeat.
   React.useEffect(() => {
@@ -143,8 +147,10 @@ export function ClovieAnimated({
   }, [showLive]);
 
   const breath = useSharedValue(0);
+  // Only while the live window runs: a resting Clovie is a still image and
+  // costs zero frames (a native breathe repaints the whole window every vsync).
   useIdlePulse(breath, {
-    isActive: isMotionActive,
+    isActive: live,
     half: BREATHE,
     restMs: BREATHE_REST_MS,
   });
@@ -158,10 +164,6 @@ export function ClovieAnimated({
   // Fade in when ready; snap back to hidden on a restart.
   const liveStyle = useAnimatedStyle(() => ({
     opacity: showLive ? withTiming(1, TIMING.quick) : 0,
-  }));
-  // Opaque (no fade) until the live layer is fully in, then it fades out beneath it.
-  const stillStyle = useAnimatedStyle(() => ({
-    opacity: liveOpaque ? withTiming(0, TIMING.quick) : 1,
   }));
 
   const box = size * OVERSCAN;
@@ -178,28 +180,33 @@ export function ClovieAnimated({
         testID="clovie-breathe"
         style={[{ width: size, height: size }, breatheStyle]}
       >
-        <Animated.View
-          testID="clovie-still-layer"
-          style={[{ width: size, height: size }, stillStyle]}
-        >
-          <Image
-            testID="clovie-still"
-            onLoad={onStillLoad}
-            fadeDuration={0}
-            source={
-              isDark
-                ? require('@/assets/images/companion-default-dark.png')
-                : require('@/assets/images/companion-default.png')
-            }
-            style={{
-              width: size * STILL_SCALE,
-              height: size * STILL_SCALE,
-              marginLeft: (size * (1 - STILL_SCALE)) / 2,
-              marginTop: size * STILL_DROP,
-            }}
-            resizeMode="contain"
-          />
-        </Animated.View>
+        {/* Unmounted (not faded) once the live layer is fully opaque, and mounted
+          fresh at full opacity whenever the live layer goes away. An animated
+          opacity left at 0 by the fade-out hid the still after the rest. */}
+        {liveOpaque ? null : (
+          <View
+            testID="clovie-still-layer"
+            style={{ width: size, height: size }}
+          >
+            <Image
+              testID="clovie-still"
+              onLoad={onStillLoad}
+              fadeDuration={0}
+              source={
+                isDark
+                  ? require('@/assets/images/companion-default-dark.png')
+                  : require('@/assets/images/companion-default.png')
+              }
+              style={{
+                width: size * STILL_SCALE,
+                height: size * STILL_SCALE,
+                marginLeft: (size * (1 - STILL_SCALE)) / 2,
+                marginTop: size * STILL_DROP,
+              }}
+              resizeMode="contain"
+            />
+          </View>
+        )}
         {live ? (
           <Animated.View
             key={webKey}
