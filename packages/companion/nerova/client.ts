@@ -80,6 +80,12 @@ export interface TranscribeFile {
   contentType: string;
 }
 
+export interface TranscribeOptions {
+  language?: string | undefined;
+  /** Comma-separated spelling hints (client first names): at most 50 terms of 40 characters, 4096 in all. Sent as the `vocabulary` field. */
+  vocabulary?: string | undefined;
+}
+
 export interface NerovaTranscription {
   text: string;
   durationMs: number;
@@ -100,12 +106,12 @@ export interface NerovaClient {
   createConnectionSession(input: CreateConnectionSessionInput): Promise<NerovaConnectionSession>;
   createOwnerChatSession(input: CreateOwnerChatSessionInput): Promise<NerovaOwnerChatSession>;
   /**
-   * Speech-to-text for one short clip. `language` is omitted unless given (Nerova then auto-detects). Throws AppError:
+   * Speech-to-text for one short clip. `language` is omitted unless given (Nerova then auto-detects); `vocabulary` likewise. Throws AppError:
    * VALIDATION_FAILED (400), PAYLOAD_TOO_LARGE (413), UNSUPPORTED_MEDIA_TYPE (415), RATE_LIMITED (429, `details.retry_after_s`),
    * TRANSCRIPTION_UNAVAILABLE (404: not deployed), UPSTREAM_COMPANION_ERROR (402, 403, 5xx, timeout, network; `details.reason`).
    * Never logs the audio or the transcript.
    */
-  transcribe(accountId: string, file: TranscribeFile, opts?: { language?: string | undefined }): Promise<NerovaTranscription>;
+  transcribe(accountId: string, file: TranscribeFile, opts?: TranscribeOptions): Promise<NerovaTranscription>;
   /** Outcome counts for one UTC calendar month (`month` 1-12) */
   getOutcomeSummary(idOrReference: string, period: { year: number; month: number }): Promise<CompanionOutcomesDTO>;
 }

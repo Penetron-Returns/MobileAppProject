@@ -2,7 +2,7 @@
 import type { CompanionNotReadyReason, CompanionOutcomesDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
-import type { NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile } from './client.ts';
+import type { NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
 
 export const NEROVA_API_BASE_URL = 'https://api.nerova.si';
@@ -137,11 +137,12 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
   const connectionSessionError = (status: number, code: string | null): CompanionNotReadyReason | null =>
     status === 409 && code === 'activation.not_provisioned' ? 'not_provisioned' : accountNotAvailable(status, code);
 
-  async function transcribe(accountId: string, file: TranscribeFile, opts: { language?: string | undefined } = {}): Promise<NerovaTranscription> {
+  async function transcribe(accountId: string, file: TranscribeFile, opts: TranscribeOptions = {}): Promise<NerovaTranscription> {
     // A fresh FormData: the part is the Blob under the field name Nerova documents.
     const form = new FormData();
     form.append('audio', file.data, file.filename);
     if (opts.language) form.append('language', opts.language);
+    if (opts.vocabulary) form.append('vocabulary', opts.vocabulary);
     const started = Date.now();
     let response: Response;
     try {

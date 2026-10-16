@@ -29,6 +29,8 @@ export interface FakeTranscriptionRequest {
   contentType: string;
   size: number;
   language: string | undefined;
+  /** The `vocabulary` field; absent when none was sent */
+  vocabulary?: string;
 }
 
 export interface FakeNerovaClient extends NerovaClient {
@@ -112,7 +114,7 @@ export function createFakeNerovaClient(
       if (!fake.accounts.some((a) => a.id === accountId || a.externalReference === accountId)) {
         throw new AppError('TRANSCRIPTION_UNAVAILABLE', 'Cloud transcription is not available');
       }
-      fake.transcriptionRequests.push({ accountId, filename: file.filename, contentType: file.contentType, size: file.data.size, language: opts?.language });
+      fake.transcriptionRequests.push({ accountId, filename: file.filename, contentType: file.contentType, size: file.data.size, language: opts?.language, ...(opts?.vocabulary ? { vocabulary: opts.vocabulary } : {}) });
       return fake.transcription;
     },
     async getOutcomeSummary(idOrReference) {

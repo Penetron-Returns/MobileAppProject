@@ -376,7 +376,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
           .filter((a) => !f.staffId || a.staff_id === f.staffId)
           .filter((a) => !f.clientId || a.client_id === f.clientId)
           .filter((a) => !f.status || a.status === f.status)
-          .sort((a, b) => start(a) - start(b) || a.id.localeCompare(b.id))
+          .sort((a, b) => (f.order === 'desc' ? -1 : 1) * (start(a) - start(b) || a.id.localeCompare(b.id)))
           .filter((a) => {
             if (!f.after) return true;
             const afterMs = Date.parse(f.after.startsAt);
