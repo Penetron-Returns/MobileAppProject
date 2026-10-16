@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createDeviceTokenService, hashDeviceToken } from '@booking/features/voice/deviceTokens.ts';
+import { AUTH_CACHE_TTL_MS, createDeviceTokenService, hashDeviceToken } from '@booking/features/voice/deviceTokens.ts';
 import { createMemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
 import type { AttendanceService } from '@booking/features/ports.ts';
 import { isDeviceTokenRoute } from '../../src/middleware/deviceToken.ts';
@@ -11,11 +11,11 @@ const TRANSCRIBE = '/v1/voice/transcriptions';
 const ANSWER = '/v1/attendance/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/answer';
 const STAFF_ID = 'user_staff';
 
-function setup() {
+function setup(clock?: () => Date) {
   const repo = createMemoryDeviceTokenRepository();
   repo.addMember({ businessId: BIZ, userId: OWNER_ID, orgId: ORG, role: 'owner' });
   repo.addMember({ businessId: BIZ, userId: STAFF_ID, orgId: ORG, role: 'staff' });
-  const voiceTokens = createDeviceTokenService({ repo });
+  const voiceTokens = createDeviceTokenService({ repo, ...(clock ? { clock } : {}) });
   const answers: unknown[] = [];
   const attendance = {
     answer: async (caller: unknown, checkId: string, outcome: string) => {
@@ -193,10 +193,12 @@ describe('device token authentication', () => {
   });
 
   it('rejects the token once its member is removed from the business', async () => {
-    const { h, repo } = setup();
+    let now = Date.now();
+    const { h, repo } = setup(() => new Date(now));
     const { token } = await mint(h, 'staff');
     expect((await upload(h, token)).status).toBe(200);
     repo.removeMember({ businessId: BIZ, userId: STAFF_ID });
+    now += AUTH_CACHE_TTL_MS; // verified tokens are trusted in-isolate for this long
     expect((await upload(h, token)).status).toBe(401);
     expect((await answer(h, token)).status).toBe(401);
   });

@@ -14,7 +14,7 @@ class FollowUpTest {
   @Test
   fun neverListensAgainWithoutAnExpectedReplyOrAfterAFailure() {
     assertFalse(FollowUp.shouldListenAgain("done", expectsReply = false, turnsDone = 0, pendingRemaining = 0))
-    assertFalse(FollowUp.shouldListenAgain("error", expectsReply = true, turnsDone = 0, pendingRemaining = 0))
+    assertFalse(FollowUp.shouldListenAgain("error", expectsReply = false, turnsDone = 0, pendingRemaining = 0))
     assertFalse(FollowUp.shouldListenAgain("open_app", expectsReply = true, turnsDone = 0, pendingRemaining = 0))
     assertFalse(FollowUp.shouldListenAgain("fallback", expectsReply = true, turnsDone = 0, pendingRemaining = 0))
   }

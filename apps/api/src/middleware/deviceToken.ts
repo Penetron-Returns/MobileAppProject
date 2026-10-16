@@ -28,7 +28,8 @@ function bearer(header: string | undefined): string {
 
 /**
  * Wraps the Clerk `requireAuth`: a bearer starting with `cvt_` is authenticated against the stored token
- * hash (revocation and the member's continued membership re-checked on every call) and sets the same auth
+ * hash. A verified token is cached in-isolate for AUTH_CACHE_TTL_MS, so revocation and removal of the member take
+ * effect within that time (at once in the same isolate) and sets the same auth
  * context, but only on {@link DEVICE_TOKEN_ROUTES}. On any other route it is refused outright. Any other bearer
  * goes to `clerkAuth` untouched. The token itself is never logged.
  */
@@ -41,7 +42,9 @@ export function allowDeviceToken(clerkAuth: MiddlewareHandler<AppEnv>): Middlewa
       c.get('logger')?.warn('auth_rejected', { reason: 'device_token_out_of_scope' });
       throw new AppError('UNAUTHENTICATED', 'This credential cannot be used here');
     }
+    const authStarted = performance.now();
     const identity = await c.get('container').voiceTokens.authenticate(token);
+    c.set('authMs', performance.now() - authStarted);
     if (!identity) {
       c.get('logger')?.warn('auth_rejected', { reason: 'device_token_invalid' });
       throw new AppError('UNAUTHENTICATED', 'Invalid or revoked device token');

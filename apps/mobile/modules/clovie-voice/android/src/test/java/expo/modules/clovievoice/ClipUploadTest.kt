@@ -64,6 +64,12 @@ class ServerTimingTest {
   }
 
   @Test
+  fun readsTheAuthEntry() {
+    assertEquals(42L, ServerTiming.parse("nerova;dur=900, proxy;dur=1000, auth;dur=42.2").authMs)
+    assertNull(ServerTiming.parse("proxy;dur=1").authMs)
+  }
+
+  @Test
   fun missingEntriesAreNullNotZero() {
     assertEquals(ServerTiming(210L, null), ServerTiming.parse("proxy;dur=210"))
     assertEquals(ServerTiming.NONE, ServerTiming.parse(null))
