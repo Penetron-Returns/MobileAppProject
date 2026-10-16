@@ -213,6 +213,9 @@ export function fakeBooking(world: World): BookingService {
       const a = world.appointments.find((x) => x.id === id);
       return a ? { ...a } : null;
     },
+    async setAppointmentStatus() {
+      throw new Error('the WhatsApp channel never sets appointment status');
+    },
     async listUpcomingForClient(_b, clientId, now) {
       return world.appointments
         .filter((a) => a.client_id === clientId && a.status === 'confirmed' && Date.parse(a.starts_at) > (now ?? new Date()).getTime())

@@ -44,7 +44,7 @@ export interface MemoryTables {
   clients: ClientRow[];
   client_notes: ClientNoteRow[];
   appointments: AppointmentRow[];
-  appointment_events: { appointment_id: UUID; type: string; actor: string; actor_id: string | null; payload: unknown }[];
+  appointment_events: { id: UUID; appointment_id: UUID; type: string; actor: string; actor_id: string | null; payload: unknown }[];
   booking_attempts: BookingAttemptRow[];
   webhook_events: WebhookEventRow[];
   idempotency_keys: { key: string; expires_at: string }[];
@@ -177,7 +177,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
   }
 
   function event(appointment_id: UUID, type: string, actor: string, actor_id: string | null, payload: unknown = {}) {
-    tables.appointment_events.push({ appointment_id, type, actor, actor_id, payload });
+    tables.appointment_events.push({ id: nextId(), appointment_id, type, actor, actor_id, payload });
   }
 
   function appointmentById(id: UUID): AppointmentRow {
@@ -459,6 +459,10 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       row.status = a.status;
       event(row.id, a.status, a.actor, a.actorId);
       return clone(row);
+    },
+    async findLatestAppointmentEventId(appointmentId, type) {
+      const match = tables.appointment_events.filter((e) => e.appointment_id === appointmentId && e.type === type).at(-1);
+      return match?.id ?? null;
     },
     async checkInAppointment(appointmentId, actorId) {
       const row = appointmentById(appointmentId);

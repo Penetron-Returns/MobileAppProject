@@ -11,12 +11,14 @@ import { createHmac, randomUUID } from 'node:crypto';
 import type { UUID } from '@booking/types';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { AccountEventsPort, AccountEventType, EntitlementService } from '@booking/features/ports.ts';
+import type { AppointmentEventType } from './appointmentEvents.ts';
 
+/** Everything the sender signs: account events and (flagged) appointment events share the envelope. */
 export interface AccountEvent {
   id: string;
-  type: AccountEventType;
+  type: AccountEventType | AppointmentEventType;
   createdAt: string;
-  data: { id: UUID };
+  data: { id: UUID; [field: string]: unknown };
 }
 
 /** Outbound transport port. */

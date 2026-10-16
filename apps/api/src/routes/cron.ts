@@ -13,12 +13,19 @@ import {
 
 type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
 
+/**
+ * Keep-warm ping (every minute, see migration 20261020000001). Does no I/O: reaching this handler already
+ * loaded the function bundle and built the container, which is the cold-start cost being avoided.
+ */
+const runWarmJob: Job = async () => ({});
+
 export const CRON_JOBS: Record<string, Job> = {
   reminders: runRemindersJob,
   'conversation-expiry': runConversationExpiryJob,
   'waba-health': runWabaHealthJob,
   'token-refresh': runTokenRefreshJob,
   cleanup: runCleanupJob,
+  warm: runWarmJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

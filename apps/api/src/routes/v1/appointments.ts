@@ -3,7 +3,6 @@ import { Hono } from 'hono';
 
 import {
   checkInAppointment,
-  setAppointmentStatus,
   updateAppointmentNotes,
 } from '@booking/features/bookings/services/appointmentExtras.ts';
 import { upsertClient } from '@booking/features/clients/services/clients.ts';
@@ -72,10 +71,10 @@ appointmentRoutes.post('/appointments/:id/cancel', async (c) => {
 });
 
 appointmentRoutes.post('/appointments/:id/status', async (c) => {
-  const { repo, auth, actor } = deps(c);
+  const { booking, auth, actor } = deps(c);
   const id = idParam(c);
   const { status } = await parseJson(c, statusSchema);
-  return c.json({ data: await setAppointmentStatus(repo, auth.businessId, id, status, actor) });
+  return c.json({ data: await booking.setAppointmentStatus(auth.businessId, id, status, actor) });
 });
 
 appointmentRoutes.post('/appointments/:id/check-in', async (c) => {

@@ -194,6 +194,8 @@ export interface AppointmentRepository {
   rescheduleAppointment(args: RescheduleArgs): Promise<AppointmentRow>;
   cancelAppointment(args: CancelArgs): Promise<AppointmentRow>;
   setAppointmentStatus(args: SetStatusArgs): Promise<AppointmentRow>;
+  /** Id of the newest `appointment_events` row of this type for the appointment (outbound event idempotency) */
+  findLatestAppointmentEventId(appointmentId: UUID, type: string): Promise<UUID | null>;
   checkInAppointment(appointmentId: UUID, actorId: string | null): Promise<AppointmentRow>;
   updateAppointmentNotes(businessId: UUID, appointmentId: UUID, notes: string | null): Promise<AppointmentRow | null>;
 }
