@@ -84,10 +84,11 @@ describe('CompanionSdkScreen', () => {
     expect(text(tree)).toContain('6 bookings today');
     expect(mockClovieStates).toContain('working');
     expect(mockClovieStates[mockClovieStates.length - 1]).toBe('default');
+    // The SDK's avatar button owns the label, so our Clovie stays decorative.
     expect(
       tree.root.findAll((n) => n.props.testID === 'companion-clovie')[0].props
-        .accessibilityLabel.length,
-    ).toBeGreaterThan(0);
+        .accessibilityElementsHidden,
+    ).toBe(true);
   });
 
   it('fills the composer from a voice request without sending', async () => {
