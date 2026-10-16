@@ -42,6 +42,11 @@ interface ClovieAnimatedProps {
   onStillLoad?: () => void;
   /** Layout size in pt. The hop overscan spills outside it, so do not clip the parent. */
   size: number;
+  /**
+   * Drops the live WebView and shows the still (it keeps breathing natively).
+   * For a second Clovie that is hidden or behind a sheet, so only one canvas runs.
+   */
+  isPaused?: boolean;
 }
 
 /**
@@ -65,6 +70,7 @@ export function ClovieAnimated({
   onReady,
   onStillLoad,
   size,
+  isPaused = false,
 }: ClovieAnimatedProps) {
   const reduceMotion = useReduceMotion();
   const { isDark } = useAppColorScheme();
@@ -74,8 +80,15 @@ export function ClovieAnimated({
   /** Bumped to remount the WebView after its process dies. */
   const [webKey, setWebKey] = React.useState(0);
   const html = React.useMemo(() => buildClovieHtml(state, size), [state, size]);
-  const live = !reduceMotion && !failed;
+  const live = !reduceMotion && !failed && !isPaused;
   const showLive = live && ready;
+
+  // A paused canvas is gone: the next resume starts from the still again.
+  React.useEffect(() => {
+    if (!isPaused) return;
+    setReady(false);
+    setLiveOpaque(false);
+  }, [isPaused]);
 
   const onMessage = React.useCallback(
     (event: WebViewMessageEvent) => {

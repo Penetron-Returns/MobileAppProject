@@ -1,5 +1,5 @@
-import { TodayScreen } from '@/features/today/components/TodayScreen';
+import { TodayHome } from '@/features/today/components/TodayHome';
 
 export default function TodayRoute() {
-  return <TodayScreen />;
+  return <TodayHome />;
 }

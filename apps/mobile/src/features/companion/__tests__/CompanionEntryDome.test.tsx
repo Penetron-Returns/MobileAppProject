@@ -13,8 +13,12 @@ jest.mock('expo-router', () => ({
 jest.mock('../useCompanionEntry', () => ({
   useCompanionEntry: () => ({ isVisible: true, attentionCount: 0 }),
 }));
+const mockClovie = jest.fn();
 jest.mock('@/features/brand/ClovieAnimated', () => ({
-  ClovieAnimated: () => null,
+  ClovieAnimated: (props: unknown) => {
+    mockClovie(props);
+    return null;
+  },
 }));
 
 function pressDome(isAvailable: boolean, hasFailed = false) {
@@ -49,5 +53,56 @@ describe('CompanionEntryDome', () => {
     const open = pressDome(false, true);
     expect(open).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/companion');
+  });
+
+  describe('on the Today tab of the AI plans', () => {
+    function renderDome(isHidden: boolean) {
+      return mount(
+        <CompanionSheetControlProvider
+          value={{
+            isAvailable: true,
+            hasFailed: false,
+            open: jest.fn(),
+            close: jest.fn(),
+          }}
+        >
+          <CompanionEntryDome isHidden={isHidden} />
+        </CompanionSheetControlProvider>,
+      );
+    }
+    const wrapper = (tree: ReturnType<typeof mount>) =>
+      tree.root.findByProps({ testID: 'companion-dome-fade' });
+
+    it('fades and shrinks out, takes no touches and hides from screen readers', () => {
+      const tree = renderDome(true);
+      const node = wrapper(tree);
+      expect(node.props.style).toMatchObject({
+        opacity: 0,
+        transform: [{ scale: expect.any(Number) }],
+      });
+      expect(node.props.style.transform[0].scale).toBeLessThan(1);
+      expect(node.props.pointerEvents).toBe('none');
+      expect(node.props.accessibilityElementsHidden).toBe(true);
+    });
+
+    it('parks the dome Clovie canvas so only one Clovie animates', () => {
+      renderDome(true);
+      expect(mockClovie).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isPaused: true }),
+      );
+    });
+
+    it('is fully back on the other tabs', () => {
+      const tree = renderDome(false);
+      const node = wrapper(tree);
+      expect(node.props.style).toMatchObject({
+        opacity: 1,
+        transform: [{ scale: 1 }],
+      });
+      expect(node.props.pointerEvents).toBe('auto');
+      expect(mockClovie).toHaveBeenLastCalledWith(
+        expect.objectContaining({ isPaused: false }),
+      );
+    });
   });
 });
