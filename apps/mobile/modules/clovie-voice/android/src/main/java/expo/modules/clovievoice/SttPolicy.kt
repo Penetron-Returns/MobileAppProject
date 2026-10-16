@@ -35,48 +35,83 @@ object SttErrors {
     }
 }
 
-/** One recogniser try: which language, and whether the on-device recogniser (else the default) runs it. */
-data class SttAttempt(val localeIndex: Int, val useOnDevice: Boolean, val number: Int = 1)
+/** Which recogniser runs an attempt, and whether it is given a language. */
+enum class SttStep(val useOnDevice: Boolean, val hasLocale: Boolean, val isGoogle: Boolean = false) {
+  ON_DEVICE(true, true),
+  DEFAULT_LOCALE(false, true),
+  DEFAULT_NO_LOCALE(false, false),
+  GOOGLE_NO_LOCALE(false, false, isGoogle = true),
+}
+
+/** One recogniser try: the step, and its 1-based number across the whole listen. */
+data class SttAttempt(val step: SttStep, val number: Int = 1)
 
 sealed interface SttNext {
   data class Retry(val attempt: SttAttempt, val delayMs: Long) : SttNext
 
-  /** `reason` is `no_speech`, `permission` or `error`. */
+  /** `reason` is `no_speech`, `permission`, `language` or `error`. */
   data class GiveUp(val reason: String) : SttNext
 }
 
 /** What to do after a recogniser error. Pure: no Android types, no clock. */
 object SttPolicy {
-  const val MAX_ATTEMPTS = 4
+  const val MAX_ATTEMPTS = 5
 
   /** A "nothing heard" this soon after starting means the recogniser got no audio, not that the owner was silent. */
   const val FAST_FAIL_MS = 1_000L
   const val RETRY_DELAY_MS = 350L
 
-  fun next(code: Int, elapsedMs: Long, current: SttAttempt, localeCount: Int): SttNext {
-    val again = current.copy(number = current.number + 1)
+  /** Order the recognisers are tried in. */
+  val ORDER: List<SttStep> = SttStep.values().toList()
+
+  fun isLanguageError(code: Int) = code == SttErrors.LANGUAGE_NOT_SUPPORTED || code == SttErrors.LANGUAGE_UNAVAILABLE
+
+  /** The step after `step`, or null when it was the last. */
+  private fun following(step: SttStep): SttStep? = ORDER.getOrNull(ORDER.indexOf(step) + 1)
+
+  /** Moves to the next step without an error (it cannot run here: no on-device model, no Google service). */
+  fun skip(current: SttAttempt): SttNext {
+    val step = following(current.step)
+    return if (step == null || current.number >= MAX_ATTEMPTS) {
+      SttNext.GiveUp("language")
+    } else {
+      SttNext.Retry(SttAttempt(step, current.number + 1), 0L)
+    }
+  }
+
+  fun next(code: Int, elapsedMs: Long, current: SttAttempt): SttNext {
     val isLastTry = current.number >= MAX_ATTEMPTS
     return when {
       code == SttErrors.INSUFFICIENT_PERMISSIONS -> SttNext.GiveUp("permission")
       code == SttErrors.NO_MATCH || code == SttErrors.SPEECH_TIMEOUT ->
         if (!isLastTry && current.number < 2 && elapsedMs < FAST_FAIL_MS) {
-          SttNext.Retry(again, RETRY_DELAY_MS)
+          SttNext.Retry(current.copy(number = current.number + 1), RETRY_DELAY_MS)
         } else {
           SttNext.GiveUp("no_speech")
         }
+      isLanguageError(code) -> skip(current)
       isLastTry -> SttNext.GiveUp("error")
-      code == SttErrors.LANGUAGE_NOT_SUPPORTED || code == SttErrors.LANGUAGE_UNAVAILABLE ->
-        when {
-          current.localeIndex < localeCount - 1 ->
-            SttNext.Retry(again.copy(localeIndex = current.localeIndex + 1), 0L)
-          // Every language missing on-device: try the default recogniser from the first language again.
-          current.useOnDevice -> SttNext.Retry(again.copy(localeIndex = 0, useOnDevice = false), 0L)
-          else -> SttNext.GiveUp("error")
-        }
       // Busy, audio, client, server, disconnected, network, unknown: the recogniser or the microphone
       // was not ready. Move off the on-device recogniser first, then retry the same one.
-      else -> SttNext.Retry(again.copy(useOnDevice = false), RETRY_DELAY_MS)
+      else -> {
+        val step = if (current.step.useOnDevice) following(current.step) ?: current.step else current.step
+        SttNext.Retry(SttAttempt(step, current.number + 1), RETRY_DELAY_MS)
+      }
     }
+  }
+}
+
+/** Picks the recognition language from what the phone reports. Pure. */
+object SttLanguages {
+  private val PREFERRED = listOf("en-ZA", "en-GB", "en-US")
+
+  private fun norm(tag: String) = tag.replace('_', '-')
+
+  /** en-ZA, en-GB, en-US, any other `en-*`, else null (let the device choose). */
+  fun choose(candidates: Collection<String>): String? {
+    val tags = candidates.map(::norm)
+    return PREFERRED.firstOrNull { p -> tags.any { it.equals(p, ignoreCase = true) } }
+      ?: tags.firstOrNull { it.startsWith("en-", ignoreCase = true) || it.equals("en", ignoreCase = true) }
   }
 }
 

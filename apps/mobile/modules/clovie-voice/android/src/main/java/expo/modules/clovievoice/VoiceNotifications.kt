@@ -82,6 +82,24 @@ class VoiceNotifications(private val context: Context, private val config: Voice
     }
   }
 
+  /** A quiet note that an English speech model is being fetched for offline use. */
+  fun speechDownloading() {
+    val notification = NotificationCompat.Builder(context, LISTENING_CHANNEL)
+      .setSmallIcon(android.R.drawable.stat_sys_download)
+      .setContentTitle("Clovie")
+      .setContentText("Clovie is downloading English speech for offline use")
+      .setPriority(NotificationCompat.PRIORITY_LOW)
+      .setSilent(true)
+      .setAutoCancel(true)
+      .setTimeoutAfter(120_000L)
+      .build()
+    try {
+      NotificationManagerCompat.from(context).notify(SPEECH_DOWNLOAD_NOTIFICATION_ID, notification)
+    } catch (_: SecurityException) {
+      // POST_NOTIFICATIONS revoked.
+    }
+  }
+
   /** The app deep link (scheme://voice?text=...) for a spoken command. */
   fun deepLink(transcript: String): Intent {
     val uri = Uri.Builder()
@@ -159,6 +177,7 @@ class VoiceNotifications(private val context: Context, private val config: Voice
     const val LISTENING_NOTIFICATION_ID = 4101
     private const val RESULT_NOTIFICATION_ID = 4102
     private const val READY_NOTIFICATION_ID = 4103
+    private const val SPEECH_DOWNLOAD_NOTIFICATION_ID = 4104
     private const val LISTENING_CHANNEL = "clovie_voice_listening"
     private const val RESULT_CHANNEL = "clovie_voice_result"
     private const val REQUEST_STOP = 1
