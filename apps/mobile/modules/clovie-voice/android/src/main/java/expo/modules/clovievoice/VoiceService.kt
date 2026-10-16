@@ -39,6 +39,8 @@ class VoiceService : Service() {
   private lateinit var policy: HandsFreePolicy
   private lateinit var notifications: VoiceNotifications
   private lateinit var speech: SpeechCapture
+  private var clip: ClipCapture? = null
+  private var clipFile: java.io.File? = null
   private lateinit var overlay: VoiceOverlay
   private lateinit var feedback: VoiceFeedback
   private var gate = WakeWordGate()
@@ -217,9 +219,73 @@ class VoiceService : Service() {
     }
     Log.i(TAG, "overlay shown=$hasOverlay")
     feedback.ignite() // chime and haptic tick, in step with the entrance
-    // The wake-word recorder is already stopped and released; the short delay lets the audio HAL
-    // hand the microphone over before the recogniser asks for it.
+    // The wake-word recorder is already stopped and released (listener == null).
+    if (CloudStt.isEnabled(this)) startClip() else startRecogniser()
+  }
+
+  /** Android's SpeechRecognizer; the short delay lets the audio HAL hand the microphone over. */
+  private fun startRecogniser() {
+    Log.i(TAG, "stt path=recogniser wakeRecorderReleased=${listener == null} handoffMs=$MIC_HANDOFF_MS")
+    if (hasOverlay) overlay.setState("listening")
     speech.listen(MIC_HANDOFF_MS, onStarted = VoiceTimings::sttStarted, onDone = ::onTranscript)
+  }
+
+  /** Our own capture (VAD-ended WAV), transcribed by the app through the backend. */
+  private fun startClip() {
+    Log.i(TAG, "stt path=clip")
+    VoiceTimings.sttStarted()
+    val capture = ClipCapture(this) { overlay.pushLevel(it) }
+    clip = capture
+    capture.start(::onClip)
+  }
+
+  private fun onClip(result: ClipResult) {
+    if (isDestroyed) return
+    clip = null
+    VoiceTimings.sttFinished()
+    when (result) {
+      is ClipResult.NoSpeech -> showOutcome(CommandOutcome("error", NOT_HEARD))
+      is ClipResult.Failed -> {
+        Log.w(TAG, "clip capture failed: falling back to the recogniser")
+        startRecogniser()
+      }
+      is ClipResult.Captured -> transcribeClip(result.file)
+    }
+  }
+
+  private fun transcribeClip(file: java.io.File) {
+    clipFile = file
+    if (hasOverlay) overlay.setState("processing")
+    VoiceTimings.commandStarted()
+    val id = VoiceCommandBridge.register(VoiceCommandBridge.CLIP_TIMEOUT_MS, "fallback", ::onClipOutcome)
+    try {
+      startService(
+        Intent(this, VoiceCommandTaskService::class.java)
+          .putExtra(VoiceCommandTaskService.EXTRA_ID, id)
+          .putExtra(VoiceCommandTaskService.EXTRA_CLIP_PATH, file.absolutePath)
+      )
+    } catch (_: Exception) {
+      VoiceCommandBridge.complete(id, CommandOutcome("fallback", ""))
+    }
+  }
+
+  /** The clip is uploaded (or has failed) by now: delete it. A failed upload falls back to the recogniser, once. */
+  private fun onClipOutcome(outcome: CommandOutcome) {
+    deleteClip()
+    if (isDestroyed) return
+    if (outcome.status == "fallback") {
+      Log.w(TAG, "cloud transcription failed: falling back to the recogniser")
+      startRecogniser()
+      return
+    }
+    lastTranscript = outcome.transcript
+    if (hasOverlay && outcome.transcript.isNotEmpty()) overlay.setTranscript(outcome.transcript)
+    showOutcome(outcome)
+  }
+
+  private fun deleteClip() {
+    clipFile?.delete()
+    clipFile = null
   }
 
   private fun onTranscript(result: SttOutcome) {
@@ -236,7 +302,7 @@ class VoiceService : Service() {
       overlay.setState("processing")
     }
     VoiceTimings.commandStarted()
-    val id = VoiceCommandBridge.register(::showOutcome)
+    val id = VoiceCommandBridge.register(onOutcome = ::showOutcome)
     try {
       startService(
         Intent(this, VoiceCommandTaskService::class.java)
@@ -377,6 +443,9 @@ class VoiceService : Service() {
 
   private fun cleanup() {
     speech.cancel()
+    clip?.cancel()
+    clip = null
+    deleteClip()
     feedback.cancel()
     main.removeCallbacksAndMessages(null)
     VoiceCommandBridge.cancelAll()

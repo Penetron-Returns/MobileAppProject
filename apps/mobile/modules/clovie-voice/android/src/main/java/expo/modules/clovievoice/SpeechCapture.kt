@@ -45,6 +45,8 @@ class SpeechCapture(
   private var attempt = SttAttempt(SttStep.ON_DEVICE)
   private var startedAt = 0L
   private var hasTriggeredDownload = false
+  private var maxRmsDb = Float.NEGATIVE_INFINITY
+  private var heardSpeechStart = false
   private val watchdog = Runnable {
     Log.w(TAG, "stt watchdog fired elapsedMs=${elapsed()}")
     finish(null, "timeout")
@@ -61,6 +63,8 @@ class SpeechCapture(
     this.onDone = onDone
     attempt = SttAttempt(SttStep.ON_DEVICE)
     startedAt = SystemClock.elapsedRealtime()
+    maxRmsDb = Float.NEGATIVE_INFINITY
+    heardSpeechStart = false
     main.postDelayed(watchdog, LISTEN_TIMEOUT_MS)
     main.postDelayed(startAttempt, startDelayMs)
   }
@@ -142,7 +146,7 @@ class SpeechCapture(
       Log.w(TAG, "stt startListening threw ${e.javaClass.simpleName}")
       return handleError(SttErrors.CLIENT)
     }
-    Log.i(TAG, "stt start attempt=${attempt.number} step=$step locale=${locale ?: "device"}")
+    Log.i(TAG, "stt start attempt=${attempt.number} step=$step locale=${locale ?: "device"} ${diagnostics()}")
     onStarted?.invoke()
     onStarted = null
   }
@@ -195,10 +199,30 @@ class SpeechCapture(
 
   private fun elapsed() = SystemClock.elapsedRealtime() - startedAt
 
+  /**
+   * To settle why the recogniser hears nothing while our AudioRecord does: the peak level the
+   * recogniser itself saw (-inf = it never reported one), whether it detected speech starting, and
+   * who else holds the microphone. A client "silenced" by Android (API 29+) gets zeros.
+   */
+  private fun diagnostics(): String {
+    val maxRms = if (maxRmsDb == Float.NEGATIVE_INFINITY) "none" else "%.1f".format(java.util.Locale.US, maxRmsDb)
+    return "maxRmsDb=$maxRms beganSpeech=$heardSpeechStart recordings=${recordingClients()}"
+  }
+
+  private fun recordingClients(): String =
+    try {
+      val manager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+      val configs = manager.activeRecordingConfigurations
+      val silenced = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) configs.count { it.isClientSilenced } else -1
+      "${configs.size}(silenced=$silenced,sources=${configs.map { it.clientAudioSource }})"
+    } catch (_: RuntimeException) {
+      "unknown"
+    }
+
   private fun handleError(code: Int) {
     if (onDone == null) return
     val sinceStart = elapsed()
-    Log.w(TAG, "stt error code=$code name=${SttErrors.name(code)} elapsedMs=$sinceStart attempt=${attempt.number}")
+    Log.w(TAG, "stt error code=$code name=${SttErrors.name(code)} elapsedMs=$sinceStart attempt=${attempt.number} ${diagnostics()}")
     advance(SttPolicy.next(code, sinceStart, attempt))
   }
 
@@ -223,7 +247,7 @@ class SpeechCapture(
     destroyRecognizer()
     val transcript = text?.trim()?.takeIf { it.isNotEmpty() }
     val outcome = if (transcript != null) SttOutcome(transcript, "ok") else SttOutcome(null, reason)
-    Log.i(TAG, "stt finish reason=${outcome.reason} elapsedMs=${elapsed()}")
+    Log.i(TAG, "stt finish reason=${outcome.reason} elapsedMs=${elapsed()} ${diagnostics()}")
     done(outcome)
   }
 
@@ -248,8 +272,16 @@ class SpeechCapture(
     override fun onError(error: Int) = handleError(error)
 
     override fun onReadyForSpeech(params: Bundle?) = Unit
-    override fun onBeginningOfSpeech() = Unit
-    override fun onRmsChanged(rmsdB: Float) = onLevel(rmsdB)
+    override fun onBeginningOfSpeech() {
+      heardSpeechStart = true
+      Log.i(TAG, "stt beginning of speech elapsedMs=${elapsed()}")
+    }
+
+    override fun onRmsChanged(rmsdB: Float) {
+      if (rmsdB > maxRmsDb) maxRmsDb = rmsdB
+      onLevel(rmsdB)
+    }
+
     override fun onBufferReceived(buffer: ByteArray?) = Unit
     override fun onEndOfSpeech() = Unit
     override fun onPartialResults(partialResults: Bundle?) = Unit

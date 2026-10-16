@@ -27,7 +27,13 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   isLauncherIconEnabled(): boolean;
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
-  completeCommand(id: string, status: string, message: string): boolean;
+  completeCommand(
+    id: string,
+    status: string,
+    message: string,
+    transcript: string,
+  ): boolean;
+  setCloudStt(enabled: boolean): void;
   getTimings(): Record<string, number | null>;
 }
 
@@ -97,7 +103,19 @@ export function completeCommand(
   id: string,
   outcome: ClovieVoiceCommandOutcome,
 ): boolean {
-  return native?.completeCommand(id, outcome.status, outcome.message) ?? false;
+  return (
+    native?.completeCommand(
+      id,
+      outcome.status,
+      outcome.message,
+      outcome.transcript ?? '',
+    ) ?? false
+  );
+}
+
+/** Tells the service whether to capture its own clip for backend transcription. */
+export function setCloudStt(enabled: boolean): void {
+  native?.setCloudStt(enabled);
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */

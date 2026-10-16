@@ -8,14 +8,18 @@ import i18n from '@/lib/i18n';
 import { qk, queryClient } from '@/lib/query';
 import { dayRangeUtc, todayISO } from '@/lib/time';
 
-import { completeCommand } from './clovieVoice';
-import { runVoiceCommandHeadless } from './headless';
+import { completeCommand, setCloudStt } from './clovieVoice';
+import { runVoiceClipHeadless, runVoiceCommandHeadless } from './headless';
+import { isCloudSttEnabled, transcribeClip } from './transcribe';
 
 const TASK_KEY = 'ClovieVoiceCommand';
 
 interface TaskData {
   id: string;
-  transcript: string;
+  /** A transcript from Android's recogniser, or... */
+  transcript?: string;
+  /** ...a WAV clip the service captured, for the backend to transcribe. */
+  clipPath?: string;
 }
 
 async function loadToday() {
@@ -39,18 +43,27 @@ async function loadToday() {
  */
 export function registerVoiceHeadlessTask(): void {
   if (Platform.OS !== 'android') return;
+  // The tile, widget and side key start the service without JS: keep its copy of the flag current.
+  setCloudStt(isCloudSttEnabled);
   AppRegistry.registerHeadlessTask(TASK_KEY, () => async (data: TaskData) => {
-    const outcome = await runVoiceCommandHeadless(data.transcript, {
+    const deps = {
       now: () => new Date(),
-      t: (key, values) => i18n.t(key, values) as string,
+      t: (key: string, values?: Record<string, unknown>) =>
+        i18n.t(key, values) as string,
       isSignedIn: async () => (await getAuthToken()) !== null,
       loadToday,
-      checkIn: async (id) => {
+      checkIn: async (id: string) => {
         await api.checkInAppointment(id, newIdempotencyKey());
         void queryClient.invalidateQueries({ queryKey: qk.appointments });
         void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
       },
-    });
+    };
+    const outcome = data.clipPath
+      ? await runVoiceClipHeadless(data.clipPath, {
+          ...deps,
+          transcribe: transcribeClip,
+        })
+      : await runVoiceCommandHeadless(data.transcript ?? '', deps);
     completeCommand(data.id, outcome);
   });
 }

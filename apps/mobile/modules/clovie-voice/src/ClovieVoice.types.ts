@@ -36,8 +36,10 @@ export interface ClovieVoiceStartOptions {
  * message in the overlay; "open_app" offers an Open Clovie button (the owner finishes in the app).
  */
 export interface ClovieVoiceCommandOutcome {
-  status: 'done' | 'error' | 'open_app';
+  status: 'done' | 'error' | 'open_app' | 'fallback';
   message: string;
+  /** What was heard, when the app transcribed a clip. */
+  transcript?: string;
 }
 
 /** Why hands-free is (not) listening right now. */

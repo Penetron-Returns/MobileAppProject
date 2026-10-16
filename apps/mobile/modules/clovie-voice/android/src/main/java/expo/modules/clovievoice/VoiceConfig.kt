@@ -71,3 +71,16 @@ data class VoiceConfig(
       else context.assets.open(spec).use { it.readBytes() }
   }
 }
+
+/** The "cloud speech-to-text" flag the app sets from `EXPO_PUBLIC_VOICE_CLOUD_STT`; persisted so a service started without JS honours it. */
+object CloudStt {
+  private const val PREFS = "clovie_voice_cloud_stt"
+  private const val KEY = "enabled"
+
+  fun isEnabled(context: Context): Boolean =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, false)
+
+  fun setEnabled(context: Context, enabled: Boolean) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, enabled).apply()
+  }
+}

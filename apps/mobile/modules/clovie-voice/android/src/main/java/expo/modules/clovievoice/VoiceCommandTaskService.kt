@@ -24,5 +24,8 @@ class VoiceCommandTaskService : HeadlessJsTaskService() {
   companion object {
     const val EXTRA_ID = "id"
     const val EXTRA_TRANSCRIPT = "transcript"
+
+    /** Absolute path of a WAV clip for the app to transcribe (instead of `transcript`). */
+    const val EXTRA_CLIP_PATH = "clipPath"
   }
 }

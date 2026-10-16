@@ -124,9 +124,13 @@ class ClovieVoiceModule : Module() {
     }
 
     // Called by the app's headless JS task when a spoken command has run.
-    Function("completeCommand") { id: String, status: String, message: String ->
-      VoiceCommandBridge.complete(id, CommandOutcome(status, message))
+    Function("completeCommand") { id: String, status: String, message: String, transcript: String ->
+      VoiceCommandBridge.complete(id, CommandOutcome(status, message, transcript))
     }
+
+    // Cloud transcription of our own captured clip (EXPO_PUBLIC_VOICE_CLOUD_STT). Stored, because the
+    // tile, widget and side key start the service without any JS running.
+    Function("setCloudStt") { enabled: Boolean -> CloudStt.setEnabled(context, enabled) }
 
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
