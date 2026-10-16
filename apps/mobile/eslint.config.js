@@ -42,6 +42,7 @@ export const appImportRestrictions = {
 
 export default [
   ...baseConfig,
+  { ignores: ['modules/**/android/build/**'] },
   {
     files: ['src/**/*.{ts,tsx}'],
     rules: appImportRestrictions,

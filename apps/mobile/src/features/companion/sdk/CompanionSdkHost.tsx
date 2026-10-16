@@ -6,8 +6,8 @@ import {
   type CompanionSheetHandle,
   type CompanionTransport,
 } from '@nerova/react-native';
-import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { useEntitlements } from '@/features/plans/hooks';
 import { companionSdkEnabled } from '@/lib/env';
@@ -24,12 +24,6 @@ import { useSdkSessionProvider } from './useSdkSessionProvider';
 
 /** Where the hosted WhatsApp connect page returns to (`app.json` scheme `bookingadmin`). */
 export const WHATSAPP_RETURN_URL = 'bookingadmin://companion/whatsapp-return';
-
-/**
- * The resting avatar is parked off-screen: the Clovie dome above the tab bar is
- * the closed-state entry, so the sheet draws its character only once open.
- */
-const PARKED_REST_INSET = { right: -240, bottom: -240 };
 
 interface SheetHandle {
   open: (options?: OpenCompanionOptions) => void;
@@ -55,7 +49,6 @@ const PersistentSheet = React.forwardRef<
   const labels = useSdkLabels();
   const sheetRef = React.useRef<CompanionSheetHandle>(null);
   const [context, setContext] = React.useState<AppointmentContext | null>(null);
-  const [isOpen, setIsOpen] = React.useState(false);
 
   React.useImperativeHandle(
     ref,
@@ -81,18 +74,13 @@ const PersistentSheet = React.forwardRef<
       <CompanionSheet
         ref={sheetRef}
         defaultDetent="rest"
-        restInset={PARKED_REST_INSET}
+        restAvatar="hidden"
         context={context}
         onContextChange={setContext}
-        onOpen={() => setIsOpen(true)}
-        onClose={() => setIsOpen(false)}
-        avatar="hidden"
         renderAvatar={({ state, size, placement }) =>
           placement === 'rest' ? null : <SdkClovie state={state} size={size} />
         }
       />
-      {/* Light icons over the dim; dark mode already has them. */}
-      {isOpen && !isDark ? <StatusBar style="light" /> : null}
     </CompanionProvider>
   );
 });
@@ -118,7 +106,13 @@ function EnabledHost({
     <CompanionSheetControlProvider value={control}>
       {children}
       {isEntitled ? (
-        <PersistentSheet ref={sheetRef} transport={transport} />
+        <View
+          testID="companion-sdk-layer"
+          pointerEvents="box-none"
+          style={StyleSheet.absoluteFill}
+        >
+          <PersistentSheet ref={sheetRef} transport={transport} />
+        </View>
       ) : null}
     </CompanionSheetControlProvider>
   );

@@ -1,6 +1,9 @@
-import { RADII, type DepthTokens } from '@booking/ui';
+import { RADII, TYPE_SCALE, type DepthTokens } from '@booking/ui';
 import type { Appearance } from '@nerova/react-native';
 import { Platform } from 'react-native';
+
+/** Dynamic Type cap for the sheet: the SDK's own default, as our tokens set none. */
+export const COMPANION_MAX_FONT_SIZE_MULTIPLIER = 1.3;
 
 /**
  * Maps our Depth tokens onto the SDK's `Appearance`, so the SDK sheet wears
@@ -31,6 +34,22 @@ export function buildCompanionAppearance(
       success: colors.success,
       warning: colors.amber,
       destructive: colors.red,
+    },
+    type: {
+      body: {
+        fontSize: TYPE_SCALE.title.size,
+        lineHeight: TYPE_SCALE.title.lineHeight,
+      },
+      caption: {
+        fontSize: TYPE_SCALE.subtitle.size,
+        lineHeight: TYPE_SCALE.subtitle.lineHeight,
+      },
+      footnote: {
+        fontSize: TYPE_SCALE.subtitle.size,
+        lineHeight: TYPE_SCALE.subtitle.lineHeight,
+      },
+      allowFontScaling: true,
+      maxFontSizeMultiplier: COMPANION_MAX_FONT_SIZE_MULTIPLIER,
     },
     radii: { sheet: RADII.floating, card: RADII.hero, control: RADII.inset },
     depth: 'raised',
