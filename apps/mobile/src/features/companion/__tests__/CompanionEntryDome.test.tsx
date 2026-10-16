@@ -17,11 +17,11 @@ jest.mock('@/features/brand/ClovieAnimated', () => ({
   ClovieAnimated: () => null,
 }));
 
-function pressDome(isAvailable: boolean) {
+function pressDome(isAvailable: boolean, hasFailed = false) {
   const open = jest.fn();
   const tree = mount(
     <CompanionSheetControlProvider
-      value={{ isAvailable, open, close: jest.fn() }}
+      value={{ isAvailable, hasFailed, open, close: jest.fn() }}
     >
       <CompanionEntryDome />
     </CompanionSheetControlProvider>,
@@ -41,6 +41,12 @@ describe('CompanionEntryDome', () => {
 
   it('pushes the companion route when no persistent sheet is mounted', () => {
     const open = pressDome(false);
+    expect(open).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/companion');
+  });
+
+  it('never opens a dead sheet: an unavailable sheet falls back to the route', () => {
+    const open = pressDome(false, true);
     expect(open).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/companion');
   });

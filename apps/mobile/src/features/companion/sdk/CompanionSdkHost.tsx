@@ -5,12 +5,13 @@ import {
   type AppointmentContext,
   type CompanionSheetHandle,
   type CompanionTransport,
+  useCompanion,
 } from '@nerova/react-native';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useEntitlements } from '@/features/plans/hooks';
-import { companionSdkEnabled } from '@/lib/env';
+import { companionSdkEnabled, nerovaApi } from '@/lib/env';
 
 import { buildCompanionAppearance } from './companionAppearance';
 import {
@@ -30,6 +31,14 @@ interface SheetHandle {
   close: () => void;
 }
 
+/** Reports whether the SDK can serve the sheet (`unavailable`: account not ready, outage). */
+function StatusBridge({ onChange }: { onChange: (isFailed: boolean) => void }) {
+  const { status } = useCompanion();
+  const isFailed = status === 'unavailable';
+  React.useEffect(() => onChange(isFailed), [isFailed, onChange]);
+  return null;
+}
+
 /**
  * Mounted once for the whole signed-in shell so the session is minted and the
  * thread loaded before the owner ever taps Clovie. The sheet starts at `rest`
@@ -37,8 +46,11 @@ interface SheetHandle {
  */
 const PersistentSheet = React.forwardRef<
   SheetHandle,
-  { transport?: CompanionTransport }
->(function PersistentSheet({ transport }, ref) {
+  {
+    transport?: CompanionTransport;
+    onFailedChange: (isFailed: boolean) => void;
+  }
+>(function PersistentSheet({ transport, onFailedChange }, ref) {
   const { isDark } = useAppColorScheme();
   const depth = useDepth();
   const appearance = React.useMemo(
@@ -66,11 +78,13 @@ const PersistentSheet = React.forwardRef<
   return (
     <CompanionProvider
       sessionProvider={sessionProvider}
+      api={nerovaApi}
       whatsAppReturnUrl={WHATSAPP_RETURN_URL}
       appearance={appearance}
       labels={labels}
       transport={transport}
     >
+      <StatusBridge onChange={onFailedChange} />
       <CompanionSheet
         ref={sheetRef}
         defaultDetent="rest"
@@ -94,13 +108,15 @@ function EnabledHost({
 }) {
   const isEntitled = useEntitlements().has('companion');
   const sheetRef = React.useRef<SheetHandle>(null);
+  const [hasFailed, setHasFailed] = React.useState(false);
   const control = React.useMemo<CompanionSheetControl>(
     () => ({
-      isAvailable: isEntitled,
+      isAvailable: isEntitled && !hasFailed,
+      hasFailed: isEntitled && hasFailed,
       open: (options) => sheetRef.current?.open(options),
       close: () => sheetRef.current?.close(),
     }),
-    [isEntitled],
+    [isEntitled, hasFailed],
   );
   return (
     <CompanionSheetControlProvider value={control}>
@@ -111,7 +127,11 @@ function EnabledHost({
           pointerEvents="box-none"
           style={StyleSheet.absoluteFill}
         >
-          <PersistentSheet ref={sheetRef} transport={transport} />
+          <PersistentSheet
+            ref={sheetRef}
+            transport={transport}
+            onFailedChange={setHasFailed}
+          />
         </View>
       ) : null}
     </CompanionSheetControlProvider>

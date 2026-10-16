@@ -1,3 +1,4 @@
+import { CompanionError } from '@nerova/react-native';
 import { createMockTransport } from '@nerova/react-native/testing';
 import * as React from 'react';
 import { StyleSheet, TextInput } from 'react-native';
@@ -15,9 +16,13 @@ jest.mock('@/lib/api', () => ({
 }));
 
 let mockEnabled = true;
+let mockApi: 'legacy' | 'v1' = 'legacy';
 jest.mock('@/lib/env', () => ({
   get companionSdkEnabled() {
     return mockEnabled;
+  },
+  get nerovaApi() {
+    return mockApi;
   },
 }));
 
@@ -41,11 +46,14 @@ function Probe() {
   return null;
 }
 
-function mountSdk() {
+function mountSdk(
+  prepare?: (t: ReturnType<typeof createMockTransport>) => void,
+) {
   const transport = createMockTransport({
     setupCompleted: true,
     whatsAppConnected: true,
   });
+  prepare?.(transport);
   const tree = mount(
     <CompanionSdkHost transport={transport}>
       <Probe />
@@ -72,6 +80,7 @@ async function settle() {
 
 beforeEach(() => {
   mockEnabled = true;
+  mockApi = 'legacy';
   mockHasCompanion = true;
   mockClovieStates.length = 0;
   mockCreate.mockReset();
@@ -200,6 +209,48 @@ describe('CompanionSdkHost', () => {
       tree.root.findAll((n) => n.props.testID === 'companion-clovie')[0].props
         .accessibilityElementsHidden,
     ).toBe(true);
+  });
+
+  it('mints a legacy session with only the colour mode and returns url and expiry', async () => {
+    mountSdk();
+    await settle();
+
+    expect(mockCreate.mock.calls[0][0]).toEqual({ color_mode: 'light' });
+  });
+
+  it('mints a native session for v1 and passes id, state, expiry and url on', async () => {
+    mockApi = 'v1';
+    mockCreate.mockResolvedValue({
+      session_id: 'sess-1',
+      state: 'st-1',
+      url: 'https://api.nerova.si/x',
+      expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+    });
+    const { transport } = mountSdk();
+    await settle();
+
+    expect(mockCreate.mock.calls[0][0]).toEqual({
+      color_mode: 'light',
+      platform: 'native',
+    });
+    const credentials = transport.controls.calls[0].credentials;
+    expect(credentials).toMatchObject({ sessionId: 'sess-1', state: 'st-1' });
+  });
+
+  it('marks the sheet unavailable, not dead-open, when the account is not ready', async () => {
+    const { tree } = mountSdk((t) =>
+      t.controls.failNext(
+        'getSession',
+        new CompanionError('account_not_ready', 'not ready', { status: 409 }),
+      ),
+    );
+    await settle();
+
+    expect(control.hasFailed).toBe(true);
+    expect(control.isAvailable).toBe(false);
+    expect(
+      tree.root.findAll((n) => n.props.testID === 'sheet-surface'),
+    ).not.toHaveLength(0);
   });
 
   it('mounts no sheet when the plan has no companion', async () => {

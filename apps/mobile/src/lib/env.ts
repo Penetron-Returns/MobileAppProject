@@ -32,6 +32,15 @@ export const companionOrigin: string =
 export const companionSdkEnabled: boolean =
   process.env.EXPO_PUBLIC_COMPANION_SDK === '1';
 
+/**
+ * Which Nerova companion API the SDK talks to: 'v1' (native sessions, the new
+ * versioned API) or anything else, including unset, for 'legacy' (the owner-chat
+ * routes the iframe uses). v1 is not live yet. Optional, so not in `env`.
+ */
+export type NerovaApi = 'legacy' | 'v1';
+export const nerovaApi: NerovaApi =
+  process.env.EXPO_PUBLIC_NEROVA_API === 'v1' ? 'v1' : 'legacy';
+
 export type EnvKey = keyof typeof env;
 
 const ENV_NAMES: Record<EnvKey, string> = {
