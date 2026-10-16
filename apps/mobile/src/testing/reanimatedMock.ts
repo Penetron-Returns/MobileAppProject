@@ -22,6 +22,7 @@ function createReanimatedMock() {
     withSpring: (value: unknown) => value,
     interpolate: (value: number) => value,
     runOnJS: (fn: unknown) => fn,
+    useAnimatedKeyboard: () => ({ height: { value: 0 }, state: { value: 0 } }),
   } as Record<string | symbol, unknown>;
   return new Proxy(mock, {
     get: (target, key) => (key in target ? target[key] : noop),

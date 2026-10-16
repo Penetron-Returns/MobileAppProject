@@ -241,7 +241,52 @@
       "title": "Couldn't load today",
       "description": "Check your connection and try again."
     },
-    "loading": "Loading today"
+    "loading": "Loading today",
+    "ai": {
+      "openClovie": "Talk to Clovie",
+      "now": {
+        "working": "Clovie is working…",
+        "calm": "Clovie is looking after today",
+        "quiet": "All quiet today",
+        "with": "With {{name}} until {{time}}",
+        "next": "Next: {{name}} at {{time}}"
+      },
+      "ring": {
+        "label": "booked today",
+        "aria": "{{percent}} percent of today's time is booked",
+        "ariaNone": "Nothing is bookable today",
+        "none": "–"
+      },
+      "numbers": "{{amount}} so far · {{count}} booked by Clovie",
+      "needs": {
+        "none": "Nothing needs you",
+        "title": "Needs you · {{count}}",
+        "approve": "Approve",
+        "notNow": "Not now",
+        "approveLabel": "Approve: {{title}}",
+        "notNowLabel": "Not now: {{title}}",
+        "approveFailed": "Couldn't approve that",
+        "waiting_one": "{{count}} thing is waiting for later",
+        "waiting_other": "{{count}} things are waiting for later",
+        "waitingLabel": "Open Clovie to review what is waiting"
+      },
+      "soFar": {
+        "title": "Today so far",
+        "morning": "This morning",
+        "afternoon": "This afternoon",
+        "nothingYet": "Nothing yet",
+        "nothingChanged": "Nothing has changed yet",
+        "booked": "booked {{count}}",
+        "moved": "moved {{count}}",
+        "cancelled": "cancelled {{count}}",
+        "entry": {
+          "booked": "Booked {{name}} for {{when}}",
+          "moved": "Moved {{name}} to {{when}}",
+          "cancelled": "Cancelled {{name}}'s {{when}}",
+          "byClovie": "{{text}} (Clovie)"
+        }
+      }
+    }
   },
   "noBusiness": {
     "title": "No business linked",
@@ -1384,6 +1429,8 @@
       "retry": "Retry",
       "removeContext": "Remove context",
       "working": "Working",
+      "toolSummaryMany": "{label} · {count} steps",
+      "microphone": "Speak",
       "reconnecting": "Reconnecting...",
       "offline": "You are offline. {name} is back when the connection is.",
       "offlineNoName": "You are offline. Clovie is back when the connection is.",
