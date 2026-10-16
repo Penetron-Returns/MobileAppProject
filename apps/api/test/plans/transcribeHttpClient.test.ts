@@ -21,7 +21,7 @@ describe('NerovaClient.transcribe (HTTP)', () => {
   it('posts multipart to the account transcriptions URL with the bearer key and an audio field only', async () => {
     const f = fakeFetch(ok);
     const result = await createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl }).transcribe('acct_1', file);
-    expect(result).toEqual({ text: 'hello there', durationMs: 1800, language: 'af' });
+    expect(result).toEqual({ text: 'hello there', durationMs: 1800, language: 'af', timing: { providerMs: 412.5, totalMs: null } });
     const call = f.calls[0]!;
     expect(call.url).toBe('https://api.nerova.si/v1/accounts/acct_1/transcriptions');
     expect(call.init.method).toBe('POST');
@@ -33,6 +33,12 @@ describe('NerovaClient.transcribe (HTTP)', () => {
     const part = form.get('audio') as File;
     expect(part.name).toBe('clip.wav');
     expect(part.size).toBe(64);
+  });
+
+  it('reads the provider and total entries of the Nerova Server-Timing header', async () => {
+    const f = fakeFetch(() => new Response(JSON.stringify({ text: 'x', durationMs: 1, language: 'en' }), { status: 200, headers: { 'server-timing': 'provider;dur=612.5, total;dur=801' } }));
+    const result = await createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl }).transcribe('acct_1', file);
+    expect(result.timing).toEqual({ providerMs: 612.5, totalMs: 801 });
   });
 
   it('sends language only when given', async () => {

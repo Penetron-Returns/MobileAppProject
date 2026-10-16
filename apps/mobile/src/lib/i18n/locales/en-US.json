@@ -201,6 +201,13 @@
     "footerNeeds": "Replying is free for 24 hours after a customer writes.",
     "footerAll": "Conversations on WhatsApp."
   },
+  "approvals": {
+    "notification": {
+      "approve": "Approve",
+      "decline": "Decline",
+      "failed": "Could not send your answer to Clovie. Open Clovie to decide."
+    }
+  },
   "attendance": {
     "notification": {
       "came": "Came",
@@ -1593,6 +1600,25 @@
     "noNameMatch": "No appointment for {{name}} is due right now.",
     "noCompanion": "Your plan does not include the companion.",
     "failed": "Could not check in. Try again from Today.",
+    "ask": {
+      "sayYesOrNo": "Say yes or no.",
+      "several": "I have {{count}} changes to confirm, one at a time.",
+      "next": "Next.",
+      "noReply": "I don't have an answer for that.",
+      "failed": "I couldn't reach Clovie. Try again in a moment.",
+      "busy": "Clovie is busy. Try again in a moment.",
+      "notReady": "Clovie isn't set up yet. Open the app to finish setup.",
+      "declined": "Okay, I won't.",
+      "expired": "That one has expired. Ask me again.",
+      "refused": "That can't be changed any more.",
+      "approvalFailed": "I couldn't do that. Try again.",
+      "done": {
+        "booked": "Done. Booked.",
+        "moved": "Done. Moved.",
+        "cancelled": "Done. Cancelled.",
+        "generic": "Done."
+      }
+    },
     "replies": {
       "section": "Replies",
       "intro": "How Clovie answers when you talk to it. Handy when your hands are busy or reading is hard.",

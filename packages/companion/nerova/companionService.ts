@@ -18,7 +18,7 @@ import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { PlanRepository } from '@booking/features/ports.ts';
-import type { NerovaAccount, NerovaClient, TranscribeFile } from './client.ts';
+import type { NerovaAccount, NerovaClient, NerovaTranscription, TranscribeFile } from './client.ts';
 
 /** Nerova accepts idempotency keys of 8 to 128 characters. */
 const MAX_KEY_LENGTH = 128;
@@ -57,6 +57,20 @@ export interface TranscriptionResult {
   text: string;
   duration_ms: number;
   language: string | null;
+  /** Nerova's own time for the request (its `Server-Timing` total, else the provider time), ms; null when unknown. Not part of the public DTO. */
+  nerova_ms?: number | null;
+}
+
+/** How long a resolved Nerova account id is trusted for transcription before it is looked up again. */
+export const ACCOUNT_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function toTranscription(result: NerovaTranscription): TranscriptionResult {
+  return {
+    text: result.text,
+    duration_ms: result.durationMs,
+    language: result.language,
+    nerova_ms: result.timing?.totalMs ?? result.timing?.providerMs ?? null,
+  };
 }
 
 export interface CompanionServiceDeps {
@@ -215,12 +229,26 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     }
   }
 
+  /** Business id to resolved Nerova account id: a voice command should not pay a profile read and an account lookup each time. */
+  const transcribeAccounts = new Map<UUID, { accountId: string; expiresAt: number }>();
+
   async function transcribe(businessId: UUID, file: TranscribeFile, opts: { language?: string | undefined } = {}): Promise<TranscriptionResult> {
+    const hit = transcribeAccounts.get(businessId);
+    if (hit && hit.expiresAt > clock().getTime()) {
+      try {
+        return toTranscription(await nerova.transcribe(hit.accountId, file, opts));
+      } catch (error) {
+        // Nerova answers 404 (TRANSCRIPTION_UNAVAILABLE) for an account it no longer knows: forget it and resolve again.
+        if (!(error instanceof AppError) || error.code !== 'TRANSCRIPTION_UNAVAILABLE') throw error;
+        transcribeAccounts.delete(businessId);
+      }
+    }
     const profile = await plans.getProfile(businessId);
     const account = await resolveAccount(businessId, profile.nerovaAccountId);
     if (!account) throw notReady('account_not_found', 'connect_booking_system');
     const result = await nerova.transcribe(account.id, file, opts);
-    return { text: result.text, duration_ms: result.durationMs, language: result.language };
+    transcribeAccounts.set(businessId, { accountId: account.id, expiresAt: clock().getTime() + ACCOUNT_CACHE_TTL_MS });
+    return toTranscription(result);
   }
 
   return { createSession, getSetup, createWhatsAppConnectSession, transcribe, getOutcomes };

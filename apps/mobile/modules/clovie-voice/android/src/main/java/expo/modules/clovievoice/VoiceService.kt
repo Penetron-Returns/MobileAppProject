@@ -61,6 +61,10 @@ class VoiceService : Service() {
   private var isInteracting = false
   private var rearmFailures = 0
   private var dismissReason = "timeout"
+  /** The conversation so far (what JS left pending), the follow-up turns used, and whether the current capture is one. */
+  private var followUp = FollowUpState.NONE
+  private var followUpsDone = 0
+  private var isFollowUpTurn = false
   private val dismiss = Runnable {
     Log.i(TAG, "overlay dismissed reason=$dismissReason")
     stopSpeech()
@@ -211,6 +215,9 @@ class VoiceService : Service() {
 
   private fun startInteraction() {
     isInteracting = true
+    followUp = FollowUpState.NONE
+    followUpsDone = 0
+    isFollowUpTurn = false
     VoiceTimings.wake()
     VoiceState.update(VoiceStatus.BUSY)
     main.removeCallbacks(dismiss)
@@ -226,8 +233,30 @@ class VoiceService : Service() {
     feedback.ignite() // chime and haptic tick, in step with the entrance
     // Start the text-to-speech engine now: it takes a moment, and the answer should not wait for it.
     if (VoiceFeedbackSettings.isReadAloudEnabled(this)) speaker.warmUp()
+    warmUpBackend()
     // The wake-word recorder is already stopped and released (listener == null).
     if (CloudStt.isEnabled(this)) startClip() else startRecogniser()
+  }
+
+  /**
+   * While the owner is still speaking, opens the connection to our API (DNS, TLS, the Edge Function and its
+   * token lookup) and has the app's JS load today's bookings, so neither is on the path after the clip ends.
+   * Both are best effort and only when the cloud path is on.
+   */
+  private fun warmUpBackend() {
+    if (!CloudStt.isEnabled(this)) return
+    val credentials = VoiceTokenStore.forContext(this).read()
+    if (credentials != null) {
+      Thread({ VoiceTimings.external("pingMs", CloudTranscriber.warm(credentials)) }, "clovie-warm").start()
+    }
+    try {
+      startService(
+        Intent(this, VoiceCommandTaskService::class.java)
+          .putExtra(VoiceCommandTaskService.EXTRA_PREFETCH, true),
+      )
+    } catch (_: Exception) {
+      // The headless task starts again for the command itself.
+    }
   }
 
   /** Android's SpeechRecognizer; the short delay lets the audio HAL hand the microphone over. */
@@ -241,7 +270,8 @@ class VoiceService : Service() {
   private fun startClip() {
     Log.i(TAG, "stt path=clip")
     VoiceTimings.sttStarted()
-    val capture = ClipCapture(this) { overlay.pushLevel(it) }
+    val noSpeechMs = if (isFollowUpTurn) FollowUp.NO_SPEECH_MS else ClipVad.NO_SPEECH_MS
+    val capture = ClipCapture(this, noSpeechMs) { overlay.pushLevel(it) }
     clip = capture
     capture.start(::onClip)
   }
@@ -251,8 +281,8 @@ class VoiceService : Service() {
     clip = null
     VoiceTimings.sttFinished()
     when (result) {
-      is ClipResult.NoSpeech -> showOutcome(CommandOutcome("error", NOT_HEARD))
-      is ClipResult.Failed -> {
+      is ClipResult.NoSpeech -> if (isFollowUpTurn) endFollowUpQuietly() else showOutcome(CommandOutcome("error", NOT_HEARD))
+      is ClipResult.Failed -> if (isFollowUpTurn) endFollowUpQuietly() else {
         Log.w(TAG, "clip capture failed: falling back to the recogniser")
         startRecogniser()
       }
@@ -270,6 +300,7 @@ class VoiceService : Service() {
     enterProcessing()
     Thread({
       val result = CloudTranscriber.transcribe(credentials, file)
+      VoiceTimings.uploadFinished((result as? CloudResult.Text)?.timing ?: ServerTiming.NONE)
       main.post { onUploaded(result) }
     }, "clovie-upload").start()
   }
@@ -301,6 +332,8 @@ class VoiceService : Service() {
         Intent(this, VoiceCommandTaskService::class.java)
           .putExtra(VoiceCommandTaskService.EXTRA_ID, id)
           .putExtra(VoiceCommandTaskService.EXTRA_CLIP_PATH, file.absolutePath)
+          .putExtra(VoiceCommandTaskService.EXTRA_STARTED_AT, System.currentTimeMillis().toString())
+          .let(::withFollowUp)
       )
     } catch (_: Exception) {
       VoiceCommandBridge.complete(id, CommandOutcome("fallback", ""))
@@ -348,7 +381,9 @@ class VoiceService : Service() {
       startService(
         Intent(this, VoiceCommandTaskService::class.java)
           .putExtra(VoiceCommandTaskService.EXTRA_ID, id)
-          .putExtra(VoiceCommandTaskService.EXTRA_TRANSCRIPT, text),
+          .putExtra(VoiceCommandTaskService.EXTRA_TRANSCRIPT, text)
+          .putExtra(VoiceCommandTaskService.EXTRA_STARTED_AT, System.currentTimeMillis().toString())
+          .let(::withFollowUp),
       )
     } catch (_: Exception) {
       VoiceCommandBridge.complete(id, CommandOutcome("open_app", ""))
@@ -384,12 +419,19 @@ class VoiceService : Service() {
     // The sound for the state (the processing pulse stops here), then the spoken reply after it.
     val cue = CuePolicy.cueFor(if (isFinished) outcome.status else "request") ?: Cue.FAILURE
     feedback.result(cue)
-    val spoken = SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE)
+    val spoken = SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE, outcome.spoken)
+    // What JS says is pending (an approval just read aloud) is echoed back with the next turn; cleared otherwise.
+    followUp = FollowUpState.after(outcome)
+    val listenAgain = FollowUp.shouldListenAgain(outcome.status, outcome.expectsReply, followUpsDone, outcome.pendingRemaining)
     if (hasOverlay) {
       if (isFinished) {
         overlay.setMessage(if (outcome.message == NOT_HEARD) "" else outcome.message)
         overlay.setState(outcome.status)
         dismissReason = outcome.status
+        if (listenAgain) {
+          waitForSpeechThenListenAgain(cue, spoken)
+          return
+        }
         dismissAfterSpeech(cue, spoken, if (outcome.status == "error") ERROR_MS else RESULT_MS)
       } else {
         // JS could not finish it (or did not answer): the owner taps to continue in the app.
@@ -406,7 +448,53 @@ class VoiceService : Service() {
     } else {
       notifications.result("Clovie heard you", lastTranscript, lastTranscript)
     }
+    if (listenAgain) return waitForSpeechThenListenAgain(cue, spoken)
     speakAfterCue(cue, spoken) { main.postDelayed(::finishInteraction, 800L) }
+  }
+
+  // ---- follow-up: listen again after a spoken question, with no wake word ----
+
+  /**
+   * Speaks the reply, then listens for the answer. The watchdog ends the interaction if speech never reports back;
+   * it is cancelled once the capture starts (that is bounded by its own timeouts).
+   */
+  private fun waitForSpeechThenListenAgain(cue: Cue, spoken: String?) {
+    dismissReason = "follow_up_watchdog"
+    main.postDelayed(dismiss, RESULT_MS + MAX_SPEECH_WAIT_MS)
+    speakAfterCue(cue, spoken) {
+      main.removeCallbacks(dismiss)
+      listenAgain()
+    }
+  }
+
+  /** The soft wake cue, then one more clip with the same capture and VAD; 6 s without speech gives up quietly. */
+  private fun listenAgain() {
+    if (isDestroyed) return
+    followUpsDone += 1
+    isFollowUpTurn = true
+    Log.i(TAG, "follow-up turn=$followUpsDone pending=${followUp.hasPending} remaining=${followUp.pendingRemaining}")
+    if (hasOverlay) {
+      overlay.setTranscript("")
+      overlay.setState("listening") // the reply text stays on screen
+    }
+    feedback.listeningAgain()
+    // The microphone opens after the cue so the chime is not recorded.
+    main.postDelayed(::startClip, feedback.leadInMs(Cue.WAKE))
+  }
+
+  /** Nothing said (or the microphone failed) in a follow-up: close without a sound or an error. */
+  private fun endFollowUpQuietly() {
+    dismissReason = "follow_up_silent"
+    dismiss.run()
+  }
+
+  /** The conversation state JS sent with the previous outcome, passed back so a yes or no binds to its approval. */
+  private fun withFollowUp(intent: Intent): Intent {
+    if (!followUp.hasPending) return intent
+    return intent
+      .putExtra(VoiceCommandTaskService.EXTRA_PENDING_APPROVAL_ID, followUp.pendingApprovalId)
+      .putExtra(VoiceCommandTaskService.EXTRA_PENDING_KIND, followUp.pendingKind)
+      .putExtra(VoiceCommandTaskService.EXTRA_PENDING_QUEUE, followUp.pendingQueue)
   }
 
   /**

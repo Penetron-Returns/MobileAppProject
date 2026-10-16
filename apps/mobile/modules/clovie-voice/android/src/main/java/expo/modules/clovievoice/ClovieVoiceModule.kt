@@ -128,6 +128,11 @@ class ClovieVoiceModule : Module() {
       VoiceCommandBridge.complete(id, CommandOutcome(status, message, transcript))
     }
 
+    // The same, with the follow-up fields (spoken text, expectsReply, the pending approval) as one JSON string.
+    Function("completeCommandWithReply") { id: String, status: String, message: String, transcript: String, extras: String ->
+      VoiceCommandBridge.complete(id, commandOutcomeWithReply(status, message, transcript, extras))
+    }
+
     // Cloud transcription of our own captured clip (EXPO_PUBLIC_VOICE_CLOUD_STT). Stored, because the
     // tile, widget and side key start the service without any JS running.
     Function("setCloudStt") { enabled: Boolean -> CloudStt.setEnabled(context, enabled) }
@@ -150,6 +155,9 @@ class ClovieVoiceModule : Module() {
 
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
+
+    // A step the app's headless JS measured (headlessStartMs, todayMs): logged with the native ones. Allowlisted keys only.
+    Function("recordTiming") { key: String, ms: Double -> VoiceTimings.external(key, ms.toLong()) }
   }
 
   /** "Not configured" is derived, not stored: it depends on which model files were bundled. */

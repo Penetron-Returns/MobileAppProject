@@ -37,6 +37,11 @@ function deps(patch: Partial<HeadlessDeps> = {}): HeadlessDeps {
     isSignedIn: async () => true,
     loadToday: async () => today([appt('a1', 'Sipho Dlamini')]),
     checkIn: jest.fn(async () => ({})),
+    ask: jest.fn(async () => ({
+      reply: 'You have two bookings.',
+      approvals: [],
+    })),
+    decide: jest.fn(async () => ({ kind: null })),
     ...patch,
   };
 }
@@ -92,13 +97,33 @@ describe('runVoiceCommandHeadless', () => {
     expect(d.checkIn).not.toHaveBeenCalled();
   });
 
-  it('asks the owner to open the app for a free-text request', async () => {
+  it('sends a free-text request to the companion and speaks its reply', async () => {
+    const d = deps();
     await expect(
-      runVoiceCommandHeadless('book Thandi for Friday', deps()),
+      runVoiceCommandHeadless('how many bookings today', d),
+    ).resolves.toMatchObject({
+      status: 'done',
+      message: 'You have two bookings.',
+    });
+    expect(d.ask).toHaveBeenCalledWith('how many bookings today');
+    expect(d.checkIn).not.toHaveBeenCalled();
+  });
+
+  it('keeps "client has arrived" on the local path, without calling the companion', async () => {
+    const d = deps();
+    await runVoiceCommandHeadless('client has arrived', d);
+    expect(d.ask).not.toHaveBeenCalled();
+  });
+
+  it('asks the owner to open the app for a request when there is no session', async () => {
+    const d = deps({ isSignedIn: async () => false });
+    await expect(
+      runVoiceCommandHeadless('book Thandi for Friday', d),
     ).resolves.toEqual({
       status: 'open_app',
       message: 'book Thandi for Friday',
     });
+    expect(d.ask).not.toHaveBeenCalled();
   });
 
   it('asks the owner to open the app when there is no signed-in session', async () => {

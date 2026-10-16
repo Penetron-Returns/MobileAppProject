@@ -23,7 +23,7 @@ sealed interface ClipResult {
 
 /**
  * Records one spoken command with our own `AudioRecord` (16 kHz mono PCM16, VOICE_RECOGNITION, the
- * source the wake word uses and is known to hear the owner) and ends it with [ClipVad]. Writes a WAV
+ * source the wake word uses and is known to hear the owner) and ends it with [ClipVad]. Writes an m4a (WAV as a fallback)
  * into the cache directory. The wake listener has just released the microphone, so opening it is
  * retried briefly. Logs levels and timings only, never audio or text. `onDone` runs once on the main
  * thread unless `cancel()` was called.
@@ -31,7 +31,12 @@ sealed interface ClipResult {
  * The 2 s ring buffer of the wake listener is not prepended: the recorder is reopened a few tens of
  * ms after "Hey Clovie" ends, so the command's first word is not lost in practice.
  */
-class ClipCapture(private val context: Context, private val onLevel: (Float) -> Unit) {
+class ClipCapture(
+  private val context: Context,
+  /** How long without speech ends the capture; a follow-up (no wake word) allows longer. */
+  private val noSpeechMs: Long = ClipVad.NO_SPEECH_MS,
+  private val onLevel: (Float) -> Unit,
+) {
   private val main = Handler(Looper.getMainLooper())
 
   @Volatile
@@ -54,7 +59,7 @@ class ClipCapture(private val context: Context, private val onLevel: (Float) -> 
 
   private fun record(): ClipResult {
     val recorder = open() ?: return ClipResult.Failed
-    val vad = ClipVad()
+    val vad = ClipVad(noSpeechMs = noSpeechMs)
     val samples = ShortArray(MAX_SAMPLES)
     val frame = ShortArray(FRAME_SAMPLES)
     var count = 0
@@ -87,16 +92,33 @@ class ClipCapture(private val context: Context, private val onLevel: (Float) -> 
       Log.i(TAG, "clip no speech ms=${vad.elapsedMs} peakRms=${"%.4f".format(java.util.Locale.US, vad.peakRms)}")
       return ClipResult.NoSpeech
     }
-    val file = File(context.cacheDir, "clovie-clip-${System.currentTimeMillis()}.wav")
-    val bytes = try {
-      WavFile.write(file, samples, count)
-    } catch (_: java.io.IOException) {
-      file.delete()
-      return ClipResult.Failed
-    }
+    VoiceTimings.clipEnded()
+    val (file, bytes) = write(samples, count) ?: return ClipResult.Failed
+    VoiceTimings.encoded(bytes)
     val ms = SystemClock.elapsedRealtime() - startedAt
     Log.i(TAG, "clip captured ms=$ms speechMs=${vad.speechMs} peakRms=${"%.4f".format(java.util.Locale.US, vad.peakRms)} bytes=$bytes")
     return ClipResult.Captured(file, ms, vad.speechMs, vad.peakRms, bytes)
+  }
+
+  /**
+   * Writes the clip as AAC in m4a (about an eighth of the WAV, so a much shorter upload), or as WAV when the
+   * encoder is missing or fails on this device. Null when even the WAV could not be written.
+   */
+  private fun write(samples: ShortArray, count: Int): Pair<File, Long>? {
+    val stamp = System.currentTimeMillis()
+    val m4a = File(context.cacheDir, "clovie-clip-$stamp.${AudioFormats.M4A.extension}")
+    try {
+      return m4a to ClipEncoder().encode(samples, count, m4a)
+    } catch (e: java.io.IOException) {
+      Log.w(TAG, "clip m4a encode failed (${e.javaClass.simpleName}): sending WAV")
+    }
+    val wav = File(context.cacheDir, "clovie-clip-$stamp.${AudioFormats.WAV.extension}")
+    return try {
+      wav to WavFile.write(wav, samples, count)
+    } catch (_: java.io.IOException) {
+      wav.delete()
+      null
+    }
   }
 
   /** The wake recorder was released moments ago; the HAL can take a few tries to hand the mic over. */

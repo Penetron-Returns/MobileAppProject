@@ -1,6 +1,6 @@
 /**
  * Cloud speech-to-text for the Clovie voice feature: POST /v1/voice/transcriptions (multipart `audio`, optional
- * `language`), proxied to Nerova through the companion service. Owner and staff. Never logs audio or transcript text.
+ * `language`; wav, m4a, webm, mp3 or ogg), proxied to Nerova through the companion service. Owner and staff. Never logs audio or transcript text.
  */
 import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
@@ -11,7 +11,6 @@ import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { listVoiceToday } from '@booking/features/bookings/services/voiceToday.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { parseJson } from '../../lib/validation.ts';
-import { requireFeature } from '../../middleware/feature.ts';
 import type { AppEnv } from '../../types.ts';
 
 export const voiceRoutes = new Hono<AppEnv>();
@@ -75,19 +74,54 @@ async function readUpload(c: Context<AppEnv>): Promise<{ file: File; language: s
   return { file, language };
 }
 
-voiceRoutes.post('/voice/transcriptions', voiceEnabled, requireFeature('companion'), limitContentLength, async (c) => {
+/**
+ * The plan check and the body read are independent, so they run side by side. The plan error still wins when both
+ * fail, so a Free-plan caller is told about the plan, not about the upload.
+ */
+async function readUploadForPlan(c: Context<AppEnv>): Promise<{ file: File; language: string | undefined }> {
+  const { businessId } = c.get('auth');
+  const [allowed, upload] = await Promise.allSettled([
+    c.get('container').entitlements.hasFeature(businessId, 'companion'),
+    readUpload(c),
+  ]);
+  if (allowed.status === 'rejected') throw allowed.reason;
+  if (!allowed.value) throw new AppError('FEATURE_NOT_IN_PLAN', 'This feature is not included in your plan', { feature: 'companion' });
+  if (upload.status === 'rejected') throw upload.reason;
+  return upload.value;
+}
+
+/** `nerova;dur=…, proxy;dur=…`: lets the phone subtract each hop from its own round trip. Timings only. */
+export function serverTimingHeader(nerovaMs: number | null | undefined, proxyMs: number): string {
+  const entries = typeof nerovaMs === 'number' ? [`nerova;dur=${Math.round(nerovaMs)}`] : [];
+  return [...entries, `proxy;dur=${Math.round(proxyMs)}`].join(', ');
+}
+
+voiceRoutes.post('/voice/transcriptions', voiceEnabled, limitContentLength, async (c) => {
   const started = Date.now();
-  const { file, language } = await readUpload(c);
+  const { file, language } = await readUploadForPlan(c);
   const result = await c.get('container').companion.transcribe(
     c.get('auth').businessId,
     { data: file, filename: file.name || 'clip', contentType: file.type || 'application/octet-stream' },
     { language },
   );
   // Sizes and timings only: never the audio or the transcript.
-  c.get('logger').info('voice_transcription', { size_bytes: file.size, text_length: result.text.length, duration_ms: Date.now() - started });
-  const data: TranscriptionDTO = result;
+  const proxyMs = Date.now() - started;
+  c.get('logger').info('voice_transcription', {
+    size_bytes: file.size,
+    text_length: result.text.length,
+    duration_ms: proxyMs,
+    nerova_ms: result.nerova_ms ?? null,
+  });
+  const data: TranscriptionDTO = { text: result.text, duration_ms: result.duration_ms, language: result.language };
+  c.header('Server-Timing', serverTimingHeader(result.nerova_ms, proxyMs));
   return c.json({ data });
 });
+
+/**
+ * Cheap authenticated no-op the phone calls when the wake word fires, so DNS, TLS and the Edge Function (and its
+ * device-token lookup) are already warm when the clip is uploaded a few seconds later. Touches nothing else.
+ */
+voiceRoutes.get('/voice/ping', (c) => c.json({ data: { ok: true } }));
 
 const mintDeviceTokenSchema = z.object({ device_label: z.string().trim().min(1).max(80).optional() });
 

@@ -13,6 +13,16 @@ data class CommandOutcome(
   val message: String,
   /** What was heard, when the app transcribed it (a clip); empty otherwise. */
   val transcript: String = "",
+  /** Spoken instead of `message` when not blank (the reply plus the approval to confirm). Never shown. */
+  val spoken: String = "",
+  /** Listen again after speaking, with no wake word. */
+  val expectsReply: Boolean = false,
+  /** The one approval just read aloud; a yes or no applies to this id only. Empty when none. */
+  val pendingApprovalId: String = "",
+  val pendingKind: String = "",
+  /** JSON of the approvals still to read after the pending one; echoed back to JS as-is. */
+  val pendingQueue: String = "",
+  val pendingRemaining: Int = 0,
 )
 
 /**
@@ -23,10 +33,11 @@ data class CommandOutcome(
  */
 object VoiceCommandBridge {
   const val TASK_KEY = "ClovieVoiceCommand"
-  const val TIMEOUT_MS = 8_000L
+  /** A command may be a whole companion turn (Nerova runs it before the first byte): well beyond a local check-in. */
+  const val TIMEOUT_MS = 35_000L
 
   /** Upload plus transcription plus the command: longer than a typed transcript. */
-  const val CLIP_TIMEOUT_MS = 25_000L
+  const val CLIP_TIMEOUT_MS = 50_000L
 
   private val main = Handler(Looper.getMainLooper())
   private val pending = ConcurrentHashMap<String, (CommandOutcome) -> Unit>()

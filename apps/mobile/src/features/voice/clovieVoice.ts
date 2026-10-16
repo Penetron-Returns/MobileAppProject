@@ -4,6 +4,7 @@ export {
   canDrawOverlays,
   clearVoiceToken,
   completeCommand,
+  recordTiming,
   configureHandsFree,
   getFeedbackSettings,
   getHandsFree,

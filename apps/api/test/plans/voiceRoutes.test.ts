@@ -210,3 +210,64 @@ describe('POST /v1/voice/transcriptions', () => {
     });
   });
 });
+
+describe('voice transcription speed-ups', () => {
+  it('forwards the m4a content type and file name to Nerova', async () => {
+    const h = plansHarness({ accounts: [ready], env: ON });
+    const res = await upload(h, { audio: new Blob([new Uint8Array(15_000)], { type: 'audio/mp4' }), filename: 'clovie-clip.m4a' });
+    expect(res.status).toBe(200);
+    expect(h.nerova.transcriptionRequests[0]).toMatchObject({ filename: 'clovie-clip.m4a', contentType: 'audio/mp4', size: 15_000 });
+  });
+
+  it('adds Nerova and proxy timings in Server-Timing and keeps them out of the body', async () => {
+    const h = plansHarness({ accounts: [ready], env: ON });
+    h.nerova.transcription = { text: 'hello', durationMs: 900, language: 'en', timing: { providerMs: 700, totalMs: 912.4 } };
+    const res = await upload(h);
+    expect(res.headers.get('server-timing')).toMatch(/^nerova;dur=912, proxy;dur=\d+$/);
+    expect(await json(res)).toEqual({ data: { text: 'hello', duration_ms: 900, language: 'en' } });
+  });
+
+  it('falls back to the provider time when Nerova sent no total, and sends only the proxy time when it sent neither', async () => {
+    const h = plansHarness({ accounts: [ready], env: ON });
+    h.nerova.transcription = { text: 'a', durationMs: 1, language: null, timing: { providerMs: 400, totalMs: null } };
+    expect((await upload(h)).headers.get('server-timing')).toMatch(/^nerova;dur=400, proxy;dur=\d+$/);
+    h.nerova.transcription = { text: 'a', durationMs: 1, language: null };
+    expect((await upload(h)).headers.get('server-timing')).toMatch(/^proxy;dur=\d+$/);
+  });
+
+  it('looks the Nerova account up once, then reuses it for later clips', async () => {
+    const h = plansHarness({ accounts: [ready], env: ON });
+    const lookup = vi.spyOn(h.nerova, 'getAccount');
+    for (let i = 0; i < 3; i += 1) expect((await upload(h)).status).toBe(200);
+    expect(lookup).toHaveBeenCalledTimes(1);
+    expect(h.nerova.transcriptionRequests.map((r) => r.accountId)).toEqual(['acct_100', 'acct_100', 'acct_100']);
+  });
+
+  it('forgets a cached account Nerova no longer knows and resolves it again', async () => {
+    const h = plansHarness({ accounts: [ready], env: ON });
+    expect((await upload(h)).status).toBe(200);
+    h.nerova.accounts.splice(0, 1, { ...ready, id: 'acct_200' });
+    expect((await upload(h)).status).toBe(200);
+    expect(h.nerova.transcriptionRequests.map((r) => r.accountId)).toEqual(['acct_100', 'acct_200']);
+  });
+
+  it('still gates on the plan when the body is also invalid (the plan error wins)', async () => {
+    const res = await upload(plansHarness({ plan: 'free', accounts: [ready], env: ON }), { audio: null });
+    expect(res.status).toBe(403);
+  });
+
+  describe('GET /v1/voice/ping', () => {
+    it('answers 200 to the owner with no side effects', async () => {
+      const h = plansHarness({ accounts: [ready], env: ON });
+      const res = await h.app.request('/v1/voice/ping', { headers: { authorization: 'Bearer owner' } });
+      expect(res.status).toBe(200);
+      expect(await json(res)).toEqual({ data: { ok: true } });
+      expect(h.nerova.transcriptionRequests).toEqual([]);
+    });
+
+    it('needs authentication', async () => {
+      const res = await plansHarness({ accounts: [ready], env: ON }).app.request('/v1/voice/ping');
+      expect(res.status).toBe(401);
+    });
+  });
+});

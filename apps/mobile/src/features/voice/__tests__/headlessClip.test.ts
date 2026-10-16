@@ -21,6 +21,8 @@ function deps(patch: Partial<ClipDeps> = {}): ClipDeps {
       ],
     }),
     checkIn: jest.fn(async () => ({})),
+    ask: jest.fn(async () => ({ reply: 'Done thinking.', approvals: [] })),
+    decide: jest.fn(async () => ({ kind: null })),
     transcribe: jest.fn(async () => ({ text: 'Sipho has arrived' })),
     ...patch,
   };
@@ -38,14 +40,16 @@ describe('runVoiceClipHeadless', () => {
     expect(d.checkIn).toHaveBeenCalledWith('a1');
   });
 
-  it('hands a free-text request to the app with what was heard', async () => {
+  it('hands a free-text request to the companion with what was heard', async () => {
     const d = deps({
       transcribe: async () => ({ text: 'move my 3pm to Friday' }),
     });
     await expect(runVoiceClipHeadless('/c.wav', d)).resolves.toMatchObject({
-      status: 'open_app',
+      status: 'done',
+      message: 'Done thinking.',
       transcript: 'move my 3pm to Friday',
     });
+    expect(d.ask).toHaveBeenCalledWith('move my 3pm to Friday');
   });
 
   it('flags a fallback when the upload fails (404 before the backend is live)', async () => {

@@ -15,9 +15,11 @@ object SpokenReply {
    * `status` is the outcome status (`done`, `error`, `open_app`). `notHeard` and `speechUnavailable` are
    * the service's two fixed error messages, which the overlay renders by its own wording.
    */
-  fun forOutcome(status: String, message: String, notHeard: String, speechUnavailable: String): String? {
+  fun forOutcome(status: String, message: String, notHeard: String, speechUnavailable: String, spoken: String = ""): String? {
     if (status == "open_app") return NEEDS_APP_SPOKEN
     if (status != "done" && status != "error") return null
+    // The app wrote this for speech (the reply and the approval to confirm): read whole, never cut mid-sentence here.
+    if (status == "done" && spoken.isNotBlank()) return spoken.trim()
     val text = message.trim()
     return when {
       text == notHeard || text.isEmpty() && status == "error" -> NOT_HEARD_SPOKEN

@@ -6,12 +6,22 @@ import { useCheckInAppointment } from '@/features/appointments/hooks';
 import { useDaySchedule } from '@/features/dashboard/hooks';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { useEntitlements } from '@/features/plans/hooks';
+import { api, newIdempotencyKey } from '@/lib/api';
 import { todayISO } from '@/lib/time';
 import { toast } from '@/lib/toast';
 
+import { askCompanion, type AskDeps } from './ask';
 import { noOneDueMessage, pickAppointmentToCheckIn } from './checkIn';
 
 const goToday = () => router.replace('/');
+
+/** The ask path's API calls, with the screen's translator. */
+const askDeps = (t: AskDeps['t']): AskDeps => ({
+  t,
+  ask: (text) => api.voiceAsk({ text }, newIdempotencyKey()),
+  decide: (id, decision) =>
+    api.voiceDecideApproval(id, decision, newIdempotencyKey()),
+});
 
 /**
  * "Client has arrived": refetches today's bookings (a stale cache must not
@@ -75,13 +85,28 @@ export function useRequestByVoice(text: string) {
       return;
     }
     // The persistent SDK sheet opens in place; otherwise the route does.
-    if (sheet.isAvailable) {
-      sheet.open(text ? { draft: text } : undefined);
+    const openCompanion = () => {
+      if (sheet.isAvailable) {
+        sheet.open(text ? { draft: text } : undefined);
+        return;
+      }
+      router.push({
+        pathname: '/companion',
+        params: text ? { heard: text } : {},
+      });
+    };
+    if (!text) {
+      openCompanion();
       return;
     }
-    router.push({
-      pathname: '/companion',
-      params: text ? { heard: text } : {},
+    // The same ask path as Hey Clovie with the app closed. A plain answer is shown here; an approval (or any
+    // failure) opens the companion, which has the approval cards.
+    void askCompanion(text, askDeps(t)).then((outcome) => {
+      if (outcome.status === 'done' && !outcome.pendingApprovalId) {
+        toast.info(outcome.message);
+      } else {
+        openCompanion();
+      }
     });
   }, [entitlements, sheet, text, t]);
 }

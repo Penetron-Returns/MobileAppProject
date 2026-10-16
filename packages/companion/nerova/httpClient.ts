@@ -57,10 +57,27 @@ function transcriptionError(status: number, code: string | null, retryAfter: str
   return upstream('The transcription service could not process the request', { reason, status });
 }
 
-/** Provider time from a `Server-Timing` header (the first `dur`, in ms), or null. */
-function serverTimingMs(header: string | null): number | null {
-  const match = header?.match(/dur=([0-9.]+)/);
-  return match ? Number(match[1]) : null;
+/** One named entry's `dur` (ms) from a `Server-Timing` header, e.g. `provider;dur=412.5, total;dur=800`, or null. */
+export function serverTimingEntryMs(header: string | null, name: string): number | null {
+  for (const entry of (header ?? '').split(',')) {
+    const [metric, ...params] = entry.trim().split(';');
+    if (metric?.trim().toLowerCase() !== name) continue;
+    for (const param of params) {
+      const dur = param.trim().match(/^dur=([0-9.]+)$/);
+      if (dur) return Number(dur[1]);
+    }
+    return null;
+  }
+  return null;
+}
+
+/** Provider and total time of a Nerova response (a lone `dur` under any other name counts as the provider time). */
+function transcriptionTiming(header: string | null): { providerMs: number | null; totalMs: number | null } {
+  const totalMs = serverTimingEntryMs(header, 'total');
+  const providerMs = serverTimingEntryMs(header, 'provider');
+  if (providerMs !== null || totalMs !== null) return { providerMs, totalMs };
+  const lone = header?.match(/dur=([0-9.]+)/);
+  return { providerMs: lone ? Number(lone[1]) : null, totalMs: null };
 }
 
 export function createHttpNerovaClient(options: HttpNerovaClientOptions): NerovaClient {
@@ -139,11 +156,13 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
       const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
       throw upstream(timedOut ? 'The transcription service timed out' : 'The transcription service is unreachable', { reason: timedOut ? 'timeout' : 'network' });
     }
+    const timing = transcriptionTiming(response.headers.get('server-timing'));
     // Sizes and timings only: never the audio or the transcript.
     logger.info('nerova_transcription', {
       status: response.status,
       size_bytes: file.data.size,
-      provider_ms: serverTimingMs(response.headers.get('server-timing')),
+      provider_ms: timing.providerMs,
+      total_ms: timing.totalMs,
       round_trip_ms: Date.now() - started,
     });
     const payload = (await response.json().catch(() => null)) as Json | null;
@@ -152,7 +171,7 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
     if (typeof payload?.text !== 'string' || typeof durationMs !== 'number') {
       throw upstream('The transcription service returned an unexpected response', { reason: 'unexpected_response' });
     }
-    return { text: payload.text, durationMs, language: text(payload.language) };
+    return { text: payload.text, durationMs, language: text(payload.language), timing };
   }
 
   const account = (idOrReference: string) => `/v1/accounts/${encodeURIComponent(idOrReference)}`;
