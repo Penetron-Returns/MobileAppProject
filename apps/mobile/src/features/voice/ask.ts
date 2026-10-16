@@ -23,6 +23,10 @@ export interface AskResult {
 export interface AskDeps {
   t: Translate;
   ask: (text: string) => Promise<AskResult>;
+  /** Speaks a short filler at once (a build without the native function does nothing). Companion turns only. */
+  speakInterim?: (text: string) => void;
+  /** The companion turn number (0, 1, 2, ...), so the filler rotates deterministically. */
+  nextTurn?: () => number;
   /** Decides exactly `id`. */
   decide: (
     id: string,
@@ -229,6 +233,14 @@ function approvalOutcome(
   };
 }
 
+export const INTERIM_VARIANTS = 3;
+
+/** The filler key for a turn: rotates through the variants by turn number. */
+export function interimKey(turn: number): string {
+  const n = Number.isFinite(turn) ? Math.abs(Math.trunc(turn)) : 0;
+  return `voice.ask.interim.${n % INTERIM_VARIANTS}`;
+}
+
 /** Sends `text` to the companion and turns its reply into an outcome to show and speak. */
 export async function askCompanion(
   text: string,
@@ -236,6 +248,8 @@ export async function askCompanion(
 ): Promise<ClovieVoiceCommandOutcome> {
   let result: AskResult;
   try {
+    // Said right away, so the owner is not left in silence while the companion thinks.
+    deps.speakInterim?.(deps.t(interimKey(deps.nextTurn?.() ?? 0)));
     result = await deps.ask(text);
   } catch (error) {
     return askFailure(error, deps.t);

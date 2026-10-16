@@ -58,6 +58,62 @@ class ClipCapture(
   }
 
   private fun record(): ClipResult {
+    val stamp = System.currentTimeMillis()
+    val m4a = File(context.cacheDir, "clovie-clip-$stamp.${AudioFormats.M4A.extension}")
+    val session = EncoderSession(m4a)
+    try {
+      return capture(session, stamp)
+    } finally {
+      // Cancel, no speech, mic failure or any throw: never leave a codec, muxer or stray file behind.
+      session.abortUnlessFinished()
+    }
+  }
+
+  /** The streamed encoder of one capture; goes null (released) the moment it fails, and the WAV fallback takes over. */
+  private class EncoderSession(val file: File) {
+    var encoder: ClipEncoder? = null
+    var isFinished = false
+
+    fun begin() {
+      val next = ClipEncoder()
+      encoder = try {
+        next.begin(file)
+        next
+      } catch (e: java.io.IOException) {
+        Log.w(TAG, "clip encoder not started (${e.javaClass.simpleName}): will send WAV")
+        null
+      }
+    }
+
+    fun feed(frame: ShortArray, count: Int) {
+      val current = encoder ?: return
+      try {
+        current.append(frame, 0, count)
+      } catch (e: java.io.IOException) {
+        Log.w(TAG, "clip encoder failed mid-capture (${e.javaClass.simpleName}): will send WAV")
+        encoder = null
+      }
+    }
+
+    /** The m4a size once the end-of-stream flush is done, or null when the encoder is gone or fails now. */
+    fun finish(): Long? {
+      val current = encoder ?: return null
+      return try {
+        current.finish().also { isFinished = true }
+      } catch (e: java.io.IOException) {
+        Log.w(TAG, "clip m4a encode failed (${e.javaClass.simpleName}): sending WAV")
+        encoder = null
+        null
+      }
+    }
+
+    fun abortUnlessFinished() {
+      if (!isFinished) encoder?.abort()
+      encoder = null
+    }
+  }
+
+  private fun capture(session: EncoderSession, stamp: Long): ClipResult {
     val recorder = open() ?: return ClipResult.Failed
     val vad = ClipVad(noSpeechMs = noSpeechMs)
     val samples = ShortArray(MAX_SAMPLES)
@@ -65,6 +121,7 @@ class ClipCapture(
     var count = 0
     var decision = ClipDecision.CONTINUE
     val startedAt = SystemClock.elapsedRealtime()
+    session.begin()
     try {
       recorder.startRecording()
       while (!isCancelled && decision == ClipDecision.CONTINUE) {
@@ -75,6 +132,7 @@ class ClipCapture(
         val take = minOf(n, MAX_SAMPLES - count)
         System.arraycopy(frame, 0, samples, count, take)
         count += take
+        session.feed(frame, take)
         decision = vad.update(level, n * 1000L / SAMPLE_RATE)
       }
     } catch (_: RuntimeException) {
@@ -93,25 +151,19 @@ class ClipCapture(
       return ClipResult.NoSpeech
     }
     VoiceTimings.clipEnded()
-    val (file, bytes) = write(samples, count) ?: return ClipResult.Failed
-    VoiceTimings.encoded(bytes)
+    val (file, bytes) = write(session, stamp, samples, count) ?: return ClipResult.Failed
+    VoiceTimings.encoded(bytes) // only the end-of-stream flush (or the WAV fallback) is left after capture ends
     val ms = SystemClock.elapsedRealtime() - startedAt
     Log.i(TAG, "clip captured ms=$ms speechMs=${vad.speechMs} peakRms=${"%.4f".format(java.util.Locale.US, vad.peakRms)} bytes=$bytes")
     return ClipResult.Captured(file, ms, vad.speechMs, vad.peakRms, bytes)
   }
 
   /**
-   * Writes the clip as AAC in m4a (about an eighth of the WAV, so a much shorter upload), or as WAV when the
-   * encoder is missing or fails on this device. Null when even the WAV could not be written.
+   * Finishes the streamed AAC in m4a (about an eighth of the WAV, so a much shorter upload), or writes a WAV from
+   * the retained PCM when the encoder is missing or failed on this device. Null when even the WAV could not be written.
    */
-  private fun write(samples: ShortArray, count: Int): Pair<File, Long>? {
-    val stamp = System.currentTimeMillis()
-    val m4a = File(context.cacheDir, "clovie-clip-$stamp.${AudioFormats.M4A.extension}")
-    try {
-      return m4a to ClipEncoder().encode(samples, count, m4a)
-    } catch (e: java.io.IOException) {
-      Log.w(TAG, "clip m4a encode failed (${e.javaClass.simpleName}): sending WAV")
-    }
+  private fun write(session: EncoderSession, stamp: Long, samples: ShortArray, count: Int): Pair<File, Long>? {
+    session.finish()?.let { return session.file to it }
     val wav = File(context.cacheDir, "clovie-clip-$stamp.${AudioFormats.WAV.extension}")
     return try {
       wav to WavFile.write(wav, samples, count)

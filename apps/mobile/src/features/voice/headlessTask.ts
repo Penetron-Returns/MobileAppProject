@@ -8,7 +8,12 @@ import i18n from '@/lib/i18n';
 import { qk, queryClient } from '@/lib/query';
 import { dayRangeUtc, todayISO } from '@/lib/time';
 
-import { completeCommand, recordTiming, setCloudStt } from './clovieVoice';
+import {
+  completeCommand,
+  recordTiming,
+  setCloudStt,
+  speakInterim,
+} from './clovieVoice';
 import {
   runVoiceClipHeadless,
   runVoiceCommandHeadless,
@@ -92,6 +97,8 @@ async function loadToday() {
   return result;
 }
 
+let companionTurns = 0;
+
 /** What a spoken command needs with no screen: the app's clock, strings and API client. */
 export function createHeadlessDeps(): HeadlessDeps {
   return {
@@ -102,6 +109,8 @@ export function createHeadlessDeps(): HeadlessDeps {
     isSignedIn: async () =>
       (await resolveBearer({ allowDeviceToken: true })) !== null,
     loadToday,
+    speakInterim,
+    nextTurn: () => companionTurns++,
     ask: async (text: string) => api.voiceAsk({ text }, newIdempotencyKey()),
     decide: async (id: string, decision: 'approve' | 'decline') =>
       api.voiceDecideApproval(id, decision, newIdempotencyKey()),

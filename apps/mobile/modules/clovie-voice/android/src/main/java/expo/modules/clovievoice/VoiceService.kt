@@ -83,6 +83,7 @@ class VoiceService : Service() {
     overlay = VoiceOverlay(this, ::onOverlayAction)
     feedback = VoiceFeedback(this)
     speaker = VoiceSpeaker(this)
+    instance = this
     speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { overlay.pushRms(it) }
   }
 
@@ -460,10 +461,14 @@ class VoiceService : Service() {
    */
   private fun waitForSpeechThenListenAgain(cue: Cue, spoken: String?) {
     dismissReason = "follow_up_watchdog"
-    main.postDelayed(dismiss, RESULT_MS + MAX_SPEECH_WAIT_MS)
-    speakAfterCue(cue, spoken) {
-      main.removeCallbacks(dismiss)
-      listenAgain()
+    speakAfterCue(cue, spoken, watch = hasOverlay) { listenAgain() }
+  }
+
+  /** A short filler from JS ("One sec, checking.") while the companion thinks; the final reply queues behind it. */
+  fun speakInterim(text: String) {
+    main.post {
+      if (isDestroyed || !isInteracting || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return@post
+      speaker.speakInterim(text)
     }
   }
 
@@ -503,23 +508,39 @@ class VoiceService : Service() {
    */
   private fun dismissAfterSpeech(cue: Cue, spoken: String?, holdMs: Long) {
     val startedAt = SystemClock.uptimeMillis()
-    main.postDelayed(dismiss, holdMs + MAX_SPEECH_WAIT_MS)
-    speakAfterCue(cue, spoken) {
-      main.removeCallbacks(dismiss)
+    speakAfterCue(cue, spoken, watch = hasOverlay) {
       val remaining = startedAt + holdMs - SystemClock.uptimeMillis()
       main.postDelayed(dismiss, maxOf(remaining, AFTER_SPEECH_MS))
     }
   }
 
-  /** Speaks `text` once the cue has played, then calls `onDone`; at once when there is nothing to say or reading aloud is off. */
-  private fun speakAfterCue(cue: Cue, text: String?, onDone: () -> Unit) {
+  /**
+   * Speaks `text` once the cue has played, then calls `onDone`; at once when there is nothing to say or reading
+   * aloud is off. With `watch`, the overlay's watchdog follows the speech itself: it fires only if speech does not
+   * START within [SpeechWatchdog.START_WAIT_MS], or does not finish within [SpeechWatchdog.doneBoundMs] of the text.
+   * It is cleared before `onDone` runs.
+   */
+  private fun speakAfterCue(cue: Cue, text: String?, watch: Boolean = false, onDone: () -> Unit) {
     if (text == null || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return onDone()
+    val lead = feedback.leadInMs(cue)
+    if (watch) main.postDelayed(dismiss, lead + SpeechWatchdog.START_WAIT_MS)
     val task = Runnable {
       speakTask = null
-      speaker.speak(text) { if (!isDestroyed) onDone() }
+      speaker.speak(
+        text,
+        onStart = {
+          if (watch && !isDestroyed) {
+            main.removeCallbacks(dismiss)
+            main.postDelayed(dismiss, SpeechWatchdog.doneBoundMs(text.length))
+          }
+        },
+      ) {
+        if (watch) main.removeCallbacks(dismiss)
+        if (!isDestroyed) onDone()
+      }
     }
     speakTask = task
-    main.postDelayed(task, feedback.leadInMs(cue))
+    main.postDelayed(task, lead)
   }
 
   private fun stopSpeech() {
@@ -612,6 +633,7 @@ class VoiceService : Service() {
   }
 
   private fun cleanup() {
+    if (instance === this) instance = null
     speech.cancel()
     speaker.shutdown()
     clip?.cancel()
@@ -658,7 +680,6 @@ class VoiceService : Service() {
     private const val ERROR_MS = 2_500L
     private const val MIC_HANDOFF_MS = 150L
     private const val OPEN_MS = 10_000L
-    private const val MAX_SPEECH_WAIT_MS = 12_000L
     private const val AFTER_SPEECH_MS = 450L
     private const val PAUSE_MS = 60L * 60L * 1000L
     private const val NOT_HEARD = "Didn't catch that"
@@ -667,6 +688,11 @@ class VoiceService : Service() {
     private const val SPEECH_UNAVAILABLE = "speech_unavailable"
     private const val SPEECH_UNAVAILABLE_TEXT = "Speech isn't set up on this phone. Install English in the phone's speech settings."
     private const val OPEN_LABEL = "Open Clovie"
+
+    /** The running service, for the module's `speakInterim`; null when none. */
+    @Volatile
+    var instance: VoiceService? = null
+      private set
 
     /** True while the service is alive in this process; the receivers use it to pick how to re-arm. */
     @Volatile

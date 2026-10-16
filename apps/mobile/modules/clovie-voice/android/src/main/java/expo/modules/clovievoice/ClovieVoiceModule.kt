@@ -151,6 +151,8 @@ class ClovieVoiceModule : Module() {
       )
     }
     Function("setSoundsEnabled") { enabled: Boolean -> VoiceFeedbackSettings.setSoundsEnabled(context, enabled) }
+    // A short filler spoken at once while the companion thinks; ignored when read-aloud is off or nothing is listening.
+    Function("speakInterim") { text: String -> VoiceService.instance?.speakInterim(text) }
     Function("setReadAloudEnabled") { enabled: Boolean -> VoiceFeedbackSettings.setReadAloudEnabled(context, enabled) }
 
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
