@@ -9,6 +9,7 @@ import type {
   NerovaConnectionSession,
   NerovaOwnerChatSession,
   NerovaSetupStatus,
+  NerovaTranscription,
 } from '@booking/companion/nerova/client.ts';
 
 export interface FakeNerovaAccount extends NerovaAccount {
@@ -22,7 +23,19 @@ export interface FakeNerovaAccount extends NerovaAccount {
   activationVersion?: number;
 }
 
+export interface FakeTranscriptionRequest {
+  accountId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  language: string | undefined;
+}
+
 export interface FakeNerovaClient extends NerovaClient {
+  /** Every transcribe call (metadata only, never the audio), in order */
+  transcriptionRequests: FakeTranscriptionRequest[];
+  /** What transcribe returns */
+  transcription: NerovaTranscription;
   accounts: FakeNerovaAccount[];
   /** Every createOwnerChatSession input, in order */
   sessionRequests: CreateOwnerChatSessionInput[];
@@ -45,6 +58,8 @@ export function createFakeNerovaClient(
   const fake: FakeNerovaClient = {
     accounts: options.accounts ?? [],
     sessionRequests: [],
+    transcriptionRequests: [],
+    transcription: { text: 'book me a haircut tomorrow', durationMs: 2300, language: 'en' },
     connectionSessionRequests: [],
     versionConflicts: 0,
     outcomes: options.outcomes ?? { bookings_created: 0, bookings_rescheduled: 0, bookings_cancelled: 0, conversations_handled: 0 },
@@ -90,6 +105,15 @@ export function createFakeNerovaClient(
         expiresAt: new Date(clock().getTime() + SESSION_TTL_MS).toISOString(),
         ...(input.native ? { sessionId: `wsn_${input.accountId}`, state: 'native-state-secret' } : {}),
       };
+    },
+    async transcribe(accountId, file, opts) {
+      if (fake.failWith) throw fake.failWith;
+      // Like the real client: an unknown account is a route Nerova does not serve (404).
+      if (!fake.accounts.some((a) => a.id === accountId || a.externalReference === accountId)) {
+        throw new AppError('TRANSCRIPTION_UNAVAILABLE', 'Cloud transcription is not available');
+      }
+      fake.transcriptionRequests.push({ accountId, filename: file.filename, contentType: file.contentType, size: file.data.size, language: opts?.language });
+      return fake.transcription;
     },
     async getOutcomeSummary(idOrReference) {
       if (fake.failWith) throw fake.failWith;

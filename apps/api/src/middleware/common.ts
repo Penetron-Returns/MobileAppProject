@@ -40,6 +40,9 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
       request_id: requestId,
     },
   };
+  // A 429 from an upstream carries its Retry-After (seconds) so the client can back off.
+  const retryAfter = appError.code === 'RATE_LIMITED' ? appError.details?.retry_after_s : undefined;
+  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) c.header('retry-after', String(Math.ceil(retryAfter)));
   return c.json(body, appError.status as 400);
 };
 

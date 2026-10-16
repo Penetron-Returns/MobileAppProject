@@ -51,6 +51,9 @@ const EnvSchema = z.object({
   /** "true" forwards the allowlisted return_url to Nerova connection-sessions as returnUrl (needs #946 live). Off = dropped. */
   NEROVA_WHATSAPP_RETURN_URL: optional,
 
+  /** "true" enables POST /v1/voice/transcriptions (proxy to Nerova speech-to-text). Off = 503 TRANSCRIPTION_UNAVAILABLE. */
+  VOICE_CLOUD_STT: optional,
+
   /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
   STRIPE_SECRET_KEY: optional,
   STRIPE_WEBHOOK_SECRET: optional,
