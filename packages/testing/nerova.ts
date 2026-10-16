@@ -88,6 +88,7 @@ export function createFakeNerovaClient(
       return {
         url: `https://chat.nerova.test/s/${input.accountId}?secret=session-secret`,
         expiresAt: new Date(clock().getTime() + SESSION_TTL_MS).toISOString(),
+        ...(input.native ? { sessionId: `wsn_${input.accountId}`, state: 'native-state-secret' } : {}),
       };
     },
     async getOutcomeSummary(idOrReference) {

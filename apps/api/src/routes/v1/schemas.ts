@@ -237,4 +237,4 @@ export const monthQuerySchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-
 /** Optional body: the app sends none today. `return_url` is accepted ahead of Nerova supporting `returnUrl`. */
 export const connectWhatsAppSessionSchema = z.object({ return_url: z.url().max(2048).optional() });
 
-export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']) });
+export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']), platform: z.enum(['web', 'native']).default('web') });

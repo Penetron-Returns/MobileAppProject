@@ -35,6 +35,10 @@ export interface CreateConnectionSessionInput {
   /** Exact https origin of the embedding page; must be on the Nerova embed allowlist */
   embedOrigin: string;
   expectedVersion: number;
+  /** Where Nerova sends the owner back after connecting (already allowlisted by us); omitted unless NEROVA_WHATSAPP_RETURN_URL is on */
+  returnUrl?: string | undefined;
+  /** Registered nativeApps appId, sent together with returnUrl */
+  appId?: string | undefined;
   /** 8 to 255 characters, derived from the logical command so a retry replays the same session */
   idempotencyKey: string;
 }
@@ -49,8 +53,10 @@ export interface NerovaConnectionSession {
 export interface CreateOwnerChatSessionInput {
   /** `acct_` id (an externalReference is also accepted by Nerova) */
   accountId: string;
-  /** Must be on the Nerova embed allowlist */
-  origin: string;
+  /** Web sessions: must be on the Nerova embed allowlist. Omitted for native sessions. */
+  origin?: string | undefined;
+  /** Native sessions: sent as platform "native" + appId (the app must be registered under nativeApps), with no origin */
+  native?: { appId: string } | undefined;
   /** Stable owner id, at most 200 characters, never an email */
   ownerReference: string;
   colorMode: CompanionColorMode;
@@ -60,6 +66,10 @@ export interface CreateOwnerChatSessionInput {
 
 export interface NerovaOwnerChatSession {
   url: string;
+  /** Native sessions only: Nerova's session id */
+  sessionId?: string | undefined;
+  /** Native sessions only: a secret, never log it */
+  state?: string | undefined;
   /** ISO-8601 instant */
   expiresAt: string;
 }

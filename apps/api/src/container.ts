@@ -41,7 +41,12 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const clock = () => new Date();
   const planRepo = createPlanRepository({ db });
   const usage = createUsageService({ repo: planRepo, clock });
-  const companion = createCompanionService({ nerova: createNerovaClientFromEnv(env), plans: planRepo, embedOrigin: env.NEROVA_EMBED_ORIGIN, clock });
+  const companion = createCompanionService({ nerova: createNerovaClientFromEnv(env), plans: planRepo, embedOrigin: env.NEROVA_EMBED_ORIGIN,
+    nativeSessions: env.NEROVA_NATIVE_SESSIONS === 'true',
+    nativeAppId: env.NEROVA_APP_ID,
+    forwardReturnUrl: env.NEROVA_WHATSAPP_RETURN_URL === 'true',
+    clock,
+  });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
   return { env, db, booking, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, clock };
 }

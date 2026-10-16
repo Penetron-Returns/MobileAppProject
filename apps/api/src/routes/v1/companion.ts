@@ -13,9 +13,9 @@ import { connectWhatsAppSessionSchema, createCompanionSessionSchema } from './sc
 export const companionRoutes = new Hono<AppEnv>();
 
 companionRoutes.post('/companion/session', requireFeature('companion'), async (c) => {
-  const { color_mode } = await parseJson(c, createCompanionSessionSchema);
+  const { color_mode, platform } = await parseJson(c, createCompanionSessionSchema);
   const { businessId, userId } = c.get('auth');
-  const session = await c.get('container').companion.createSession(businessId, { ownerReference: userId, colorMode: color_mode });
+  const session = await c.get('container').companion.createSession(businessId, { ownerReference: userId, colorMode: color_mode, platform });
   return c.json({ data: session });
 });
 

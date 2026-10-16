@@ -100,6 +100,46 @@ describe('POST /v1/companion/whatsapp/connect-session', () => {
     expect(bad.body.error.code).toBe('VALIDATION_FAILED');
   });
 
+  describe('returnUrl forwarding', () => {
+    const allowed = 'bookingadmin://companion/whatsapp-return';
+
+    it.each([allowed, `${allowed}?status=done`, 'bookingadmin:///companion/whatsapp-return'])('forwards %s as returnUrl when the flag is on', async (return_url) => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
+      const r = await h.call('POST', path, { body: { return_url } });
+      expect(r.status).toBe(201);
+      expect(h.nerova.connectionSessionRequests[0]).toMatchObject({ returnUrl: return_url, appId: 'si.nerova.booking.dev' });
+    });
+
+    it.each([
+      'https://app.example.test/done',
+      'bookingadmin://other/path',
+      'bookingadmin://companion/whatsapp-return/extra',
+      'bookingadmin://companion/whatsapp-return#frag',
+      'bookingadmin://evil.test/companion/whatsapp-return',
+      'otherapp://companion/whatsapp-return',
+    ])('rejects %s with 400 and never reaches Nerova when the flag is on', async (return_url) => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
+      const r = await h.call('POST', path, { body: { return_url } });
+      expect(r.status).toBe(400);
+      expect(r.body.error.code).toBe('VALIDATION_FAILED');
+      expect(h.nerova.connectionSessionRequests).toHaveLength(0);
+    });
+
+    it('drops return_url when the flag is off, even an allowed one', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready] });
+      const r = await h.call('POST', path, { body: { return_url: allowed } });
+      expect(r.status).toBe(201);
+      expect(h.nerova.connectionSessionRequests[0]).not.toHaveProperty('returnUrl');
+      expect(h.nerova.connectionSessionRequests[0]).not.toHaveProperty('appId');
+    });
+
+    it('sends no returnUrl when the flag is on but none was given', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
+      await h.call('POST', path);
+      expect(h.nerova.connectionSessionRequests[0]).not.toHaveProperty('returnUrl');
+    });
+  });
+
   it('is 403 FORBIDDEN for staff and never reaches Nerova', async () => {
     const h = plansHarness({ plan: 'growth', accounts: [ready] });
     const r = await h.call('POST', path, { token: 'staff' });
