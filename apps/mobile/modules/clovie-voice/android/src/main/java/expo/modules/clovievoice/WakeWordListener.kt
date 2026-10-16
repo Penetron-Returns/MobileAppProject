@@ -48,6 +48,7 @@ class WakeWordListener(
     }
     val speechGate = SpeechGate()
     val ring = ShortArray(RING_SAMPLES)
+    val window = ShortArray(RING_SAMPLES) // reused for every prediction: no per-frame allocation
     val chunk = ShortArray(HOP_SAMPLES)
     var write = 0
     var filled = 0
@@ -72,10 +73,10 @@ class WakeWordListener(
         // The voice gate keeps the three models idle while nothing is being said. The ring buffer
         // keeps filling either way, so the start of the phrase is already in it when the gate opens.
         val isSpeechLikely = speechGate.update(chunk, n, SystemClock.elapsedRealtime())
-        if (!isSpeechLikely || filled < RING_SAMPLES || reads % READS_PER_PREDICTION != 0) continue
+        if (!PredictionSchedule.shouldPredict(isSpeechLikely, filled, RING_SAMPLES, reads, READS_PER_PREDICTION)) continue
 
         try {
-          val score = engine.score(chronological(ring, write))
+          val score = engine.score(chronological(ring, write, window))
           failures = 0
           if (gate.accept(score, SystemClock.elapsedRealtime())) {
             detected = true
@@ -128,8 +129,7 @@ class WakeWordListener(
   }
 
   /** The ring buffer oldest-first: `write` is where the next sample goes, so also the oldest. */
-  private fun chronological(ring: ShortArray, write: Int): ShortArray {
-    val out = ShortArray(ring.size)
+  private fun chronological(ring: ShortArray, write: Int, out: ShortArray): ShortArray {
     val tail = ring.size - write
     System.arraycopy(ring, write, out, 0, tail)
     System.arraycopy(ring, 0, out, tail, write)
@@ -143,4 +143,10 @@ class WakeWordListener(
     const val MAX_CONSECUTIVE_FAILURES = 20
     const val JOIN_TIMEOUT_MS = 1_000L
   }
+}
+
+/** When the three models run: only with speech likely, a full window, and on every Nth read. */
+object PredictionSchedule {
+  fun shouldPredict(isSpeechLikely: Boolean, filled: Int, windowSize: Int, reads: Int, readsPerPrediction: Int): Boolean =
+    isSpeechLikely && filled >= windowSize && reads % readsPerPrediction == 0
 }

@@ -28,7 +28,6 @@ import { describeError } from '@/lib/toast';
 import { formatPhone } from '@/lib/format';
 import {
   useConversation,
-  useInboxRealtime,
   useReleaseConversation,
   useSendReply,
   useThreadMessages,
@@ -50,7 +49,6 @@ export function ConversationScreen({
   const [draft, setDraft] = React.useState('');
   const [menuOpen, setMenuOpen] = React.useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
-  useInboxRealtime(true);
 
   const send = useSendReply(conversationId, () => setDraft(''));
   const release = useReleaseConversation(conversationId, () =>
