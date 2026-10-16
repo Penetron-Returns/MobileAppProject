@@ -113,7 +113,16 @@ describe('createHttpNerovaClient', () => {
       origin: 'https://app.example.test',
       ownerReference: 'user_1',
       theme: { colorMode: 'dark' },
+      layout: 'fill',
+      avatar: 'hidden',
     });
+  });
+
+  it('maps a 400 widget.presentation_invalid to UPSTREAM_COMPANION_ERROR carrying the Nerova code', async () => {
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: fakeFetch(() => json(400, { code: 'widget.presentation_invalid' })).impl });
+    await expect(
+      client.createOwnerChatSession({ accountId: 'acct_1', origin: 'https://x.test', ownerReference: 'u', colorMode: 'light', idempotencyKey: 'abcdefgh' }),
+    ).rejects.toMatchObject({ code: 'UPSTREAM_COMPANION_ERROR', status: 502, details: { status: 400, nerova_code: 'widget.presentation_invalid' } });
   });
 
   it('asks for the outcome summary of a UTC month', async () => {

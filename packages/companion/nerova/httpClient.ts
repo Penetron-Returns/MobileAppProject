@@ -136,6 +136,10 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
           origin: input.origin,
           ownerReference: input.ownerReference,
           theme: { colorMode: input.colorMode },
+          // The app frames the chat in its own sheet and draws its own character, so Nerova must fill the frame and hide its avatar.
+          // An invalid value is a 400 `widget.presentation_invalid`, surfaced as UPSTREAM_COMPANION_ERROR with that nerova_code.
+          layout: 'fill',
+          avatar: 'hidden',
         },
       });
       const url = text(body?.url);
