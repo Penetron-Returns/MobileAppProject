@@ -261,6 +261,7 @@ function approvalOutcome(
     expectsReply: true,
     pendingApprovalId: current.id,
     pendingKind: current.kind,
+    pendingTitle: current.title,
     ...(rest.length > 0
       ? { pendingQueue: JSON.stringify(rest), pendingRemaining: rest.length }
       : {}),

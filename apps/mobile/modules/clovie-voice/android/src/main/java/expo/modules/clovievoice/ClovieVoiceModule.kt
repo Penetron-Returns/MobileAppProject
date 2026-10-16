@@ -55,18 +55,72 @@ class HandsFreeOptions : Record {
 class ClovieVoiceModule : Module() {
   private val onStatus: (VoiceSnapshot) -> Unit = { sendEvent("onStatusChange", toMap(currentSnapshot())) }
 
+  /** Forwards what the in-app voice surface emits (the drawer's states, level, words and outcome) to JS. */
+  private val uiListener = object : VoiceUiListener {
+    override fun onVoiceState(state: String, level: Float?) {
+      val body = mutableMapOf<String, Any?>("state" to state)
+      if (level != null) body["level"] = level.toDouble()
+      sendEvent("onVoiceState", body)
+    }
+
+    override fun onVoiceTranscript(text: String) {
+      sendEvent("onVoiceTranscript", mapOf("text" to text))
+    }
+
+    override fun onVoiceOutcome(outcome: CommandOutcome) {
+      sendEvent(
+        "onVoiceOutcome",
+        mapOf(
+          "status" to outcome.status,
+          "message" to outcome.message,
+          "transcript" to outcome.transcript,
+          "expectsReply" to outcome.expectsReply,
+          "pendingApprovalId" to outcome.pendingApprovalId,
+          "pendingKind" to outcome.pendingKind,
+          "pendingTitle" to outcome.pendingTitle,
+          "pendingRemaining" to outcome.pendingRemaining,
+          "reason" to outcome.reason,
+        ),
+      )
+    }
+  }
+
   private val context: Context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
   override fun definition() = ModuleDefinition {
     Name("ClovieVoice")
-    Events("onStatusChange")
+    Events("onStatusChange", "onVoiceState", "onVoiceTranscript", "onVoiceOutcome")
 
     OnCreate {
       VoiceState.addListener(onStatus)
+      VoiceUiBus.add(uiListener)
       publishShortcut()
     }
-    OnDestroy { VoiceState.removeListener(onStatus) }
+    OnDestroy {
+      VoiceState.removeListener(onStatus)
+      VoiceUiBus.remove(uiListener)
+      AppPresence.setUiAttached(false)
+    }
+
+    // Whether the app is on screen. The activity callbacks are the native truth; JS also reports AppState (the first
+    // value, before any resume event, and a cross-check). The service shows the in-app drawer only while both this
+    // and `setVoiceUiAttached` hold; otherwise the overlay, exactly as before.
+    OnActivityEntersForeground { AppPresence.setForeground(true) }
+    OnActivityEntersBackground { AppPresence.setForeground(false) }
+    Function("setAppForeground") { isForeground: Boolean -> AppPresence.setForeground(isForeground) }
+
+    // JS has a voice drawer mounted and is listening for the voice events (companion on, plan has it).
+    Function("setVoiceUiAttached") { isAttached: Boolean -> AppPresence.setUiAttached(isAttached) }
+
+    // The in-app drawer's buttons. They act on the running service only; the answers are False when there is none.
+    Function("stopListening") { VoiceService.instance?.stopListeningFromApp() }
+    Function("cancel") { VoiceService.instance?.cancelFromApp() }
+    Function("endVoice") { VoiceService.instance?.endFromApp() }
+    Function("listenAgain") { VoiceService.instance?.listenAgainFromApp() ?: false }
+    Function("answerApproval") { id: String, answer: String ->
+      VoiceService.instance?.answerApprovalFromApp(id, answer == "yes") ?: false
+    }
 
     // Foreground services of type microphone need API 29+ behaviour; notification channels need 26.
     Function("isSupported") { Build.VERSION.SDK_INT >= Build.VERSION_CODES.O }

@@ -20,6 +20,8 @@ data class CommandOutcome(
   /** The one approval just read aloud; a yes or no applies to this id only. Empty when none. */
   val pendingApprovalId: String = "",
   val pendingKind: String = "",
+  /** The pending approval's card title ("Book Gel Manicure for ..."), for the in-app drawer. Never echoed back. */
+  val pendingTitle: String = "",
   /** JSON of the approvals still to read after the pending one; echoed back to JS as-is. */
   val pendingQueue: String = "",
   val pendingRemaining: Int = 0,

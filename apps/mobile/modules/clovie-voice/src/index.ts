@@ -2,6 +2,7 @@ import { NativeModule, requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 import type {
+  ClovieVoiceAnswer,
   ClovieVoiceCommandOutcome,
   ClovieVoiceFeedbackSettings,
   ClovieVoiceHandsFree,
@@ -9,12 +10,20 @@ import type {
   ClovieVoiceStartOptions,
   ClovieVoiceState,
   ClovieVoiceTileResult,
+  ClovieVoiceOutcomeEvent,
+  ClovieVoiceStateEvent,
   ClovieVoiceTokenState,
+  ClovieVoiceTranscriptEvent,
 } from './ClovieVoice.types';
 
 export type * from './ClovieVoice.types';
 
-type Events = { onStatusChange: (state: ClovieVoiceState) => void };
+type Events = {
+  onStatusChange: (state: ClovieVoiceState) => void;
+  onVoiceState: (event: ClovieVoiceStateEvent) => void;
+  onVoiceTranscript: (event: ClovieVoiceTranscriptEvent) => void;
+  onVoiceOutcome: (event: ClovieVoiceOutcomeEvent) => void;
+};
 
 declare class ClovieVoiceNative extends NativeModule<Events> {
   isSupported(): boolean;
@@ -57,6 +66,14 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   getTimings(): Record<string, number | null>;
   // Optional: a dev build made before this existed has no such function.
   recordTiming?(key: string, ms: number): void;
+  // Optional: a dev build made before the in-app voice drawer has none of these.
+  setAppForeground?(isForeground: boolean): void;
+  setVoiceUiAttached?(isAttached: boolean): void;
+  stopListening?(): void;
+  cancel?(): void;
+  endVoice?(): void;
+  listenAgain?(): boolean;
+  answerApproval?(id: string, answer: ClovieVoiceAnswer): boolean;
 }
 
 // Android only: iOS, web and builds without the native module get null.
@@ -143,6 +160,7 @@ export function completeCommand(
         expectsReply: expectsReply === true,
         pendingApprovalId: outcome.pendingApprovalId ?? '',
         pendingKind: outcome.pendingKind ?? '',
+        pendingTitle: outcome.pendingTitle ?? '',
         pendingQueue: outcome.pendingQueue ?? '',
         pendingRemaining: outcome.pendingRemaining ?? 0,
       }),
@@ -199,6 +217,77 @@ export function setReadAloudEnabled(enabled: boolean): void {
 /** Speaks a short filler now, when read-aloud is on; the final reply queues behind it. No-op on older builds. */
 export function speakInterim(text: string): void {
   native?.speakInterim?.(text);
+}
+
+// ---- the in-app voice drawer ----
+// While the app is open the service draws nothing: it emits these events and the companion drawer shows them.
+// Capture, transcription, cues, speech and follow-up stay native, so behaviour is the same in and out of the app.
+
+/** Whether this build can show voice in the app (a build made before it has no events and keeps the overlay). */
+export function supportsInAppVoice(): boolean {
+  return native?.setVoiceUiAttached !== undefined;
+}
+
+/** Tells the service whether the app is on screen. With a drawer attached it then skips the system overlay. */
+export function setAppForeground(isForeground: boolean): void {
+  native?.setAppForeground?.(isForeground);
+}
+
+/** A voice drawer is mounted and listening to the events (true), or gone (false: the overlay is used again). */
+export function setVoiceUiAttached(isAttached: boolean): void {
+  native?.setVoiceUiAttached?.(isAttached);
+}
+
+export function addVoiceStateListener(
+  listener: (event: ClovieVoiceStateEvent) => void,
+): () => void {
+  if (!native) return () => undefined;
+  const subscription = native.addListener('onVoiceState', listener);
+  return () => subscription.remove();
+}
+
+export function addVoiceTranscriptListener(
+  listener: (event: ClovieVoiceTranscriptEvent) => void,
+): () => void {
+  if (!native) return () => undefined;
+  const subscription = native.addListener('onVoiceTranscript', listener);
+  return () => subscription.remove();
+}
+
+export function addVoiceOutcomeListener(
+  listener: (event: ClovieVoiceOutcomeEvent) => void,
+): () => void {
+  if (!native) return () => undefined;
+  const subscription = native.addListener('onVoiceOutcome', listener);
+  return () => subscription.remove();
+}
+
+/** Stop: ends the recording now and sends what was said. */
+export function stopListening(): void {
+  native?.stopListening?.();
+}
+
+/** Cancel while thinking: drops the request and listens again. */
+export function cancel(): void {
+  native?.cancel?.();
+}
+
+/** The drawer closed: ends the interaction (capture, speech and any request in flight). */
+export function endVoice(): void {
+  native?.endVoice?.();
+}
+
+/** The mic: reads no more and listens for the answer now. False when no interaction is open (use `startTalk`). */
+export function listenAgain(): boolean {
+  return native?.listenAgain?.() ?? false;
+}
+
+/**
+ * Approve or Decline in the drawer, through the same path as a spoken yes or no: the service applies it to the approval
+ * it is holding, and only if `id` is that approval. False when it is not (nothing was decided).
+ */
+export function answerApproval(id: string, answer: ClovieVoiceAnswer): boolean {
+  return native?.answerApproval?.(id, answer) ?? false;
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */
