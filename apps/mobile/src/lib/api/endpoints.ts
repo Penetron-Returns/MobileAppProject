@@ -11,6 +11,7 @@ import type {
   BillingUsageDTO,
   BusinessDTO,
   DeviceTokenDTO,
+  VoiceTodayDTO,
   CancelAppointmentRequest,
   ClientDTO,
   CompanionSessionDTO,
@@ -303,6 +304,9 @@ export const api = {
       'POST',
       `/v1/attendance/${enc(checkId)}/answer`,
     )(b, key),
+
+  // voice: today's appointments for the voice check-in (also reachable with a device token)
+  voiceToday: () => get<VoiceTodayDTO>('/v1/voice/today'),
 
   // voice: the scoped device token for background voice and attendance answers
   mintVoiceDeviceToken: (b: { device_label: string }, key: string) =>

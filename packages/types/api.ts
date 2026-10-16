@@ -858,3 +858,19 @@ export interface ReportsSummaryDTO {
   companion: CompanionOutcomesDTO | null;
   usage: BillingUsageDTO;
 }
+
+/** GET /v1/voice/today: today's appointments for the voice check-in (also reachable with a device voice token) */
+export interface VoiceTodayDTO {
+  timezone: string;
+  appointments: {
+    id: UUID;
+    starts_at: string;
+    ends_at: string;
+    status: string;
+    checked_in_at: string | null;
+    staff_id: UUID;
+    /** First name only */
+    client_first_name: string | null;
+    service_name: string | null;
+  }[];
+}

@@ -126,6 +126,26 @@ describe('device token authentication', () => {
     expect((await upload(off as never, token)).status).toBe(503);
   });
 
+  it('passes authentication on the check-in route (the handler runs; the fake db then fails, not auth)', async () => {
+    const { h } = setup();
+    const { token } = await mint(h, 'staff');
+    const res = await h.app.request('/v1/appointments/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/check-in', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': key(), 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(res.status).not.toBe(401);
+    const after = setup();
+    const t2 = (await mint(after.h, 'staff')).token;
+    after.repo.removeMember({ businessId: BIZ, userId: STAFF_ID });
+    const revoked = await after.h.app.request('/v1/appointments/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/check-in', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${t2}`, 'idempotency-key': key(), 'content-type': 'application/json' },
+      body: '{}',
+    });
+    expect(revoked.status).toBe(401);
+  });
+
   it('is accepted on the attendance answer route as the member it was minted for', async () => {
     const { h, answers } = setup();
     const { token } = await mint(h, 'staff');
@@ -141,6 +161,9 @@ describe('device token authentication', () => {
     ['GET', '/v1/me'],
     ['GET', '/v1/business'],
     ['POST', '/v1/appointments'],
+    ['POST', '/v1/appointments/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/status'],
+    ['GET', '/v1/appointments/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/check-in'],
+    ['POST', '/v1/appointments/9d6a7a0e-6c4c-4f43-8a0d-1c5d2f6f1a11/check-in/x'],
     ['PATCH', '/v1/business'],
     ['DELETE', '/v1/voice/device-token'],
     ['GET', TRANSCRIBE],
@@ -220,6 +243,13 @@ describe('isDeviceTokenRoute', () => {
     ['POST', '/v1/voice/transcriptions', true],
     ['POST', '/api/v1/voice/transcriptions', true],
     ['POST', '/api/v1/attendance/abc/answer', true],
+    ['POST', '/v1/appointments/abc/check-in', true],
+    ['POST', '/api/v1/appointments/abc/check-in', true],
+    ['POST', '/v1/appointments/abc/status', false],
+    ['GET', '/v1/voice/today', true],
+    ['GET', '/api/v1/voice/today', true],
+    ['POST', '/v1/voice/today', false],
+    ['GET', '/v1/voice/today/x', false],
     ['GET', '/v1/voice/transcriptions', false],
     ['POST', '/v1/voice/transcriptions/', false],
     ['POST', '/v1/attendance/a/b/answer', false],

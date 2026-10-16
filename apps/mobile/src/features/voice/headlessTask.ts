@@ -3,13 +3,18 @@ import { AppRegistry, Platform } from 'react-native';
 import { fetchAppointmentsBetween } from '@/features/appointments/hooks';
 import { fetchBusiness } from '@/features/business/hooks';
 import { api, newIdempotencyKey } from '@/lib/api';
-import { getAuthToken } from '@/lib/auth-token';
+import { resolveBearer } from '@/lib/auth-token';
 import i18n from '@/lib/i18n';
 import { qk, queryClient } from '@/lib/query';
 import { dayRangeUtc, todayISO } from '@/lib/time';
 
 import { completeCommand, setCloudStt } from './clovieVoice';
-import { runVoiceClipHeadless, runVoiceCommandHeadless } from './headless';
+import {
+  runVoiceClipHeadless,
+  runVoiceCommandHeadless,
+  type HeadlessDeps,
+} from './headless';
+import { toCheckInCandidates } from './today';
 import { isCloudSttEnabled, transcribeClip } from './transcribe';
 
 const TASK_KEY = 'ClovieVoiceCommand';
@@ -22,7 +27,15 @@ interface TaskData {
   clipPath?: string;
 }
 
+/**
+ * Today's bookings. With a Clerk session (the UI ran since launch) it reads through Supabase as the app does;
+ * with only the device voice token it uses `GET /v1/voice/today`, which the token may call.
+ */
 async function loadToday() {
+  const clerk = await resolveBearer({ allowDeviceToken: false }).catch(
+    () => null,
+  );
+  if (!clerk) return toCheckInCandidates(await api.voiceToday());
   const business = await queryClient.fetchQuery({
     queryKey: qk.business,
     queryFn: fetchBusiness,
@@ -33,6 +46,24 @@ async function loadToday() {
     business.timezone,
   );
   return fetchAppointmentsBetween(from.toISOString(), to.toISOString());
+}
+
+/** What a spoken command needs with no screen: the app's clock, strings and API client. */
+export function createHeadlessDeps(): HeadlessDeps {
+  return {
+    now: () => new Date(),
+    t: (key: string, values?: Record<string, unknown>) =>
+      i18n.t(key, values) as string,
+    // A Clerk session or the device voice token: either can check someone in.
+    isSignedIn: async () =>
+      (await resolveBearer({ allowDeviceToken: true })) !== null,
+    loadToday,
+    checkIn: async (id: string) => {
+      await api.checkInAppointment(id, newIdempotencyKey());
+      void queryClient.invalidateQueries({ queryKey: qk.appointments });
+      void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
+    },
+  };
 }
 
 /**
@@ -46,18 +77,7 @@ export function registerVoiceHeadlessTask(): void {
   // The tile, widget and side key start the service without JS: keep its copy of the flag current.
   setCloudStt(isCloudSttEnabled);
   AppRegistry.registerHeadlessTask(TASK_KEY, () => async (data: TaskData) => {
-    const deps = {
-      now: () => new Date(),
-      t: (key: string, values?: Record<string, unknown>) =>
-        i18n.t(key, values) as string,
-      isSignedIn: async () => (await getAuthToken()) !== null,
-      loadToday,
-      checkIn: async (id: string) => {
-        await api.checkInAppointment(id, newIdempotencyKey());
-        void queryClient.invalidateQueries({ queryKey: qk.appointments });
-        void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
-      },
-    };
+    const deps = createHeadlessDeps();
     const outcome = data.clipPath
       ? await runVoiceClipHeadless(data.clipPath, {
           ...deps,

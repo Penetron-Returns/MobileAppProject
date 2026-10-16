@@ -36,6 +36,8 @@ export function setDeviceTokenSource(source: DeviceTokenSource | null) {
 const DEVICE_TOKEN_ROUTES: readonly { method: string; path: RegExp }[] = [
   { method: 'POST', path: /^\/v1\/voice\/transcriptions$/ },
   { method: 'POST', path: /^\/v1\/attendance\/[^/]+\/answer$/ },
+  { method: 'POST', path: /^\/v1\/appointments\/[^/]+\/check-in$/ },
+  { method: 'GET', path: /^\/v1\/voice\/today$/ },
 ];
 
 export function acceptsDeviceToken(method: string, path: string): boolean {

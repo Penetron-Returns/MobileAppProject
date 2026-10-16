@@ -113,7 +113,12 @@ describe('acceptsDeviceToken', () => {
     ['POST', '/v1/attendance/abc/answer', true],
     ['GET', '/v1/voice/transcriptions', false],
     ['POST', '/v1/attendance/abc/answer/x', false],
-    ['POST', '/v1/appointments/abc/check-in', false],
+    ['POST', '/v1/appointments/abc/check-in', true],
+    ['GET', '/v1/appointments/abc/check-in', false],
+    ['GET', '/v1/voice/today', true],
+    ['POST', '/v1/voice/today', false],
+    ['POST', '/v1/appointments/abc/status', false],
+    ['POST', '/v1/appointments/abc/check-in/x', false],
   ])('%s %s is %s', (method, path, expected) => {
     expect(acceptsDeviceToken(method, path)).toBe(expected);
   });
