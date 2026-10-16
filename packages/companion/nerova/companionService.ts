@@ -18,7 +18,7 @@ import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { PlanRepository } from '@booking/features/ports.ts';
-import type { NerovaAccount, NerovaClient, NerovaTranscription, TranscribeFile } from './client.ts';
+import type { NerovaAccount, NerovaClient, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 
 /** Nerova accepts idempotency keys of 8 to 128 characters. */
 const MAX_KEY_LENGTH = 128;
@@ -48,7 +48,7 @@ export interface CompanionService {
    */
   createWhatsAppConnectSession(businessId: UUID, options?: { returnUrl?: string | undefined }): Promise<CompanionWhatsAppConnectSessionDTO>;
   /** Speech-to-text through the business's Nerova account. COMPANION_NOT_READY (409) without an account; other errors as NerovaClient.transcribe. */
-  transcribe(businessId: UUID, file: TranscribeFile, opts?: { language?: string | undefined }): Promise<TranscriptionResult>;
+  transcribe(businessId: UUID, file: TranscribeFile, opts?: TranscribeOptions): Promise<TranscriptionResult>;
   /** Nerova's outcome counts for the month, or null when Nerova is unavailable. Never throws. */
   getOutcomes(businessId: UUID, month: MonthKey): Promise<CompanionOutcomesDTO | null>;
 }
@@ -110,6 +110,9 @@ export function connectSessionIdempotencyKey(accountId: string, now: Date, versi
   const key = `companion-wa-connect-${accountId}-${now.toISOString().slice(0, 16)}-v${version}`;
   return key.length <= MAX_KEY_LENGTH ? key : `companion-wa-connect-${sha256Hex(key)}`;
 }
+
+const isInvalidTranscriptionRequest = (error: unknown): boolean =>
+  error instanceof AppError && error.code === 'VALIDATION_FAILED' && error.details?.reason === 'transcription.invalid_request';
 
 const isVersionConflict = (error: unknown): boolean => error instanceof AppError && error.details?.nerova_code === VERSION_CONFLICT;
 
@@ -232,11 +235,22 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
   /** Business id to resolved Nerova account id: a voice command should not pay a profile read and an account lookup each time. */
   const transcribeAccounts = new Map<UUID, { accountId: string; expiresAt: number }>();
 
-  async function transcribe(businessId: UUID, file: TranscribeFile, opts: { language?: string | undefined } = {}): Promise<TranscriptionResult> {
+  /** Nerova rejects an oversized or malformed vocabulary with 400 transcription.invalid_request: the hint is optional, so retry once without it. */
+  async function callNerova(accountId: string, file: TranscribeFile, opts: TranscribeOptions): Promise<NerovaTranscription> {
+    try {
+      return await nerova.transcribe(accountId, file, opts);
+    } catch (error) {
+      if (!opts.vocabulary || !isInvalidTranscriptionRequest(error)) throw error;
+      logger.warn('transcription_vocabulary_rejected');
+      return nerova.transcribe(accountId, file, { ...opts, vocabulary: undefined });
+    }
+  }
+
+  async function transcribe(businessId: UUID, file: TranscribeFile, opts: TranscribeOptions = {}): Promise<TranscriptionResult> {
     const hit = transcribeAccounts.get(businessId);
     if (hit && hit.expiresAt > clock().getTime()) {
       try {
-        return toTranscription(await nerova.transcribe(hit.accountId, file, opts));
+        return toTranscription(await callNerova(hit.accountId, file, opts));
       } catch (error) {
         // Nerova answers 404 (TRANSCRIPTION_UNAVAILABLE) for an account it no longer knows: forget it and resolve again.
         if (!(error instanceof AppError) || error.code !== 'TRANSCRIPTION_UNAVAILABLE') throw error;
@@ -246,7 +260,7 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     const profile = await plans.getProfile(businessId);
     const account = await resolveAccount(businessId, profile.nerovaAccountId);
     if (!account) throw notReady('account_not_found', 'connect_booking_system');
-    const result = await nerova.transcribe(account.id, file, opts);
+    const result = await callNerova(account.id, file, opts);
     transcribeAccounts.set(businessId, { accountId: account.id, expiresAt: clock().getTime() + ACCOUNT_CACHE_TTL_MS });
     return toTranscription(result);
   }

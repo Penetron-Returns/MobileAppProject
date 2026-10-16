@@ -56,6 +56,8 @@ export interface AppointmentWindowFilter {
   status?: AppointmentStatus;
   /** Keyset cursor: rows strictly after (starts_at, id) */
   after?: { startsAt: string; id: UUID };
+  /** Default 'asc'. 'desc' is newest first and does not combine with `after`. */
+  order?: 'asc' | 'desc';
   limit: number;
 }
 

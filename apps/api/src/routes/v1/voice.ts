@@ -11,6 +11,8 @@ import { withEntitlementCache } from '@booking/companion/connector/staticReadCac
 import type { DeviceTokenDTO, TranscriptionDTO, VoiceTodayDTO } from '@booking/types';
 import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { listVoiceToday } from '@booking/features/bookings/services/voiceToday.ts';
+import { createVoiceVocabularyService, joinVocabulary, type VoiceVocabularyService } from '@booking/features/bookings/services/voiceVocabulary.ts';
+import type { Container } from '../../container.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { parseJson } from '../../lib/validation.ts';
 import type { AppEnv } from '../../types.ts';
@@ -106,6 +108,37 @@ async function readUploadForPlan(c: Context<AppEnv>): Promise<{ file: File; lang
   return upload.value;
 }
 
+/** The vocabulary hint is optional: it may wait this long for the database, then the clip goes without it. */
+export const VOCABULARY_BUDGET_MS = 400;
+
+const vocabularyServices = new WeakMap<Container, VoiceVocabularyService>();
+function vocabularyService(container: Container): VoiceVocabularyService {
+  let service = vocabularyServices.get(container);
+  if (!service) {
+    service = createVoiceVocabularyService({ repo: getBookingRepository(container), clock: container.clock });
+    vocabularyServices.set(container, service);
+  }
+  return service;
+}
+
+/** Client first names as the comma-separated `vocabulary` field, or undefined. Never rejects and never exposes the names. */
+async function loadVocabulary(c: Context<AppEnv>): Promise<{ vocabulary: string | undefined; terms: number }> {
+  const none = { vocabulary: undefined, terms: 0 };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const container = c.get('container');
+    const terms = await Promise.race([
+      vocabularyService(container).buildVoiceVocabulary(c.get('auth').businessId),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), VOCABULARY_BUDGET_MS); }),
+    ]);
+    return terms && terms.length > 0 ? { vocabulary: joinVocabulary(terms), terms: terms.length } : none;
+  } catch {
+    return none;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** `nerova;dur=…, proxy;dur=…`: lets the phone subtract each hop from its own round trip. Timings only. */
 export function serverTimingHeader(nerovaMs: number | null | undefined, proxyMs: number, authMs?: number | null): string {
   const entries = typeof nerovaMs === 'number' ? [`nerova;dur=${Math.round(nerovaMs)}`] : [];
@@ -116,17 +149,21 @@ export function serverTimingHeader(nerovaMs: number | null | undefined, proxyMs:
 
 voiceRoutes.post('/voice/transcriptions', voiceEnabled, limitContentLength, async (c) => {
   const started = Date.now();
+  // Started first so it overlaps the plan check and the body read.
+  const pendingVocabulary = loadVocabulary(c);
   const { file, language } = await readUploadForPlan(c);
+  const { vocabulary, terms } = await pendingVocabulary;
   const result = await c.get('container').companion.transcribe(
     c.get('auth').businessId,
     { data: file, filename: file.name || 'clip', contentType: file.type || 'application/octet-stream' },
-    { language },
+    { language, vocabulary },
   );
   // Sizes and timings only: never the audio or the transcript.
   const proxyMs = Date.now() - started;
   c.get('logger').info('voice_transcription', {
     size_bytes: file.size,
     text_length: result.text.length,
+    vocabulary_terms: terms,
     duration_ms: proxyMs,
     nerova_ms: result.nerova_ms ?? null,
   });

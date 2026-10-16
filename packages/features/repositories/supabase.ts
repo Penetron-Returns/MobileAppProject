@@ -224,7 +224,8 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         // keyset: (starts_at, id) > (after.startsAt, after.id)
         q = q.or(`starts_at.gt.${f.after.startsAt},and(starts_at.eq.${f.after.startsAt},id.gt.${f.after.id})`);
       }
-      return rows(await q.order('starts_at').order('id').limit(f.limit));
+      const ascending = f.order !== 'desc';
+      return rows(await q.order('starts_at', { ascending }).order('id', { ascending }).limit(f.limit));
     },
     async listUpcomingAppointments(businessId, clientId, nowIso) {
       return rows(
