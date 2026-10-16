@@ -296,7 +296,8 @@
     "loading": "Loading today",
     "ai": {
       "title": "Home",
-      "openClovie": "Talk to Clovie",
+      "openClovie": "Clovie",
+      "openClovieHint": "Double-tap to chat",
       "bookings_one": "{{count}} booking today",
       "bookings_other": "{{count}} bookings today",
       "noBookings": "No bookings today",

@@ -1,4 +1,4 @@
-import { Pressable, Text, TIMING, useDepth } from '@booking/ui';
+import { Text, TIMING, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -11,6 +11,7 @@ import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 import { useIdlePulse } from '@/hooks/useIdlePulse';
 import { useMotionActive } from '@/hooks/useMotionActive';
 
+import { ClovieButton } from './ClovieButton';
 import type { NowLine, NowRow as NowRowData } from '../../aiLogic';
 
 /** The hero Clovie's size (the board draws it at 138). */
@@ -95,7 +96,6 @@ export function NowRow({
   isPaused: boolean;
   onOpenClovie: () => void;
 }) {
-  const { t } = useTranslation();
   const depth = useDepth();
   const lineText = useNowLineText();
   const isDark = depth.scheme === 'dark';
@@ -107,32 +107,20 @@ export function NowRow({
         pointerEvents="none"
         style={{
           position: 'absolute',
-          top: 146,
+          top: 150,
           width: 150,
           height: 24,
           experimental_backgroundImage: contactImage(isDark),
         }}
       />
-      <Pressable
-        onPress={onOpenClovie}
-        feedback="none"
-        accessibilityRole="button"
-        accessibilityLabel={t('today.ai.openClovie')}
-        hitSlop={8}
-        style={{
-          position: 'absolute',
-          top: 8,
-          width: CLOVIE_SIZE + 4,
-          height: CLOVIE_SIZE + 8,
-        }}
-      >
+      <ClovieButton onPress={onOpenClovie}>
         <ClovieAnimated
           state={isBusy ? 'working' : 'default'}
           size={CLOVIE_SIZE}
           isPaused={isPaused}
           onLiveChange={setIsLive}
         />
-      </Pressable>
+      </ClovieButton>
       <View
         accessibilityRole="summary"
         accessibilityLiveRegion="polite"
