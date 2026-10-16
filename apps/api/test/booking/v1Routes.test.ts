@@ -300,6 +300,15 @@ describe('appointments', () => {
     expect((await h.call('POST', '/v1/appointments/00000000-0000-4000-8000-999999999999/cancel')).status).toBe(404);
   });
 
+  it('unregisters only the caller own push token', async () => {
+    await h.call('POST', '/v1/devices', { body: { token: 'ExponentPushToken[abc]', platform: 'ios' } });
+    await h.repo.upsertDeviceToken(h.business.id, 'someone_else', 'ExponentPushToken[other]', 'ios');
+    expect((await h.call('DELETE', '/v1/devices', { body: { token: 'ExponentPushToken[other]' } })).status).toBe(200);
+    expect(h.repo.tables.device_push_tokens.map((d) => d.token).sort()).toEqual(['ExponentPushToken[abc]', 'ExponentPushToken[other]']);
+    expect((await h.call('DELETE', '/v1/devices', { body: { token: 'ExponentPushToken[abc]' } })).status).toBe(200);
+    expect(h.repo.tables.device_push_tokens.map((d) => d.token)).toEqual(['ExponentPushToken[other]']);
+  });
+
   it('registers push devices', async () => {
     const res = await h.call('POST', '/v1/devices', { body: { token: 'ExponentPushToken[abc]', platform: 'ios' } });
     expect(res.status).toBe(201);

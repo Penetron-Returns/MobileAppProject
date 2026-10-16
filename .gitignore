@@ -40,3 +40,10 @@ yarn-error.*
 
 # Gradle output of local Expo modules
 apps/mobile/modules/*/android/build/
+
+# Google Play service account key (eas submit); never commit
+google-play-service-account*.json
+
+# Firebase client config for push (FCM); never commit (docs/push-setup.md)
+google-services*.json
+GoogleService-Info.plist
