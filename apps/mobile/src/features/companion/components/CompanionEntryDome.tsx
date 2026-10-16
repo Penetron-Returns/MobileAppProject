@@ -5,6 +5,7 @@ import { View } from 'react-native';
 
 import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 
+import { useCompanionSheet } from '../sdk/companionSheetControl';
 import { useCompanionEntry } from '../useCompanionEntry';
 
 /**
@@ -15,6 +16,7 @@ import { useCompanionEntry } from '../useCompanionEntry';
 export function CompanionEntryDome() {
   const { t } = useTranslation();
   const { isVisible, attentionCount } = useCompanionEntry();
+  const sheet = useCompanionSheet();
   if (!isVisible) return null;
   return (
     <CompanionDome
@@ -37,7 +39,9 @@ export function CompanionEntryDome() {
           ? t('companion.domeLabelCount', { count: attentionCount })
           : t('companion.domeLabel')
       }
-      onPress={() => router.push('/companion' as never)}
+      onPress={() =>
+        sheet.isAvailable ? sheet.open() : router.push('/companion' as never)
+      }
     />
   );
 }

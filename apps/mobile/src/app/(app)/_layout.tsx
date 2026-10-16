@@ -4,6 +4,7 @@ import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
@@ -187,40 +188,42 @@ export default function AppLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        // Drill-in pages slide in from the right and swipe back natively.
-        animation: 'slide_from_right',
-        animationDuration: DURATION.page,
-        gestureEnabled: true,
-        fullScreenGestureEnabled: true,
-        // The ground colour behind a moving screen, so a transition never flashes white.
-        contentStyle: { backgroundColor: ground },
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-      {/* New booking slides up over everything, tab bar included. Swipe-down is
-          off so closing always goes through the discard check. */}
-      <Stack.Screen
-        name="new-booking"
-        options={{
-          presentation: 'fullScreenModal',
-          animation: 'slide_from_bottom',
+    <CompanionSdkHost>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          // Drill-in pages slide in from the right and swipe back natively.
+          animation: 'slide_from_right',
           animationDuration: DURATION.page,
-          gestureEnabled: false,
-          fullScreenGestureEnabled: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          // The ground colour behind a moving screen, so a transition never flashes white.
+          contentStyle: { backgroundColor: ground },
         }}
-      />
-      {/* The companion sheet draws its own dim and slides itself in. */}
-      <Stack.Screen
-        name="companion"
-        options={{
-          presentation: 'transparentModal',
-          animation: 'none',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
-      />
-    </Stack>
+      >
+        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+        {/* New booking slides up over everything, tab bar included. Swipe-down is
+          off so closing always goes through the discard check. */}
+        <Stack.Screen
+          name="new-booking"
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'slide_from_bottom',
+            animationDuration: DURATION.page,
+            gestureEnabled: false,
+            fullScreenGestureEnabled: false,
+          }}
+        />
+        {/* The companion sheet draws its own dim and slides itself in. */}
+        <Stack.Screen
+          name="companion"
+          options={{
+            presentation: 'transparentModal',
+            animation: 'none',
+            contentStyle: { backgroundColor: 'transparent' },
+          }}
+        />
+      </Stack>
+    </CompanionSdkHost>
   );
 }
