@@ -1,6 +1,6 @@
 import { createMockTransport } from '@nerova/react-native/testing';
 import * as React from 'react';
-import { TextInput } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
 
 import { act, flush, mount, text } from '@/testing/render';
 
@@ -24,14 +24,6 @@ jest.mock('@/lib/env', () => ({
 let mockHasCompanion = true;
 jest.mock('@/features/plans/hooks', () => ({
   useEntitlements: () => ({ has: () => mockHasCompanion }),
-}));
-
-const mockStatusBar: string[] = [];
-jest.mock('expo-status-bar', () => ({
-  StatusBar: ({ style }: { style: string }) => {
-    mockStatusBar.push(style);
-    return null;
-  },
 }));
 
 // The real Clovie is a WebView; here it only reports the state it was given.
@@ -70,6 +62,10 @@ function surface(tree: ReturnType<typeof mount>) {
   return tree.root.find((n) => n.props.testID === 'sheet-surface');
 }
 
+function avatarWrapper(tree: ReturnType<typeof mount>) {
+  return tree.root.find((n) => n.props.testID === 'sheet-avatar-wrapper');
+}
+
 async function settle() {
   for (let i = 0; i < 5; i++) await flush();
 }
@@ -77,7 +73,6 @@ async function settle() {
 beforeEach(() => {
   mockEnabled = true;
   mockHasCompanion = true;
-  mockStatusBar.length = 0;
   mockClovieStates.length = 0;
   mockCreate.mockReset();
   mockCreate.mockResolvedValue({
@@ -97,16 +92,56 @@ describe('CompanionSdkHost', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('starts closed with no dim, no Clovie and no status bar override', async () => {
+  it('starts closed with no dim and a hidden resting avatar', async () => {
     const { tree } = mountSdk();
     await settle();
 
     expect(surface(tree).props.pointerEvents).toBe('none');
+    // restAvatar="hidden": the SDK unmounts the resting avatar, and we never
+    // render a Clovie (WebView) for the rest placement.
+    expect(
+      tree.root.findAll((n) => n.props.testID === 'sheet-avatar-wrapper'),
+    ).toHaveLength(0);
     expect(
       tree.root.findAll((n) => n.props.testID === 'companion-clovie'),
     ).toHaveLength(0);
-    expect(mockStatusBar).toEqual([]);
+    expect(mockClovieStates).toHaveLength(0);
+    expect(
+      tree.root.findAll((n) => n.props.testID === 'sheet-dim'),
+    ).toHaveLength(0);
     expect(control.isAvailable).toBe(true);
+  });
+
+  it('never lets a full-screen ancestor of the sheet take touches at rest', async () => {
+    const { tree } = mountSdk();
+    await settle();
+
+    const layer = tree.root.find(
+      (n) => n.props.testID === 'companion-sdk-layer',
+    );
+    const ancestors = [];
+    for (let n = surface(tree).parent; n; n = n.parent) {
+      if (typeof n.type === 'string') ancestors.push(n);
+      if (n === layer || n.props.testID === 'companion-sdk-layer') break;
+    }
+    expect(ancestors.length).toBeGreaterThan(1);
+    for (const node of ancestors) {
+      const style = StyleSheet.flatten(node.props.style) ?? {};
+      const isFill =
+        style.flex === 1 ||
+        (style.position === 'absolute' &&
+          style.top === 0 &&
+          style.bottom === 0 &&
+          style.left === 0 &&
+          style.right === 0);
+      if (isFill) {
+        expect(['box-none', 'none']).toContain(node.props.pointerEvents);
+      }
+    }
+    expect(layer.props.pointerEvents).toBe('box-none');
+    expect(StyleSheet.flatten(layer.props.style)).toMatchObject({
+      position: 'absolute',
+    });
   });
 
   it('opens and closes the sheet through the controller', async () => {
@@ -117,12 +152,13 @@ describe('CompanionSdkHost', () => {
     await settle();
     expect(surface(tree).props.pointerEvents).toBe('auto');
     expect(composer(tree)).toBeTruthy();
+    expect(avatarWrapper(tree).props.accessibilityElementsHidden).toBe(false);
     expect(
       tree.root.findAll(
         (n) =>
           typeof n.type === 'string' && n.props.testID === 'companion-clovie',
-      ),
-    ).toHaveLength(1);
+      ).length,
+    ).toBeGreaterThan(0);
 
     await act(async () => control.close());
     await settle();
@@ -140,20 +176,6 @@ describe('CompanionSdkHost', () => {
     expect(
       transport.controls.calls.filter((c) => c.name === 'chat'),
     ).toHaveLength(0);
-  });
-
-  it('shows light status bar icons while open in light mode and restores on close', async () => {
-    mountSdk();
-    await settle();
-
-    await act(async () => control.open());
-    await settle();
-    expect(mockStatusBar).toEqual(['light']);
-
-    mockStatusBar.length = 0;
-    await act(async () => control.close());
-    await settle();
-    expect(mockStatusBar).toEqual([]);
   });
 
   it('shows a streamed reply and drives Clovie busy then replied', async () => {

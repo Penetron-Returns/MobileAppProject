@@ -17,6 +17,15 @@ describe('buildCompanionAppearance', () => {
     expect(appearance.font?.family).toBe('System');
   });
 
+  it('maps the type scale: body 17/22, caption and footnote 15/20, scaling capped', () => {
+    const { type } = buildCompanionAppearance(getDepth('light'), false);
+    expect(type?.body).toEqual({ fontSize: 17, lineHeight: 22 });
+    expect(type?.caption).toEqual({ fontSize: 15, lineHeight: 20 });
+    expect(type?.footnote).toEqual({ fontSize: 15, lineHeight: 20 });
+    expect(type?.allowFontScaling).toBe(true);
+    expect(type?.maxFontSizeMultiplier).toBe(1.3);
+  });
+
   it('prefers Inter on Android, falling back to the system font', () => {
     const appearance = buildCompanionAppearance(
       getDepth('light'),
