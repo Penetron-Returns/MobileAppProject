@@ -25,7 +25,8 @@ afterEach(() => {
 
 export function mount(element: React.ReactElement): ReactTestRenderer {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    // gcTime 0: a 5 minute gc timer would keep Jest alive after the suite.
+    defaultOptions: { queries: { retry: false }, mutations: { gcTime: 0 } },
   });
   let tree!: ReactTestRenderer;
   act(() => {

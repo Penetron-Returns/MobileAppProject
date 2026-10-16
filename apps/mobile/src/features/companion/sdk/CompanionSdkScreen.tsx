@@ -8,9 +8,9 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 
-import { useClovieMood } from '../useClovieMood';
 import { buildCompanionAppearance } from './companionAppearance';
 import { SdkClovie } from './SdkClovie';
+import { useSdkLabels } from './useSdkLabels';
 import { useSdkSessionProvider } from './useSdkSessionProvider';
 
 /** Where the hosted WhatsApp connect page returns to (`app.json` scheme `bookingadmin`). */
@@ -18,8 +18,6 @@ export const WHATSAPP_RETURN_URL = 'bookingadmin://companion/whatsapp-return';
 
 /** Leaves the sheet; falls back to Today when opened from a deep link. */
 const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
-
-type Activity = 'busy' | 'reply' | 'idle';
 
 /**
  * The companion route when the SDK flag is on: Nerova's native sheet over the
@@ -41,11 +39,7 @@ export function CompanionSdkScreen({
     [depth, isDark],
   );
   const sessionProvider = useSdkSessionProvider(isDark ? 'dark' : 'light');
-  const { mood, onWidgetEvent } = useClovieMood();
-  const onActivity = React.useCallback(
-    (activity: Activity) => onWidgetEvent({ kind: activity }),
-    [onWidgetEvent],
-  );
+  const labels = useSdkLabels();
 
   // What the owner said to "Hey Clovie" goes into the composer, unsent.
   const { heard } = useLocalSearchParams<{ heard?: string }>();
@@ -59,14 +53,17 @@ export function CompanionSdkScreen({
       sessionProvider={sessionProvider}
       whatsAppReturnUrl={WHATSAPP_RETURN_URL}
       appearance={appearance}
-      onActivity={onActivity}
+      labels={labels}
       transport={transport}
     >
       <CompanionSheet
         ref={sheetRef}
         defaultDetent="half"
         onClose={onClose}
-        renderAvatar={({ size }) => <SdkClovie mood={mood} size={size} />}
+        avatar="hidden"
+        renderAvatar={({ state, size }) => (
+          <SdkClovie state={state} size={size} />
+        )}
       />
     </CompanionProvider>
   );

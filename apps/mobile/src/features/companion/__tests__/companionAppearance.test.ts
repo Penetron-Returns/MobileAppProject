@@ -14,6 +14,15 @@ describe('buildCompanionAppearance', () => {
     expect(appearance.colors?.text).toBe(depth.colors.label);
     expect(appearance.colors?.destructive).toBe(depth.colors.red);
     expect(appearance.colors?.background).toBe(depth.ground.backgroundColor);
-    expect(appearance.font).toBeUndefined();
+    expect(appearance.font?.family).toBe('System');
+  });
+
+  it('prefers Inter on Android, falling back to the system font', () => {
+    const appearance = buildCompanionAppearance(
+      getDepth('light'),
+      false,
+      'android',
+    );
+    expect(appearance.font?.family).toEqual(['Inter', 'System']);
   });
 });

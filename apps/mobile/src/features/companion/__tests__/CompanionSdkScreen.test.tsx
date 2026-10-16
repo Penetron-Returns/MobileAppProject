@@ -1,4 +1,5 @@
-import 'react-native-gesture-handler/jestSetup';
+import '@/testing/sdkSetup';
+
 import { createMockTransport } from '@nerova/react-native/testing';
 import * as React from 'react';
 import { TextInput } from 'react-native';
@@ -31,7 +32,7 @@ jest.mock('@/features/brand/ClovieAnimated', () => ({
 
 function mountSdk() {
   const transport = createMockTransport({
-    ownerState: { helloSeen: true, setupStep: 4, setupCompleted: true },
+    setupCompleted: true,
     whatsAppConnected: true,
   });
   const tree = mount(<CompanionSdkScreen transport={transport} />);
@@ -45,15 +46,6 @@ function composer(tree: ReturnType<typeof mount>) {
 async function settle() {
   for (let i = 0; i < 5; i++) await flush();
 }
-
-beforeAll(() => {
-  // The SDK keeps a refresh timer (80% of the session life); fake clocks let Jest exit.
-  jest.useFakeTimers();
-});
-
-afterAll(() => {
-  jest.useRealTimers();
-});
 
 beforeEach(() => {
   mockParams = {};
