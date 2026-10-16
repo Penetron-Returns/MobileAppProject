@@ -10,6 +10,7 @@ export {
   isSupported,
   requestAddTile,
   requestOverlayPermission,
+  setCloudStt,
   setLauncherIconEnabled,
   start,
   startTalk,

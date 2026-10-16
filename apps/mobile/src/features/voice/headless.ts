@@ -57,3 +57,32 @@ export async function runVoiceCommandHeadless(
     return { status: 'error', message: deps.t('voice.failed') };
   }
 }
+
+/** The text the overlay maps to "Didn't catch that" (the native service compares it verbatim). */
+export const NOT_HEARD = "Didn't catch that";
+
+export interface ClipDeps extends HeadlessDeps {
+  /** Uploads the WAV and returns what was said; rejects on any failure. */
+  transcribe: (clipPath: string) => Promise<{ text: string }>;
+}
+
+/**
+ * Runs a clip captured by the service: transcribes it through the backend,
+ * then handles the text exactly like a typed transcript. A failed upload
+ * (network, 404, 5xx) answers `fallback` so the service retries once with
+ * Android's own recogniser. Silence in the clip is "Didn't catch that".
+ */
+export async function runVoiceClipHeadless(
+  clipPath: string,
+  deps: ClipDeps,
+): Promise<ClovieVoiceCommandOutcome> {
+  let text: string;
+  try {
+    text = (await deps.transcribe(clipPath)).text.trim();
+  } catch {
+    return { status: 'fallback', message: '' };
+  }
+  if (!text) return { status: 'error', message: NOT_HEARD };
+  const outcome = await runVoiceCommandHeadless(text, deps);
+  return { ...outcome, transcript: text };
+}

@@ -161,6 +161,9 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
   /** A raw recogniser level in dB; the page gets a smoothed 0..1 at ~30 Hz. */
   fun pushRms(rmsDb: Float) = meter.push(rmsDb)
 
+  /** An already-normalised 0..1 level (our own capture); same smoothing and ~30 Hz delivery. */
+  fun pushLevel(level: Float) = meter.pushLevel(level)
+
   fun destroy() {
     hide(animated = false)
     web?.destroy()
@@ -222,6 +225,7 @@ class VoiceOverlay(context: Context, private val onAction: () -> Unit) {
 
 /** Smooths the recogniser's irregular dB readings into a steady 0..1 level. */
 class LevelMeter {
+  @Volatile
   private var target = 0f
   private var level = 0f
 
@@ -233,6 +237,10 @@ class LevelMeter {
   /** SpeechRecognizer reports roughly -2 dB (silence) to 10 dB (loud). */
   fun push(rmsDb: Float) {
     target = ((rmsDb + 2f) / 12f).coerceIn(0f, 1f)
+  }
+
+  fun pushLevel(level: Float) {
+    target = level.coerceIn(0f, 1f)
   }
 
   /** One ~33 ms frame: rise quickly, fall slowly. */

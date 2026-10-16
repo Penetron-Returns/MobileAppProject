@@ -7,10 +7,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** What the app's JS reports back after running a spoken command. */
 data class CommandOutcome(
-  /** `done`, `error`, or `open_app` (the owner has to finish in the app). */
+  /** `done`, `error`, `open_app` (the owner has to finish in the app) or `fallback` (a clip could not be transcribed). */
   val status: String,
   /** Text to show ("Checked in Sipho"). */
   val message: String,
+  /** What was heard, when the app transcribed it (a clip); empty otherwise. */
+  val transcript: String = "",
 )
 
 /**
@@ -23,14 +25,24 @@ object VoiceCommandBridge {
   const val TASK_KEY = "ClovieVoiceCommand"
   const val TIMEOUT_MS = 8_000L
 
+  /** Upload plus transcription plus the command: longer than a typed transcript. */
+  const val CLIP_TIMEOUT_MS = 25_000L
+
   private val main = Handler(Looper.getMainLooper())
   private val pending = ConcurrentHashMap<String, (CommandOutcome) -> Unit>()
 
-  /** Registers `onOutcome` (called once, on the main thread) and returns the command id. */
-  fun register(onOutcome: (CommandOutcome) -> Unit): String {
+  /**
+   * Registers `onOutcome` (called once, on the main thread) and returns the command id. If JS does not
+   * answer within `timeoutMs`, `timeoutStatus` is reported instead.
+   */
+  fun register(
+    timeoutMs: Long = TIMEOUT_MS,
+    timeoutStatus: String = "open_app",
+    onOutcome: (CommandOutcome) -> Unit,
+  ): String {
     val id = UUID.randomUUID().toString()
     pending[id] = onOutcome
-    main.postDelayed({ complete(id, CommandOutcome("open_app", "")) }, TIMEOUT_MS)
+    main.postDelayed({ complete(id, CommandOutcome(timeoutStatus, "")) }, timeoutMs)
     return id
   }
 
