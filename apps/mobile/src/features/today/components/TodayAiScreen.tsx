@@ -19,24 +19,30 @@ import { toast } from '@/lib/toast';
 import { useTodayAi } from '../aiHooks';
 import { hasAfternoonStarted } from '../aiLogic';
 import { formatDayCaption } from '../logic';
+import { BookingsLine } from './ai/BookingsLine';
 import { NeedsYou } from './ai/NeedsYou';
 import { NowRow } from './ai/NowRow';
-import { TodayNumbers } from './ai/ProgressRing';
 import { TodaySoFar } from './ai/TodaySoFar';
 import { TodayError, TodaySkeleton } from './TodayStates';
 
-/** Date line and the notification bell. The big title is left out: the tab already says Today. */
+/** The date line, the large "Home" title and the notification bell. */
 function Header({ caption }: { caption: string }) {
   const { t } = useTranslation();
   return (
-    <View className="h-11 flex-row items-center justify-between pl-5 pr-4">
-      <Text
-        role="heading"
-        aria-level="1"
-        className="text-title font-semibold text-muted-foreground"
-      >
-        {caption}
-      </Text>
+    <View className="flex-row items-end justify-between pl-5 pr-4 pt-1">
+      <View className="min-w-0 flex-1">
+        <Text className="text-title font-semibold text-muted-foreground">
+          {caption}
+        </Text>
+        <Text
+          role="heading"
+          aria-level="1"
+          style={{ letterSpacing: 0.4 }}
+          className="text-large-title font-bold"
+        >
+          {t('today.ai.title')}
+        </Text>
+      </View>
       <IconButton
         icon={Bell}
         label={t('today.notifications')}
@@ -52,7 +58,7 @@ function Header({ caption }: { caption: string }) {
 const CONFIRMATION_MS = 3000;
 
 /**
- *Today for the plans with the companion: Clovie and what she is doing, the
+ * Home for the plans with the companion: Clovie and what she is doing, the
  * day's numbers, anything that needs the owner, and what changed so far.
  * Announcements are left out until there is a source for them.
  */
@@ -136,12 +142,7 @@ export function TodayAiScreen() {
                 isPaused={live?.isSheetOpen ?? false}
                 onOpenClovie={openClovie}
               />
-              <TodayNumbers
-                percent={view.percent}
-                revenueCents={view.revenueCents}
-                currency={view.currency}
-                clovieBooked={view.clovieBooked}
-              />
+              <BookingsLine count={view.bookingsToday} />
               <NeedsYou
                 pending={live?.pending ?? []}
                 busyId={busyId}

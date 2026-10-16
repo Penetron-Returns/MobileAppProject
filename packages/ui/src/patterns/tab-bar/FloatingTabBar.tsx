@@ -85,12 +85,15 @@ export function FloatingTabBar({
   navigation,
   tabs = DEFAULT_TABS,
   onAdd,
+  centerTab,
   dome,
 }: TabBarProps & {
   /** The tabs to show, left to right. Routes missing from the navigator are skipped. */
   tabs?: readonly TabRouteName[];
   /** When given, a centre "+" opens New booking (a route, not a tab) through this. */
   onAdd?: () => void;
+  /** A tab drawn as the raised primary dome in the middle (paid plans: Reports) instead of a flat tab. */
+  centerTab?: TabRouteName;
   /** The Inbox or Companion dome (or nothing) shown above the right-hand end of the bar. */
   dome?: React.ReactNode;
 }) {
@@ -160,7 +163,13 @@ export function FloatingTabBar({
   };
 
   // The "+" sits in the middle; without it the split is irrelevant.
-  const split = Math.ceil(tabs.length / 2);
+  const centre = centerTab && tabs.includes(centerTab) ? centerTab : null;
+  const sideTabs = tabs.filter((name) => name !== centre);
+  const split = Math.ceil(sideTabs.length / 2);
+  const centreRoute = centre
+    ? state.routes.find((r) => r.name === centre)
+    : undefined;
+  const CentreIcon = centre && centreRoute ? TAB_ICONS[centre] : null;
 
   const renderTab = (name: TabRouteName) => {
     const route = state.routes.find((r) => r.name === name);
@@ -224,7 +233,39 @@ export function FloatingTabBar({
             pillStyle,
           ]}
         />
-        {tabs.slice(0, split).map(renderTab)}
+        {sideTabs.slice(0, split).map(renderTab)}
+        {centre && centreRoute && CentreIcon ? (
+          <Pressable
+            onPress={() => {
+              haptics.light();
+              goTo(centre, centreRoute.key);
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel={t(
+              `tabs.${centre === 'index' ? 'today' : centre}`,
+            )}
+            accessibilityState={{ selected: activeName === centre }}
+            {...addBounce.handlers}
+            className="w-[60px] items-center justify-center"
+          >
+            {({ pressed }) => (
+              <Animated.View
+                style={[
+                  depth.primary,
+                  pressed && depth.primaryPressed,
+                  addBounce.style,
+                ]}
+                className="h-[52px] w-[52px] items-center justify-center rounded-full"
+              >
+                <CentreIcon
+                  size={26}
+                  strokeWidth={2.2}
+                  color={depth.colors.onFill}
+                />
+              </Animated.View>
+            )}
+          </Pressable>
+        ) : null}
         {onAdd ? (
           <Pressable
             onPress={() => {
@@ -250,7 +291,7 @@ export function FloatingTabBar({
             )}
           </Pressable>
         ) : null}
-        {tabs.slice(split).map(renderTab)}
+        {sideTabs.slice(split).map(renderTab)}
       </View>
     </View>
   );

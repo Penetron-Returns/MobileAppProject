@@ -1,24 +1,55 @@
 import { Button, Pressable, Surface, Text, useDepth } from '@booking/ui';
 import type { Approval } from '@nerova/react-native';
 import { Check, TriangleAlert } from 'lucide-react-native';
+
+import { Tile } from './Tile';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-const AMBER_TILE = 'linear-gradient(180deg, #FFC15A, #E68A00)';
-const TILE_SHADOW =
-  '0 1px 2px rgba(16,24,40,0.25), 0 4px 10px -3px rgba(16,24,40,0.3), inset 0 1px 0 rgba(255,255,255,0.45)';
-
-/** The quiet all-clear: a grey tick and one line, no card. */
+/** The all-clear: a green-tinted card with a check tile. */
 function AllClear() {
   const { t } = useTranslation();
   const depth = useDepth();
+  const isDark = depth.scheme === 'dark';
   return (
-    <View className="flex-row items-center gap-2 px-5 pt-4">
-      <Check size={16} strokeWidth={2.4} color={depth.colors.secondary} />
-      <Text className="text-subtitle text-muted-foreground">
-        {t('today.ai.needs.none')}
-      </Text>
+    <View className="px-5 pt-6">
+      <Surface
+        variant="raised"
+        radius={22}
+        className="flex-row items-center gap-3 px-4 py-3.5"
+      >
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 22,
+            backgroundColor: isDark
+              ? 'rgba(48,219,91,0.07)'
+              : 'rgba(52,199,89,0.07)',
+            borderWidth: 1,
+            borderColor: isDark
+              ? 'rgba(48,219,91,0.25)'
+              : 'rgba(36,138,61,0.22)',
+          }}
+        />
+        <Tile
+          tone="ok"
+          icon={Check}
+          size={40}
+          iconSize={22}
+          strokeWidth={2.6}
+        />
+        <View className="min-w-0 flex-1">
+          <Text className="text-title font-semibold">
+            {t('today.ai.needs.none')}
+          </Text>
+          <Text className="text-subtitle text-muted-foreground">
+            {t('today.ai.needs.noneDetail')}
+          </Text>
+        </View>
+      </Surface>
     </View>
   );
 }
@@ -29,7 +60,7 @@ function Confirmation({ text }: { text: string }) {
   return (
     <View
       accessibilityLiveRegion="polite"
-      className="flex-row items-center gap-2 px-5 pt-4"
+      className="flex-row items-center gap-2 px-5 pt-6"
     >
       <Check size={16} strokeWidth={2.4} color={depth.colors.tint} />
       <Text className="flex-1 text-subtitle">{text}</Text>
@@ -83,7 +114,7 @@ export function NeedsYou({
   }
   const isBusy = busyId === first.id;
   return (
-    <View className="px-5 pt-5">
+    <View className="px-5 pt-6">
       <Surface variant="raised" radius={22} className="px-4 pb-4 pt-3.5">
         <View
           pointerEvents="none"
@@ -100,19 +131,13 @@ export function NeedsYou({
           }}
         />
         <View className="flex-row items-center gap-3">
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              experimental_backgroundImage: AMBER_TILE,
-              boxShadow: TILE_SHADOW,
-            }}
-          >
-            <TriangleAlert size={22} strokeWidth={2.2} color="#FFFFFF" />
-          </View>
+          <Tile
+            tone="reminded"
+            icon={TriangleAlert}
+            size={40}
+            iconSize={22}
+            strokeWidth={2.2}
+          />
           <View className="min-w-0 flex-1">
             <Text
               role="heading"
