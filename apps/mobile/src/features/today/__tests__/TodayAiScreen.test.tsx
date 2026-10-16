@@ -50,9 +50,7 @@ function ready(
     timezone: TZ,
     now: NOW,
     appointments: [],
-    percent: 67,
-    revenueCents: 485_000,
-    clovieBooked: 3,
+    bookingsToday: 14,
     digest: buildDigest([], '2026-10-14', TZ),
     nowRow: () => ({
       primary: { kind: 'calm' },
@@ -133,10 +131,7 @@ describe('TodayAiScreen', () => {
     const out = text(render());
     expect(out).toContain('Wednesday 14 October');
     expect(out).toContain('Clovie is looking after today');
-    expect(out).toContain('Next: Thandi at 11:00');
-    expect(out).toContain('67%');
-    expect(out).toContain('booked today');
-    expect(out).toContain('R 4,850 so far · 3 booked by Clovie');
+    expect(out).toContain('14 bookings today');
     expect(out).toContain('Nothing needs you');
     expect(out).not.toContain('Needs you ·');
     expect(out).toContain('Today so far');
@@ -148,9 +143,12 @@ describe('TodayAiScreen', () => {
     expect(text(render())).not.toContain('Announcements');
   });
 
-  it('shows a dash instead of a percent when nothing is bookable today', () => {
-    mockView = ready({ percent: null });
-    expect(text(render())).toContain('–');
+  it.each([
+    [1, '1 booking today'],
+    [0, 'No bookings today'],
+  ])('says %i bookings plainly', (count, expected) => {
+    mockView = ready({ bookingsToday: count });
+    expect(text(render())).toContain(expected);
   });
 
   describe('Needs you', () => {

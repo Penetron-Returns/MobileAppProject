@@ -1,21 +1,27 @@
 import { Pressable, Surface, Text, Turn, useDepth } from '@booking/ui';
 import {
+  Bell,
   CalendarCheck,
   ChevronRight,
-  Sunset,
   type LucideIcon,
 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { Tile, type TileTone } from './Tile';
 import { digestCounts, type DigestEntry, type DigestPart } from '../../aiLogic';
 
 type PartKey = 'morning' | 'afternoon';
 
+const TONES: Record<PartKey, TileTone> = {
+  morning: 'booked',
+  afternoon: 'reminded',
+};
+
 const ICONS: Record<PartKey, LucideIcon> = {
   morning: CalendarCheck,
-  afternoon: Sunset,
+  afternoon: Bell,
 };
 
 /** The plain-language line for a booking event: "Booked Megan for 15:00 (Clovie)". */
@@ -79,13 +85,7 @@ function PartRow({
         }}
         className="min-h-[60px] flex-row items-center gap-3 py-2.5"
       >
-        <Surface
-          variant="dome"
-          radius={20}
-          className="h-10 w-10 items-center justify-center"
-        >
-          <Icon size={21} strokeWidth={1.9} color={depth.colors.tint} />
-        </Surface>
+        <Tile tone={TONES[partKey]} icon={Icon} />
         <View className="min-w-0 flex-1">
           <Text className="text-title font-semibold">{title}</Text>
           <Text className="text-subtitle text-muted-foreground">{digest}</Text>

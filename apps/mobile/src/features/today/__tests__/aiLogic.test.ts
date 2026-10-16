@@ -1,13 +1,10 @@
 import {
-  bookableMinutes,
-  bookedMinutes,
-  bookedPercent,
+  bookingsTodayCount,
+  displayFirstName,
   buildDigest,
-  clovieBookedCount,
   hasAfternoonStarted,
   digestCounts,
   nowRow,
-  revenueSoFarCents,
   type AiAppointment,
   type AiEvent,
 } from '../aiLogic';
@@ -46,179 +43,18 @@ function appt(
   };
 }
 
-describe('bookedMinutes', () => {
-  it.each([
-    ['no bookings', [], 0],
-    [
-      'sums durations',
-      [appt('a', '09:00', '10:00'), appt('b', '10:00', '10:30')],
-      90,
-    ],
-    [
-      'a cancelled booking frees its time',
-      [
-        appt('a', '09:00', '10:00'),
-        appt('b', '10:00', '11:00', { status: 'cancelled' }),
-      ],
-      60,
-    ],
-    [
-      'completed and no-show time still counted',
-      [
-        appt('a', '09:00', '10:00', { status: 'completed' }),
-        appt('b', '10:00', '11:00', { status: 'no_show' }),
-      ],
-      120,
-    ],
-  ])('%s', (_name, list, expected) => {
-    expect(bookedMinutes(list as AiAppointment[])).toBe(expected);
-  });
-});
-
-describe('bookableMinutes', () => {
-  const hours = [
-    { weekday: 3, opens_at: '08:00:00', closes_at: '17:00:00' },
-    { weekday: 6, opens_at: '09:00:00', closes_at: '13:00:00' },
-  ];
-
-  it.each([
-    ['one person on business hours', ['s1'], [], 540],
-    ['two people, both follow business hours', ['s1', 's2'], [], 1080],
-    [
-      'own rules replace the business hours for that person',
-      ['s1', 's2'],
-      [
-        {
-          staff_id: 's2',
-          weekday: 3,
-          start_time: '10:00:00',
-          end_time: '14:00:00',
-        },
-      ],
-      540 + 240,
-    ],
-    [
-      'a person with rules but none today is off',
-      ['s1', 's2'],
-      [
-        {
-          staff_id: 's2',
-          weekday: 1,
-          start_time: '10:00:00',
-          end_time: '14:00:00',
-        },
-      ],
-      540,
-    ],
-    ['no bookable staff', [], [], 0],
-    [
-      'split shifts add up',
-      ['s1'],
-      [
-        {
-          staff_id: 's1',
-          weekday: 3,
-          start_time: '08:00:00',
-          end_time: '12:00:00',
-        },
-        {
-          staff_id: 's1',
-          weekday: 3,
-          start_time: '13:00:00',
-          end_time: '16:00:00',
-        },
-      ],
-      420,
-    ],
-  ])('%s', (_name, staffIds, rules, expected) => {
-    expect(bookableMinutes({ date: DATE, hours, staffIds, rules })).toBe(
-      expected,
-    );
+describe('bookingsTodayCount', () => {
+  it('counts bookings that are not cancelled', () => {
+    const list = [
+      { ...appt('a', '09:00', '10:00'), status: 'confirmed' },
+      { ...appt('b', '10:00', '11:00'), status: 'cancelled' },
+      { ...appt('c', '11:00', '12:00'), status: 'completed' },
+    ] as AiAppointment[];
+    expect(bookingsTodayCount(list)).toBe(2);
   });
 
-  it('is zero on a closed day (no hours for that weekday)', () => {
-    expect(
-      bookableMinutes({
-        date: '2026-10-18',
-        hours,
-        staffIds: ['s1'],
-        rules: [],
-      }),
-    ).toBe(0);
-  });
-
-  it('is zero with no hours at all', () => {
-    expect(
-      bookableMinutes({ date: DATE, hours: [], staffIds: ['s1'], rules: [] }),
-    ).toBe(0);
-  });
-});
-
-describe('bookedPercent', () => {
-  it.each([
-    [0, 540, 0],
-    [360, 540, 67],
-    [540, 540, 100],
-    [900, 540, 100],
-    [60, 0, null],
-    [0, 0, null],
-  ])('%i booked of %i bookable is %s', (booked, bookable, expected) => {
-    expect(bookedPercent(booked, bookable)).toBe(expected);
-  });
-});
-
-describe('revenueSoFarCents', () => {
-  const now = new Date(at('12:00'));
-  it.each([
-    ['nothing booked', [], 0],
-    [
-      'only work that has ended',
-      [appt('a', '09:00', '10:00'), appt('b', '13:00', '14:00')],
-      50_000,
-    ],
-    [
-      'a booking in progress is not earned yet',
-      [appt('a', '11:30', '12:30')],
-      0,
-    ],
-    ['ends exactly now counts', [appt('a', '11:00', '12:00')], 50_000],
-    [
-      'cancelled and no-show are excluded',
-      [
-        appt('a', '09:00', '10:00', { status: 'cancelled' }),
-        appt('b', '10:00', '11:00', { status: 'no_show' }),
-        appt('c', '08:00', '09:00', {
-          status: 'completed',
-          price_cents: 12_000,
-        }),
-      ],
-      12_000,
-    ],
-  ])('%s', (_name, list, expected) => {
-    expect(revenueSoFarCents(list as AiAppointment[], now)).toBe(expected);
-  });
-
-  it('counts a day that has not started as zero (midnight)', () => {
-    expect(
-      revenueSoFarCents([appt('a', '09:00', '10:00')], new Date(at('00:00'))),
-    ).toBe(0);
-  });
-});
-
-describe('clovieBookedCount', () => {
-  it('counts live bookings made by the companion only', () => {
-    expect(
-      clovieBookedCount([
-        appt('a', '09:00', '10:00', { source: 'nerova' }),
-        appt('b', '10:00', '11:00', { source: 'nerova', status: 'cancelled' }),
-        appt('c', '11:00', '12:00', { source: 'whatsapp' }),
-        appt('d', '12:00', '13:00', { source: 'nerova' }),
-      ]),
-    ).toBe(2);
-  });
-
-  it('is zero with no bookings', () => {
-    expect(clovieBookedCount([])).toBe(0);
+  it('is zero for an empty day', () => {
+    expect(bookingsTodayCount([])).toBe(0);
   });
 });
 
@@ -430,5 +266,19 @@ describe('hasAfternoonStarted', () => {
     ['23:59', true],
   ])('%s is %s in business time', (hhmm, expected) => {
     expect(hasAfternoonStarted(new Date(at(hhmm)), TZ)).toBe(expected);
+  });
+});
+
+describe('displayFirstName', () => {
+  it.each([
+    ['Thandi Nkosi', 'Thandi'],
+    ['  Megan ', 'Megan'],
+    [null, null],
+    ['', null],
+    ['Client 3f9a1c7e2b4d', null],
+    ['a1b2c3d4-e5f6-7890-abcd-ef1234567890', null],
+    ['E2E Test Booking', null],
+  ])('%s -> %s', (input, expected) => {
+    expect(displayFirstName(input)).toBe(expected);
   });
 });

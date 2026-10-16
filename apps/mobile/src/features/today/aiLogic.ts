@@ -3,9 +3,7 @@ import {
   formatDayMonth,
   formatTime,
   minutesSinceMidnight,
-  timeToMinutes,
   toDate,
-  weekdayOf,
   type ISODate,
 } from '@/lib/time';
 
@@ -38,90 +36,32 @@ const EVENT_KIND: Record<string, DigestKind | undefined> = {
 /** Before this business-local minute an event belongs to "This morning". */
 const NOON = 12 * 60;
 
-// ---------- booked % ----------
+// ---------- bookings today ----------
 
-const isBooked = (a: Pick<AiAppointment, 'status'>) => a.status !== 'cancelled';
-
-/** Minutes of today's bookings (cancelled ones free their time again). */
-export function bookedMinutes(appointments: readonly AiAppointment[]): number {
-  return appointments
-    .filter(isBooked)
-    .reduce((sum, a) => sum + a.duration_minutes, 0);
+/** Today's live bookings (cancelled ones free their time again). */
+export function bookingsTodayCount(
+  appointments: readonly Pick<AiAppointment, 'status'>[],
+): number {
+  return appointments.filter((a) => a.status !== 'cancelled').length;
 }
 
-export interface HoursRule {
-  weekday: number;
-  /** `HH:mm[:ss]` */
-  opens_at: string;
-  closes_at: string;
-}
+// ---------- names ----------
 
-export interface StaffRule {
-  staff_id: string;
-  weekday: number;
-  start_time: string;
-  end_time: string;
-}
-
-const span = (from: string, to: string) =>
-  Math.max(timeToMinutes(to) - timeToMinutes(from), 0);
+/** A uuid, a long hex run or a test/seed marker: something a person would not be called. */
+const MACHINE_NAME =
+  /[0-9a-f]{8}-[0-9a-f]{4}|\b(?=[0-9a-f]*\d)[0-9a-f]{8,}\b|\b(?:test|e2e|qa|seed|demo)\b/i;
 
 /**
- * Staff-minutes the business can sell on `date`: for each bookable person,
- * their own availability for that weekday, or the business hours when they
- * have no rules at all (BUILD_PLAN: availability_rules). A closed day, or no
- * bookable staff, is 0.
+ * The client's first name for the home's short lines ("With Thandi"), or
+ * null when there is none or it looks machine-generated, so the screen never
+ * shows ids or test data.
  */
-export function bookableMinutes(options: {
-  date: ISODate;
-  hours: readonly HoursRule[];
-  staffIds: readonly string[];
-  rules: readonly StaffRule[];
-}): number {
-  const weekday = weekdayOf(options.date);
-  const businessMinutes = options.hours
-    .filter((h) => h.weekday === weekday)
-    .reduce((sum, h) => sum + span(h.opens_at, h.closes_at), 0);
-  return options.staffIds.reduce((total, id) => {
-    const own = options.rules.filter((r) => r.staff_id === id);
-    if (own.length === 0) return total + businessMinutes;
-    return (
-      total +
-      own
-        .filter((r) => r.weekday === weekday)
-        .reduce((sum, r) => sum + span(r.start_time, r.end_time), 0)
-    );
-  }, 0);
-}
-
-/** Whole percent of bookable time that is booked (capped at 100), or null when nothing is bookable. */
-export function bookedPercent(booked: number, bookable: number): number | null {
-  if (bookable <= 0) return null;
-  return Math.min(Math.round((booked / bookable) * 100), 100);
-}
-
-// ---------- money and Clovie's share ----------
-
-/** Takings of work that has ended: not cancelled, not a no-show (cents). */
-export function revenueSoFarCents(
-  appointments: readonly AiAppointment[],
-  now: Date,
-): number {
-  return appointments
-    .filter(
-      (a) =>
-        (a.status === 'confirmed' || a.status === 'completed') &&
-        toDate(a.ends_at).getTime() <= now.getTime(),
-    )
-    .reduce((sum, a) => sum + a.price_cents, 0);
-}
-
-/** Today's live bookings that the companion made (`source = 'nerova'`). */
-export function clovieBookedCount(
-  appointments: readonly AiAppointment[],
-): number {
-  return appointments.filter((a) => isBooked(a) && a.source === 'nerova')
-    .length;
+export function displayFirstName(
+  name: string | null | undefined,
+): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed || MACHINE_NAME.test(trimmed)) return null;
+  return trimmed.split(/\s+/)[0] ?? null;
 }
 
 // ---------- the "now" row ----------
@@ -159,14 +99,14 @@ export function nowRow(options: {
   const withLine: NowLine | null = inProgress
     ? {
         kind: 'with',
-        name: inProgress.client?.name ?? null,
+        name: displayFirstName(inProgress.client?.name),
         time: formatTime(inProgress.ends_at, timezone),
       }
     : null;
   const nextLine: NowLine | null = next
     ? {
         kind: 'next',
-        name: next.client?.name ?? null,
+        name: displayFirstName(next.client?.name),
         time: formatTime(next.starts_at, timezone),
       }
     : null;
@@ -234,7 +174,7 @@ export function buildDigest(
       id: event.id,
       time: formatTime(event.occurred_at, timezone),
       kind,
-      name: event.appointment?.client?.name ?? null,
+      name: displayFirstName(event.appointment?.client?.name),
       when: appointmentWhen(event.appointment?.starts_at, date, timezone),
       byClovie: event.actor === 'nerova',
     });

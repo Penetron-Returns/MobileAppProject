@@ -1,9 +1,14 @@
-import { Pressable, Text, useReduceMotion } from '@booking/ui';
+import {
+  Pressable,
+  Text,
+  TIMING,
+  useDepth,
+  useReduceMotion,
+} from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import Animated, {
-  Easing,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
@@ -16,15 +21,21 @@ import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 
 import type { NowLine, NowRow as NowRowData } from '../../aiLogic';
 
-/** The hero Clovie's size (the board draws it at 70). */
-const CLOVIE_SIZE = 70;
-const HALO = 100;
-const HALO_HALF_CYCLE_MS = 5000;
-const HALO_IMAGE =
-  'radial-gradient(closest-side, rgba(42,161,214,0.26), rgba(42,161,214,0))';
+/** The hero Clovie's size (the board draws it at 138). */
+const CLOVIE_SIZE = 136;
+const HERO_HEIGHT = 212;
+const HALO_WIDTH = 320;
+const HALO_HEIGHT = 190;
+/** One half of the halo's slow breathe. */
+const HALO_HALF = { ...TIMING.pageInOut, duration: 5000 } as const;
 
-/** A small blue halo that swells and fades slowly behind Clovie; still under reduced motion. */
-function Halo() {
+const haloImage = (isDark: boolean) =>
+  `radial-gradient(closest-side, rgba(42,161,214,${isDark ? 0.34 : 0.3}), rgba(42,161,214,0))`;
+const contactImage = (isDark: boolean) =>
+  `radial-gradient(closest-side, ${isDark ? 'rgba(0,0,0,0.6)' : 'rgba(16,24,40,0.3)'}, rgba(0,0,0,0))`;
+
+/** A soft blue glow behind Clovie that swells and fades slowly; still under reduced motion. */
+function Halo({ isDark }: { isDark: boolean }) {
   const reduceMotion = useReduceMotion();
   const calm = useSharedValue(0);
   React.useEffect(() => {
@@ -33,18 +44,14 @@ function Halo() {
       calm.value = 0;
       return;
     }
-    const half = {
-      duration: HALO_HALF_CYCLE_MS,
-      easing: Easing.inOut(Easing.ease),
-    };
     calm.value = withRepeat(
-      withSequence(withTiming(1, half), withTiming(0, half)),
+      withSequence(withTiming(1, HALO_HALF), withTiming(0, HALO_HALF)),
       -1,
     );
     return () => cancelAnimation(calm);
   }, [reduceMotion, calm]);
   const style = useAnimatedStyle(() => ({
-    opacity: 0.7 + 0.3 * calm.value,
+    opacity: 0.72 + 0.28 * calm.value,
     transform: [{ scale: 0.94 + 0.12 * calm.value }],
   }));
   return (
@@ -54,12 +61,10 @@ function Halo() {
       style={[
         {
           position: 'absolute',
-          left: -(HALO - CLOVIE_SIZE) / 2,
-          top: -(HALO - CLOVIE_SIZE) / 2 - 4,
-          width: HALO,
-          height: HALO,
-          borderRadius: HALO / 2,
-          experimental_backgroundImage: HALO_IMAGE,
+          top: 0,
+          width: HALO_WIDTH,
+          height: HALO_HEIGHT,
+          experimental_backgroundImage: haloImage(isDark),
         },
         style,
       ]}
@@ -78,18 +83,18 @@ export function useNowLineText() {
         return t(`today.ai.now.${line.kind}`);
       case 'with':
       case 'next':
-        return t(`today.ai.now.${line.kind}`, {
-          name: line.name ?? t('today.unknownClient'),
-          time: line.time,
-        });
+        return line.name
+          ? t(`today.ai.now.${line.kind}`, { name: line.name, time: line.time })
+          : t(`today.ai.now.${line.kind}Anon`, { time: line.time });
     }
   };
 }
 
 /**
- * Clovie, left-aligned, with a status line and a secondary line. The clover is
- * the companion's entry: tapping it opens the companion. While the sheet is
- * open (`isPaused`) the live canvas is parked so only one Clovie animates.
+ * The hero: a big centred Clovie on a breathing halo with a contact shadow,
+ * and one status line with a small dot under him. Tapping Clovie opens the
+ * companion. While the sheet is open (`isPaused`) the live canvas is parked
+ * so only one Clovie animates.
  */
 export function NowRow({
   row,
@@ -103,33 +108,58 @@ export function NowRow({
   onOpenClovie: () => void;
 }) {
   const { t } = useTranslation();
+  const depth = useDepth();
   const lineText = useNowLineText();
+  const isDark = depth.scheme === 'dark';
   return (
-    <View className="flex-row items-center gap-3.5 px-5 pt-2">
+    <View style={{ height: HERO_HEIGHT, alignItems: 'center', marginTop: 2 }}>
+      <Halo isDark={isDark} />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: 146,
+          width: 150,
+          height: 24,
+          experimental_backgroundImage: contactImage(isDark),
+        }}
+      />
       <Pressable
         onPress={onOpenClovie}
         feedback="none"
         accessibilityRole="button"
         accessibilityLabel={t('today.ai.openClovie')}
         hitSlop={8}
-        style={{ width: CLOVIE_SIZE + 2, height: CLOVIE_SIZE + 6 }}
+        style={{
+          position: 'absolute',
+          top: 8,
+          width: CLOVIE_SIZE + 4,
+          height: CLOVIE_SIZE + 8,
+        }}
       >
-        <Halo />
         <ClovieAnimated
           state={isBusy ? 'working' : 'default'}
           size={CLOVIE_SIZE}
           isPaused={isPaused}
         />
       </Pressable>
-      <View accessibilityRole="summary" className="min-w-0 flex-1">
-        <Text className="text-[20px] font-semibold leading-[26px]">
+      <View
+        accessibilityRole="summary"
+        accessibilityLiveRegion="polite"
+        className="absolute inset-x-5 flex-row items-center justify-center gap-2"
+        style={{ top: 170 }}
+      >
+        <View
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: depth.colors.success,
+          }}
+        />
+        <Text numberOfLines={1} className="text-title font-semibold">
           {lineText(row.primary)}
         </Text>
-        {row.secondary ? (
-          <Text className="mt-0.5 text-subtitle text-muted-foreground">
-            {lineText(row.secondary)}
-          </Text>
-        ) : null}
       </View>
     </View>
   );

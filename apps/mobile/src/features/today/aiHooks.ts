@@ -1,22 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import { useBusiness, useBusinessHours } from '@/features/business/hooks';
-import { useStaff } from '@/features/catalog/hooks';
-import { useAvailabilityRules } from '@/features/team/hooks';
+import { useBusiness } from '@/features/business/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { qk } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 import { formatTime } from '@/lib/time';
 
 import {
-  bookableMinutes,
-  bookedMinutes,
-  bookedPercent,
+  bookingsTodayCount,
   buildDigest,
-  clovieBookedCount,
   nowRow,
-  revenueSoFarCents,
   type AiAppointment,
   type AiEvent,
   type Digest,
@@ -77,10 +71,8 @@ export type TodayAiView =
       timezone: string;
       now: Date;
       appointments: AiAppointment[];
-      /** Whole percent of bookable time that is booked; null when nothing is bookable today. */
-      percent: number | null;
-      revenueCents: number;
-      clovieBooked: number;
+      /** Today's bookings that are not cancelled. */
+      bookingsToday: number;
       digest: Digest;
       /** The now row's two lines, for the given companion activity. */
       nowRow: (isBusy: boolean) => NowRow;
@@ -91,9 +83,8 @@ export type TodayAiView =
 
 /**
  * Everything the AI Today home shows, from RLS-scoped reads: today's
- * bookings, today's lifecycle events, business hours and each bookable
- * person's availability. Only the business and today's bookings gate the
- * screen; the digest and the ring degrade to empty when their reads fail.
+ * bookings, today's lifecycle events, and the count of bookings. Only the business and today's bookings gate the
+ * screen; the digest degrades to empty when its read fails.
  */
 export function useTodayAi(): TodayAiView {
   const business = useBusiness();
@@ -115,9 +106,6 @@ export function useTodayAi(): TodayAiView {
     queryFn: () => fetchEvents(window as TodayWindow),
     enabled: window !== null,
   });
-  const hours = useBusinessHours();
-  const staff = useStaff();
-  const rules = useAvailabilityRules();
 
   const { refetch: refetchBusiness } = business;
   const { refetch: refetchAppointments } = appointments;
@@ -129,13 +117,6 @@ export function useTodayAi(): TodayAiView {
   );
 
   const list = appointments.data;
-  const staffIds = React.useMemo(
-    () =>
-      (staff.data ?? [])
-        .filter((s) => s.is_active && s.accepts_bookings)
-        .map((s) => s.id),
-    [staff.data],
-  );
   const digest = React.useMemo(
     () => buildDigest(events.data ?? [], date ?? '', timezone ?? 'UTC'),
     [events.data, date, timezone],
@@ -158,12 +139,6 @@ export function useTodayAi(): TodayAiView {
   }
   if (list === undefined) return { status: 'loading' };
 
-  const bookable = bookableMinutes({
-    date,
-    hours: hours.data ?? [],
-    staffIds,
-    rules: rules.data ?? [],
-  });
   return {
     status: 'ready',
     date,
@@ -171,9 +146,7 @@ export function useTodayAi(): TodayAiView {
     timezone: business.data.timezone,
     now,
     appointments: list,
-    percent: bookedPercent(bookedMinutes(list), bookable),
-    revenueCents: revenueSoFarCents(list, now),
-    clovieBooked: clovieBookedCount(list),
+    bookingsToday: bookingsTodayCount(list),
     digest,
     nowRow: (isBusy) =>
       nowRow({

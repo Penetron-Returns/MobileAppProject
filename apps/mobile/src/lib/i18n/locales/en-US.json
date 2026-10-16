@@ -170,7 +170,7 @@
     "collapse": "Show smaller"
   },
   "tabs": {
-    "today": "Today",
+    "today": "Home",
     "calendar": "Calendar",
     "add": "New booking",
     "clients": "Clients",
@@ -243,23 +243,24 @@
     },
     "loading": "Loading today",
     "ai": {
+      "title": "Home",
       "openClovie": "Talk to Clovie",
+      "bookings_one": "{{count}} booking today",
+      "bookings_other": "{{count}} bookings today",
+      "noBookings": "No bookings today",
+      "bellLabel": "Notifications",
       "now": {
         "working": "Clovie is working…",
         "calm": "Clovie is looking after today",
         "quiet": "All quiet today",
         "with": "With {{name}} until {{time}}",
-        "next": "Next: {{name}} at {{time}}"
+        "withAnon": "With a client until {{time}}",
+        "next": "Next: {{name}} at {{time}}",
+        "nextAnon": "Next client at {{time}}"
       },
-      "ring": {
-        "label": "booked today",
-        "aria": "{{percent}} percent of today's time is booked",
-        "ariaNone": "Nothing is bookable today",
-        "none": "–"
-      },
-      "numbers": "{{amount}} so far · {{count}} booked by Clovie",
       "needs": {
         "none": "Nothing needs you",
+        "noneDetail": "Clovie has it covered.",
         "title": "Needs you · {{count}}",
         "approve": "Approve",
         "notNow": "Not now",

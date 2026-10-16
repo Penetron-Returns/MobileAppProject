@@ -72,7 +72,7 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/new-booking');
   });
 
-  it('paid: Reports is an ordinary fifth tab, there is no plus and the companion dome replaces the Inbox', () => {
+  it('paid: Reports is the raised centre tab, there is no plus and the companion dome replaces the Inbox', () => {
     mockMode = 'ai';
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();
@@ -84,7 +84,7 @@ describe('AppTabBar', () => {
       .findAll((n) => n.props.accessibilityRole === 'tab')
       .map((n) => n.props.accessibilityLabel as string);
     expect([...new Set(tabs)]).toEqual([
-      'Today',
+      'Home',
       'Calendar',
       'Reports',
       'Clients',

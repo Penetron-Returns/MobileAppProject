@@ -23,6 +23,7 @@ export function AppTabBar(props: BarProps) {
     <FloatingTabBar
       {...props}
       tabs={tabs}
+      centerTab={mode === 'ai' ? 'reports' : undefined}
       onAdd={addRoute ? () => router.push(addRoute as never) : undefined}
       dome={
         mode === 'ai' ? (
