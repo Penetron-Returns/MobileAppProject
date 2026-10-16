@@ -8,10 +8,11 @@ import { ApprovalNotifications } from '@/features/approvals/ApprovalNotification
 import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
-import { useAttendanceRealtime } from '@/features/attendance/hooks';
+import { useBusinessRealtime } from '@/features/realtime/useBusinessRealtime';
 import { useAttendanceNotifications } from '@/features/attendance/notifications';
 import { useVoiceDeviceToken } from '@/features/voice/deviceToken';
-import { useAppointmentsRealtime } from '@/features/appointments/hooks';
+import { PushRegistration } from '@/features/notifications/components/PushRegistration';
+import { useEntitlements } from '@/features/plans/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
@@ -115,8 +116,7 @@ export default function AppLayout() {
   );
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
-  useAppointmentsRealtime(hasOrg);
-  useAttendanceRealtime(hasOrg);
+  useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
   useVoiceScheduleSync(hasOrg);
 
   const route = resolveAppRoute({
@@ -200,6 +200,7 @@ export default function AppLayout() {
   return (
     <CompanionSdkHost>
       <ApprovalNotifications enabled />
+      <PushRegistration enabled />
       <Stack
         screenOptions={{
           headerShown: false,

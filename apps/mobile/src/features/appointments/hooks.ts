@@ -4,35 +4,11 @@ import type {
   RescheduleAppointmentRequest,
   SetAppointmentStatusRequest,
 } from '@booking/types';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
 import { qk, useApiMutation } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
-
-/** Refetches every appointment-derived query when an appointment changes. */
-export function useAppointmentsRealtime(enabled: boolean) {
-  const queryClient = useQueryClient();
-  React.useEffect(() => {
-    if (!enabled) return;
-    const channel = supabase
-      .channel('appointments-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'appointments' },
-        () => {
-          void queryClient.invalidateQueries({ queryKey: qk.appointments });
-          void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
-          void queryClient.invalidateQueries({ queryKey: qk.clients });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [enabled, queryClient]);
-}
 
 const LIST_SELECT =
   'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client_confirmed_at, client:clients(id, name, phone_e164), service:services(name), staff:staff(id, name)';

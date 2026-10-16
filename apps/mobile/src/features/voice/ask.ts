@@ -18,6 +18,8 @@ export interface AskResult {
   reply: string;
   approvals: readonly AskApproval[];
   suggestions?: readonly string[];
+  /** Nerova `done.awaitingReply` when sent: overrides the heuristic both ways. */
+  awaitingReply?: boolean;
 }
 
 export interface AskDeps {
@@ -201,7 +203,39 @@ export function parsePendingQueue(json: string | undefined): AskApproval[] {
   }
 }
 
-const endsWithQuestion = (text: string) => /\?\s*["')\]]*$/.test(text.trim());
+/** Phrases that ask for a go-ahead without a question mark. Deterministic and small on purpose. */
+const CONFIRM_PHRASES = [
+  'shall i',
+  'should i',
+  'do you want',
+  'would you like',
+  'want me to',
+  'let me know',
+  'confirm',
+  'go ahead',
+] as const;
+
+/** The last two sentences of a reply (a "?" stays with its sentence). */
+function lastSentences(text: string, count = 2): string {
+  const sentences = text.trim().match(/[^.!?]+[.!?]*/g) ?? [];
+  return sentences.slice(-count).join(' ');
+}
+
+/**
+ * Whether the owner is being asked something, so the mic should reopen: a "?" in either of the last two
+ * sentences or a confirmation phrase. Suggestion chips are ignored (Nerova sends them on nearly every reply).
+ * `awaitingReply`, when the companion sends it, overrides the heuristic both ways.
+ */
+export function replyExpectsAnswer(
+  reply: string,
+  awaitingReply?: boolean,
+): boolean {
+  if (typeof awaitingReply === 'boolean') return awaitingReply;
+  const tail = lastSentences(reply);
+  if (tail.includes('?')) return true;
+  const lower = tail.toLowerCase();
+  return CONFIRM_PHRASES.some((p) => lower.includes(p));
+}
 
 /**
  * The outcome that reads `approvals[0]` aloud and waits for a yes or no on exactly that id. `lead` is what was
@@ -272,7 +306,9 @@ export async function askCompanion(
     status: 'done',
     message: reply,
     spoken: trimForSpeech(reply),
-    ...(endsWithQuestion(reply) ? { expectsReply: true } : {}),
+    ...(replyExpectsAnswer(reply, result.awaitingReply)
+      ? { expectsReply: true }
+      : {}),
   };
 }
 

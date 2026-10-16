@@ -7,6 +7,7 @@ import {
   type CompanionTransport,
   useCompanion,
 } from '@nerova/react-native';
+import Constants from 'expo-constants';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,8 +27,11 @@ import { SdkClovie } from './SdkClovie';
 import { useSdkLabels } from './useSdkLabels';
 import { useSdkSessionProvider } from './useSdkSessionProvider';
 
-/** Where the hosted WhatsApp connect page returns to (`app.json` scheme `bookingadmin`). */
-export const WHATSAPP_RETURN_URL = 'bookingadmin://companion/whatsapp-return';
+/** The build variant's deep-link scheme (`app.config.ts`): `bookingadmin` in development, `clovie` in production. */
+const APP_SCHEME = [Constants.expoConfig?.scheme].flat()[0] ?? 'bookingadmin';
+
+/** Where the hosted WhatsApp connect page returns to. The API only forwards it for an allowlisted scheme. */
+export const WHATSAPP_RETURN_URL = `${APP_SCHEME}://companion/whatsapp-return`;
 
 interface SheetHandle {
   open: (options?: OpenCompanionOptions) => void;

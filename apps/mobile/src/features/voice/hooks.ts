@@ -67,15 +67,24 @@ export function useHeyClovie() {
   );
 
   React.useEffect(() => {
-    const id = setInterval(refresh, REFRESH_MS);
+    // Only tick while the app is on screen; a backgrounded app re-reads on return.
+    let id: ReturnType<typeof setInterval> | undefined = setInterval(
+      refresh,
+      REFRESH_MS,
+    );
     // The owner grants the overlay in system settings: re-check when they come back.
     const sub = AppState.addEventListener('change', (next) => {
-      if (next !== 'active') return;
+      if (next !== 'active') {
+        if (id) clearInterval(id);
+        id = undefined;
+        return;
+      }
       setCanOverlay(canDrawOverlays());
       refresh();
+      id ??= setInterval(refresh, REFRESH_MS);
     });
     return () => {
-      clearInterval(id);
+      if (id) clearInterval(id);
       sub.remove();
     };
   }, [refresh]);
@@ -126,7 +135,6 @@ export function useHeyClovie() {
     isPending,
     permissionDenied,
     canOverlay,
-    requestOverlay: requestOverlayPermission,
     turnOn,
     turnOff,
     setConditions,

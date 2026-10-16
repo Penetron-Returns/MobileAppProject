@@ -1,4 +1,5 @@
 import type {
+  AccountDeletionPreviewDTO,
   AnswerAttendanceRequest,
   AppointmentDTO,
   AttendanceCheckDTO,
@@ -30,12 +31,15 @@ import type {
   CreateSpecialDayRequest,
   CreateStaffTimeOffRequest,
   CreateInvitationRequest,
+  DeleteAccountRequest,
+  DeleteAccountResultDTO,
   CreateStaffRequest,
   ManualConnectRequest,
   MeDTO,
   OnboardingRequest,
   PlansDTO,
   RegisterDeviceRequest,
+  UnregisterDeviceRequest,
   ReplaceBusinessHoursRequest,
   ReportsSummaryDTO,
   ReplaceStaffBreaksRequest,
@@ -79,6 +83,13 @@ export type ConflictQuery = {
 /** Typed endpoint map (docs/BUILD_PLAN.md §4). */
 export const api = {
   me: () => get<MeDTO>('/v1/me'),
+  accountDeletionPreview: () =>
+    get<AccountDeletionPreviewDTO>('/v1/me/deletion-preview'),
+  deleteAccount: (b: DeleteAccountRequest, key: string) =>
+    send<DeleteAccountRequest, DeleteAccountResultDTO>('DELETE', '/v1/me')(
+      b,
+      key,
+    ),
 
   // plans, usage, companion, reports (docs/BUILD_PLAN.md "Plans, usage, companion and reports")
   plans: () => get<PlansDTO>('/v1/plans'),
@@ -339,6 +350,8 @@ export const api = {
   // devices
   registerDevice: (b: RegisterDeviceRequest, key: string) =>
     send<RegisterDeviceRequest, unknown>('POST', '/v1/devices')(b, key),
+  unregisterDevice: (b: UnregisterDeviceRequest, key: string) =>
+    send<UnregisterDeviceRequest, unknown>('DELETE', '/v1/devices')(b, key),
 
   // WhatsApp channel
   whatsapp: () => get<WhatsAppChannelDTO>('/v1/whatsapp'),

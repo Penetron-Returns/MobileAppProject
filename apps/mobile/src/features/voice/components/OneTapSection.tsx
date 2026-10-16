@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, View } from 'react-native';
 
 import { useOneTap } from '../oneTap';
+import { isCloudSttEnabled } from '../transcribe';
 
 /** The no-always-on way: tile, widget, app-icon shortcut and the side key. */
 export function OneTapSection() {
@@ -95,7 +96,8 @@ export function OneTapSection() {
         </View>
       ) : null}
       <Text className="mx-5 mt-3 text-meta text-muted-foreground">
-        {t('voice.oneTap.privacy')}
+        {t('voice.oneTap.privacy')}{' '}
+        {t(`voice.disclosure.where.${isCloudSttEnabled ? 'cloud' : 'device'}`)}
       </Text>
     </>
   );

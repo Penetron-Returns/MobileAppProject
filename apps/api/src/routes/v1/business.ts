@@ -2,13 +2,13 @@
 import { Hono, type Context } from 'hono';
 
 import { getMe, replaceBusinessHours, updateBusiness } from '@booking/features/catalog/services/catalog.ts';
-import { registerDevice } from '@booking/features/team/services/devices.ts';
+import { registerDevice, unregisterDevice } from '@booking/features/team/services/devices.ts';
 import { runInBackground } from '../../lib/background.ts';
 import { parseJson } from '../../lib/validation.ts';
 import { requireOwner } from '../../middleware/auth.ts';
 import type { AppEnv } from '../../types.ts';
 import { deps } from './context.ts';
-import { registerDeviceSchema, replaceHoursSchema, updateBusinessSchema } from './schemas.ts';
+import { registerDeviceSchema, replaceHoursSchema, unregisterDeviceSchema, updateBusinessSchema } from './schemas.ts';
 
 /** Tells Nerova to re-read the account; best effort, never part of the owner's request. */
 function announceAccountUpdated(c: Context<AppEnv>, businessId: string) {
@@ -44,4 +44,11 @@ businessRoutes.post('/devices', async (c) => {
   const { repo, auth } = deps(c);
   const { token, platform } = await parseJson(c, registerDeviceSchema);
   return c.json({ data: await registerDevice(repo, auth.businessId, auth.userId, token, platform) }, 201);
+});
+
+businessRoutes.delete('/devices', async (c) => {
+  const { repo, auth } = deps(c);
+  const { token } = await parseJson(c, unregisterDeviceSchema);
+  await unregisterDevice(repo, auth.businessId, auth.userId, token);
+  return c.json({ data: { removed: true } });
 });

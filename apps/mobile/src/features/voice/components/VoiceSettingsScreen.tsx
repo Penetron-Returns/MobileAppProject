@@ -3,6 +3,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useVoiceScheduleSync } from '../scheduleSync';
+import { BackgroundSection } from './BackgroundSection';
 import { HandsFreeSection } from './HandsFreeSection';
 import { OneTapSection } from './OneTapSection';
 import { RepliesSection } from './RepliesSection';
@@ -23,6 +24,7 @@ export function VoiceSettingsScreen() {
       <OneTapSection />
       <RepliesSection />
       <HandsFreeSection />
+      <BackgroundSection />
     </Page>
   );
 }

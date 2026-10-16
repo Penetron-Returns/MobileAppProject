@@ -1,6 +1,7 @@
 import { useClerk } from '@clerk/expo';
 import * as React from 'react';
 
+import { unregisterPushToken } from '@/features/notifications/pushDevice';
 import { clearDeviceTokenOnSignOut } from '@/features/voice/deviceToken';
 import { queryClient } from '@/lib/query';
 import { toast } from '@/lib/toast';
@@ -16,6 +17,8 @@ export function useSignOut(): () => Promise<void> {
   return React.useCallback(async () => {
     // While the session is live: revoke the device voice token server-side, then forget it here and natively.
     await clearDeviceTokenOnSignOut().catch(() => undefined);
+    // Stop pushes for this account to this phone (needs the live session too).
+    await unregisterPushToken().catch(() => undefined);
     try {
       await signOut();
     } catch (error) {

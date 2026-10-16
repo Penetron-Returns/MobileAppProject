@@ -201,6 +201,14 @@
     "footerNeeds": "Replying is free for 24 hours after a customer writes.",
     "footerAll": "Conversations on WhatsApp."
   },
+  "notifications": {
+    "primer": {
+      "title": "Stay in the loop",
+      "body": "Clovie can tell you when a client needs an answer, when someone books, and when Clovie needs your OK.",
+      "accept": "Turn on",
+      "decline": "Not now"
+    }
+  },
   "approvals": {
     "notification": {
       "approve": "Approve",
@@ -609,7 +617,19 @@
       "whatsapp": "WhatsApp",
       "companion": "Companion",
       "plan": "Plan",
-      "voice": "Clovie voice"
+      "voice": "Clovie voice",
+      "deleteAccount": "Delete account"
+    },
+    "companionSettings": {
+      "title": "Companion",
+      "status": "Status",
+      "live": "Live",
+      "paused": "Not live yet",
+      "whatsapp": "WhatsApp",
+      "whatsappConnected": "Connected",
+      "whatsappNotConnected": "Not connected. Tap to connect.",
+      "connectFailed": "WhatsApp did not finish connecting. Try again.",
+      "openChat": "Open chat"
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -707,6 +727,7 @@
     },
     "notifications": {
       "push": "Notify me on this phone",
+      "pushOffHint": "Turned off in your phone settings.",
       "pushHint": "New bookings and messages that need a reply.",
       "footer": "Notifications go to this phone. Turn them off in your phone settings any time.",
       "webUnsupported": "Push notifications are available in the phone app.",
@@ -1577,8 +1598,7 @@
       "inference_failed": "The wake word stopped working. Turn Hey Clovie off and on again."
     },
     "permissionRationale": {
-      "title": "Clovie needs your permission",
-      "microphone": "Clovie listens through the microphone for the wake word.",
+      "title": "Before Clovie listens",
       "notifications": "Clovie shows a notification while it listens, so you can always see and stop it.",
       "ok": "Allow",
       "overlay": "Clovie shows a panel over other apps while you talk to it. Android asks for that separately, in your phone settings."
@@ -1591,7 +1611,7 @@
     },
     "privacy": {
       "title": "Your privacy",
-      "body": "The microphone listens on this phone for the wake word only. Nothing is recorded, saved or sent anywhere until you speak after \"{{phrase}}\". Then your phone turns that one command into text, and the text goes to Clovie only when it opens. A notification shows while Hey Clovie is on, with a Stop button. Turn it off here any time."
+      "body": "The microphone listens on this phone for the wake word only. Nothing is recorded or sent until you speak after \"{{phrase}}\". Only that short command is recorded and turned into text (see how it is processed when you turn Hey Clovie on). A notification shows while Hey Clovie is on, with a Stop button. Turn it off here any time."
     },
     "battery": "Listening all day uses some battery. On a locked phone, tap the notification to open Clovie.",
     "checkedIn": "Checked in {{name}}",
@@ -1641,7 +1661,9 @@
       "granted": "On: Clovie answers on top of any app",
       "missing": "Off: Clovie will answer with a notification instead",
       "allow": "Allow",
-      "hint": "Clovie shows a panel at the bottom of the screen while you talk. Android needs your permission to show it over other apps."
+      "hint": "Clovie shows a panel at the bottom of the screen while you talk. Android will open a settings page where you turn on \"Display over other apps\" for Clovie. Clovie does not read or change anything in other apps.",
+      "explainTitle": "Show Clovie over other apps?",
+      "continue": "Continue"
     },
     "oneTap": {
       "section": "Talk to Clovie",
@@ -1671,7 +1693,7 @@
         "title": "Try it now",
         "hint": "Say \"client has arrived\", or ask anything."
       },
-      "privacy": "Nothing is recorded or sent until you speak. Your phone turns the command into text, and Clovie runs it."
+      "privacy": "Nothing is recorded or sent until you tap and speak."
     },
     "hf": {
       "section": "Hands-free",
@@ -1696,7 +1718,22 @@
         "pausedUntil": "Paused until {{time}}",
         "pausedNoTime": "Paused"
       },
-      "consent": "While it listens, Android shows the microphone indicator and a \"Clovie is on duty\" notification with Pause and Stop. It uses some battery. Outside your conditions the microphone is fully off. Nothing is recorded or sent until you speak after \"Hey Clovie\"."
+      "consent": "Outside your conditions the microphone is fully off. Hey Clovie uses some battery. Turn it off here any time."
+    },
+    "disclosure": {
+      "what": "While Hey Clovie is on, Clovie uses your microphone to listen on this phone for \"Hey Clovie\". It keeps listening when Clovie is closed or the screen is off, until you turn it off or your chosen times end. Android shows a microphone indicator and a notification the whole time.",
+      "recording": "Nothing is recorded or sent while it waits for the wake phrase. After you say it, Clovie records only the short command you speak.",
+      "where": {
+        "cloud": "That short recording is sent over an encrypted connection to Clovie's server, which passes it to our speech-to-text provider (Nerova, running on Microsoft Azure) to turn it into text. It is deleted as soon as it is transcribed and is not stored. The text is used to carry out your request.",
+        "device": "Your phone's own speech recogniser (usually Google's) turns that command into text. Depending on your phone's settings that can involve Google's servers. Clovie does not store the recording."
+      }
+    },
+    "background": {
+      "section": "Background",
+      "title": "Let Clovie run in the background",
+      "hint": "Some phones stop apps that run all day. If Hey Clovie stops listening, allow Clovie to run in the background.",
+      "action": "Open",
+      "samsung": "On Samsung: Settings > Battery > Background usage limits > Never sleeping apps > add Clovie."
     }
   },
   "reports": {
@@ -1831,5 +1868,35 @@
       "description": "Check your connection and try again."
     },
     "loading": "Loading plans"
+  },
+  "account": {
+    "delete": {
+      "title": "Delete account",
+      "whatHappens": "What happens",
+      "member": "Your login is deleted and you lose access to this business. Your name, email, phone and photo are removed from the team list. Bookings you handled stay in the business history without your name.",
+      "soleOwner_one": "You are the only owner of {{name}}. Deleting your account also permanently deletes {{name}} with all its bookings, clients, services and WhatsApp connection. {{count}} other team member loses access. To keep the business, make a colleague an owner in Team first.",
+      "soleOwner_other": "You are the only owner of {{name}}. Deleting your account also permanently deletes {{name}} with all its bookings, clients, services and WhatsApp connection. {{count}} other team members lose access. To keep the business, make a colleague an owner in Team first.",
+      "always": "Your voice and notification devices are signed out at once. This cannot be undone.",
+      "typeName": "Type {{name}} to confirm",
+      "nameField": "Business name",
+      "action": "Delete account",
+      "keep": "Keep account",
+      "confirmTitle": "Delete your account?",
+      "confirmBody": "This cannot be undone.",
+      "loadFailed": "Could not check what deleting would do. Check your connection and try again.",
+      "support": "Need help or cannot sign in? Email support@nerovasystems.com and we will delete your account for you."
+    },
+    "publicDelete": {
+      "title": "Delete your Clovie account",
+      "intro": "You can delete your Clovie account and its data at any time.",
+      "inApp": "In the app",
+      "inAppSteps": "Open Clovie, go to Settings, then Account, then Delete account. If you are the only owner of a business you also delete that business, and you confirm by typing its name.",
+      "byEmail": "By email",
+      "byEmailBody": "Cannot open the app? Email support@nerovasystems.com from the address on your account, and we will delete it for you within 30 days.",
+      "whatDeleted": "What is deleted",
+      "whatDeletedBody": "Your login, email, name, phone and photo, and your push and voice device tokens. If you were the only owner, the business and its bookings, clients and settings are deleted too. A short audit record (that the deletion happened, with no contact details) is kept. Bookings in a business that continues stay in its history without your name.",
+      "emailAction": "Email support",
+      "privacy": "Privacy policy"
+    }
   }
 }
