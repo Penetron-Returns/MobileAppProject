@@ -171,7 +171,9 @@ describe('Settings by plan', () => {
     expect(out).not.toContain('WhatsApp');
     expect(out).toContain('Plan | Growth');
     act(() => labelled(tree, 'Companion')?.props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/companion');
+    // The settings screen, never the chat itself.
+    expect(mockPush).toHaveBeenCalledWith('/settings/companion');
+    expect(mockPush).not.toHaveBeenCalledWith('/companion');
     act(() => labelled(tree, 'Plan, Growth')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/plan');
   });

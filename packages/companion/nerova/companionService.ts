@@ -33,8 +33,8 @@ export interface CompanionSessionInput {
 
 export const DEFAULT_NATIVE_APP_ID = 'si.nerova.booking.dev';
 
-/** The only return URL we forward: the admin app's own WhatsApp-return route (optional query, no fragment). */
-const RETURN_URL_ALLOWLIST = /^bookingadmin:\/\/\/?companion\/whatsapp-return(\?[^#]*)?$/;
+/** The only return URL we forward: the admin app's own WhatsApp-return route under one of its variant schemes (optional query, no fragment). */
+const RETURN_URL_ALLOWLIST = /^(?:bookingadmin|clovie|clovie-preview):\/\/\/?companion\/whatsapp-return(\?[^#]*)?$/;
 export const isAllowedReturnUrl = (url: string): boolean => RETURN_URL_ALLOWLIST.test(url);
 
 export interface CompanionService {

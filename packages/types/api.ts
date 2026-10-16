@@ -285,6 +285,25 @@ export interface UpdateMemberRoleRequest {
   role: MemberRole;
 }
 
+// ---------- account deletion (Google Play / App Store requirement) ----------
+/** What deleting the caller's account would do: `business_deleted` when they are the only owner. */
+export interface AccountDeletionPreviewDTO {
+  business_deleted: boolean;
+  business_name: string;
+  /** Other logins in the organisation (they lose access when the business is deleted) */
+  other_member_count: number;
+}
+
+/** `confirm_business_name` is required (exact name, case-insensitive) when `business_deleted` is true. */
+export interface DeleteAccountRequest {
+  confirm_business_name?: string;
+}
+
+export interface DeleteAccountResultDTO {
+  deleted: true;
+  business_deleted: boolean;
+}
+
 // ---------- clients ----------
 export interface ClientDTO {
   id: UUID;
@@ -696,6 +715,10 @@ export interface RegisterDeviceRequest {
   platform: 'ios' | 'android' | 'web';
 }
 
+export interface UnregisterDeviceRequest {
+  token: string;
+}
+
 // ---------- plans, usage, companion, reports ----------
 /** Month key in the business timezone, `YYYY-MM` */
 export type MonthKey = string;
@@ -897,6 +920,8 @@ export interface VoiceAskDTO {
   reply: string;
   approvals: VoiceApprovalDTO[];
   suggestions: string[];
+  /** Nerova `done.awaitingReply` when present; overrides the app's question heuristic both ways */
+  awaitingReply?: boolean;
 }
 
 /** POST /v1/voice/approvals/:id/approve and /decline response data */

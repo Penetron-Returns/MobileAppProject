@@ -87,6 +87,7 @@ export function createVoiceAskService(deps: VoiceAskDeps): VoiceAskService {
         reply: turn.reply,
         approvals: turn.approvals.map(({ id, kind, title, lines }) => ({ id, kind, title, lines })),
         suggestions: turn.suggestions,
+        ...(turn.awaitingReply === undefined ? {} : { awaitingReply: turn.awaitingReply }),
       };
     },
 
