@@ -77,6 +77,7 @@ function approval(id: string, title: string): Approval {
     decidedAt: null,
     result: null,
     error: null,
+    followUp: null,
   };
 }
 
@@ -180,6 +181,33 @@ describe('TodayAiScreen', () => {
       await flush();
       expect(companion.approve).toHaveBeenCalledWith('a');
       expect(companion.decline).not.toHaveBeenCalled();
+    });
+
+    it('shows the companion follow-up for 3 s in place of the card, then the all-clear', async () => {
+      jest.useFakeTimers();
+      try {
+        const pending = [approval('a', 'Move Megan?')];
+        const companion = live({
+          pending,
+          approve: jest.fn().mockResolvedValue({
+            ...pending[0],
+            followUp: { text: 'Done, moved to Sat 15:00' },
+          }),
+        });
+        const tree = render(companion);
+        act(() => {
+          pressableByLabel(tree, 'Approve: Move Megan?').props.onPress();
+        });
+        await flush();
+        expect(text(tree)).toContain('Done, moved to Sat 15:00');
+        expect(text(tree)).not.toContain('Needs you ·');
+        act(() => {
+          jest.advanceTimersByTime(3000);
+        });
+        expect(text(tree)).not.toContain('Done, moved to Sat 15:00');
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('Not now keeps it waiting: moves on to the next, then to a quiet waiting line', () => {
