@@ -15,12 +15,17 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
   private var wakeAt = UNSET
   private var sttStartAt = UNSET
   private var commandStartAt = UNSET
+  private var clipEndAt = UNSET
+  private var uploadStartAt = UNSET
   private val current = HashMap<String, Long>()
 
+  @Synchronized
   fun wake() {
     wakeAt = clock()
     sttStartAt = UNSET
     commandStartAt = UNSET
+    clipEndAt = UNSET
+    uploadStartAt = UNSET
     current.clear()
     values = emptyMap()
   }
@@ -35,6 +40,49 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
 
   fun sttFinished() = record("sttMs", since(sttStartAt))
 
+  /** The VAD ended the clip: the start of the post-speech latency the owner waits through. */
+  @Synchronized
+  fun clipEnded() {
+    clipEndAt = clock()
+  }
+
+  /** Clip end to the file being ready to send (the encode), and its size. */
+  fun encoded(bytes: Long) {
+    record("encodeMs", since(clipEndAt))
+    record("clipBytes", bytes)
+  }
+
+  /** The upload is about to start: clip end to now, and the request body size. */
+  @Synchronized
+  fun uploadStarted(bytes: Long) {
+    uploadStartAt = clock()
+    record("uploadStartMs", since(clipEndAt))
+    record("uploadBytes", bytes)
+  }
+
+  /**
+   * The response is in. `proxyMs` and `nerovaMs` come from our API's `Server-Timing` header (null when absent), so
+   * `networkMs` (round trip minus the proxy's total) and `proxyOverheadMs` (the proxy minus Nerova) show where the rest went.
+   */
+  @Synchronized
+  fun uploadFinished(timing: ServerTiming) {
+    val roundTrip = since(uploadStartAt)
+    record("responseMs", since(clipEndAt))
+    record("uploadMs", roundTrip)
+    timing.proxyMs?.let {
+      record("proxyMs", it)
+      if (roundTrip >= 0) record("networkMs", maxOf(0L, roundTrip - it))
+    }
+    timing.nerovaMs?.let {
+      record("nerovaMs", it)
+      timing.proxyMs?.let { proxy -> record("proxyOverheadMs", maxOf(0L, proxy - it)) }
+    }
+  }
+
+  /** A step measured elsewhere (the connection warm-up, the app's JS): logged and kept with the rest. */
+  fun external(key: String, ms: Long) = record(key, ms)
+
+  @Synchronized
   fun commandStarted() {
     commandStartAt = clock()
   }
@@ -46,6 +94,7 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
 
   private fun since(start: Long): Long = if (start == UNSET) -1L else maxOf(0L, clock() - start)
 
+  @Synchronized
   private fun record(key: String, ms: Long) {
     current[key] = ms
     values = HashMap(current)
@@ -76,4 +125,19 @@ object VoiceTimings {
   fun commandStarted() = recorder.commandStarted()
 
   fun commandDone() = recorder.commandDone()
+
+  fun clipEnded() = recorder.clipEnded()
+
+  fun encoded(bytes: Long) = recorder.encoded(bytes)
+
+  fun uploadStarted(bytes: Long) = recorder.uploadStarted(bytes)
+
+  fun uploadFinished(timing: ServerTiming) = recorder.uploadFinished(timing)
+
+  /** Timings the app's JS reports (see [EXTERNAL_KEYS]); anything else is ignored so the log stays a fixed vocabulary. */
+  fun external(key: String, ms: Long) {
+    if (key in EXTERNAL_KEYS) recorder.external(key, ms)
+  }
+
+  val EXTERNAL_KEYS = setOf("headlessStartMs", "todayMs", "todayPrefetched", "pingMs")
 }

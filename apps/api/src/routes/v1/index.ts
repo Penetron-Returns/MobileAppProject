@@ -18,6 +18,7 @@ import { reportsRoutes } from './reports.ts';
 import { scheduleRoutes } from './schedule.ts';
 import { teamRoutes } from './team.ts';
 import { voiceRoutes } from './voice.ts';
+import { voiceAskRoutes } from './voiceAsk.ts';
 
 export const v1Routes = new Hono<AppEnv>();
 
@@ -33,3 +34,4 @@ v1Routes.route('/', billingRoutes);
 v1Routes.route('/', companionRoutes);
 v1Routes.route('/', reportsRoutes);
 v1Routes.route('/', voiceRoutes);
+v1Routes.route('/', voiceAskRoutes);

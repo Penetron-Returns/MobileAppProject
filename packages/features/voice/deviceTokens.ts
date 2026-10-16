@@ -49,10 +49,13 @@ export function createDeviceTokenService(deps: {
       if (!isDeviceToken(token) || token.length > MAX_TOKEN_LENGTH) return null;
       const row = await repo.findByHash(hashDeviceToken(token));
       if (!row || row.revoked_at) return null;
-      const member = await repo.findMember({ businessId: row.business_id, userId: row.user_id });
+      // Membership check and last-used bookkeeping are independent, so they run together (one round trip, not two).
+      // The bookkeeping write is best effort: a failure must not lock the owner out of check-in.
+      const [member] = await Promise.all([
+        repo.findMember({ businessId: row.business_id, userId: row.user_id }),
+        repo.touch(row.id, clock()).catch(() => undefined),
+      ]);
       if (!member) return null;
-      // Best effort: a failed bookkeeping write must not lock the owner out of check-in.
-      await repo.touch(row.id, clock()).catch(() => undefined);
       return { userId: row.user_id, businessId: row.business_id, orgId: member.orgId, role: member.role };
     },
   };

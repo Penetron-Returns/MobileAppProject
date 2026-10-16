@@ -46,6 +46,12 @@ class VoiceFeedback(private val context: Context) {
     main.postDelayed({ tick(strong = false) }, LANDING_MS)
   }
 
+  /** Listening again after a spoken question (no wake word): the wake chime alone, no haptic tick. */
+  fun listeningAgain() {
+    stopPulse()
+    play(Cue.WAKE)
+  }
+
   /** Listening ended and the words are being understood: a soft "got it", then a faint pulse if it takes long. */
   fun processing() {
     if (isProcessing) return

@@ -84,6 +84,8 @@ export interface NerovaTranscription {
   text: string;
   durationMs: number;
   language: string | null;
+  /** From Nerova's `Server-Timing` header (ms); null for an entry it did not send. */
+  timing?: { providerMs: number | null; totalMs: number | null };
 }
 
 export interface NerovaClient {

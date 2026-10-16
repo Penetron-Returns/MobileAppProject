@@ -66,6 +66,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     nerovaEvents: { accountChanged: async () => {} },
     usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
     companion: createCompanionService({ nerova: createFakeNerovaClient(), plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
+    voiceAsk: unimplemented as Container['voiceAsk'],
     clerkAdmin: createFakeClerkAdmin(),
     voiceTokens: createDeviceTokenService({ repo: createMemoryDeviceTokenRepository() }),
     clock: () => new Date(),

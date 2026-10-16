@@ -5,11 +5,18 @@ import {
   type CheckInCandidate,
 } from './checkIn';
 import { parseVoiceCommand } from './logic';
+import {
+  answerPendingApproval,
+  askCompanion,
+  classifyReply,
+  type AskDeps,
+  type FollowUpContext,
+} from './ask';
 
 type Translate = (key: string, values?: Record<string, unknown>) => string;
 
 /** What running a spoken command with no screen needs; injected so it is testable. */
-export interface HeadlessDeps {
+export interface HeadlessDeps extends Pick<AskDeps, 'ask' | 'decide'> {
   now: () => Date;
   t: Translate;
   /** False when no signed-in session is available (the app UI never started). */
@@ -24,17 +31,37 @@ export interface HeadlessDeps {
 
 /**
  * Runs a transcript from the Hey Clovie service without the app UI: "client
- * has arrived" checks someone in through the API; anything else (or anything
- * that cannot finish here, like a missing session) asks the owner to open the
- * app, where the `/voice` route handles it with the full UI.
+ * has arrived" checks someone in through the API (the fast local path);
+ * anything else goes to the Nerova companion (`ask.ts`) and its reply is
+ * spoken. Only a real failure, like a missing session, asks the owner to open
+ * the app. `context` is set on a follow-up turn: a clear yes or no then decides
+ * exactly `context.pendingApprovalId`, anything else continues the conversation.
  */
 export async function runVoiceCommandHeadless(
   transcript: string,
   deps: HeadlessDeps,
+  context: FollowUpContext = {},
 ): Promise<ClovieVoiceCommandOutcome> {
+  const pendingId = context.pendingApprovalId;
+  if (pendingId) {
+    const verdict = classifyReply(transcript);
+    if (verdict !== 'other') {
+      if (!(await deps.isSignedIn())) {
+        return { status: 'open_app', message: '' };
+      }
+      return answerPendingApproval(
+        verdict,
+        { ...context, pendingApprovalId: pendingId },
+        deps,
+      );
+    }
+  }
   const command = parseVoiceCommand(transcript);
   if (command.kind === 'request') {
-    return { status: 'open_app', message: command.text };
+    if (!(await deps.isSignedIn())) {
+      return { status: 'open_app', message: command.text };
+    }
+    return askCompanion(command.text, deps);
   }
   try {
     if (!(await deps.isSignedIn())) {
@@ -101,6 +128,7 @@ export interface ClipDeps extends HeadlessDeps {
 export async function runVoiceClipHeadless(
   clipPath: string,
   deps: ClipDeps,
+  context: FollowUpContext = {},
 ): Promise<ClovieVoiceCommandOutcome> {
   let text: string;
   try {
@@ -113,6 +141,6 @@ export async function runVoiceClipHeadless(
     return { status: 'fallback', message: reason };
   }
   if (!text) return { status: 'error', message: NOT_HEARD };
-  const outcome = await runVoiceCommandHeadless(text, deps);
+  const outcome = await runVoiceCommandHeadless(text, deps, context);
   return { ...outcome, transcript: text };
 }

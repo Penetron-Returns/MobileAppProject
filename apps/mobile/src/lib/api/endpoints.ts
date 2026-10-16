@@ -12,6 +12,9 @@ import type {
   BusinessDTO,
   DeviceTokenDTO,
   VoiceTodayDTO,
+  VoiceAskDTO,
+  VoiceAskRequest,
+  VoiceApprovalResultDTO,
   CancelAppointmentRequest,
   ClientDTO,
   CompanionSessionDTO,
@@ -307,6 +310,19 @@ export const api = {
 
   // voice: today's appointments for the voice check-in (also reachable with a device token)
   voiceToday: () => get<VoiceTodayDTO>('/v1/voice/today'),
+
+  // voice: a spoken request to the companion, and its approvals (decided by id only; device token allowed)
+  voiceAsk: (b: VoiceAskRequest, key: string) =>
+    send<VoiceAskRequest, VoiceAskDTO>('POST', '/v1/voice/ask')(b, key),
+  voiceDecideApproval: (
+    id: string,
+    decision: 'approve' | 'decline',
+    key: string,
+  ) =>
+    send<undefined, VoiceApprovalResultDTO>(
+      'POST',
+      `/v1/voice/approvals/${enc(id)}/${decision}`,
+    )(undefined, key),
 
   // voice: the scoped device token for background voice and attendance answers
   mintVoiceDeviceToken: (b: { device_label: string }, key: string) =>

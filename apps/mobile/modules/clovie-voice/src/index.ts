@@ -36,6 +36,14 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
     transcript: string,
   ): boolean;
   setCloudStt(enabled: boolean): void;
+  // Optional: older dev builds have no follow-up fields (see completeCommand).
+  completeCommandWithReply?(
+    id: string,
+    status: string,
+    message: string,
+    transcript: string,
+    extras: string,
+  ): boolean;
   // Optional: a dev build made before these existed has no such functions.
   getFeedbackSettings?(): ClovieVoiceFeedbackSettings;
   setSoundsEnabled?(enabled: boolean): void;
@@ -45,6 +53,8 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   clearVoiceToken?(): void;
   getVoiceTokenState?(): ClovieVoiceTokenState;
   getTimings(): Record<string, number | null>;
+  // Optional: a dev build made before this existed has no such function.
+  recordTiming?(key: string, ms: number): void;
 }
 
 // Android only: iOS, web and builds without the native module get null.
@@ -108,11 +118,34 @@ export function getTimings(): Record<string, number | null> {
   return native?.getTimings() ?? {};
 }
 
+/** Logs a step the app's JS measured next to the native timings (ClovieVoice logcat tag). Timings only. */
+export function recordTiming(key: string, ms: number): void {
+  native?.recordTiming?.(key, ms);
+}
+
 /** Reports a headless command's outcome to the service (shown in the overlay). */
 export function completeCommand(
   id: string,
   outcome: ClovieVoiceCommandOutcome,
 ): boolean {
+  const { spoken, expectsReply } = outcome;
+  if (native?.completeCommandWithReply && (spoken || expectsReply)) {
+    // Follow-up fields travel as one JSON string; a build made before they existed uses the plain call below.
+    return native.completeCommandWithReply(
+      id,
+      outcome.status,
+      outcome.message,
+      outcome.transcript ?? '',
+      JSON.stringify({
+        spoken: spoken ?? '',
+        expectsReply: expectsReply === true,
+        pendingApprovalId: outcome.pendingApprovalId ?? '',
+        pendingKind: outcome.pendingKind ?? '',
+        pendingQueue: outcome.pendingQueue ?? '',
+        pendingRemaining: outcome.pendingRemaining ?? 0,
+      }),
+    );
+  }
   return (
     native?.completeCommand(
       id,

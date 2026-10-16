@@ -12,8 +12,18 @@ export interface Transcription {
   language: string | null;
 }
 
+/** The name and content type to upload a clip under: the service writes m4a (AAC) and falls back to WAV. */
+export function clipUploadMeta(clipPath: string): {
+  name: string;
+  type: string;
+} {
+  return clipPath.toLowerCase().endsWith('.m4a')
+    ? { name: 'clip.m4a', type: 'audio/mp4' }
+    : { name: 'clip.wav', type: 'audio/wav' };
+}
+
 /**
- * Uploads a WAV clip (a `file://` path or absolute path) to
+ * Uploads a clip (m4a or WAV) (a `file://` path or absolute path) to
  * `POST /v1/voice/transcriptions` as multipart field `audio`. No language is
  * sent: the server detects it (English or Afrikaans). Throws `ApiError` on
  * network, 4xx (404 while the backend is not live) or 5xx failures. Authenticated with the Clerk
@@ -39,7 +49,7 @@ export async function transcribeClip(clipPath: string): Promise<Transcription> {
   const uri = clipPath.startsWith('/') ? `file://${clipPath}` : clipPath;
   const form = new FormData();
   // React Native's FormData reads a file part from this uri/name/type object.
-  form.append('audio', { uri, name: 'clip.wav', type: 'audio/wav' } as never);
+  form.append('audio', { uri, ...clipUploadMeta(clipPath) } as never);
   let res: Response;
   try {
     // No Content-Type: fetch sets the multipart boundary itself.

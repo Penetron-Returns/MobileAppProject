@@ -22,6 +22,7 @@ jest.mock('@/features/business/hooks', () => ({
 }));
 jest.mock('../clovieVoice', () => ({
   completeCommand: jest.fn(),
+  recordTiming: jest.fn(),
   setCloudStt: jest.fn(),
 }));
 

@@ -40,6 +40,18 @@ export interface ClovieVoiceCommandOutcome {
   message: string;
   /** What was heard, when the app transcribed a clip. */
   transcript?: string;
+  /** Spoken instead of `message` when set (the reply plus the approval to confirm). Not shown. */
+  spoken?: string;
+  /** The service listens again (no wake word) after speaking: an approval is waiting, or the reply asks a question. */
+  expectsReply?: boolean;
+  /** The one approval just read aloud. A yes or no applies to this id only. */
+  pendingApprovalId?: string;
+  /** That approval's kind (`create_appointment`, ...), for the wording of the result. */
+  pendingKind?: string;
+  /** JSON array of the approvals still to read, after the pending one: `[{ id, kind, title }]`. Echoed back as-is. */
+  pendingQueue?: string;
+  /** How many approvals are still queued after the pending one (lets the service allow a few more turns). */
+  pendingRemaining?: number;
 }
 
 /** The owner's audio choices for voice replies. Both default to on. */

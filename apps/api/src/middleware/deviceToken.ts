@@ -13,6 +13,9 @@ const DEVICE_TOKEN_ROUTES: readonly { method: string; path: RegExp }[] = [
   { method: 'POST', path: /^(\/api)?\/v1\/attendance\/[^/]+\/answer$/ },
   { method: 'POST', path: /^(\/api)?\/v1\/appointments\/[^/]+\/check-in$/ },
   { method: 'GET', path: /^(\/api)?\/v1\/voice\/today$/ },
+  { method: 'GET', path: /^(\/api)?\/v1\/voice\/ping$/ },
+  { method: 'POST', path: /^(\/api)?\/v1\/voice\/ask$/ },
+  { method: 'POST', path: /^(\/api)?\/v1\/voice\/approvals\/[^/]+\/(approve|decline)$/ },
 ];
 
 export function isDeviceTokenRoute(method: string, path: string): boolean {

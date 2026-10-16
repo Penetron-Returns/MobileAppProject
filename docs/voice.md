@@ -8,7 +8,7 @@ Two ways to talk to Clovie from anywhere on the phone. Android only for this dem
 Both end the same way:
 
 - "client has arrived" checks in the client whose appointment is due now.
-- Anything else shows the request in the overlay with an **Open Clovie** button. Tapping it opens the companion sheet with what was said.
+- Anything else goes to the real Nerova companion (Clovie) and the reply is spoken, with the app closed. See [Ask Clovie by voice](#ask-clovie-by-voice). **Open Clovie** is only for real failures, such as no session or token.
 
 ## How it works
 
@@ -103,6 +103,30 @@ The owner may not be able to read the overlay (dyslexia) or may have her hands f
 Sounds use `USAGE_ASSISTANT` (the system stream behind `USAGE_ASSISTANCE_SONIFICATION` is muted in vibrate mode) and play at normal and vibrate ringer modes. They are silent only in total silence (ringer silent, or Do Not Disturb set to "total silence"). The system "touch sounds" setting no longer gates them.
 
 With "Read replies aloud" on, the service reads the outcome with the phone's own text-to-speech (offline; English South Africa, else en-GB, else the default voice), after the cue, holding transient audio focus that lets other audio duck. The overlay stays up until the speech ends or its usual time, whichever is later (12 s watchdog). The `open_app` outcome is never read verbatim (it carries the transcript, which can hold a client name): it says "I need the app for that. Tap Open Clovie." Message text is never logged.
+
+### Ask Clovie by voice
+
+With the app closed, any request except "client has arrived" (the fast local path) is sent to the owner's Nerova companion, and the reply is read aloud. This is how a dyslexic owner runs the day eyes-free.
+
+**API** (Clerk or device voice token; feature `companion`; `Idempotency-Key` required). The server mints a native companion session (`NEROVA_NATIVE_SESSIONS=true` is required, else `COMPANION_NOT_READY`), caches it per business and user for its lifetime minus 60 s, calls `POST /v1/companion/chat`, parses the stream fully, and on `companion.session_expired` retries once with a new session. Code: `packages/companion/nerova/{chatStream,chatClient,httpChatClient,voiceAsk}.ts`, route `apps/api/src/routes/v1/voiceAsk.ts`.
+
+| Route | Body | `data` |
+| --- | --- | --- |
+| `POST /v1/voice/ask` | `{ text }` (1 to 4000) | `{ reply, approvals: [{ id, kind, title, lines }], suggestions }` |
+| `POST /v1/voice/approvals/:id/approve` | none | `{ id, decision: 'approved', kind }` |
+| `POST /v1/voice/approvals/:id/decline` | none | `{ id, decision: 'declined', kind }` |
+
+Nerova problem codes map to our codes: `account_not_ready` to `COMPANION_NOT_READY`, `request.rate_limited` to `RATE_LIMITED`, `approval.not_found` to `NOT_FOUND`, `approval.expired` to `WINDOW_CLOSED`, `approval.already_decided` and `approval.connector_conflict` to `RULE_VIOLATION`, everything else (including an in-stream `companion.turn_failed`) to `UPSTREAM_COMPANION_ERROR` with `details.nerova_code`. The text, reply and titles are never logged.
+
+**Approvals are read one at a time, and a yes or no is bound to one id.** Owner bookings, moves and cancels come back as approvals. The outcome carries `pendingApprovalId` (the one just read aloud), `pendingKind` and `pendingQueue` (the rest, as JSON). The service echoes them with the next turn, so "yes" calls approve on exactly that id, never "the latest pending". With several approvals, each yes or no applies to the one just read, then the next is read. The spoken title keeps the client, service, date and time (`speakableApproval`: "Fri 16 Oct, 20:30-21:15" is read "Friday 16 October at 20:30 to 21:15"), followed by "Say yes or no."
+
+**Follow-up listening, with no wake word.** When an outcome has `expectsReply` (an approval is waiting, or the reply ends with a question mark), the service speaks, plays the wake cue softly, and captures another clip with the same `ClipCapture` and VAD (6 s without speech ends it quietly). The overlay keeps the reply text and shows "listening". The clip is transcribed and runs as a follow-up turn:
+
+- yes (yes, yeah, yep, sure, ok, okay, confirm, do it, go ahead, please): approve; "Done. Booked." / "Done. Moved." / "Done. Cancelled." by kind.
+- no (no, nope, cancel, don't, stop, never mind): decline; "Okay, I won't."
+- anything else (also "yes but make it five"): a normal message to `/v1/voice/ask`, which continues the conversation.
+
+At most 3 follow-up turns per wake; each approval still queued allows one more, never beyond 5 (`FollowUp` in `FollowUpController.kt`, tested on the JVM). Outcome fields (additive): `spoken`, `expectsReply`, `pendingApprovalId`, `pendingKind`, `pendingQueue`, `pendingRemaining`, sent by `completeCommandWithReply` (an older dev build falls back to `completeCommand`). The command timeout is now 35 s (50 s for a clip) because Nerova runs the whole turn before the first byte. The in-app `/voice` route uses the same ask path: a plain answer is shown, an approval or a failure opens the companion sheet.
 
 ### Check-in replies
 

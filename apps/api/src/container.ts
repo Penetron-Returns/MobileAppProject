@@ -10,6 +10,8 @@ import { createAccountEvents, eventSenderFromEnv } from '@booking/companion/even
 import { appointmentEventsFromEnv } from '@booking/companion/events/appointmentEvents.ts';
 import { createCompanionService, type CompanionService } from '@booking/companion/nerova/companionService.ts';
 import { createNerovaClientFromEnv } from '@booking/companion/nerova/httpClient.ts';
+import { createHttpCompanionChatClient } from '@booking/companion/nerova/httpChatClient.ts';
+import { createVoiceAskService, type VoiceAskService } from '@booking/companion/nerova/voiceAsk.ts';
 import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
@@ -37,6 +39,8 @@ export interface Container {
   usage: UsageService;
   /** Nerova AI companion: owner chat sessions and outcome counts */
   companion: CompanionService;
+  /** Spoken requests to the companion and their approvals (Hey Clovie, app closed) */
+  voiceAsk: VoiceAskService;
   /** Clerk Backend API (organisation members and invitations) */
   clerkAdmin: ClerkAdmin;
   /** Scoped long-lived credential for the voice upload and attendance answer while the app is backgrounded */
@@ -78,7 +82,8 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
   const voiceTokens = createDeviceTokenService({ repo: createSupabaseDeviceTokenRepository(db), clock });
-  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, voiceTokens, clock };
+  const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, voiceAsk, clerkAdmin, voiceTokens, clock };
 }
 
 let cached: Container | undefined;

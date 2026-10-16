@@ -874,3 +874,34 @@ export interface VoiceTodayDTO {
     service_name: string | null;
   }[];
 }
+
+/** POST /v1/voice/ask request (Clerk or device voice token; feature `companion`) */
+export interface VoiceAskRequest {
+  /** 1 to 4000 characters */
+  text: string;
+}
+
+/** An owner approval the companion is waiting on (a booking, move or cancel). Decide it by id only. */
+export interface VoiceApprovalDTO {
+  /** `oapr_...` */
+  id: string;
+  /** e.g. `create_appointment`, `reschedule_appointment`, `cancel_appointment` */
+  kind: string;
+  /** One line, e.g. "Book Gel overlay for Thandi Ngwenya on Fri 16 Oct, 20:30-21:15?" */
+  title: string;
+  lines: { label: string; from: string | null; to: string }[];
+}
+
+/** POST /v1/voice/ask response data: the companion's whole reply, ready to speak */
+export interface VoiceAskDTO {
+  reply: string;
+  approvals: VoiceApprovalDTO[];
+  suggestions: string[];
+}
+
+/** POST /v1/voice/approvals/:id/approve and /decline response data */
+export interface VoiceApprovalResultDTO {
+  id: string;
+  decision: 'approved' | 'declined';
+  kind: string | null;
+}
