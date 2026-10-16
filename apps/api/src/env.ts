@@ -55,6 +55,9 @@ const EnvSchema = z.object({
   /** "true" forwards the allowlisted return_url to Nerova connection-sessions as returnUrl (needs #946 live). Off = dropped. */
   NEROVA_WHATSAPP_RETURN_URL: optional,
 
+  /** whsec_... signing secret returned once by POST /v1/webhooks (scripts/nerova/register-approval-webhook.mjs). Verifies POST /webhooks/nerova. Empty = route answers 503 */
+  NEROVA_WEBHOOK_SECRET: optional,
+
   /** "true" enables POST /v1/voice/transcriptions (proxy to Nerova speech-to-text). Off = 503 TRANSCRIPTION_UNAVAILABLE. */
   VOICE_CLOUD_STT: optional,
 

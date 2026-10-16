@@ -178,3 +178,14 @@ Nerova's chat widget opens a popup to connect WhatsApp, which cannot work inside
 - No OAuth, no optional extra tools (clients, sales, loyalty, gift cards, subjects), no streaming or sessions.
 - Single location per business. `externalLocationId` is the business id.
 - Production safety: the connector only exposes `companion` businesses, and events never send unless explicitly enabled.
+
+## Approval push (`approval.requested`)
+
+When the companion needs the owner's OK to move or cancel an appointment, Nerova sends a signed `approval.requested` webhook (Standard Webhooks) and the owner gets a push without opening the app.
+
+- **Endpoint:** `POST /webhooks/nerova` (`https://<ref>.supabase.co/functions/v1/api/webhooks/nerova`), unauthenticated except for the signature. `NEROVA_WEBHOOK_SECRET` unset answers 503 and does nothing. The signature (`webhook-id`, `webhook-timestamp`, `webhook-signature`, possibly several space-separated `v1,` values after a secret rotation) is checked on the raw body before parsing (`packages/companion/webhooks/verifyStandardWebhook.ts`: constant-time, 5 minute tolerance); a bad one is 401.
+- **Dedupe:** `webhook-id` in `webhook_events` (source `nerova`, migration `20261024000001`). Nerova delivers at least once and retries a non-2xx for about 21 hours, so the route answers 200 immediately and pushes in the background. A failed push is logged, not retried.
+- **Flow:** `data.object` is `{ accountId, approvalId, kind, expiresAt, externalReference }` and carries no text. `externalReference` is our business id; an unknown or non-UUID reference is ignored with 200. The title comes from `GET /v1/accounts/{accountId}/approvals?status=pending` (matched on `approvalId`; `packages/companion/nerova/approvals.ts`). An approval already decided or expired sends nothing.
+- **Push:** to the business owners (there is no per-staff approval permission): title "Clovie needs your OK", body the approval title, category `clovie_approval` (Approve / Decline buttons), data `{ type: "approval", approvalId, businessId }`.
+- **App:** `apps/mobile/src/features/approvals/`. Approve and Decline call `POST /v1/voice/approvals/:id/approve|decline` without opening the app; tapping the body opens the Clovie sheet.
+- **Register once:** `node scripts/nerova/register-approval-webhook.mjs <api-key-file> <secret-out-file>` (never run by CI). It creates the endpoint with `eventFilters: ["approval.requested"]` and writes the returned `whsec_` secret to the second file; put it in `NEROVA_WEBHOOK_SECRET`. Sandbox accounts deliver to test-mode endpoints and live accounts to live ones, so register once per mode.

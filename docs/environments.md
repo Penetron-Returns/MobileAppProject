@@ -85,6 +85,7 @@ No product code exists yet; subscriptions are planned. Just reserve the slots: i
 The AI companion and the Reports outcome counts call Nerova's REST API (`https://api.nerova.si`) from the server only.
 
 - `NEROVA_API_KEY`: Live API key with `accounts:read` and `usage:read`. Doppler `dev`/`prod` and Supabase secrets; never in the app, logs or responses. Empty = the companion reports `COMPANION_NOT_READY` (`reason: unavailable`) and Reports omit Nerova's counts.
+- `NEROVA_WEBHOOK_SECRET`: the `whsec_` signing secret returned once when the approval webhook is registered (`scripts/nerova/register-approval-webhook.mjs`). Doppler and Supabase secrets; never logged. Empty = `POST /webhooks/nerova` answers 503 and nothing is pushed.
 - `NEROVA_EMBED_ORIGIN`: the exact origin (`https://host[:port]`) of the owner web app that frames the companion. It must be on the Nerova embed allowlist (Settings, Security, Domain allowlist, or `set_embed_origins`), otherwise Nerova answers `422 widget.origin_not_registered`.
 - The imported Nerova account's `externalReference` is our business id; the API resolves and caches the `acct_` id in `businesses.nerova_account_id`.
 
