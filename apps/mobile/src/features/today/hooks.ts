@@ -45,7 +45,7 @@ async function fetchToday(window: TodayWindow): Promise<TodayAppointment[]> {
 }
 
 /** A clock that re-renders every `intervalMs`, so "in 20 min" stays true. */
-function useNow(intervalMs = 30_000): Date {
+export function useNow(intervalMs = 30_000): Date {
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
     const id = setInterval(() => setNow(new Date()), intervalMs);

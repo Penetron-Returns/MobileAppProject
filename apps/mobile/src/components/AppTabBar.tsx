@@ -12,17 +12,25 @@ type BarProps = React.ComponentProps<typeof FloatingTabBar>;
 /**
  * The floating bar wired to the plan: Free keeps "+" and the Inbox dome;
  * paid plans get Reports as a fifth tab and the companion dome. Entitlements come from
- * `/v1/me`, so the bar never shows a dome the plan lacks.
+ * `/v1/me`, so the bar never shows a dome the plan lacks. On the Today tab the
+ * companion dome is hidden: the AI home's own Clovie is the entry there.
  */
 export function AppTabBar(props: BarProps) {
   const mode = useAppMode();
   const { tabs, addRoute } = tabBarActions(mode);
+  const isToday = props.state.routes[props.state.index]?.name === 'index';
   return (
     <FloatingTabBar
       {...props}
       tabs={tabs}
       onAdd={addRoute ? () => router.push(addRoute as never) : undefined}
-      dome={mode === 'ai' ? <CompanionEntryDome /> : <InboxEntryDome />}
+      dome={
+        mode === 'ai' ? (
+          <CompanionEntryDome isHidden={isToday} />
+        ) : (
+          <InboxEntryDome />
+        )
+      }
     />
   );
 }
