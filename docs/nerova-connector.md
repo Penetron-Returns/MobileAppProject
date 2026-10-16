@@ -1,6 +1,6 @@
 # Nerova Booking connector
 
-Lets Nerova's AI companion (Pip) read and act on the bookings of paid-plan businesses. We implement **Nerova Booking MCP v1** (contract `2026-10-12`) as an MCP server inside the existing `api` Edge Function. Spec: Nerova docs `guides/nerova-booking-mcp-v1`, `guides/build-an-mcp-booking-connector`, `guides/booking-mcp-tool-schemas`, `guides/booking-connector-contract`.
+Lets Nerova's AI companion (Pip) read and act on the bookings of paid-plan businesses. We implement **Nerova Booking MCP v1** (contract `2026-10-17`; Nerova still accepts the older `2026-10-12`) as an MCP server inside the existing `api` Edge Function. Spec: Nerova docs `guides/nerova-booking-mcp-v1`, `guides/build-an-mcp-booking-connector`, `guides/booking-mcp-tool-schemas`, `guides/booking-connector-contract`.
 
 Contract summary lives in [BUILD_PLAN.md](BUILD_PLAN.md) (section "Nerova Booking connector"). This page is the design and the runbook.
 
@@ -52,6 +52,8 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 | `appointments_create` | no | `BookingService.createAppointment` | See below |
 | `appointments_reschedule` | no | `BookingService.rescheduleAppointment` | `newExternalStaffId` optional |
 | `appointments_cancel` | no | `BookingService.cancelAppointment` | `reason` stored as `cancel_reason` |
+| `clients_search` (optional) | yes | `ClientRepository.findClientByPhone` / `findClientByEmail` / `listClientsByNamePatterns` + `clientSearch.ts` | See "Client tools" |
+| `clients_create` (optional) | no | `upsertClient` (the `appointments_create` upsert) | See "Client tools" |
 
 ### Writes
 
@@ -64,6 +66,17 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 - **Existing clients:** `appointments_create` with a phone only fills blank name and email of an existing client; it never overwrites what the owner stored.
 - **Same-key races:** a create that loses the slot to a concurrent call with the same `idempotencyKey` returns that booking instead of `conflict`.
 - **Notes:** `notes` and `reason` are merged into the appointment notes (`Reason: ...`). `subject`, `intakeResponses` and `externalLocationId` are accepted and ignored (single location, no subjects or intake forms yet).
+
+### Client tools (optional, contract 2026-10-17)
+
+Both live under `optionalTools` in `booking-connector.mcp-tools.json`; `tools/list` publishes the ten required tools, then these two. Nerova derives the capabilities from what is published (`declaredToolCapabilities` in `capabilities.ts` mirrors that and is tested): `clients_search` declares `ReadClients`, a `name` input in its schema also declares `SearchClientsByName`, `clients_create` declares `CreateClients`. There is no feature flag.
+
+- **`clients_search`** `{ accountId, phone?, email?, name?, limit? }` → `{ data: [{ externalClientId, name, phone?, email?, lastVisitAt? }] }`. At least one of phone, email or name (blank strings count as absent) or `invalid_request`; `limit` 1 to 25 (default 10, outside that range is `invalid_request`). Phone is normalised to E.164, email is lower-cased and matched case-insensitively. With several criteria the exact phone and email matches come first, then the name matches, each client once.
+- **Name search:** one business-scoped query prefilters with `ILIKE` windows (the first and last three letters of each query word; letters that can carry a diacritic become `_`, so "jose" still prefilters "José"), capped at 200 candidates, most recently seen first. They are then ranked in memory on folded text (NFD, diacritics stripped, lower case): 0 exact full name, 1 every query word starts a name word, 2 contains, 3 within one edit (insert, delete, substitute or swap; only words of 4+ letters). Ties go to the latest `last_seen_at`, then the name. Trigram index: `clients_name_trgm_idx` (`pg_trgm`, migration `20261025000001_clients_name_search`). Known limit: an account with far more than 200 clients sharing a window can lose a match at the cap; the conformance case (the longest word of a name, upper case, limit 25) is covered by a test.
+- **`lastVisitAt`** is `clients.last_seen_at`, which every booking bumps through `upsert_client_by_phone` (the same field `ClientDTO.last_seen_at` exposes), not the start of the latest appointment. A client never seen has no `lastVisitAt`.
+- **`clients_create`** `{ accountId, idempotencyKey, name, phone?, email? }` → the client. A phone that matches an existing client returns it (blank name and email are filled, nothing is overwritten); otherwise an email that matches returns that client untouched; otherwise a new client is made through `upsertClient`. A missing `idempotencyKey` or `name` is `invalid_request`. Our clients are keyed by phone, so a **new** client needs a phone (email only is `invalid_request`). Idempotent by construction: the same key and details always resolve to the same client and never duplicate; there is no stored replay record, so a reused key with different details is treated as a new request.
+- **Gating and audit:** the plan gate (`companion`) runs before the write like the other writes. The connector has no read-only mode. The insert is audited by the `clients` row trigger (`audit_log`); that trigger cannot name the Nerova actor.
+- **Logs:** the connector timing log names the tool and result only; no names, phones or emails.
 
 ### Errors
 
@@ -175,7 +188,7 @@ Nerova's chat widget opens a popup to connect WhatsApp, which cannot work inside
 
 - A client **phone number is required** on `appointments_create` (the contract makes it optional). If Nerova's certification run books without one, it fails `lifecycle.create_verify`; the fix would be a phone-less client model.
 - No per-connector rate limiter (`rate_limited` is supported by the error format but never emitted).
-- No OAuth, no optional extra tools (clients, sales, loyalty, gift cards, subjects), no streaming or sessions.
+- No OAuth, no optional extra tools beyond the client tools (sales, loyalty, gift cards, subjects), no streaming or sessions.
 - Single location per business. `externalLocationId` is the business id.
 - Production safety: the connector only exposes `companion` businesses, and events never send unless explicitly enabled.
 

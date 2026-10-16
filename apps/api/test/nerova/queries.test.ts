@@ -70,6 +70,26 @@ describe('client lookups (Supabase)', () => {
     expect([p.get('business_id'), p.get('phone_e164')]).toEqual([`eq.${BIZ}`, 'eq.+27820000000']);
   });
 
+  it('finds a client by email case-insensitively, with LIKE wildcards escaped, within the business', async () => {
+    const { db, requests } = fakeDb(() => null);
+    expect(await createSupabaseRepository(db).findClientByEmail(BIZ, 'a_b@example.com')).toBeNull();
+    const p = requests[0]!.params;
+    expect([p.get('business_id'), p.get('email')]).toEqual([`eq.${BIZ}`, 'ilike.a\\_b@example.com']);
+  });
+
+  it('prefilters clients by name with one capped, business-scoped ILIKE query', async () => {
+    const { db, requests } = fakeDb(() => []);
+    const repo = createSupabaseRepository(db);
+    expect(await repo.listClientsByNamePatterns(BIZ, [], 200)).toEqual([]);
+    expect(requests).toHaveLength(0);
+    await repo.listClientsByNamePatterns(BIZ, ['%tha%', '%_di%'], 200);
+    expect(requests).toHaveLength(1);
+    const p = requests[0]!.params;
+    expect(p.get('business_id')).toBe(`eq.${BIZ}`);
+    expect(p.get('or')).toBe('(name.ilike.*tha*,name.ilike.*_di*)');
+    expect(p.get('limit')).toBe('200');
+  });
+
   it('loads clients by id in one business-scoped query, and none for no ids', async () => {
     const { db, requests } = fakeDb(() => []);
     const repo = createSupabaseRepository(db);

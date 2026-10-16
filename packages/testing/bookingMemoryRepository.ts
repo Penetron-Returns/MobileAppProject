@@ -498,6 +498,23 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     async findClientByPhone(businessId, phone) {
       return clone(tables.clients.find((c) => c.business_id === businessId && c.phone_e164 === phone) ?? null);
     },
+    async findClientByEmail(businessId, emailLower) {
+      const matches = tables.clients
+        .filter((c) => c.business_id === businessId && c.email?.toLowerCase() === emailLower)
+        .sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''));
+      return clone(matches[0] ?? null);
+    },
+    async listClientsByNamePatterns(businessId, patterns, limit) {
+      const regexes = patterns.map(
+        (p) => new RegExp(`^${p.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`, 'is'),
+      );
+      return clone(
+        inBusiness(tables.clients, businessId)
+          .filter((c) => c.name !== null && regexes.some((r) => r.test(c.name as string)))
+          .sort((a, b) => (b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? '') || a.id.localeCompare(b.id))
+          .slice(0, limit),
+      );
+    },
     async listClientsByIds(businessId, ids) {
       return clone(inBusiness(tables.clients, businessId).filter((c) => ids.includes(c.id)));
     },

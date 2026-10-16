@@ -32,6 +32,9 @@ const APPOINTMENT_COLS =
 const ATTEMPT_COLS =
   'id, business_id, channel, client_id, conversation_id, session_key, started_at, completed_at, step_count, outcome, appointment_id, error_code, steps';
 
+/** Escapes LIKE wildcards so a value is matched literally (backslash is Postgres' default LIKE escape). */
+const escapeLike = (value: string): string => value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
 /** RPCs returning a composite come back as an object (or a one-element array). */
 function rpcRow<T>(result: Result<unknown>, entity: string): T {
   if (result.error) throw mapDbError(result.error);
@@ -338,6 +341,30 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     async findClientByPhone(businessId, phoneE164) {
       return maybe(
         await t('clients').select(CLIENT_COLS).eq('business_id', businessId).eq('phone_e164', phoneE164).maybeSingle(),
+      );
+    },
+    async findClientByEmail(businessId, emailLower) {
+      return maybe(
+        await t('clients')
+          .select(CLIENT_COLS)
+          .eq('business_id', businessId)
+          .ilike('email', escapeLike(emailLower))
+          .order('last_seen_at', { ascending: false, nullsFirst: false })
+          .order('id')
+          .limit(1)
+          .maybeSingle(),
+      );
+    },
+    async listClientsByNamePatterns(businessId, patterns, limit) {
+      if (patterns.length === 0) return [];
+      return rows(
+        await t('clients')
+          .select(CLIENT_COLS)
+          .eq('business_id', businessId)
+          .or(patterns.map((p) => `name.ilike.${p.replaceAll('%', '*')}`).join(','))
+          .order('last_seen_at', { ascending: false, nullsFirst: false })
+          .order('id')
+          .limit(limit),
       );
     },
     async listClientsByIds(businessId, clientIds) {

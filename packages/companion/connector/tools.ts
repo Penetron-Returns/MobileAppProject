@@ -1,7 +1,7 @@
 /**
  * Tool registry: published definitions (exact copy of Nerova's
  * booking-connector.mcp-tools.json) joined to their argument schema and handler.
- * Adding an optional extra tool means adding an entry here (open/closed).
+ * Adding an optional extra tool means adding it to optionalTools in the JSON and an entry here (open/closed).
  */
 import type { z } from 'zod';
 
@@ -19,7 +19,12 @@ export interface ToolDefinition {
   annotations: { readOnlyHint: boolean };
 }
 
-export const TOOL_DEFINITIONS = definitions.tools as ToolDefinition[];
+/** Required tools only, exactly as Nerova certifies them. */
+export const REQUIRED_TOOL_DEFINITIONS = definitions.tools as ToolDefinition[];
+/** Optional tools: publishing one declares its capability (see capabilities.ts). */
+export const OPTIONAL_TOOL_DEFINITIONS = definitions.optionalTools as ToolDefinition[];
+/** What tools/list publishes. */
+export const TOOL_DEFINITIONS: ToolDefinition[] = [...REQUIRED_TOOL_DEFINITIONS, ...OPTIONAL_TOOL_DEFINITIONS];
 
 type Handler = (service: NerovaConnectorService, args: never) => Promise<unknown>;
 
@@ -28,7 +33,7 @@ interface ToolBinding {
   handler: Handler;
 }
 
-/** One binding per required tool, keyed by the published tool name. */
+/** One binding per published tool, keyed by its name. */
 export const TOOL_BINDINGS: Record<ToolName, ToolBinding> = {
   accounts_list: { schema: argSchemas.accounts_list, handler: (s, a) => s.accountsList(a) },
   accounts_get: { schema: argSchemas.accounts_get, handler: (s, a) => s.accountsGet(a) },
@@ -40,6 +45,8 @@ export const TOOL_BINDINGS: Record<ToolName, ToolBinding> = {
   appointments_create: { schema: argSchemas.appointments_create, handler: (s, a) => s.appointmentsCreate(a) },
   appointments_reschedule: { schema: argSchemas.appointments_reschedule, handler: (s, a) => s.appointmentsReschedule(a) },
   appointments_cancel: { schema: argSchemas.appointments_cancel, handler: (s, a) => s.appointmentsCancel(a) },
+  clients_search: { schema: argSchemas.clients_search, handler: (s, a) => s.clientsSearch(a) },
+  clients_create: { schema: argSchemas.clients_create, handler: (s, a) => s.clientsCreate(a) },
 };
 
 export const isToolName = (name: string): name is ToolName => Object.hasOwn(TOOL_BINDINGS, name);
