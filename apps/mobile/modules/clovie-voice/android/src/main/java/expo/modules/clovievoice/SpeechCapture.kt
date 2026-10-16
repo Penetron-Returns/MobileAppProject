@@ -6,60 +6,99 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
+
+/** The end of one listen: `text` is the transcript, or null with `reason` (`no_speech`, `permission`, `error`, `timeout`, `unavailable`). */
+data class SttOutcome(val text: String?, val reason: String)
 
 /**
  * One spoken command through Android's own recogniser. On-device where the phone offers it
  * (API 31+), otherwise the default recogniser asked to prefer offline. South African English
- * first, then US English when the first is not installed. `SpeechRecognizer` is main-thread only.
+ * first, then US English when the first is not installed. Errors are logged by code and name
+ * (never text) and retried per `SttPolicy`. A watchdog ends the listen if nothing arrives in time.
+ * `SpeechRecognizer` is main-thread only.
  */
 class SpeechCapture(private val context: Context, private val onLevel: (Float) -> Unit) {
   private val main = Handler(Looper.getMainLooper())
   private var recognizer: SpeechRecognizer? = null
-  private var onDone: ((String?) -> Unit)? = null
+  private var onDone: ((SttOutcome) -> Unit)? = null
+
   /** True while a command is being listened for. */
   val isBusy: Boolean
     get() = onDone != null
   private var onStarted: (() -> Unit)? = null
-  private var localeIndex = 0
-  private val timeout = Runnable { finish(null) }
+  private var attempt = SttAttempt(0, true)
+  private var isOnDevice = false
+  private var startedAt = 0L
+  private val watchdog = Runnable {
+    Log.w(TAG, "stt watchdog fired elapsedMs=${elapsed()}")
+    finish(null, "timeout")
+  }
+  private val startAttempt = Runnable { begin() }
 
-  /** Listens once; `onDone` gets the transcript, or null when nothing usable was heard. */
-  fun listen(onStarted: () -> Unit, onDone: (String?) -> Unit) {
+  /**
+   * Listens once after `startDelayMs` (lets the wake-word recorder's microphone release settle).
+   * `onDone` runs exactly once, unless `cancel()` is called first.
+   */
+  fun listen(startDelayMs: Long, onStarted: () -> Unit, onDone: (SttOutcome) -> Unit) {
     cancel()
     this.onStarted = onStarted
     this.onDone = onDone
-    localeIndex = 0
-    main.postDelayed(timeout, LISTEN_TIMEOUT_MS)
-    begin()
+    attempt = SttAttempt(0, true)
+    startedAt = SystemClock.elapsedRealtime()
+    main.postDelayed(watchdog, LISTEN_TIMEOUT_MS)
+    main.postDelayed(startAttempt, startDelayMs)
   }
 
   fun cancel() {
     onDone = null
-    main.removeCallbacks(timeout)
+    main.removeCallbacks(watchdog)
+    main.removeCallbacks(startAttempt)
     destroyRecognizer()
   }
 
   private fun begin() {
+    if (onDone == null) return
     destroyRecognizer()
-    val created = create() ?: return finish(null)
+    val created = create(attempt.useOnDevice) ?: return finish(null, "unavailable")
     recognizer = created
     created.setRecognitionListener(listener)
-    created.startListening(recognitionIntent(LOCALES[localeIndex]))
+    try {
+      created.startListening(recognitionIntent(LOCALES[attempt.localeIndex]))
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "stt startListening threw ${e.javaClass.simpleName}")
+      return handleError(SttErrors.CLIENT)
+    }
+    Log.i(TAG, "stt start attempt=${attempt.number} locale=${LOCALES[attempt.localeIndex]} onDevice=$isOnDevice")
     onStarted?.invoke()
     onStarted = null
   }
 
-  private fun create(): SpeechRecognizer? =
-    when {
-      Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-        SpeechRecognizer.isOnDeviceRecognitionAvailable(context) ->
-        SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-      SpeechRecognizer.isRecognitionAvailable(context) -> SpeechRecognizer.createSpeechRecognizer(context)
-      else -> null
+  /** On-device when asked and available (API 31+), else the default recogniser; null when neither exists. */
+  private fun create(wantOnDevice: Boolean): SpeechRecognizer? {
+    isOnDevice = false
+    if (wantOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      try {
+        if (SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+          val onDevice = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+          isOnDevice = true
+          return onDevice
+        }
+      } catch (e: RuntimeException) {
+        Log.w(TAG, "stt on-device create threw ${e.javaClass.simpleName}")
+      }
     }
+    return try {
+      if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
+    } catch (e: RuntimeException) {
+      Log.w(TAG, "stt default create threw ${e.javaClass.simpleName}")
+      null
+    }
+  }
 
   private fun recognitionIntent(locale: String) =
     Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -72,38 +111,55 @@ class SpeechCapture(private val context: Context, private val onLevel: (Float) -
       putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_MS)
     }
 
-  private fun finish(text: String?) {
+  private fun elapsed() = SystemClock.elapsedRealtime() - startedAt
+
+  private fun handleError(code: Int) {
+    if (onDone == null) return
+    val sinceStart = elapsed()
+    Log.w(TAG, "stt error code=$code name=${SttErrors.name(code)} elapsedMs=$sinceStart attempt=${attempt.number}")
+    when (val next = SttPolicy.next(code, sinceStart, attempt, LOCALES.size)) {
+      is SttNext.GiveUp -> finish(null, next.reason)
+      is SttNext.Retry -> {
+        attempt = next.attempt
+        destroyRecognizer()
+        // Never restart from inside the recogniser's own callback.
+        main.removeCallbacks(startAttempt)
+        main.postDelayed(startAttempt, next.delayMs)
+      }
+    }
+  }
+
+  private fun finish(text: String?, reason: String) {
     val done = onDone ?: return
     onDone = null
-    main.removeCallbacks(timeout)
+    main.removeCallbacks(watchdog)
+    main.removeCallbacks(startAttempt)
     destroyRecognizer()
-    done(text?.trim()?.takeIf { it.isNotEmpty() })
+    val transcript = text?.trim()?.takeIf { it.isNotEmpty() }
+    val outcome = if (transcript != null) SttOutcome(transcript, "ok") else SttOutcome(null, reason)
+    Log.i(TAG, "stt finish reason=${outcome.reason} elapsedMs=${elapsed()}")
+    done(outcome)
   }
 
   private fun destroyRecognizer() {
     recognizer?.let {
       it.setRecognitionListener(null)
-      it.cancel()
-      it.destroy()
+      try {
+        it.cancel()
+        it.destroy()
+      } catch (_: RuntimeException) {
+        // Already torn down by the system.
+      }
     }
     recognizer = null
   }
 
   private val listener = object : RecognitionListener {
     override fun onResults(results: Bundle?) {
-      finish(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull())
+      finish(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull(), "no_speech")
     }
 
-    override fun onError(error: Int) {
-      val languageMissing = error == ERROR_LANGUAGE_NOT_SUPPORTED || error == ERROR_LANGUAGE_UNAVAILABLE
-      if (languageMissing && localeIndex < LOCALES.lastIndex) {
-        localeIndex++
-        // Not from inside the recogniser's own callback.
-        main.post { if (onDone != null) begin() }
-      } else {
-        finish(null)
-      }
-    }
+    override fun onError(error: Int) = handleError(error)
 
     override fun onReadyForSpeech(params: Bundle?) = Unit
     override fun onBeginningOfSpeech() = Unit
@@ -115,11 +171,11 @@ class SpeechCapture(private val context: Context, private val onLevel: (Float) -
   }
 
   private companion object {
+    const val TAG = "ClovieVoice"
     val LOCALES = listOf("en-ZA", "en-US")
-    // SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED / _UNAVAILABLE (API 31 constants).
-    const val ERROR_LANGUAGE_NOT_SUPPORTED = 12
-    const val ERROR_LANGUAGE_UNAVAILABLE = 13
-    const val LISTEN_TIMEOUT_MS = 12_000L
+
+    /** Neither results nor an error within this long: cancel and let the service re-arm. */
+    const val LISTEN_TIMEOUT_MS = 10_000L
     const val SILENCE_MS = 1_500L
   }
 }
