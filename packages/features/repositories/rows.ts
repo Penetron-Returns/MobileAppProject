@@ -5,6 +5,7 @@
  */
 import type {
   ActorType,
+  AttendanceMode,
   AppointmentSource,
   AppointmentStatus,
   BookingRules,
@@ -36,6 +37,7 @@ export interface BusinessRow {
   phone: string | null;
   email: string | null;
   booking_rules: Partial<BookingRules> | null;
+  attendance_mode: AttendanceMode;
 }
 
 export interface UserRow {

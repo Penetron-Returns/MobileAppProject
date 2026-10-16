@@ -95,6 +95,15 @@ select id, status_code, error_msg, created from net._http_response order by crea
 | `api-waba-health` | `0 * * * *` | `/cron/waba-health` |
 | `api-token-refresh` | `0 3 * * *` (05:00 SAST) | `/cron/token-refresh` |
 | `api-cleanup` | `30 3 * * *` (05:30 SAST) | `/cron/cleanup` |
+| `api-attendance` | `*/5 * * * *` | `/cron/attendance` (migration `20261021000002_cron_attendance`, which re-creates `private.invoke_cron_job` with `attendance` whitelisted) |
+
+## Attendance check (migration `20261021000001_attendance_checks`)
+
+- `businesses.attendance_mode text not null default 'staff' check in ('staff','owner')`. Already audited by the generic `businesses` trigger; the API also writes an explicit `audit_log` entry with the owner as actor.
+- `attendance_checks`: one row per appointment (`unique (appointment_id)`, composite FK `(business_id, appointment_id)` cascading), `audience`, `recipient_user_id`, `status`/`outcome`/`answered_at`/`answered_by` tied together by `attendance_checks_answer_check`, `notified_at`, `escalated_at`. RLS: business-scoped SELECT for `authenticated` (`members_select`), no write policies; service role writes. Partial indexes on pending rows. In the Realtime publication (guarded).
+- `attendance_pushes`: push log (`user_id`, `kind`, `check_ids`, `local_date`, `sent_at`). RLS enabled with no policy and no grant to `authenticated`: service role only.
+- `attendance_due_appointments(p_ended_before, p_ended_after, p_limit)`: confirmed appointments that ended in the window and have no check, joined with the staff member's linked user, client name and service name. `service_role` only. Backed by the partial index `appointments_confirmed_ends_at_idx`.
+- Tests: `packages/database/supabase/tests/17_attendance.sql`.
 
 ## Notes for the API and app workstreams
 

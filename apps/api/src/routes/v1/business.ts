@@ -27,7 +27,7 @@ businessRoutes.get('/me', async (c) => {
 businessRoutes.patch('/business', requireOwner, async (c) => {
   const { repo, auth } = deps(c);
   const body = await parseJson(c, updateBusinessSchema);
-  const business = await updateBusiness(repo, auth.businessId, body);
+  const business = await updateBusiness(repo, auth.businessId, body, auth.userId);
   announceAccountUpdated(c, auth.businessId);
   return c.json({ data: business });
 });

@@ -116,6 +116,7 @@ SOLID in practice:
 | Business, services, staff, hours, `/me` (formerly `booking/admin.ts`) | `packages/features/catalog/` |
 | Client operations | `packages/features/clients/` |
 | Team, Clerk sync, member sync, devices, `ClerkAdmin` client | `packages/features/team/` |
+| Attendance check (planner, cron executor, answer use case, Supabase repository) | `packages/features/attendance/` |
 | Onboarding | `packages/features/onboarding/` |
 | Entitlements | `packages/features/plans/` |
 | Repository interfaces, Supabase implementation, row types | `packages/features/repositories/` |

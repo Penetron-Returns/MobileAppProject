@@ -50,6 +50,7 @@ export const updateBusinessSchema = z.object({
   phone: nullableText(32),
   email: z.email().max(254).nullable().optional(),
   booking_rules: bookingRulesPatch.optional(),
+  attendance_mode: z.enum(['staff', 'owner']).optional(),
 });
 
 export const hoursRow = z
@@ -238,3 +239,7 @@ export const monthQuerySchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-
 export const connectWhatsAppSessionSchema = z.object({ return_url: z.url().max(2048).optional() });
 
 export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']), platform: z.enum(['web', 'native']).default('web') });
+
+// ---------- attendance check ----------
+
+export const answerAttendanceSchema = z.object({ outcome: z.enum(['came', 'no_show']) });

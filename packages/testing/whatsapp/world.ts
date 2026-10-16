@@ -97,6 +97,7 @@ export function makeWorld(over: Partial<World> = {}): World {
       phone: null,
       email: null,
       booking_rules: { ...RULES },
+      attendance_mode: 'staff',
     },
     services: [service(SVC_CUT, 'Haircut'), service(SVC_COLOUR, 'Colour', { price_cents: 0, duration_minutes: 90 })],
     staff: [staff(STAFF_SAM, 'Sam'), staff(STAFF_ALEX, 'Alex')],

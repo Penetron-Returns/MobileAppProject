@@ -583,6 +583,7 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
         phone: null,
         email: null,
         booking_rules: { ...DEFAULT_BOOKING_RULES },
+        attendance_mode: 'staff',
         ...values,
       };
       tables.businesses.push(row);

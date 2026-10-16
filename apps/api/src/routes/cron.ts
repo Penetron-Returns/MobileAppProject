@@ -19,6 +19,9 @@ type Job = (container: Container, now?: Date) => Promise<Record<string, number>>
  */
 const runWarmJob: Job = async () => ({});
 
+/** Attendance check (every 5 minutes, see migration 20261021000002): questions, pushes, escalation, summaries. */
+const runAttendanceJob: Job = (container, now) => container.attendance.runJob(now);
+
 export const CRON_JOBS: Record<string, Job> = {
   reminders: runRemindersJob,
   'conversation-expiry': runConversationExpiryJob,
@@ -26,6 +29,7 @@ export const CRON_JOBS: Record<string, Job> = {
   'token-refresh': runTokenRefreshJob,
   cleanup: runCleanupJob,
   warm: runWarmJob,
+  attendance: runAttendanceJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

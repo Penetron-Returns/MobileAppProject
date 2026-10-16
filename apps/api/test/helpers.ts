@@ -3,7 +3,7 @@ import type { Env } from '../src/env.ts';
 import type { Db } from '@booking/features/lib/db.ts';
 import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
-import type { BookingService, NotificationService } from '@booking/features/ports.ts';
+import type { AttendanceService, BookingService, NotificationService } from '@booking/features/ports.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
 import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
@@ -57,6 +57,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     env: TEST_ENV,
     db: unimplemented as Db,
     booking: unimplemented as BookingService,
+    attendance: unimplemented as AttendanceService,
     notifications: { appointmentChanged: async () => {} } satisfies NotificationService,
     // Free plan = the WhatsApp menu + inbox, which is what the existing suites exercise.
     entitlements: fakeEntitlements('free'),

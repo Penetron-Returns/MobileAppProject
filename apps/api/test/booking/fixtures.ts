@@ -41,6 +41,7 @@ export function seed(rules: Partial<BookingRules> = {}): Seed {
     phone: '+27210000000',
     email: 'owner@example.com',
     booking_rules: { ...DEFAULT_BOOKING_RULES, lead_time_minutes: 0, slot_interval_minutes: 30, ...rules },
+    attendance_mode: 'staff',
   };
   repo.tables.businesses.push(business);
   for (const weekday of [1, 2, 3, 4, 5]) {
