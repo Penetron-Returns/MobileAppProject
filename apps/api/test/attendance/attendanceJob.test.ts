@@ -55,7 +55,7 @@ describe('attendance cron job', () => {
     await h.call('POST', `/v1/appointments/${noShow}/status`, { body: { status: 'no_show' } });
     await h.call('POST', `/v1/appointments/${completed}/status`, { body: { status: 'completed' } });
 
-    const counts = await h.attendance.runJob(at('16:00'));
+    const counts = await h.attendance.runJob(at('14:30'));
     expect(counts).toMatchObject({ created: 1, completed: 0 });
     expect(h.attendanceRepo.checks.map((c) => c.appointment_id)).toEqual([plain]);
     expect(statusOf(h, plain)).toBe('confirmed');
@@ -65,13 +65,42 @@ describe('attendance cron job', () => {
     expect(statusOf(h, plain)).toBe('confirmed');
   });
 
-  it('does not ask about appointments that ended more than three days ago', async () => {
-    const recent = attendanceHarness();
-    await book(recent); // ended Wednesday 11:00
-    expect(await recent.attendance.runJob(at('10:55', '2026-10-03'))).toMatchObject({ created: 1 });
-    const old = attendanceHarness();
-    await book(old);
-    expect(await old.attendance.runJob(at('11:10', '2026-10-03'))).toMatchObject({ created: 0 });
+  it('asks about an appointment that ended 20 minutes ago', async () => {
+    const h = attendanceHarness();
+    await book(h); // ends 11:00
+    expect(await h.attendance.runJob(at('11:20'))).toMatchObject({ created: 1, pushes: 1 });
+  });
+
+  it('never asks about an appointment that ended 3 hours ago (no backfill after a deploy or outage)', async () => {
+    const h = attendanceHarness();
+    await book(h); // ends 11:00
+    expect(await h.attendance.runJob(at('14:00'))).toMatchObject({ created: 0, pushes: 0, escalated: 0 });
+    expect(h.attendanceRepo.checks).toEqual([]);
+    expect(h.attendancePushes).toEqual([]);
+  });
+
+  it('does not mark a question escalated when nobody has a device; it stays pending and unnotified', async () => {
+    const h = attendanceHarness({ staffHasDevice: false });
+    h.repo.tables.device_push_tokens = h.repo.tables.device_push_tokens.filter((t) => t.user_id !== OWNER);
+    await book(h);
+    expect(await h.attendance.runJob(at('11:10'))).toMatchObject({ created: 1, escalated: 0, pushes: 0 });
+    await h.attendance.runJob(at('13:00'));
+    expect(h.attendanceRepo.checks[0]).toMatchObject({ status: 'pending', notified_at: null, escalated_at: null });
+  });
+
+  it('measures escalation from notified_at: a question notified late is not escalated 60 minutes after creation', async () => {
+    const h = attendanceHarness({ staffHasDevice: false });
+    h.repo.tables.device_push_tokens = h.repo.tables.device_push_tokens.filter((t) => t.user_id !== OWNER);
+    await book(h);
+    await h.attendance.runJob(at('11:10')); // created, nobody reachable
+    const { business_id } = h.repo.tables.device_push_tokens[0] ?? { business_id: h.business.id };
+    h.repo.tables.device_push_tokens.push({ business_id, user_id: STAFF, token: 'ExponentPushToken[staff]', platform: 'ios' });
+    await h.attendance.runJob(at('12:20')); // staff reachable now: notified at 12:20
+    expect(h.attendanceRepo.checks[0]!.notified_at).toBe(at('12:20').toISOString());
+    expect(await h.attendance.runJob(at('13:00'))).toMatchObject({ escalated: 0 }); // 100 min after created_at
+    h.repo.tables.device_push_tokens.push({ business_id, user_id: OWNER, token: 'ExponentPushToken[owner]', platform: 'ios' });
+    expect(await h.attendance.runJob(at('13:20'))).toMatchObject({ escalated: 1 });
+    expect(h.attendanceRepo.checks[0]!.escalated_at).toBe(at('13:20').toISOString());
   });
 
   it('asks the owner for everyone in owner mode', async () => {
@@ -113,15 +142,15 @@ describe('attendance cron job', () => {
 
   it('sends ONE grouped push when several questions are due together', async () => {
     const h = attendanceHarness();
-    for (const hhmm of ['09:00', '10:00', '11:00']) await book(h, hhmm);
+    for (const hhmm of ['10:00', '11:00']) await book(h, hhmm);
 
-    expect(await h.attendance.runJob(at('12:10'))).toMatchObject({ created: 3, pushes: 1 });
+    expect(await h.attendance.runJob(at('12:10'))).toMatchObject({ created: 2, pushes: 1 });
     expect(h.attendancePushes).toHaveLength(1);
     expect(h.attendancePushes[0]).toMatchObject({ userId: STAFF });
     expect(h.attendancePushes[0]!.message).toEqual({
       title: 'Appointment check',
-      body: '3 clients to confirm',
-      data: { type: 'attendance_batch', count: '3' },
+      body: '2 clients to confirm',
+      data: { type: 'attendance_batch', count: '2' },
     });
     expect(h.attendanceRepo.checks.every((c) => c.notified_at !== null)).toBe(true);
   });

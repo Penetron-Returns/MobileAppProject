@@ -41,6 +41,7 @@ const open = (id: string, over: Partial<OpenCheck> = {}): OpenCheck => ({
   appointmentId: `appt-${id}`,
   audience: 'staff',
   recipientUserId: 'sam',
+  notifiedAt: null,
   escalatedAt: null,
   startsAt: iso('11:00'),
   clientFirstName: 'Thabo',
@@ -127,6 +128,18 @@ describe('checked-in appointments', () => {
   });
 });
 
+describe('creation window', () => {
+  it('asks about an appointment that ended 20 minutes ago', () => {
+    expect(types(plan(sast('14:20'), { due: [due()] }))).toContain('create_check');
+  });
+
+  it('asks up to 90 minutes after the end, never later (no backfill)', () => {
+    expect(types(plan(sast('15:30'), { due: [due()] }))).toContain('create_check');
+    expect(plan(sast('15:31'), { due: [due()] })).toEqual([]);
+    expect(plan(sast('17:00'), { due: [due()] })).toEqual([]); // ended 3 hours ago
+  });
+});
+
 describe('who is asked', () => {
   it('owner mode asks the owner(s) for everyone', () => {
     const actions = plan(sast('14:10'), { business: business({ mode: 'owner', ownerIds: ['o1', 'o2'] }), reachable: new Set(['sam', 'o1', 'o2']), due: [due()] });
@@ -152,7 +165,7 @@ describe('who is asked', () => {
 });
 
 describe('escalation after 60 minutes', () => {
-  const asked = [open('c1')];
+  const asked = [open('c1', { notifiedAt: iso('14:10') })];
   it.each([
     ['59 minutes after the first push', '15:09', false],
     ['60 minutes after the first push', '15:10', true],
@@ -163,7 +176,20 @@ describe('escalation after 60 minutes', () => {
   });
 
   it('waits when the staff member has not been pushed yet (for example outside opening hours)', () => {
-    expect(plan(sast('15:10'), { open: asked, pushes: [] }).some((a) => a.type === 'escalate')).toBe(false);
+    expect(plan(sast('15:10'), { open: [open('c1')], pushes: [] }).some((a) => a.type === 'escalate')).toBe(false);
+  });
+
+  it('is measured from notified_at, not from when the question was created', () => {
+    // Pushed (and so notified) at 14:40; the question itself was created much earlier.
+    const c = open('c1', { notifiedAt: iso('14:40') });
+    expect(plan(sast('15:30'), { open: [c], pushes: [push('sam', '14:40', ['c1'])] }).some((a) => a.type === 'escalate')).toBe(false);
+    expect(plan(sast('15:40'), { open: [c], pushes: [push('sam', '14:40', ['c1'])] }).some((a) => a.type === 'escalate')).toBe(true);
+  });
+
+  it('does not escalate when no owner has a device (nothing could be sent)', () => {
+    const c = open('c1', { notifiedAt: iso('14:10') });
+    expect(plan(sast('16:00'), { open: [c], reachable: new Set(['sam']) }).some((a) => a.type === 'escalate')).toBe(false);
+    expect(plan(sast('14:10'), { due: [due()], reachable: new Set() }).some((a) => a.type === 'escalate')).toBe(false);
   });
 
   it('happens once: an escalated question is not escalated again', () => {
@@ -176,7 +202,7 @@ describe('escalation after 60 minutes', () => {
 
   it('an owner who is also the staff member gets one push, not two', () => {
     const actions = plan(sast('15:10'), {
-      open: [open('c1', { recipientUserId: 'owner' })],
+      open: [open('c1', { recipientUserId: 'owner', notifiedAt: iso('14:10') })],
       pushes: [push('owner', '14:10', ['c1'])],
     });
     expect(types(actions)).toEqual(['escalate']);

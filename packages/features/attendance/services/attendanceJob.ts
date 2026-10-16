@@ -11,6 +11,7 @@ import type { Actor } from '../../bookings/ports.ts';
 import { AppError } from '../../lib/errors.ts';
 import {
   ASK_DELAY_MINUTES,
+  CREATE_WINDOW_MINUTES,
   planAttendance,
   type DueAppointment,
   type OpenCheck,
@@ -19,8 +20,8 @@ import {
 } from '../lib/planner.ts';
 import type { AttendanceCheckRow, AttendanceDueRow, AttendancePush, AttendanceRepository } from '../ports.ts';
 
-/** Appointments that ended longer ago than this never get a question (avoids flooding on first deploy). */
-export const LOOKBACK_DAYS = 3;
+/** Businesses processed at once; bounded so one run cannot open dozens of DB requests. */
+const BUSINESS_CONCURRENCY = 5;
 const DUE_LIMIT = 300;
 const PENDING_LIMIT = 1000;
 const PUSH_HISTORY_HOURS = 48;
@@ -51,6 +52,7 @@ const toOpen = (r: AttendanceCheckRow): OpenCheck => ({
   appointmentId: r.appointment_id,
   audience: r.audience,
   recipientUserId: r.recipient_user_id,
+  notifiedAt: r.notified_at,
   escalatedAt: r.escalated_at,
   startsAt: r.starts_at,
   clientFirstName: r.client_name,
@@ -71,7 +73,7 @@ export async function runAttendanceJob(deps: AttendanceJobDeps, now: Date): Prom
   const [dueRows, pendingRows] = await Promise.all([
     repo.listDueAppointments({
       endedBefore: new Date(now.getTime() - ASK_DELAY_MINUTES * 60_000).toISOString(),
-      endedAfter: new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000).toISOString(),
+      endedAfter: new Date(now.getTime() - CREATE_WINDOW_MINUTES * 60_000).toISOString(),
       limit: DUE_LIMIT,
     }),
     repo.listPendingChecks(PENDING_LIMIT),
@@ -79,29 +81,30 @@ export async function runAttendanceJob(deps: AttendanceJobDeps, now: Date): Prom
 
   // A question whose appointment was completed, cancelled or marked elsewhere is simply closed.
   const stale = pendingRows.filter((r) => r.appointment_status !== 'confirmed');
-  for (const row of stale) {
-    const closed = await repo.answerCheck({
-      businessId: row.business_id,
-      checkId: row.id,
-      outcome: 'resolved_elsewhere',
-      answeredBy: null,
-      at: nowIso,
-    });
-    if (closed) counts.closed += 1;
-  }
+  const closed = await Promise.all(
+    stale.map((row) =>
+      repo.answerCheck({ businessId: row.business_id, checkId: row.id, outcome: 'resolved_elsewhere', answeredBy: null, at: nowIso }),
+    ),
+  );
+  counts.closed += closed.filter(Boolean).length;
   const open = pendingRows.filter((r) => r.appointment_status === 'confirmed');
 
   const dueByBusiness = groupBy(dueRows, (r) => r.business_id);
   const openByBusiness = groupBy(open, (r) => r.business_id);
   const businessIds = [...new Set([...dueByBusiness.keys(), ...openByBusiness.keys()])].sort();
 
-  for (const businessId of businessIds) {
-    try {
-      await runBusiness(deps, businessId, now, dueByBusiness.get(businessId) ?? [], openByBusiness.get(businessId) ?? [], counts);
-    } catch (err) {
-      counts.errors += 1;
-      logger.error('attendance_business_failed', { business_id: businessId, error: err });
-    }
+  // Businesses are independent, so run them in bounded parallel batches instead of one by one.
+  for (let i = 0; i < businessIds.length; i += BUSINESS_CONCURRENCY) {
+    await Promise.all(
+      businessIds.slice(i, i + BUSINESS_CONCURRENCY).map(async (businessId) => {
+        try {
+          await runBusiness(deps, businessId, now, dueByBusiness.get(businessId) ?? [], openByBusiness.get(businessId) ?? [], counts);
+        } catch (err) {
+          counts.errors += 1;
+          logger.error('attendance_business_failed', { business_id: businessId, error: err });
+        }
+      }),
+    );
   }
   return counts;
 }
@@ -115,16 +118,16 @@ async function runBusiness(
   counts: Counts,
 ): Promise<void> {
   const { repo } = deps;
-  const context = await repo.getBusinessContext(businessId);
+  const [context, pushes] = await Promise.all([
+    repo.getBusinessContext(businessId),
+    repo.listPushes(businessId, new Date(now.getTime() - PUSH_HISTORY_HOURS * 3_600_000).toISOString()),
+  ]);
   if (!context) return;
 
   const candidates = new Set<string>(context.ownerIds);
   due.forEach((d) => d.staff_user_id && candidates.add(d.staff_user_id));
   open.forEach((c) => c.recipient_user_id && candidates.add(c.recipient_user_id));
-  const [devices, pushes] = await Promise.all([
-    repo.listDeviceTokens(businessId, [...candidates]),
-    repo.listPushes(businessId, new Date(now.getTime() - PUSH_HISTORY_HOURS * 3_600_000).toISOString()),
-  ]);
+  const devices = await repo.listDeviceTokens(businessId, [...candidates]);
 
   const actions = planAttendance({
     now,
@@ -137,9 +140,12 @@ async function runBusiness(
   });
 
   const existing = new Set(open.map((c) => c.id));
-  for (const action of actions) {
+  const notified = new Set(open.filter((c) => c.notified_at !== null).map((c) => c.id));
+  // Pushes first: an escalation is only recorded for a question somebody has actually been told about.
+  const ordered = [...actions.filter((a) => a.type !== 'escalate'), ...actions.filter((a) => a.type === 'escalate')];
+  for (const action of ordered) {
     try {
-      await execute(deps, businessId, now, action, existing, counts);
+      await execute(deps, { businessId, now, existing, notified, counts }, action);
     } catch (err) {
       counts.errors += 1;
       deps.logger.error('attendance_action_failed', { business_id: businessId, action: action.type, error: err });
@@ -147,15 +153,19 @@ async function runBusiness(
   }
 }
 
-async function execute(
-  deps: AttendanceJobDeps,
-  businessId: string,
-  now: Date,
-  action: PlannedAction,
-  existing: Set<string>,
-  counts: Counts,
-): Promise<void> {
+interface RunState {
+  businessId: string;
+  now: Date;
+  /** Stored, still-pending question ids */
+  existing: Set<string>;
+  /** Question ids somebody has been successfully pushed about (now or earlier) */
+  notified: Set<string>;
+  counts: Counts;
+}
+
+async function execute(deps: AttendanceJobDeps, state: RunState, action: PlannedAction): Promise<void> {
   const { repo } = deps;
+  const { businessId, now, existing, notified, counts } = state;
   const nowIso = now.toISOString();
   switch (action.type) {
     case 'complete':
@@ -174,22 +184,16 @@ async function execute(
       }
       return;
     case 'escalate':
-      if (existing.has(action.checkId) && (await repo.markEscalated(businessId, action.checkId, nowIso))) counts.escalated += 1;
+      if (existing.has(action.checkId) && notified.has(action.checkId) && (await repo.markEscalated(businessId, action.checkId, nowIso))) counts.escalated += 1;
       return;
     case 'push':
-      await sendPush(deps, businessId, now, action, existing, counts);
+      await sendPush(deps, state, action);
       return;
   }
 }
 
-async function sendPush(
-  deps: AttendanceJobDeps,
-  businessId: string,
-  now: Date,
-  action: PlannedPush,
-  existing: Set<string>,
-  counts: Counts,
-): Promise<void> {
+async function sendPush(deps: AttendanceJobDeps, state: RunState, action: PlannedPush): Promise<void> {
+  const { businessId, now, existing, notified, counts } = state;
   // A question that lost the creation race (or was never stored) must not be announced.
   if (!action.checkIds.every((id) => existing.has(id))) return;
   const devices = await deps.push.toUsers(businessId, [action.userId], action.message);
@@ -197,5 +201,6 @@ async function sendPush(
   const at = now.toISOString();
   await deps.repo.recordPush(businessId, { userId: action.userId, kind: action.kind, checkIds: action.checkIds, localDate: action.localDate, sentAt: at });
   await deps.repo.markNotified(businessId, action.checkIds, at);
+  action.checkIds.forEach((id) => notified.add(id));
   counts.pushes += 1;
 }
