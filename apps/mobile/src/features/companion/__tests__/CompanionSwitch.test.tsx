@@ -10,9 +10,9 @@ jest.mock('@/lib/env', () => ({
     return mockEnabled;
   },
 }));
-jest.mock('../sdk/CompanionSdkScreen', () => {
+jest.mock('../sdk/CompanionSdkRoute', () => {
   const { Text } = require('react-native');
-  return { CompanionSdkScreen: () => <Text>sdk-sheet</Text> };
+  return { CompanionSdkRoute: () => <Text>sdk-sheet</Text> };
 });
 jest.mock('../components/CompanionScreen', () => {
   const { Text } = require('react-native');

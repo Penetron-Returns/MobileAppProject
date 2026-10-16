@@ -1,0 +1,142 @@
+import { useAppColorScheme, useDepth } from '@booking/ui';
+import {
+  CompanionProvider,
+  CompanionSheet,
+  type AppointmentContext,
+  type CompanionSheetHandle,
+  type CompanionTransport,
+} from '@nerova/react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as React from 'react';
+
+import { useEntitlements } from '@/features/plans/hooks';
+import { companionSdkEnabled } from '@/lib/env';
+
+import { buildCompanionAppearance } from './companionAppearance';
+import {
+  CompanionSheetControlProvider,
+  type CompanionSheetControl,
+  type OpenCompanionOptions,
+} from './companionSheetControl';
+import { SdkClovie } from './SdkClovie';
+import { useSdkLabels } from './useSdkLabels';
+import { useSdkSessionProvider } from './useSdkSessionProvider';
+
+/** Where the hosted WhatsApp connect page returns to (`app.json` scheme `bookingadmin`). */
+export const WHATSAPP_RETURN_URL = 'bookingadmin://companion/whatsapp-return';
+
+/**
+ * The resting avatar is parked off-screen: the Clovie dome above the tab bar is
+ * the closed-state entry, so the sheet draws its character only once open.
+ */
+const PARKED_REST_INSET = { right: -240, bottom: -240 };
+
+interface SheetHandle {
+  open: (options?: OpenCompanionOptions) => void;
+  close: () => void;
+}
+
+/**
+ * Mounted once for the whole signed-in shell so the session is minted and the
+ * thread loaded before the owner ever taps Clovie. The sheet starts at `rest`
+ * (no dim, no avatar), so it is invisible until `open()`.
+ */
+const PersistentSheet = React.forwardRef<
+  SheetHandle,
+  { transport?: CompanionTransport }
+>(function PersistentSheet({ transport }, ref) {
+  const { isDark } = useAppColorScheme();
+  const depth = useDepth();
+  const appearance = React.useMemo(
+    () => buildCompanionAppearance(depth, isDark),
+    [depth, isDark],
+  );
+  const sessionProvider = useSdkSessionProvider(isDark ? 'dark' : 'light');
+  const labels = useSdkLabels();
+  const sheetRef = React.useRef<CompanionSheetHandle>(null);
+  const [context, setContext] = React.useState<AppointmentContext | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      open: (options) => {
+        if (options?.context) setContext(options.context);
+        if (options?.draft) sheetRef.current?.setDraftText(options.draft);
+        sheetRef.current?.open('half');
+      },
+      close: () => sheetRef.current?.close(),
+    }),
+    [],
+  );
+
+  return (
+    <CompanionProvider
+      sessionProvider={sessionProvider}
+      whatsAppReturnUrl={WHATSAPP_RETURN_URL}
+      appearance={appearance}
+      labels={labels}
+      transport={transport}
+    >
+      <CompanionSheet
+        ref={sheetRef}
+        defaultDetent="rest"
+        restInset={PARKED_REST_INSET}
+        context={context}
+        onContextChange={setContext}
+        onOpen={() => setIsOpen(true)}
+        onClose={() => setIsOpen(false)}
+        avatar="hidden"
+        renderAvatar={({ state, size, placement }) =>
+          placement === 'rest' ? null : <SdkClovie state={state} size={size} />
+        }
+      />
+      {/* Light icons over the dim; dark mode already has them. */}
+      {isOpen && !isDark ? <StatusBar style="light" /> : null}
+    </CompanionProvider>
+  );
+});
+
+function EnabledHost({
+  children,
+  transport,
+}: {
+  children: React.ReactNode;
+  transport?: CompanionTransport;
+}) {
+  const isEntitled = useEntitlements().has('companion');
+  const sheetRef = React.useRef<SheetHandle>(null);
+  const control = React.useMemo<CompanionSheetControl>(
+    () => ({
+      isAvailable: isEntitled,
+      open: (options) => sheetRef.current?.open(options),
+      close: () => sheetRef.current?.close(),
+    }),
+    [isEntitled],
+  );
+  return (
+    <CompanionSheetControlProvider value={control}>
+      {children}
+      {isEntitled ? (
+        <PersistentSheet ref={sheetRef} transport={transport} />
+      ) : null}
+    </CompanionSheetControlProvider>
+  );
+}
+
+/**
+ * Wraps the signed-in app. With `EXPO_PUBLIC_COMPANION_SDK=1` and a plan that
+ * has the companion it keeps Nerova's native sheet mounted over everything;
+ * otherwise it renders the children untouched (the iframe path).
+ * `transport` replaces the HTTP transport (tests and demos only).
+ */
+export function CompanionSdkHost({
+  children,
+  transport,
+}: {
+  children: React.ReactNode;
+  transport?: CompanionTransport;
+}) {
+  if (!companionSdkEnabled) return <>{children}</>;
+  return <EnabledHost transport={transport}>{children}</EnabledHost>;
+}

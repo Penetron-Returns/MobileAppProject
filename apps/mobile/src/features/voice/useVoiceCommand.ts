@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useCheckInAppointment } from '@/features/appointments/hooks';
 import { useDaySchedule } from '@/features/dashboard/hooks';
+import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { useEntitlements } from '@/features/plans/hooks';
 import { todayISO } from '@/lib/time';
 import { toast } from '@/lib/toast';
@@ -62,6 +63,7 @@ export function useCheckInByVoice(timezone: string, name: string | undefined) {
 export function useRequestByVoice(text: string) {
   const { t } = useTranslation();
   const entitlements = useEntitlements();
+  const sheet = useCompanionSheet();
   const handled = React.useRef(false);
 
   React.useEffect(() => {
@@ -72,9 +74,14 @@ export function useRequestByVoice(text: string) {
       toast.info(t('voice.noCompanion'));
       return;
     }
+    // The persistent SDK sheet opens in place; otherwise the route does.
+    if (sheet.isAvailable) {
+      sheet.open(text ? { draft: text } : undefined);
+      return;
+    }
     router.push({
       pathname: '/companion',
       params: text ? { heard: text } : {},
     });
-  }, [entitlements, text, t]);
+  }, [entitlements, sheet, text, t]);
 }
