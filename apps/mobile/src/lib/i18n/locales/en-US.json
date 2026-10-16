@@ -198,6 +198,40 @@
     "footerNeeds": "Replying is free for 24 hours after a customer writes.",
     "footerAll": "Conversations on WhatsApp."
   },
+  "attendance": {
+    "notification": {
+      "came": "Came",
+      "noShow": "No-show"
+    },
+    "question": "Did {{name}} make it to their {{time}} {{service}}?",
+    "came": "Came",
+    "noShow": "No-show",
+    "cameLabel": "Mark {{name}} as came",
+    "noShowLabel": "Mark {{name}} as a no-show",
+    "markedCame": "Marked {{name}} as came",
+    "markedNoShow": "Marked {{name}} as a no-show",
+    "answerFailed": "Couldn't save that answer",
+    "toConfirm_one": "{{count}} client to confirm",
+    "toConfirm_other": "{{count}} clients to confirm",
+    "list": {
+      "title": "Confirm attendance",
+      "back": "Home",
+      "emptyTitle": "All confirmed",
+      "emptyDescription": "Nobody is waiting for an answer.",
+      "row": "{{time}} · {{service}}"
+    },
+    "setting": {
+      "title": "Who confirms attendance",
+      "hint": "After an appointment, this person is asked whether the client came.",
+      "staff": "Each staff member for their own clients",
+      "staffDetail": "They are asked about their own appointments.",
+      "owner": "The owner confirms everyone",
+      "ownerDetail": "Only the owner is asked, about every appointment.",
+      "recommended": "Recommended",
+      "selected": "{{label}}, selected",
+      "saveFailed": "Couldn't change who confirms attendance"
+    }
+  },
   "today": {
     "title": "Today",
     "notifications": "Notifications",
@@ -560,6 +594,7 @@
       "hours": "Hours",
       "team": "Team",
       "rules": "Booking rules",
+      "attendance": "Who confirms attendance",
       "notifications": "Notifications",
       "whatsapp": "WhatsApp",
       "companion": "Companion",

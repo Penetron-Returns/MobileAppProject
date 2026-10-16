@@ -6,6 +6,7 @@ export type SettingsItem =
   | 'services'
   | 'team'
   | 'rules'
+  | 'attendance'
   | 'whatsapp'
   | 'companion'
   | 'voice'
@@ -38,7 +39,14 @@ export function settingsGroups(
   return [
     {
       id: 'business',
-      items: ['businessDetails', 'hours', 'services', 'team', 'rules'],
+      items: [
+        'businessDetails',
+        'hours',
+        'services',
+        'team',
+        'rules',
+        'attendance',
+      ],
       titled: true,
     },
     {

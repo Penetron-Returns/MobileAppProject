@@ -15,6 +15,7 @@ describe('settingsGroups', () => {
       'services',
       'team',
       'rules',
+      'attendance',
     ]);
     expect(groups[1].items).toEqual(['whatsapp']);
     expect(groups[2].items).toEqual(['plan', 'notifications']);

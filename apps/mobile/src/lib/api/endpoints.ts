@@ -1,5 +1,8 @@
 import type {
+  AnswerAttendanceRequest,
   AppointmentDTO,
+  AttendanceCheckDTO,
+  AttendancePendingResponse,
   AvailabilityRuleInput,
   AvailabilityConflictsResponse,
   AvailabilityConfigResponse,
@@ -285,6 +288,19 @@ export const api = {
     send<UpdateAppointmentRequest, AppointmentDTO>(
       'PATCH',
       `/v1/appointments/${enc(id)}`,
+    )(b, key),
+
+  // attendance check
+  attendancePending: () =>
+    get<AttendancePendingResponse>('/v1/attendance/pending'),
+  answerAttendance: (
+    checkId: string,
+    b: AnswerAttendanceRequest,
+    key: string,
+  ) =>
+    send<AnswerAttendanceRequest, AttendanceCheckDTO>(
+      'POST',
+      `/v1/attendance/${enc(checkId)}/answer`,
     )(b, key),
 
   // devices

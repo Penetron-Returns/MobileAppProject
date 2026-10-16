@@ -16,6 +16,7 @@ import { savedCopyLabel } from '@/lib/offline';
 import { toast } from '@/lib/toast';
 
 import { useToday, type TodayView } from '../hooks';
+import { AttendanceNeeds } from './AttendanceNeeds';
 import { LaterToday } from './LaterToday';
 import {
   TodayAllDone,
@@ -45,6 +46,9 @@ export function TodayScreen() {
         />
       }
     >
+      {view.status === 'ready' ? (
+        <AttendanceNeeds timezone={view.timezone} />
+      ) : null}
       <TodayBody view={view} />
     </Page>
   );

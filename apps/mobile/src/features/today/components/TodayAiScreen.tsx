@@ -5,12 +5,14 @@ import {
   Text,
   tabBarClearance,
 } from '@booking/ui';
+import { router } from 'expo-router';
 import { Bell } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAttendance } from '@/features/attendance/hooks';
 import { useCompanionLive } from '@/features/companion/sdk/companionLive';
 import { useOpenCompanion } from '@/features/companion/sdk/useOpenCompanion';
 import { savedCopyLabel } from '@/lib/offline';
@@ -68,6 +70,7 @@ export function TodayAiScreen() {
   const view = useTodayAi();
   const live = useCompanionLive();
   const openClovie = useOpenCompanion();
+  const attendance = useAttendance();
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [confirmation, setConfirmation] = React.useState<string | null>(null);
@@ -145,9 +148,15 @@ export function TodayAiScreen() {
               <BookingsLine count={view.bookingsToday} />
               <NeedsYou
                 pending={live?.pending ?? []}
+                attendance={attendance.checks}
+                timezone={view.timezone}
                 busyId={busyId}
-                confirmation={confirmation}
+                confirmation={attendance.confirmation ?? confirmation}
                 onApprove={(id) => void approve(id)}
+                onAnswerAttendance={(check, outcome) =>
+                  void attendance.answer(check, outcome)
+                }
+                onOpenAttendance={() => router.push('/attendance' as never)}
                 onOpenClovie={openClovie}
               />
               <TodaySoFar
