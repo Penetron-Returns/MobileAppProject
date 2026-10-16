@@ -69,6 +69,9 @@ export function idempotency(
     // hash the same, and a stored response would hold the transcript. The key is still required and validated.
     if ((c.req.header('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) return next();
 
+    // The device-token mint answers with a secret: never persist that response for replay.
+    if (/^(\/api)?\/v1\/voice\/device-token$/.test(c.req.path)) return next();
+
     const store = storeFactory(c);
     const endpoint = `${c.req.method} ${c.req.path}`;
     const body = await c.req.text();

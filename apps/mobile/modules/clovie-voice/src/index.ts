@@ -8,6 +8,7 @@ import type {
   ClovieVoiceStartOptions,
   ClovieVoiceState,
   ClovieVoiceTileResult,
+  ClovieVoiceTokenState,
 } from './ClovieVoice.types';
 
 export type * from './ClovieVoice.types';
@@ -34,6 +35,10 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
     transcript: string,
   ): boolean;
   setCloudStt(enabled: boolean): void;
+  // Optional: a dev build made before these existed has no such functions.
+  setVoiceToken?(token: string, apiUrl: string): void;
+  clearVoiceToken?(): void;
+  getVoiceTokenState?(): ClovieVoiceTokenState;
   getTimings(): Record<string, number | null>;
 }
 
@@ -116,6 +121,26 @@ export function completeCommand(
 /** Tells the service whether to capture its own clip for backend transcription. */
 export function setCloudStt(enabled: boolean): void {
   native?.setCloudStt(enabled);
+}
+
+/**
+ * Hands the service the scoped device voice token and the API base URL, so it can upload a clip
+ * itself with no JS running. Stored encrypted natively. Returns false when the build predates it.
+ */
+export function setVoiceToken(token: string, apiUrl: string): boolean {
+  if (!native?.setVoiceToken) return false;
+  native.setVoiceToken(token, apiUrl);
+  return true;
+}
+
+/** Forgets the token and URL (sign-out). */
+export function clearVoiceToken(): void {
+  native?.clearVoiceToken?.();
+}
+
+/** `rejected` means the server answered 401 to the service: mint a new token. */
+export function getVoiceTokenState(): ClovieVoiceTokenState {
+  return native?.getVoiceTokenState?.() ?? 'none';
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */

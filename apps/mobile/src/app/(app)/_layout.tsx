@@ -9,6 +9,7 @@ import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
 import { useAttendanceRealtime } from '@/features/attendance/hooks';
 import { useAttendanceNotifications } from '@/features/attendance/notifications';
+import { useVoiceDeviceToken } from '@/features/voice/deviceToken';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
@@ -139,6 +140,8 @@ export default function AppLayout() {
 
   // Taps on attendance pushes navigate, so wait until the tabs are on screen.
   useAttendanceNotifications(route.kind === 'tabs');
+  // Background voice and notification actions run without a live session: keep their device token fresh.
+  useVoiceDeviceToken(route.kind === 'tabs');
 
   useHideSplashWhen(route.kind !== 'splash' && route.kind !== 'activate-org');
 

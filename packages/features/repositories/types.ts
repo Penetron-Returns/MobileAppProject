@@ -4,6 +4,7 @@
  */
 import type {
   AppointmentSource,
+  ClientConfirmationChannel,
   AppointmentStatus,
   AvailabilityRuleInput,
   BusinessHoursRow,
@@ -90,6 +91,14 @@ export interface CancelArgs extends ActorRef {
 export interface SetStatusArgs extends ActorRef {
   appointmentId: UUID;
   status: Extract<AppointmentStatus, 'completed' | 'no_show'>;
+}
+
+export interface ConfirmByClientArgs extends ActorRef {
+  businessId: UUID;
+  appointmentId: UUID;
+  confirmedAt: string;
+  via: ClientConfirmationChannel;
+  idempotencyKey: string | null;
 }
 
 export interface NewBusiness {
@@ -196,6 +205,8 @@ export interface AppointmentRepository {
   setAppointmentStatus(args: SetStatusArgs): Promise<AppointmentRow>;
   /** Id of the newest `appointment_events` row of this type for the appointment (outbound event idempotency) */
   findLatestAppointmentEventId(appointmentId: UUID, type: string): Promise<UUID | null>;
+  /** Idempotent, business-scoped; a non-confirmed or already confirmed appointment comes back unchanged */
+  confirmAppointmentByClient(args: ConfirmByClientArgs): Promise<AppointmentRow>;
   checkInAppointment(appointmentId: UUID, actorId: string | null): Promise<AppointmentRow>;
   updateAppointmentNotes(businessId: UUID, appointmentId: UUID, notes: string | null): Promise<AppointmentRow | null>;
 }

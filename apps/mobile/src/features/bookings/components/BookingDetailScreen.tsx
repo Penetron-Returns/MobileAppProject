@@ -32,6 +32,7 @@ import { toast, describeError } from '@/lib/toast';
 import { canChange, dayRelation, statusCapsule } from '../logic';
 import { PrimaryAction, MoreActions } from './BookingActions';
 import { History } from './BookingHistory';
+import { ClientConfirmedBadge } from '@/features/appointments/components/ClientConfirmedBadge';
 
 export function BookingDetailScreen({
   appointmentId,
@@ -116,6 +117,14 @@ function BookingBody({
         >
           {when}
         </Text>
+        {appointment.status === 'confirmed' &&
+        appointment.client_confirmed_at ? (
+          <View className="mt-2.5">
+            <ClientConfirmedBadge
+              confirmedAt={appointment.client_confirmed_at}
+            />
+          </View>
+        ) : null}
         {capsule ? (
           <View
             style={{

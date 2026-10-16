@@ -80,6 +80,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -103,6 +105,8 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_at?: string | null
           checked_in_at?: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -126,6 +130,8 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_at?: string | null
           checked_in_at?: string | null
+          client_confirmed_at?: string | null
+          client_confirmed_via?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -1429,6 +1435,54 @@ export type Database = {
           },
         ]
       }
+      voice_device_tokens: {
+        Row: {
+          business_id: string
+          created_at: string
+          device_label: string
+          id: string
+          last_used_at: string | null
+          revoked_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          device_label?: string
+          id?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          device_label?: string
+          id?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_device_tokens_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_device_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           attempts: number
@@ -1589,6 +1643,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1624,6 +1680,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1680,6 +1738,48 @@ export type Database = {
         }
         Returns: number
       }
+      confirm_appointment_by_client: {
+        Args: {
+          p_actor: Database["public"]["Enums"]["actor_type"]
+          p_actor_id: string
+          p_appointment_id: string
+          p_business_id: string
+          p_confirmed_at: string
+          p_idempotency_key: string
+          p_via: string
+        }
+        Returns: {
+          blocked: unknown
+          business_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          duration_minutes: number
+          ends_at: string
+          id: string
+          idempotency_key: string | null
+          notes: string | null
+          price_cents: number
+          service_id: string
+          slot: unknown
+          source: Database["public"]["Enums"]["appointment_source"]
+          staff_id: string
+          starts_at: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_appointment: {
         Args: {
           p_actor: Database["public"]["Enums"]["actor_type"]
@@ -1699,6 +1799,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1847,6 +1949,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1884,6 +1988,8 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1946,7 +2052,7 @@ export type Database = {
     }
     Enums: {
       actor_type: "customer" | "staff" | "system" | "nerova"
-      appointment_event_type: "created" | "rescheduled" | "cancelled" | "completed" | "no_show" | "checked_in" | "reminder_sent" | "confirmation_sent" | "notes_updated"
+      appointment_event_type: "created" | "rescheduled" | "cancelled" | "completed" | "no_show" | "checked_in" | "reminder_sent" | "confirmation_sent" | "notes_updated" | "client_confirmed"
       appointment_source: "whatsapp" | "app" | "web" | "nerova"
       appointment_status: "confirmed" | "cancelled" | "completed" | "no_show"
       attempt_outcome: "in_progress" | "completed" | "abandoned" | "failed"

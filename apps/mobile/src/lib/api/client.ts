@@ -2,7 +2,12 @@ import * as Crypto from 'expo-crypto';
 
 import type { ApiErrorBody, ApiErrorCode } from '@booking/types';
 
-import { getAuthToken } from '../auth-token';
+import {
+  acceptsDeviceToken,
+  reportBearerResult,
+  resolveBearer,
+  type BearerCredential,
+} from '../auth-token';
 import { env } from '../env';
 
 /** Client-side codes for failures that never reached the API. */
@@ -143,18 +148,23 @@ export async function apiRequest<T>(
     }
     headers['Idempotency-Key'] = opts.idempotencyKey;
   }
+  let credential: BearerCredential | null = null;
   if (opts.auth !== false) {
-    const token = await getAuthToken();
+    // The voice upload and the attendance answer may fall back to the device
+    // voice token when no Clerk session is available (app in the background).
+    credential = await resolveBearer({
+      allowDeviceToken: acceptsDeviceToken(method, path),
+    });
     // Never send a protected call without a token: it can only 401, and a
     // caller that reads that as "no business" misroutes the user.
-    if (!token) {
+    if (!credential) {
       throw new ApiError({
         code: 'NOT_SIGNED_IN',
         message: 'No session token is available yet.',
         status: 401,
       });
     }
-    headers.Authorization = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${credential.token}`;
   }
 
   let res: Response;
@@ -173,6 +183,7 @@ export async function apiRequest<T>(
       status: 0,
     });
   }
+  if (credential) reportBearerResult(credential, res.status);
   return parseEnvelope<T>(res);
 }
 

@@ -20,7 +20,7 @@ import { useNow } from './hooks';
 import { dayWindow, todayWindow, type TodayWindow } from './logic';
 
 const APPOINTMENT_SELECT =
-  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, price_cents, source, client:clients(name, phone_e164), service:services(name), staff:staff(name)';
+  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client_confirmed_at, price_cents, source, client:clients(name, phone_e164), service:services(name), staff:staff(name)';
 const EVENT_SELECT =
   'id, type, occurred_at, actor, appointment:appointments(starts_at, client:clients(name))';
 

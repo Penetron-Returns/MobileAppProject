@@ -135,6 +135,17 @@ Errors: `permission_denied`, `background_start_blocked`, `model_load_failed`, `a
 
 `not_configured` means the bundled models are missing from the build.
 
+## Cloud transcription with the app in the background
+
+With `EXPO_PUBLIC_VOICE_CLOUD_STT=1` the service records its own clip (`ClipCapture`, 16 kHz mono, ended by `ClipVad`) and a backend uploads it (`POST /v1/voice/transcriptions`, no `language`: the server auto-detects English or Afrikaans). A backgrounded or killed app has no Clerk session token, so the upload uses a **device voice token**:
+
+- The app mints it while signed in and on screen (`POST /v1/voice/device-token`, `src/features/voice/deviceToken.ts`), keeps it in `expo-secure-store`, and hands a copy plus the API base URL to the service (`ClovieVoice.setVoiceToken`, stored in `VoiceTokenStore`: Android Keystore AES-GCM, else private SharedPreferences). It re-mints when missing or after a 401 (the service flags `rejected`, JS clears its copy), and revokes it on sign-out (`DELETE`).
+- The **service uploads by itself** (`CloudTranscriber`) when it holds a token, so voice works with no JS runtime. The transcript (never the audio) then goes down the normal command path: headless JS, or "Open Clovie" when JS cannot finish. Without a token the JS clip path runs as before.
+- The token works only on the clip upload and `POST /v1/attendance/:id/answer` (the notification actions use it when there is no Clerk session). Check-in and every other route still need the Clerk session, so "client has arrived" with the app killed ends in **Open Clovie** until check-in is added to the token scope.
+- Every failure logs `cloud transcription failed status=401 code=UNAUTHENTICATED` (JS and native): status and our error code only.
+
+`ClipVad` ends a clip after 1.2 s of continuous silence, never sooner than 1.5 s after speech started, with a 300 ms hangover so gaps between syllables count as speech. The speech threshold is the noise floor x 2.5 (minimum 0.006 RMS). No speech for 4 s ends it as "Didn't catch that"; the hard cap is 10 s.
+
 ## Timings
 
 Every interaction logs these to logcat under the tag `ClovieVoice` (no transcripts, no names) and keeps the last values for `getTimings()`:

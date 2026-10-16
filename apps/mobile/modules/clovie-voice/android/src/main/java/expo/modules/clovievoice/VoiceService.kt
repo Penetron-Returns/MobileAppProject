@@ -249,7 +249,38 @@ class VoiceService : Service() {
         Log.w(TAG, "clip capture failed: falling back to the recogniser")
         startRecogniser()
       }
-      is ClipResult.Captured -> transcribeClip(result.file)
+      is ClipResult.Captured -> {
+        // With a device token the service uploads by itself, so it works with no JS runtime running.
+        val credentials = VoiceTokenStore.forContext(this).read()
+        if (credentials != null) uploadClip(result.file, credentials) else transcribeClip(result.file)
+      }
+    }
+  }
+
+  /** Native upload of the clip with the device voice token; the transcript then goes down the normal command path. */
+  private fun uploadClip(file: java.io.File, credentials: VoiceCredentials) {
+    clipFile = file
+    if (hasOverlay) overlay.setState("processing")
+    Thread({
+      val result = CloudTranscriber.transcribe(credentials, file)
+      main.post { onUploaded(result) }
+    }, "clovie-upload").start()
+  }
+
+  private fun onUploaded(result: CloudResult) {
+    deleteClip()
+    if (isDestroyed) return
+    when (result) {
+      is CloudResult.Text -> {
+        val text = result.text.trim()
+        if (text.isEmpty()) showOutcome(CommandOutcome("error", NOT_HEARD)) else runCommand(text)
+      }
+      is CloudResult.Failure -> {
+        Log.w(TAG, "cloud transcription failed ${result.describe()}: falling back to the recogniser")
+        // The app replaces a refused token the next time it is on screen.
+        if (result.status == 401) VoiceTokenStore.forContext(this).markRejected()
+        startRecogniser()
+      }
     }
   }
 
@@ -274,7 +305,7 @@ class VoiceService : Service() {
     deleteClip()
     if (isDestroyed) return
     if (outcome.status == "fallback") {
-      Log.w(TAG, "cloud transcription failed: falling back to the recogniser")
+      Log.w(TAG, "cloud transcription failed ${outcome.message.ifEmpty { "status=? code=?" }}: falling back to the recogniser")
       startRecogniser()
       return
     }
@@ -296,6 +327,11 @@ class VoiceService : Service() {
       showOutcome(CommandOutcome("error", if (result.reason == "language") SPEECH_UNAVAILABLE else NOT_HEARD))
       return
     }
+    runCommand(text)
+  }
+
+  /** Hands a transcript to the app's JS (headless task); without JS it times out into "Open Clovie". */
+  private fun runCommand(text: String) {
     lastTranscript = text
     if (hasOverlay) {
       overlay.setTranscript(text)

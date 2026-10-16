@@ -134,6 +134,31 @@ describe('TodayScreen', () => {
     expect(render()).not.toContain('Copy link');
   });
 
+  it('badges a booking the client confirmed, in the hero and in the later rows', () => {
+    mockView = ready([
+      appt('a', '2026-10-14T09:00:00.000Z', {
+        client_confirmed_at: '2026-10-14T07:00:00.000Z',
+      }),
+      appt('b', '2026-10-14T11:00:00.000Z', {
+        client_confirmed_at: '2026-10-14T07:05:00.000Z',
+      }),
+      appt('c', '2026-10-14T12:00:00.000Z'),
+    ]);
+    const json = render();
+    expect(json).toContain('Confirmed by client');
+    expect(
+      json.split('"accessibilityLabel":"Confirmed by client"').length - 1,
+    ).toBe(2);
+  });
+
+  it('shows no badge when nobody confirmed', () => {
+    mockView = ready([
+      appt('a', '2026-10-14T09:00:00.000Z'),
+      appt('b', '2026-10-14T11:00:00.000Z'),
+    ]);
+    expect(render()).not.toContain('Confirmed by client');
+  });
+
   it('shows the up-next hero with time, service, staff and actions', () => {
     mockView = ready([appt('a', '2026-10-14T09:00:00.000Z')]);
     const json = render();

@@ -4,9 +4,11 @@
  */
 import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
+import { z } from 'zod';
 
-import type { TranscriptionDTO } from '@booking/types';
+import type { DeviceTokenDTO, TranscriptionDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
+import { parseJson } from '../../lib/validation.ts';
 import { requireFeature } from '../../middleware/feature.ts';
 import type { AppEnv } from '../../types.ts';
 
@@ -83,4 +85,27 @@ voiceRoutes.post('/voice/transcriptions', voiceEnabled, requireFeature('companio
   c.get('logger').info('voice_transcription', { size_bytes: file.size, text_length: result.text.length, duration_ms: Date.now() - started });
   const data: TranscriptionDTO = result;
   return c.json({ data });
+});
+
+const mintDeviceTokenSchema = z.object({ device_label: z.string().trim().min(1).max(80).optional() });
+
+/**
+ * Mints the caller's device voice token (Clerk session only: the device-token middleware refuses `cvt_` here).
+ * Replaces the previous token of the same user and device. The token is returned once and never logged.
+ */
+voiceRoutes.post('/voice/device-token', async (c) => {
+  const { device_label } = await parseJson(c, mintDeviceTokenSchema);
+  const { businessId, userId } = c.get('auth');
+  const token = await c.get('container').voiceTokens.mint({ businessId, userId, deviceLabel: device_label });
+  c.get('logger').info('voice_device_token_minted');
+  const data: DeviceTokenDTO = { token };
+  return c.json({ data }, 201);
+});
+
+/** Revokes every device voice token of the caller (sign-out). */
+voiceRoutes.delete('/voice/device-token', async (c) => {
+  const { businessId, userId } = c.get('auth');
+  await c.get('container').voiceTokens.revoke({ businessId, userId });
+  c.get('logger').info('voice_device_token_revoked');
+  return c.json({ data: { revoked: true } });
 });

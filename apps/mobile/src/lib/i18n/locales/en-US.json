@@ -151,6 +151,9 @@
       "description": "Bookings from WhatsApp, the web page and this app show up here."
     }
   },
+  "clientConfirmed": {
+    "label": "Confirmed by client"
+  },
   "bookingMenu": {
     "open": "Open",
     "reschedule": "Reschedule",

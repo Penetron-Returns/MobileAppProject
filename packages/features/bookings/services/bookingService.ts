@@ -354,6 +354,20 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       return toAppointmentDTO(row);
     },
 
+    async confirmByClient(input) {
+      const current = await requireAppointment(input.businessId, input.appointmentId, input.actor);
+      if (current.status !== 'confirmed' || current.client_confirmed_at) return toAppointmentDTO(current);
+      const row = await repo.confirmAppointmentByClient({
+        businessId: input.businessId,
+        appointmentId: input.appointmentId,
+        confirmedAt: parseInstant(input.confirmedAt, 'confirmedAt'),
+        via: input.via,
+        idempotencyKey: input.idempotencyKey ?? null,
+        ...actorRef(input.actor),
+      });
+      return toAppointmentDTO(row);
+    },
+
     async getAppointment(businessId, appointmentId) {
       const row = await repo.getAppointment(businessId, appointmentId);
       return row ? toAppointmentDTO(row) : null;

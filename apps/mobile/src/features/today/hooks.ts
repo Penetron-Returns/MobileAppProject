@@ -20,7 +20,7 @@ import {
 } from './logic';
 
 const TODAY_SELECT =
-  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, price_cents, client:clients(name, phone_e164), service:services(name), staff:staff(name)';
+  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client_confirmed_at, price_cents, client:clients(name, phone_e164), service:services(name), staff:staff(name)';
 
 /** Under `qk.appointments`, so the app-wide Realtime subscription refreshes it. */
 export const todayKey = (window: Pick<TodayWindow, 'from' | 'to'>) =>

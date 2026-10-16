@@ -120,6 +120,8 @@ export function toAppointmentDTO(row: AppointmentRow): AppointmentDTO {
     duration_minutes: row.duration_minutes,
     notes: row.notes,
     checked_in_at: iso(row.checked_in_at),
+    client_confirmed_at: iso(row.client_confirmed_at),
+    client_confirmed_via: row.client_confirmed_via,
     cancelled_at: iso(row.cancelled_at),
     cancel_reason: row.cancel_reason,
     created_at: toIsoInstant(row.created_at),

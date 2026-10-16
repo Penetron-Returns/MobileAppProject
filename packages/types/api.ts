@@ -18,6 +18,8 @@ export type MemberRole = 'owner' | 'staff';
 export type AppointmentStatus =
   'confirmed' | 'cancelled' | 'completed' | 'no_show';
 export type AppointmentSource = 'whatsapp' | 'app' | 'web' | 'nerova';
+/** Where a client confirmed an appointment (reminder button, link, ...) */
+export type ClientConfirmationChannel = 'whatsapp' | 'sms' | 'web' | 'app';
 export type ActorType = 'customer' | 'staff' | 'system' | 'nerova';
 
 // ---------- plans / entitlements ----------
@@ -86,6 +88,12 @@ export interface TranscriptionDTO {
   duration_ms: number;
   /** Detected (or requested) language code; null when Nerova does not say */
   language: string | null;
+}
+
+/** POST /v1/voice/device-token response data: shown once, only its hash is stored */
+export interface DeviceTokenDTO {
+  /** `cvt_` + 32 random bytes (base64url). Usable only on the voice upload and the attendance answer */
+  token: string;
 }
 
 export interface ApiErrorBody {
@@ -496,6 +504,9 @@ export interface AppointmentDTO {
   duration_minutes: number;
   notes: string | null;
   checked_in_at: ISODateTime | null;
+  /** When the client confirmed attendance (reminder reply); null = not confirmed */
+  client_confirmed_at: ISODateTime | null;
+  client_confirmed_via: ClientConfirmationChannel | null;
   cancelled_at: ISODateTime | null;
   cancel_reason: string | null;
   created_at: ISODateTime;

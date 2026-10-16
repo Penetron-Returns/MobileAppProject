@@ -51,11 +51,50 @@ describe('runVoiceClipHeadless', () => {
         throw Object.assign(new Error('Not found'), { status: 404 });
       },
     });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     await expect(runVoiceClipHeadless('/c.wav', d)).resolves.toEqual({
       status: 'fallback',
-      message: '',
+      message: 'status=404 code=UNKNOWN',
     });
     expect(d.checkIn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('logs the status and API error code of a failed upload, never the message', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const d = deps({
+      transcribe: async () => {
+        throw Object.assign(new Error('Sipho Dlamini 0821234567'), {
+          status: 401,
+          code: 'UNAUTHENTICATED',
+        });
+      },
+    });
+    await expect(runVoiceClipHeadless('/c.wav', d)).resolves.toEqual({
+      status: 'fallback',
+      message: 'status=401 code=UNAUTHENTICATED',
+    });
+    expect(warn).toHaveBeenCalledWith(
+      'cloud transcription failed status=401 code=UNAUTHENTICATED',
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('Sipho');
+    warn.mockRestore();
+  });
+
+  it('reports a network failure as status=0', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const d = deps({
+      transcribe: async () => {
+        throw Object.assign(new Error('x'), {
+          status: 0,
+          code: 'NETWORK_ERROR',
+        });
+      },
+    });
+    await expect(runVoiceClipHeadless('/c.wav', d)).resolves.toMatchObject({
+      message: 'status=0 code=NETWORK_ERROR',
+    });
+    warn.mockRestore();
   });
 
   it('says it did not catch that when the clip has no words', async () => {

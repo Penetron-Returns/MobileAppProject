@@ -58,6 +58,21 @@ export async function runVoiceCommandHeadless(
   }
 }
 
+/** `status=401 code=UNAUTHENTICATED`; status 0 when the server was never reached. */
+export function failureReason(error: unknown): string {
+  // Duck-typed (an ApiError): this module stays free of the API client.
+  const { status, code } = (error ?? {}) as {
+    status?: unknown;
+    code?: unknown;
+  };
+  const safeStatus = typeof status === 'number' ? status : 0;
+  const safeCode =
+    typeof code === 'string' && /^[A-Z0-9_]{2,40}$/.test(code)
+      ? code
+      : 'UNKNOWN';
+  return `status=${safeStatus} code=${safeCode}`;
+}
+
 /** The text the overlay maps to "Didn't catch that" (the native service compares it verbatim). */
 export const NOT_HEARD = "Didn't catch that";
 
@@ -69,7 +84,7 @@ export interface ClipDeps extends HeadlessDeps {
 /**
  * Runs a clip captured by the service: transcribes it through the backend,
  * then handles the text exactly like a typed transcript. A failed upload
- * (network, 404, 5xx) answers `fallback` so the service retries once with
+ * (network, 401, 404, 5xx) answers `fallback`, its message the reason, so the service retries once with
  * Android's own recogniser. Silence in the clip is "Didn't catch that".
  */
 export async function runVoiceClipHeadless(
@@ -79,8 +94,12 @@ export async function runVoiceClipHeadless(
   let text: string;
   try {
     text = (await deps.transcribe(clipPath)).text.trim();
-  } catch {
-    return { status: 'fallback', message: '' };
+  } catch (error) {
+    // Reason only (HTTP status and our error code), never a body or a name: the native service logs it too.
+    const reason = failureReason(error);
+    // eslint-disable-next-line no-console -- reason only (status and code), never a body or a name
+    console.warn(`cloud transcription failed ${reason}`);
+    return { status: 'fallback', message: reason };
   }
   if (!text) return { status: 'error', message: NOT_HEARD };
   const outcome = await runVoiceCommandHeadless(text, deps);
