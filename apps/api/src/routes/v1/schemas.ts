@@ -182,6 +182,8 @@ export const registerDeviceSchema = z.object({
   platform: z.enum(['ios', 'android', 'web']),
 });
 
+export const unregisterDeviceSchema = z.object({ token: z.string().min(1).max(512) });
+
 // ---------- public ----------
 
 export const slugParam = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
@@ -229,6 +231,8 @@ export const createInvitationSchema = z.object({
 });
 
 export const updateMemberRoleSchema = z.object({ role: memberRole });
+
+export const deleteAccountSchema = z.object({ confirm_business_name: z.string().max(200).optional() });
 
 // ---------- plans, usage, companion, reports ----------
 

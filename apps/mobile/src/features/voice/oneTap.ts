@@ -1,15 +1,16 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
 
 import {
   canDrawOverlays,
   isLauncherIconEnabled,
   requestAddTile,
-  requestOverlayPermission,
   setLauncherIconEnabled,
   startTalk,
   type ClovieVoiceTileResult,
 } from './clovieVoice';
+import { askOverlayAccess } from './overlayAccess';
 import { requestVoicePermissions } from './permissions';
 
 /** Android 13 added the system "add tile" prompt; older phones add the tile by hand. */
@@ -21,6 +22,7 @@ const CAN_PROMPT_FOR_TILE = Platform.OS === 'android' && Platform.Version >= 33;
  * mic is open only while the owner speaks; nothing here keeps it on.
  */
 export function useOneTap() {
+  const { t } = useTranslation();
   const [tileResult, setTileResult] =
     React.useState<ClovieVoiceTileResult | null>(null);
   const [hasLauncherIcon, setHasLauncherIcon] = React.useState(
@@ -44,9 +46,9 @@ export function useOneTap() {
       setPermissionDenied(true);
       return;
     }
-    if (!canDrawOverlays()) requestOverlayPermission();
+    if (!canDrawOverlays()) await askOverlayAccess(t);
     await startTalk();
-  }, []);
+  }, [t]);
 
   return {
     canPromptForTile: CAN_PROMPT_FOR_TILE,

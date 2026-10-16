@@ -17,7 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { api, newIdempotencyKey } from '@/lib/api';
 import { offlineError } from '@/lib/offline';
 import { qk } from '@/lib/query';
-import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 
 import { attendanceIdempotencyKey, withoutCheck } from './logic';
@@ -31,25 +30,6 @@ export function useAttendancePending(enabled = true) {
     queryFn: api.attendancePending,
     enabled,
   });
-}
-
-/** Refetches the pending list when a check row changes (Realtime only invalidates). */
-export function useAttendanceRealtime(enabled: boolean) {
-  const queryClient = useQueryClient();
-  React.useEffect(() => {
-    if (!enabled) return;
-    const channel = supabase
-      .channel('attendance-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attendance_checks' },
-        () => void queryClient.invalidateQueries({ queryKey: qk.attendance }),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [enabled, queryClient]);
 }
 
 interface AnswerVars {

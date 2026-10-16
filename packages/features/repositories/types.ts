@@ -239,6 +239,10 @@ export interface AuditEntry {
 export interface MemberRepository {
   getUser(userId: string): Promise<UserRow | null>;
   upsertDeviceToken(businessId: UUID, userId: string, token: string, platform: string): Promise<void>;
+  /** Removes one token, only if it belongs to this user (sign-out); a no-op otherwise */
+  deleteDeviceToken(businessId: UUID, userId: string, token: string): Promise<void>;
+  /** Removes every Expo push token of the user (account deletion) */
+  deleteDeviceTokensForUser(userId: string): Promise<void>;
   /** RPC record_audit_event: audit_log entry for changes the row triggers cannot see (Clerk membership) */
   recordAudit(entry: AuditEntry): Promise<void>;
 }

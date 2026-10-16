@@ -18,12 +18,13 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { env, validateEnv } from '@/lib/env';
 import { registerDeviceTokenSource } from '@/features/voice/deviceToken';
 import { registerVoiceHeadlessTask } from '@/features/voice/headlessTask';
-import { startOnlineSync } from '@/lib/online';
+import { startFocusSync, startOnlineSync } from '@/lib/online';
 import { queryClient } from '@/lib/query';
 
 const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
 startOnlineSync();
+startFocusSync();
 // Hey Clovie (Android): lets the voice service run a command with the app in the background.
 registerDeviceTokenSource();
 registerVoiceHeadlessTask();

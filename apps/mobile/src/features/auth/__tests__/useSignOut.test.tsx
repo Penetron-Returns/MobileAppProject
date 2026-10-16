@@ -8,6 +8,10 @@ import { useSignOut } from '../useSignOut';
 
 const mockSignOut = jest.fn();
 const mockClearToken = jest.fn();
+const mockUnregisterPush = jest.fn();
+jest.mock('@/features/notifications/pushDevice', () => ({
+  unregisterPushToken: () => mockUnregisterPush(),
+}));
 jest.mock('@/features/voice/deviceToken', () => ({
   clearDeviceTokenOnSignOut: () => mockClearToken(),
 }));
@@ -31,6 +35,7 @@ function mountSignOut() {
 beforeEach(() => {
   mockSignOut.mockReset();
   mockClearToken.mockReset().mockResolvedValue(undefined);
+  mockUnregisterPush.mockReset().mockResolvedValue(undefined);
   queryClient.clear();
   queryClient.setQueryData(['appointments', 'one', 'a-1'], {
     client: 'Olivia',

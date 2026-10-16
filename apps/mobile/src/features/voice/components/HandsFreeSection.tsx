@@ -13,7 +13,9 @@ import { Alert, Linking, View } from 'react-native';
 import { useBusiness } from '@/features/business/hooks';
 
 import { useHeyClovie } from '../hooks';
+import { askOverlayAccess } from '../overlayAccess';
 import { canTurnOnVoice, handsFreeLine } from '../status';
+import { isCloudSttEnabled } from '../transcribe';
 
 /**
  * Opt-in hands-free "Hey Clovie". Off by default. Turning it on asks for the microphone and
@@ -29,12 +31,14 @@ export function HandsFreeSection() {
   const canToggle = canTurnOnVoice(state.status) && !voice.isPending;
   const timezone = business.data?.timezone ?? 'Africa/Johannesburg';
 
-  /** Say what the permissions are for before the system asks. */
+  /** Prominent disclosure (Google Play): what is recorded, when and where it goes, before any permission prompt. */
   const confirmTurnOn = () =>
     Alert.alert(
       t('voice.permissionRationale.title'),
       [
-        t('voice.permissionRationale.microphone'),
+        t('voice.disclosure.what'),
+        t('voice.disclosure.recording'),
+        t(`voice.disclosure.where.${isCloudSttEnabled ? 'cloud' : 'device'}`),
         t('voice.permissionRationale.notifications'),
         t('voice.permissionRationale.overlay'),
         t('voice.hf.consent'),
@@ -125,7 +129,7 @@ export function HandsFreeSection() {
               <Button
                 size="sm"
                 variant="secondary"
-                onPress={voice.requestOverlay}
+                onPress={() => void askOverlayAccess(t)}
               >
                 <Text>{t('voice.overlay.allow')}</Text>
               </Button>

@@ -441,6 +441,12 @@ export function createSupabaseRepository(db: Db): BookingRepository {
     async upsertUser(values) {
       check(await t('users').upsert(values, { onConflict: 'id' }));
     },
+    async deleteDeviceToken(businessId, userId, token) {
+      check(await t('device_push_tokens').delete().eq('business_id', businessId).eq('user_id', userId).eq('token', token));
+    },
+    async deleteDeviceTokensForUser(userId) {
+      check(await t('device_push_tokens').delete().eq('user_id', userId));
+    },
     async deleteUser(userId) {
       check(await t('users').delete().eq('id', userId));
     },

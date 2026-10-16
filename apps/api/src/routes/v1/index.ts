@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 
 import type { AppEnv } from '../../types.ts';
+import { accountRoutes } from './account.ts';
 import { appointmentRoutes } from './appointments.ts';
 import { attendanceRoutes } from './attendance.ts';
 import { availabilityRoutes } from './availability.ts';
@@ -23,6 +24,7 @@ import { voiceAskRoutes } from './voiceAsk.ts';
 export const v1Routes = new Hono<AppEnv>();
 
 v1Routes.route('/', businessRoutes);
+v1Routes.route('/', accountRoutes);
 v1Routes.route('/', catalogRoutes);
 v1Routes.route('/', clientRoutes);
 v1Routes.route('/', availabilityRoutes);

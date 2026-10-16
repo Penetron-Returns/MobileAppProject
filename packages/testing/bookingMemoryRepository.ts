@@ -634,6 +634,12 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
           ...(defined as { id: string }),
         });
     },
+    async deleteDeviceToken(businessId, userId, token) {
+      tables.device_push_tokens = tables.device_push_tokens.filter((d) => !(d.business_id === businessId && d.user_id === userId && d.token === token));
+    },
+    async deleteDeviceTokensForUser(userId) {
+      tables.device_push_tokens = tables.device_push_tokens.filter((d) => d.user_id !== userId);
+    },
     async deleteUser(userId) {
       tables.users = tables.users.filter((u) => u.id !== userId);
     },

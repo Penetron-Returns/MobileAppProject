@@ -68,6 +68,7 @@ export const qk = {
     ['billing-usage', month ?? 'current'] as const,
   report: (month: string) => ['reports', month] as const,
   attendance: ['attendance'] as const,
+  accountDeletionPreview: ['account', 'deletion-preview'] as const,
   openEscalations: ['escalations', 'open-count'] as const,
 };
 

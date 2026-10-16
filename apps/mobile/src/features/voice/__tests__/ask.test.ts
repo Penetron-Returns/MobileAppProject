@@ -4,6 +4,7 @@ import {
   classifyReply,
   doneMessage,
   parsePendingQueue,
+  replyExpectsAnswer,
   speakableApproval,
   trimForSpeech,
   type AskDeps,
@@ -361,5 +362,68 @@ describe('follow-up turns through the headless task', () => {
     await runVoiceCommandHeadless('yes', d, {});
     expect(d.decide).not.toHaveBeenCalled();
     expect(d.ask).toHaveBeenCalledWith('yes');
+  });
+});
+
+describe('replyExpectsAnswer', () => {
+  it.each([
+    ['Booked it.', undefined, false],
+    ['Thandi is at 10:00. Then Sam at 11:00.', undefined, false],
+    ['Which Thandi did you mean?', undefined, true],
+    ['Which Thandi? I found two of them.', undefined, true],
+    ['I can move it to 11:00. Shall I do that', undefined, true],
+    ['Should I book her in for Friday.', undefined, true],
+    ['Do you want me to message her.', undefined, true],
+    ['Would you like a reminder sent.', undefined, true],
+    ['Want me to move it.', undefined, true],
+    ['Let me know if that works.', undefined, true],
+    ['Please confirm.', undefined, true],
+    ['Say go ahead and I will.', undefined, true],
+    ['Is it ok? That was one. Two. Three. Nothing more.', undefined, false],
+    ['', undefined, false],
+    ['Which Thandi did you mean?', false, false],
+    ['All set.', true, true],
+  ] as [string, boolean | undefined, boolean][])(
+    '%j with awaitingReply %s gives %s',
+    (reply, awaitingReply, expected) => {
+      expect(replyExpectsAnswer(reply, awaitingReply)).toBe(expected);
+    },
+  );
+
+  it('askCompanion waits on a confirmation phrase without a question mark', async () => {
+    const out = await askCompanion(
+      'x',
+      deps({
+        reply: 'I can move her to 11:00. Shall I do that.',
+        approvals: [],
+      }),
+    );
+    expect(out.expectsReply).toBe(true);
+    expect(out.pendingApprovalId).toBeUndefined();
+  });
+
+  it('askCompanion does not wait when only suggestions are present', async () => {
+    const out = await askCompanion(
+      'x',
+      deps({
+        reply: 'All set.',
+        approvals: [],
+        suggestions: ['Show today'],
+      }),
+    );
+    expect(out.expectsReply).toBeUndefined();
+  });
+
+  it('askCompanion lets awaitingReply override the heuristic both ways', async () => {
+    const yes = await askCompanion(
+      'x',
+      deps({ reply: 'All set.', approvals: [], awaitingReply: true }),
+    );
+    expect(yes.expectsReply).toBe(true);
+    const no = await askCompanion(
+      'x',
+      deps({ reply: 'Which Thandi?', approvals: [], awaitingReply: false }),
+    );
+    expect(no.expectsReply).toBeUndefined();
   });
 });
