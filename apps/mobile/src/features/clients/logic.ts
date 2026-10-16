@@ -2,15 +2,10 @@ import type { AppointmentStatus } from '@booking/types';
 
 import { businessDate, type ISODate } from '@/lib/time';
 
-export type ClientFilter = 'all' | 'recent' | 'regulars';
-
 export const VIP_TAG = 'VIP';
-export const RECENT_DAYS = 30;
 /** A "Regular" has this many completed visits inside the window (docs/v1-scope.md). */
 export const REGULAR_MIN_VISITS = 3;
 export const REGULAR_WINDOW_DAYS = 180;
-/** Most regulars the filter lists in one go (keeps the id list well inside URL limits). */
-export const REGULARS_CAP = 100;
 
 /**
  * PostgREST `or=` filter matching name or phone, or null for a blank query.
@@ -114,31 +109,6 @@ export function recentCompletedVisits(
 /** "Regular": 3 or more completed visits in the last 180 days. Derived, never stored. */
 export function isRegular(appointments: VisitLike[], now: Date): boolean {
   return recentCompletedVisits(appointments, now) >= REGULAR_MIN_VISITS;
-}
-
-/**
- * Client ids that qualify as regulars from raw completed-visit rows, most
- * visits first (ties by id so the order is stable), capped at `cap`.
- */
-export function regularClientIds(
-  rows: { client_id: string; starts_at: string }[],
-  now: Date,
-  cap = REGULARS_CAP,
-): string[] {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    const completed: VisitLike = {
-      starts_at: row.starts_at,
-      status: 'completed',
-    };
-    if (recentCompletedVisits([completed], now) === 0) continue;
-    counts.set(row.client_id, (counts.get(row.client_id) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .filter(([, count]) => count >= REGULAR_MIN_VISITS)
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-    .slice(0, cap)
-    .map(([id]) => id);
 }
 
 /** No-shows on record, shown quietly on a row once there are two or more. */

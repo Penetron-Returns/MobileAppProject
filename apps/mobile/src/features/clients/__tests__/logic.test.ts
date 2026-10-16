@@ -4,7 +4,6 @@ import {
   historyStatus,
   isRegular,
   noShowCount,
-  regularClientIds,
   summariseVisits,
   upcomingAppointments,
   visitCadenceWeeks,
@@ -163,47 +162,6 @@ describe('isRegular', () => {
     ],
   ])('%s', (_label, appointments, expected) => {
     expect(isRegular(appointments, NOW)).toBe(expected);
-  });
-});
-
-describe('regularClientIds', () => {
-  const row = (client_id: string, daysAgo: number) => ({
-    client_id,
-    starts_at: new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString(),
-  });
-
-  it('keeps clients with 3+ recent visits, most visits first, ties by id', () => {
-    const rows = [
-      row('b', 5),
-      row('b', 20),
-      row('b', 60),
-      row('a', 5),
-      row('a', 20),
-      row('a', 60),
-      row('c', 1),
-      row('c', 2),
-      row('c', 3),
-      row('c', 4),
-      row('d', 5),
-      row('d', 20),
-      row('e', 5),
-      row('e', 20),
-      row('e', 400),
-    ];
-    expect(regularClientIds(rows, NOW)).toEqual(['c', 'a', 'b']);
-  });
-
-  it('caps the list', () => {
-    const rows = ['a', 'b', 'c'].flatMap((id) => [
-      row(id, 1),
-      row(id, 2),
-      row(id, 3),
-    ]);
-    expect(regularClientIds(rows, NOW, 2)).toEqual(['a', 'b']);
-  });
-
-  it('returns nothing for no rows', () => {
-    expect(regularClientIds([], NOW)).toEqual([]);
   });
 });
 
