@@ -1,9 +1,20 @@
-import type { CompanionColorMode, CompanionSessionDTO } from '@booking/types';
+import type {
+  CompanionColorMode,
+  CompanionSessionDTO,
+  CreateCompanionSessionRequest,
+} from '@booking/types';
 import type { CompanionSessionProvider } from '@nerova/react-native';
 import * as React from 'react';
 
 import { api } from '@/lib/api';
+import { nerovaApi } from '@/lib/env';
 import { useApiMutation } from '@/lib/query';
+
+function sessionBody(mode: CompanionColorMode): CreateCompanionSessionRequest {
+  return nerovaApi === 'v1'
+    ? { color_mode: mode, platform: 'native' }
+    : { color_mode: mode };
+}
 
 /**
  * The SDK's `sessionProvider`: mints the owner-chat session through our own
@@ -18,7 +29,7 @@ export function useSdkSessionProvider(
 ): CompanionSessionProvider {
   const mint = useApiMutation<CompanionColorMode, CompanionSessionDTO>({
     mutationFn: (mode, key) =>
-      api.createCompanionSession({ color_mode: mode }, key),
+      api.createCompanionSession(sessionBody(mode), key),
     // The SDK shows its own unavailable/offline states; no toast on top.
     onError: () => true,
   });
@@ -29,6 +40,16 @@ export function useSdkSessionProvider(
 
   return React.useCallback(async () => {
     const session = await mintRef.current(modeRef.current);
-    return { url: session.url, expiresAt: session.expires_at };
+    if (nerovaApi !== 'v1') {
+      return { url: session.url, expiresAt: session.expires_at };
+    }
+    // Native sessions (v1): the SDK sends these on every call. All of them are
+    // secrets, so nothing here is logged.
+    return {
+      sessionId: session.session_id,
+      state: session.state ?? undefined,
+      expiresAt: session.expires_at,
+      url: session.url,
+    };
   }, []);
 }

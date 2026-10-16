@@ -3,6 +3,7 @@ import * as React from 'react';
 import { mount, text } from '@/testing/render';
 
 import { CompanionSwitch } from '../components/CompanionSwitch';
+import { CompanionSheetControlProvider } from '../sdk/companionSheetControl';
 
 let mockEnabled = false;
 jest.mock('@/lib/env', () => ({
@@ -32,5 +33,25 @@ describe('CompanionSwitch', () => {
     const out = text(mount(<CompanionSwitch />));
     expect(out).toContain('sdk-sheet');
     expect(out).not.toContain('iframe-sheet');
+  });
+
+  it('falls back to the iframe sheet when the SDK sheet is unavailable', () => {
+    mockEnabled = true;
+    const out = text(
+      mount(
+        <CompanionSheetControlProvider
+          value={{
+            isAvailable: false,
+            hasFailed: true,
+            open: jest.fn(),
+            close: jest.fn(),
+          }}
+        >
+          <CompanionSwitch />
+        </CompanionSheetControlProvider>,
+      ),
+    );
+    expect(out).toContain('iframe-sheet');
+    expect(out).not.toContain('sdk-sheet');
   });
 });

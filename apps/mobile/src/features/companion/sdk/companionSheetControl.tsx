@@ -9,14 +9,17 @@ export interface OpenCompanionOptions {
 }
 
 export interface CompanionSheetControl {
-  /** True when the persistent SDK sheet is mounted (flag on and plan has the companion). */
+  /** True when the persistent SDK sheet is mounted and can chat (flag on, plan has the companion, account ready). */
   isAvailable: boolean;
+  /** True when the sheet is mounted but the SDK reports it unavailable (e.g. `account_not_ready`): callers use the iframe path. */
+  hasFailed: boolean;
   open: (options?: OpenCompanionOptions) => void;
   close: () => void;
 }
 
 const UNAVAILABLE: CompanionSheetControl = {
   isAvailable: false,
+  hasFailed: false,
   open: () => {},
   close: () => {},
 };

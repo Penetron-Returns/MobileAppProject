@@ -50,6 +50,20 @@ describe('SDK labels', () => {
     }
   });
 
+  it('translates the labels for the new error and failure codes', () => {
+    const labels = readLabels();
+    for (const key of [
+      'errorAccountNotReady',
+      'errorConnectorUnavailable',
+      'failureReturnUrl',
+      'failureFlow',
+    ]) {
+      expect(labels[key]).toBe(
+        defaultLabels[key as keyof typeof defaultLabels],
+      );
+    }
+  });
+
   it('says Clovie where the SDK has no profile name yet', () => {
     expect(readLabels().avatarButtonNoName).toBe('Clovie, {state}');
   });
