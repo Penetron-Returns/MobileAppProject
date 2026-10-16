@@ -1,5 +1,3 @@
-import '@/testing/sdkSetup';
-
 import { createMockTransport } from '@nerova/react-native/testing';
 import * as React from 'react';
 import { TextInput } from 'react-native';
