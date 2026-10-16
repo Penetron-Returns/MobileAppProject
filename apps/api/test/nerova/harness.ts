@@ -45,6 +45,7 @@ export interface ToolResult {
 }
 
 export interface NerovaHarness extends Seed {
+  container: BookingContainer;
   app: ReturnType<typeof createApp>;
   plans: Map<string, PlanKey>;
   /** A second business on the Free plan, with one service */
@@ -117,5 +118,5 @@ export function nerovaHarness(opts: HarnessOptions = {}): NerovaHarness {
     return result.structuredContent;
   }
 
-  return { ...s, app, plans, freeBusinessId: free.id, changes, accountEvents, rpc, tool, ok };
+  return { ...s, container, app, plans, freeBusinessId: free.id, changes, accountEvents, rpc, tool, ok };
 }

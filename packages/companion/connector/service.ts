@@ -196,6 +196,55 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     return row.id;
   }
 
+  async function listAppointmentsPage(businessId: UUID, args: ToolArgs<'appointments_list'>) {
+    const from = Date.parse(args.from);
+    const to = Date.parse(args.to);
+    if (to <= from) throw invalidRequest('to must be after from');
+    if (to - from > MAX_WINDOW_DAYS * DAY_MS) throw invalidRequest(`window is at most ${MAX_WINDOW_DAYS} days`);
+    const limit = args.limit ?? DEFAULT_PAGE;
+    const after = args.cursor ? decodeCursor(args.cursor) : undefined;
+
+    let clientId = args.clientId;
+    if (args.clientPhone) {
+      const phone = tryNormalizePhone(args.clientPhone);
+      if (!phone) throw invalidRequest('clientPhone is not a valid phone number');
+      clientId = (await repo.findClientByPhone(businessId, phone))?.id;
+      if (!clientId) return { items: [] };
+    }
+    // Filters that name something this account does not have match nothing.
+    if ((args.staffId && !isUuid(args.staffId)) || (clientId && !isUuid(clientId))) return { items: [] };
+
+    // Names come from the cached catalogue; start them now so they overlap the appointment query.
+    const names = Promise.all([repo.listServices(businessId), repo.listStaff(businessId)]);
+    names.catch(() => undefined);
+    const rows = await booking.listAppointments({
+      businessId,
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+      staffId: args.staffId,
+      clientId,
+      status: args.status ? fromWireStatus(args.status) : undefined,
+      after,
+      limit: limit + 1,
+    });
+    const page = rows.slice(0, limit);
+    const [[services, staff], clients] = await Promise.all([
+      names,
+      repo.listClientsByIds(businessId, [...new Set(page.map((a) => a.client_id))]),
+    ]);
+    const lookups = {
+      services: new Map(services.map((s) => [s.id, s.name])),
+      staff: new Map(staff.map((s) => [s.id, s.name])),
+      clients: new Map(clients.map((c) => [c.id, c])),
+    };
+    const last = page[page.length - 1];
+    return {
+      items: page.map((a) => toAppointmentListItem(a, lookups, wireOptions)),
+      ...(rows.length > limit && last ? { nextCursor: encodeCursor(last) } : {}),
+    };
+  }
+
+
   return {
     async accountsList(args: ToolArgs<'accounts_list'>) {
       const limit = args.limit ?? DEFAULT_PAGE;
@@ -245,50 +294,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     },
 
     async appointmentsList(args: ToolArgs<'appointments_list'>) {
-      const businessId = await requireAccount(args.accountId);
-      const from = Date.parse(args.from);
-      const to = Date.parse(args.to);
-      if (to <= from) throw invalidRequest('to must be after from');
-      if (to - from > MAX_WINDOW_DAYS * DAY_MS) throw invalidRequest(`window is at most ${MAX_WINDOW_DAYS} days`);
-      const limit = args.limit ?? DEFAULT_PAGE;
-      const after = args.cursor ? decodeCursor(args.cursor) : undefined;
-
-      let clientId = args.clientId;
-      if (args.clientPhone) {
-        const phone = tryNormalizePhone(args.clientPhone);
-        if (!phone) throw invalidRequest('clientPhone is not a valid phone number');
-        clientId = (await repo.findClientByPhone(businessId, phone))?.id;
-        if (!clientId) return { items: [] };
-      }
-      // Filters that name something this account does not have match nothing.
-      if ((args.staffId && !isUuid(args.staffId)) || (clientId && !isUuid(clientId))) return { items: [] };
-
-      const rows = await booking.listAppointments({
-        businessId,
-        from: new Date(from).toISOString(),
-        to: new Date(to).toISOString(),
-        staffId: args.staffId,
-        clientId,
-        status: args.status ? fromWireStatus(args.status) : undefined,
-        after,
-        limit: limit + 1,
-      });
-      const page = rows.slice(0, limit);
-      const [services, staff, clients] = await Promise.all([
-        repo.listServices(businessId),
-        repo.listStaff(businessId),
-        repo.listClientsByIds(businessId, [...new Set(page.map((a) => a.client_id))]),
-      ]);
-      const lookups = {
-        services: new Map(services.map((s) => [s.id, s.name])),
-        staff: new Map(staff.map((s) => [s.id, s.name])),
-        clients: new Map(clients.map((c) => [c.id, c])),
-      };
-      const last = page[page.length - 1];
-      return {
-        items: page.map((a) => toAppointmentListItem(a, lookups, wireOptions)),
-        ...(rows.length > limit && last ? { nextCursor: encodeCursor(last) } : {}),
-      };
+      return gated(args.accountId, (businessId) => listAppointmentsPage(businessId, args));
     },
 
     async appointmentsCreate(args: ToolArgs<'appointments_create'>) {
