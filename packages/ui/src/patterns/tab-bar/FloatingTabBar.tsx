@@ -71,7 +71,7 @@ const BAR_PAD = 4;
 
 /**
  * The floating tab bar of the iPhone design: equal tabs in one raised
- * capsule and a dome above the right-hand end. The app picks the tabs and
+ * capsule and a dome above the right-hand end. Every tab, Reports included, is drawn the same. The app picks the tabs and
  * their order through `tabs`; Free passes `onAdd`, which puts the "+" (New
  * booking, opened as a modal) between the two halves, and the Inbox dome.
  * Paid plans pass Reports as an ordinary fifth tab and the Companion dome. Hidden on screens
@@ -85,15 +85,12 @@ export function FloatingTabBar({
   navigation,
   tabs = DEFAULT_TABS,
   onAdd,
-  centerTab,
   dome,
 }: TabBarProps & {
   /** The tabs to show, left to right. Routes missing from the navigator are skipped. */
   tabs?: readonly TabRouteName[];
   /** When given, a centre "+" opens New booking (a route, not a tab) through this. */
   onAdd?: () => void;
-  /** A tab drawn as the raised primary dome in the middle (paid plans: Reports) instead of a flat tab. */
-  centerTab?: TabRouteName;
   /** The Inbox or Companion dome (or nothing) shown above the right-hand end of the bar. */
   dome?: React.ReactNode;
 }) {
@@ -162,14 +159,8 @@ export function FloatingTabBar({
     );
   };
 
-  // The "+" sits in the middle; without it the split is irrelevant.
-  const centre = centerTab && tabs.includes(centerTab) ? centerTab : null;
-  const sideTabs = tabs.filter((name) => name !== centre);
-  const split = Math.ceil(sideTabs.length / 2);
-  const centreRoute = centre
-    ? state.routes.find((r) => r.name === centre)
-    : undefined;
-  const CentreIcon = centre && centreRoute ? TAB_ICONS[centre] : null;
+  // The "+" (when given) sits between the two halves.
+  const split = Math.ceil(tabs.length / 2);
 
   const renderTab = (name: TabRouteName) => {
     const route = state.routes.find((r) => r.name === name);
@@ -233,40 +224,7 @@ export function FloatingTabBar({
             pillStyle,
           ]}
         />
-        {sideTabs.slice(0, split).map(renderTab)}
-        {centre && centreRoute && CentreIcon ? (
-          <Pressable
-            onPress={() => {
-              haptics.light();
-              goTo(centre, centreRoute.key);
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel={t(
-              `tabs.${centre === 'index' ? 'today' : centre}`,
-            )}
-            accessibilityState={{ selected: activeName === centre }}
-            {...addBounce.handlers}
-            className="w-[60px] items-center justify-center"
-          >
-            {({ pressed }) => (
-              <Animated.View
-                style={[
-                  // Raised like the Inbox dome, but coloured like every other tab (never the blue primary fill).
-                  depth.dome,
-                  pressed && { opacity: 0.85 },
-                  addBounce.style,
-                ]}
-                className="h-[52px] w-[52px] items-center justify-center rounded-full"
-              >
-                <CentreIcon
-                  size={26}
-                  strokeWidth={activeName === centre ? 2.2 : 1.8}
-                  color={centreColor(depth, activeName === centre)}
-                />
-              </Animated.View>
-            )}
-          </Pressable>
-        ) : null}
+        {tabs.slice(0, split).map(renderTab)}
         {onAdd ? (
           <Pressable
             onPress={() => {
@@ -292,14 +250,14 @@ export function FloatingTabBar({
             )}
           </Pressable>
         ) : null}
-        {sideTabs.slice(split).map(renderTab)}
+        {tabs.slice(split).map(renderTab)}
       </View>
     </View>
   );
 }
 
-/** The raised centre tab uses the same state colours as TabItem. */
-export function centreColor(depth: DepthTokens, isActive: boolean): string {
+/** Icon and label colour of a tab: tint when selected, the inactive grey otherwise. */
+function tabColor(depth: DepthTokens, isActive: boolean): string {
   return isActive ? depth.colors.tint : depth.colors.inactive;
 }
 
@@ -318,7 +276,7 @@ function TabItem({
   onPress: () => void;
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
-  const color = centreColor(depth, isActive);
+  const color = tabColor(depth, isActive);
   // Every tap dips the icon (1, 0.86, 1) and springs it back, even on the
   // tab that is already selected. Reduce motion makes both legs instant.
   const pop = useSharedValue(1);

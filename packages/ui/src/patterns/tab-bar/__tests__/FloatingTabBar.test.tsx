@@ -133,11 +133,10 @@ describe('FloatingTabBar', () => {
     expect(navigation.navigate).toHaveBeenCalledWith('clients');
   });
 
-  it('colours the raised Reports tab like the other tabs, never the blue primary fill', () => {
+  it('draws Reports exactly like the other tabs: same size, no dome, same colours', () => {
     const colourOf = (active: string, label: string) => {
       const props = {
         tabs: ['index', 'calendar', 'reports', 'clients', 'settings'],
-        centerTab: 'reports',
       } as const;
       const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
       const tree = render(
@@ -166,6 +165,19 @@ describe('FloatingTabBar', () => {
     expect(colourOf('reports', 'Reports')).not.toBe(
       colourOf('index', 'Reports'),
     );
+  });
+
+  it('gives Reports the same layout classes and icon size as Calendar', () => {
+    const { tree } = renderBar('index', {
+      tabs: ['index', 'calendar', 'reports', 'clients', 'settings'],
+    });
+    const reports = pressable(tree, 'Reports');
+    const calendar = pressable(tree, 'Calendar');
+    expect(reports.props.className).toBe(calendar.props.className);
+    const iconSize = (n: ReturnType<typeof pressable>) =>
+      n.findAll((x) => typeof x.props.size === 'number')[0]?.props.size;
+    expect(iconSize(reports)).toBe(iconSize(calendar));
+    expect(iconSize(reports)).toBe(24);
   });
 
   it('navigates to a tab and emits tabPress first', () => {

@@ -41,7 +41,6 @@ import type {
   RegisterDeviceRequest,
   UnregisterDeviceRequest,
   ReplaceBusinessHoursRequest,
-  ReportsSummaryDTO,
   ReplaceStaffBreaksRequest,
   ReplaceStaffBreaksResponse,
   RescheduleAppointmentRequest,
@@ -91,12 +90,10 @@ export const api = {
       key,
     ),
 
-  // plans, usage, companion, reports (docs/BUILD_PLAN.md "Plans, usage, companion and reports")
+  // plans, usage, companion (docs/BUILD_PLAN.md "Plans, usage, companion and reports")
   plans: () => get<PlansDTO>('/v1/plans'),
   billingUsage: (month?: string) =>
     get<BillingUsageDTO>('/v1/billing/usage', { month }),
-  reportsSummary: (month: string) =>
-    get<ReportsSummaryDTO>('/v1/reports/summary', { month }),
   createCompanionSession: (b: CreateCompanionSessionRequest, key: string) =>
     send<CreateCompanionSessionRequest, CompanionSessionDTO>(
       'POST',

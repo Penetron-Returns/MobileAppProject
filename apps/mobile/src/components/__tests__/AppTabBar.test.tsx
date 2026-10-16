@@ -72,7 +72,7 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/new-booking');
   });
 
-  it('paid: Reports is the raised centre tab, there is no plus and the companion dome replaces the Inbox', () => {
+  it('paid: Reports is an ordinary tab, there is no plus and the companion dome replaces the Inbox', () => {
     mockMode = 'ai';
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();

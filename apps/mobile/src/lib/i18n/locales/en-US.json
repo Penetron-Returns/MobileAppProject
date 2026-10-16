@@ -1738,51 +1738,65 @@
   },
   "reports": {
     "title": "Reports",
-    "pickMonth": "{{month}}. Choose a month",
-    "prevMonth": "Previous month",
-    "nextMonth": "Next month",
-    "revenue": "Revenue · {{month}}",
-    "completedJobs_one": "{{count}} completed job",
-    "completedJobs_other": "{{count}} completed jobs",
     "loading": "Loading the report",
     "error": {
       "title": "Couldn't load this report",
       "description": "Check your connection and try again."
     },
-    "chart": {
-      "label": "Completed jobs per week",
-      "callout_one": "Week of {{date}} · {{count}} job",
-      "callout_other": "Week of {{date}} · {{count}} jobs",
-      "bar_one": "Week of {{date}}, {{count}} job",
-      "bar_other": "Week of {{date}}, {{count}} jobs"
+    "range": {
+      "label": "Period",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
     },
-    "companion": {
-      "title": "What your companion did",
-      "labels": {
-        "bookings_created": "Bookings made",
-        "bookings_rescheduled": "Rescheduled",
-        "bookings_cancelled": "Cancelled",
-        "conversations_handled": "Chats handled"
-      },
-      "offline": {
-        "title": "Your companion isn't connected yet",
-        "description": "Once it's live, what it does shows up here. The rest of this report is complete."
-      }
+    "revenue": "Revenue · {{period}}",
+    "period": "{{from}} to {{to}}",
+    "delta": {
+      "up": "+{{percent}}% {{versus}}",
+      "down": "-{{percent}}% {{versus}}",
+      "flat": "No change {{versus}}"
+    },
+    "versus": {
+      "week": "vs last week so far",
+      "month": "vs {{label}}",
+      "year": "vs {{label}}"
+    },
+    "chart": {
+      "label": "Revenue by {{unit}}",
+      "unitDay": "day",
+      "unitMonth": "month",
+      "bar": "{{date}}, {{amount}}",
+      "empty": "No completed bookings yet in this period."
+    },
+    "kpi": {
+      "bookings": "Bookings",
+      "noShowRate": "No-show rate",
+      "returning": "Returning clients",
+      "none": "–"
+    },
+    "staff": {
+      "title": "By staff",
+      "bookings_one": "{{count}} booking",
+      "bookings_other": "{{count}} bookings",
+      "empty": "No bookings by staff in this period."
     },
     "sources": {
       "title": "Where bookings come from",
       "whatsapp": "WhatsApp",
-      "companion": "Companion",
-      "manual": "Manual",
-      "web": "Web",
-      "empty": "No bookings were made this month.",
-      "row": "{{source}} {{percent}}%"
+      "clovie": "Clovie",
+      "empty": "No bookings in this period.",
+      "row": "{{source}} {{percent}}%",
+      "summary": "Booked by customers on WhatsApp, or by you and your team in Clovie."
     },
-    "stats": {
-      "noShows": "No-shows",
-      "cancellations": "Cancellations",
-      "busiest": "Busiest: {{day}} around {{time}}",
-      "busiestNone": "The busiest time shows once there are completed jobs."
+    "times": {
+      "title": "Busiest times",
+      "empty": "The busiest times show once there are bookings.",
+      "chart": "Bookings by weekday and hour",
+      "busiest": "Busiest: {{day}} around {{time}}. Darker means busier."
+    },
+    "export": {
+      "action": "Export CSV",
+      "title": "Revenue by {{unit}}"
     }
   },
   "plans": {
