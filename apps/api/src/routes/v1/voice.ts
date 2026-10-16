@@ -6,7 +6,9 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import type { DeviceTokenDTO, TranscriptionDTO } from '@booking/types';
+import type { DeviceTokenDTO, TranscriptionDTO, VoiceTodayDTO } from '@booking/types';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { listVoiceToday } from '@booking/features/bookings/services/voiceToday.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { parseJson } from '../../lib/validation.ts';
 import { requireFeature } from '../../middleware/feature.ts';
@@ -108,4 +110,11 @@ voiceRoutes.delete('/voice/device-token', async (c) => {
   await c.get('container').voiceTokens.revoke({ businessId, userId });
   c.get('logger').info('voice_device_token_revoked');
   return c.json({ data: { revoked: true } });
+});
+
+/** Today's appointments (business-local day) for the voice check-in. Minimal fields; reachable with a device token. */
+voiceRoutes.get('/voice/today', async (c) => {
+  const container = c.get('container');
+  const data: VoiceTodayDTO = await listVoiceToday(getBookingRepository(container), c.get('auth').businessId, container.clock());
+  return c.json({ data });
 });

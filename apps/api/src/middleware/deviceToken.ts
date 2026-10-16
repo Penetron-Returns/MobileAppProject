@@ -11,6 +11,8 @@ import type { AppEnv } from '../types.ts';
 const DEVICE_TOKEN_ROUTES: readonly { method: string; path: RegExp }[] = [
   { method: 'POST', path: /^(\/api)?\/v1\/voice\/transcriptions$/ },
   { method: 'POST', path: /^(\/api)?\/v1\/attendance\/[^/]+\/answer$/ },
+  { method: 'POST', path: /^(\/api)?\/v1\/appointments\/[^/]+\/check-in$/ },
+  { method: 'GET', path: /^(\/api)?\/v1\/voice\/today$/ },
 ];
 
 export function isDeviceTokenRoute(method: string, path: string): boolean {
