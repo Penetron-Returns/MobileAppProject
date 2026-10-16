@@ -1,11 +1,19 @@
+import type { AttendanceCheckDTO, AttendanceOutcome } from '@booking/types';
 import { Button, Pressable, Surface, Text, useDepth } from '@booking/ui';
 import type { Approval } from '@nerova/react-native';
-import { Check, TriangleAlert } from 'lucide-react-native';
-
-import { Tile } from './Tile';
+import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+
+import {
+  AttendanceActions,
+  AttendanceMoreLink,
+} from '@/features/attendance/components/AttendanceActions';
+import { mergeNeedsYou, questionValues } from '@/features/attendance/logic';
+
+import { Confirmation, NeedsCard } from './NeedsCard';
+import { Tile } from './Tile';
 
 /** The all-clear: a green-tinted card with a check tile. */
 function AllClear() {
@@ -54,50 +62,53 @@ function AllClear() {
   );
 }
 
-/** The companion's follow-up after an approval, in place of the card for a moment. */
-function Confirmation({ text }: { text: string }) {
-  const depth = useDepth();
-  return (
-    <View
-      accessibilityLiveRegion="polite"
-      className="flex-row items-center gap-2 px-5 pt-6"
-    >
-      <Check size={16} strokeWidth={2.4} color={depth.colors.tint} />
-      <Text className="flex-1 text-subtitle">{text}</Text>
-    </View>
-  );
-}
-
 /**
- * "Needs you": all clear is a quiet line; pending approvals are one raised
- * amber card showing the first, with Approve and Not now. Not now follows the
- * SDK sheet (it keeps the approval waiting, it does not decline it): it moves
- * to the next one, and what is left waiting stays a tap away.
+ * "Needs you": all clear is a quiet line; otherwise one raised amber card
+ * showing the first item. Attendance questions come first ("Did Thandi make
+ * it to their 14:00 cut?" with Came and No-show), then Clovie's approvals
+ * (Approve and Not now). Not now follows the SDK sheet (it keeps the approval
+ * waiting, it does not decline it): it moves to the next one, and what is
+ * left waiting stays a tap away.
  */
 export function NeedsYou({
   pending,
+  attendance = [],
+  timezone = 'UTC',
   busyId,
   confirmation = null,
   onApprove,
+  onAnswerAttendance,
+  onOpenAttendance,
   onOpenClovie,
 }: {
   pending: readonly Approval[];
-  /** The companion's follow-up line to show instead of the card, if any. */
+  /** Attendance questions waiting for this person, oldest first. */
+  attendance?: readonly AttendanceCheckDTO[];
+  /** The business timezone, for the time in the attendance question. */
+  timezone?: string;
+  /** The follow-up line to show instead of the card, if any. */
   confirmation?: string | null;
   /** The approval being approved right now, if any. */
   busyId: string | null;
   onApprove: (id: string) => void;
+  onAnswerAttendance?: (
+    check: AttendanceCheckDTO,
+    outcome: AttendanceOutcome,
+  ) => void;
+  onOpenAttendance?: () => void;
   onOpenClovie: () => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
   const [deferred, setDeferred] = React.useState<readonly string[]>([]);
   const open = pending.filter((a) => !deferred.includes(a.id));
-  const first = open[0];
+  const items = mergeNeedsYou(open, attendance);
+  const first = items[0];
+  const total = pending.length + attendance.length;
   const waiting = pending.length - open.length;
 
   if (confirmation) return <Confirmation text={confirmation} />;
-  if (pending.length === 0) return <AllClear />;
+  if (total === 0) return <AllClear />;
   if (!first) {
     return (
       <Pressable
@@ -112,77 +123,55 @@ export function NeedsYou({
       </Pressable>
     );
   }
-  const isBusy = busyId === first.id;
-  return (
-    <View className="px-5 pt-6">
-      <Surface variant="raised" radius={22} className="px-4 pb-4 pt-3.5">
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: 22,
-            backgroundColor: 'rgba(255,149,0,0.09)',
-            borderWidth: 1,
-            borderColor:
-              depth.scheme === 'dark'
-                ? 'rgba(255,179,64,0.38)'
-                : 'rgba(230,138,0,0.36)',
-          }}
+  if (first.kind === 'attendance') {
+    return (
+      <NeedsCard
+        count={total}
+        body={t('attendance.question', questionValues(first.check, timezone))}
+      >
+        <AttendanceActions
+          check={first.check}
+          onAnswer={(check, outcome) => onAnswerAttendance?.(check, outcome)}
         />
-        <View className="flex-row items-center gap-3">
-          <Tile
-            tone="reminded"
-            icon={TriangleAlert}
-            size={40}
-            iconSize={22}
-            strokeWidth={2.2}
-          />
-          <View className="min-w-0 flex-1">
-            <Text
-              role="heading"
-              aria-level="2"
-              className="text-title font-semibold"
-            >
-              {t('today.ai.needs.title', { count: pending.length })}
-            </Text>
-            <Text
-              numberOfLines={2}
-              className="text-subtitle text-muted-foreground"
-            >
-              {first.title}
-            </Text>
-          </View>
-        </View>
-        <View className="mt-3 flex-row gap-2.5">
-          <Button
-            className="flex-1"
-            size="lg"
-            disabled={isBusy}
-            onPress={() => onApprove(first.id)}
-            accessibilityLabel={t('today.ai.needs.approveLabel', {
-              title: first.title,
-            })}
-            accessibilityState={{ busy: isBusy, disabled: isBusy }}
-          >
-            <Text className="text-title">{t('today.ai.needs.approve')}</Text>
-          </Button>
-          <Button
-            className="flex-1"
-            size="lg"
-            variant="secondary"
-            disabled={isBusy}
-            onPress={() => setDeferred((ids) => [...ids, first.id])}
-            accessibilityLabel={t('today.ai.needs.notNowLabel', {
-              title: first.title,
-            })}
-          >
-            <Text style={{ color: depth.colors.tint }} className="text-title">
-              {t('today.ai.needs.notNow')}
-            </Text>
-          </Button>
-        </View>
-      </Surface>
-    </View>
+        <AttendanceMoreLink
+          count={attendance.length}
+          onPress={() => onOpenAttendance?.()}
+        />
+      </NeedsCard>
+    );
+  }
+  const approval = first.approval;
+  const isBusy = busyId === approval.id;
+  return (
+    <NeedsCard count={total} body={approval.title}>
+      <View className="flex-row gap-2.5">
+        <Button
+          className="flex-1"
+          size="lg"
+          disabled={isBusy}
+          onPress={() => onApprove(approval.id)}
+          accessibilityLabel={t('today.ai.needs.approveLabel', {
+            title: approval.title,
+          })}
+          accessibilityState={{ busy: isBusy, disabled: isBusy }}
+        >
+          <Text className="text-title">{t('today.ai.needs.approve')}</Text>
+        </Button>
+        <Button
+          className="flex-1"
+          size="lg"
+          variant="secondary"
+          disabled={isBusy}
+          onPress={() => setDeferred((ids) => [...ids, approval.id])}
+          accessibilityLabel={t('today.ai.needs.notNowLabel', {
+            title: approval.title,
+          })}
+        >
+          <Text style={{ color: depth.colors.tint }} className="text-title">
+            {t('today.ai.needs.notNow')}
+          </Text>
+        </Button>
+      </View>
+    </NeedsCard>
   );
 }

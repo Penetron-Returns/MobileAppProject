@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
+import { useAttendanceRealtime } from '@/features/attendance/hooks';
+import { useAttendanceNotifications } from '@/features/attendance/notifications';
 import { useAppointmentsRealtime } from '@/features/appointments/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
@@ -112,6 +114,7 @@ export default function AppLayout() {
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
   useAppointmentsRealtime(hasOrg);
+  useAttendanceRealtime(hasOrg);
   useVoiceScheduleSync(hasOrg);
 
   const route = resolveAppRoute({
@@ -133,6 +136,9 @@ export default function AppLayout() {
     joinDeclined,
     inOnboarding,
   });
+
+  // Taps on attendance pushes navigate, so wait until the tabs are on screen.
+  useAttendanceNotifications(route.kind === 'tabs');
 
   useHideSplashWhen(route.kind !== 'splash' && route.kind !== 'activate-org');
 

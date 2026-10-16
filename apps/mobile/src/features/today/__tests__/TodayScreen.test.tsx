@@ -16,6 +16,10 @@ jest.mock('lucide-react-native', () => {
 });
 jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn() }));
 
+jest.mock('@/features/attendance/hooks', () => ({
+  useAttendance: () => ({ checks: [], confirmation: null, answer: jest.fn() }),
+}));
+
 const mockCheckIn = jest.fn();
 jest.mock('@/features/appointments/hooks', () => ({
   useCheckInAppointment: () => ({ mutate: mockCheckIn, isPending: false }),
