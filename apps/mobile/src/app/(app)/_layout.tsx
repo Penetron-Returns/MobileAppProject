@@ -4,6 +4,7 @@ import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { ApprovalNotifications } from '@/features/approvals/ApprovalNotifications';
 import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
@@ -198,6 +199,7 @@ export default function AppLayout() {
 
   return (
     <CompanionSdkHost>
+      <ApprovalNotifications enabled />
       <Stack
         screenOptions={{
           headerShown: false,
