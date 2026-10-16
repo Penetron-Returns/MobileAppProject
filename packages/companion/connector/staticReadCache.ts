@@ -45,11 +45,16 @@ export function withStaticReadCache(repo: BookingRepository, options: Partial<Tt
   return { repo: wrapped, invalidate: (businessId) => cache.invalidate(businessId ? `${businessId}|` : undefined) };
 }
 
+export interface EntitlementCache extends EntitlementService {
+  invalidate(businessId?: string): void;
+}
+
 /** Caches `hasFeature` only (the per-call account gate); everything else reads through. */
-export function withEntitlementCache(entitlements: EntitlementService, options: Partial<TtlCacheOptions> = {}): EntitlementService {
+export function withEntitlementCache(entitlements: EntitlementService, options: Partial<TtlCacheOptions> = {}): EntitlementCache {
   const cache = createTtlCache<boolean>({ ttlMs: ENTITLEMENT_TTL_MS, maxEntries: MAX_ENTRIES, ...options });
   return {
     ...entitlements,
+    invalidate: (businessId) => cache.invalidate(businessId ? `${businessId}|` : undefined),
     hasFeature: (businessId, feature) => cache.get(`${businessId}|${feature}`, () => entitlements.hasFeature(businessId, feature)),
   };
 }

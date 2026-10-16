@@ -9,7 +9,7 @@ import { baseContext, errorHandler, requireCronSecret } from './middleware/commo
 import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';
 import { clerkWebhookRoutes } from './routes/clerk.ts';
 import { cronRoutes } from './routes/cron.ts';
-import { nerovaRoutes } from './routes/nerova.ts';
+import { invalidateConnectorCache, nerovaRoutes } from './routes/nerova.ts';
 import { nerovaWebhookRoutes } from './routes/nerovaWebhook.ts';
 import { publicRoutes } from './routes/public.ts';
 import { onboardingRoutes } from './routes/v1/onboarding.ts';
@@ -53,6 +53,12 @@ export function createApp(options: AppOptions = {}) {
   // Owner/staff API (Clerk JWT)
   // A `cvt_` device voice token is accepted on two routes only; everything else needs the Clerk session.
   app.use('/v1/*', allowDeviceToken(requireAuth(options.verifyToken)), idem);
+  // A successful owner write may change what the connector caches (catalogue, staff, hours, plan): drop it now.
+  app.use('/v1/*', async (c, next) => {
+    await next();
+    const businessId = c.get('auth')?.businessId;
+    if (businessId && c.req.method !== 'GET' && c.res.status < 400) invalidateConnectorCache(c.get('container'), businessId);
+  });
   app.route('/v1/whatsapp', v1WhatsAppRoutes);
   app.route('/v1', v1InboxRoutes);
   app.route('/v1', v1Routes);

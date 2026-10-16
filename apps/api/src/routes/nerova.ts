@@ -58,7 +58,12 @@ async function readTextCapped(request: Request, limit: number): Promise<string |
  * One connector service per container (per warm isolate), so its read-through caches survive across requests.
  * Tests build a fresh container each, so they never share cache state.
  */
-const services = new WeakMap<Container, NerovaConnectorService>();
+interface ConnectorRuntime {
+  service: NerovaConnectorService;
+  /** Drops this isolate's cached static reads and plan flags for one business */
+  invalidate(businessId: string): void;
+}
+const runtimes = new WeakMap<Container, ConnectorRuntime>();
 
 /** NEROVA_CONNECTOR_CACHE_TTL_MS: unset or invalid = 30 s, 0 = off. */
 function cacheTtlMs(raw: string | undefined): number {
@@ -66,12 +71,13 @@ function cacheTtlMs(raw: string | undefined): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : STATIC_READ_TTL_MS;
 }
 
-function connectorService(container: Container): NerovaConnectorService {
-  let service = services.get(container);
-  if (!service) {
+function connectorRuntime(container: Container): ConnectorRuntime {
+  let runtime = runtimes.get(container);
+  if (!runtime) {
     const ttl = cacheTtlMs(container.env.NEROVA_CONNECTOR_CACHE_TTL_MS);
     const reads = withStaticReadCache(getBookingRepository(container), { ttlMs: ttl });
-    service = createNerovaConnectorService({
+    const entitlements = withEntitlementCache(container.entitlements, { ttlMs: ttl * 2 });
+    const service = createNerovaConnectorService({
       booking: container.booking,
       // Reads of static data go through the cache; every write above still uses the live service.
       readBooking: createBookingServiceFromRepository({
@@ -79,14 +85,29 @@ function connectorService(container: Container): NerovaConnectorService {
         notifications: { appointmentChanged: async () => undefined },
         clock: container.clock,
       }),
-      entitlements: withEntitlementCache(container.entitlements, { ttlMs: ttl * 2 }),
+      entitlements,
       repo: reads.repo,
       clock: container.clock,
       confirmAppointmentsEnabled: isConfirmAppointmentsEnabled(container.env),
     });
-    services.set(container, service);
+    runtime = {
+      service,
+      invalidate: (businessId) => {
+        reads.invalidate(businessId);
+        entitlements.invalidate(businessId);
+      },
+    };
+    runtimes.set(container, runtime);
   }
-  return service;
+  return runtime;
+}
+
+/**
+ * Cache-bust hook for our own writes (settings, catalogue, staff, hours, plan). Only this isolate is cleared;
+ * other isolates catch up within the TTL. A no-op until the connector has served a request.
+ */
+export function invalidateConnectorCache(container: Container, businessId: string): void {
+  runtimes.get(container)?.invalidate(businessId);
 }
 
 /** JSON-RPC method of a parsed message, for timing logs only (never arguments). */
@@ -125,7 +146,7 @@ nerovaRoutes.all('/mcp', async (c) => {
   }
 
   const started = performance.now();
-  const { result: outcome, stats } = await withDbTiming(() => handleMcpMessage(message, connectorService(container)));
+  const { result: outcome, stats } = await withDbTiming(() => handleMcpMessage(message, connectorRuntime(container).service));
   const total = Math.round(performance.now() - started);
   logger.info('connector_timing', {
     tool: outcome.tool?.name ?? methodOf(message),
@@ -134,6 +155,8 @@ nerovaRoutes.all('/mcp', async (c) => {
     db_ms: Math.round(stats.ms),
     db_calls: stats.calls,
   });
-  if (outcome.status === 202) return new Response(null, { status: 202 });
+  // Server-Timing: visible to Nerova (and curl -i) so a slow call can be attributed to us or the network.
+  c.header('server-timing', `total;dur=${total}, db;dur=${Math.round(stats.ms)};desc="${stats.calls} queries"`);
+  if (outcome.status === 202) return new Response(null, { status: 202, headers: { 'server-timing': `total;dur=${total}` } });
   return c.json(outcome.body as object, outcome.status);
 });
