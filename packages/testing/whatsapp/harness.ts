@@ -79,6 +79,9 @@ export function harness(opts: { world?: World; account?: Partial<WaAccountRow> |
         pushes.push({ businessId, title: m.title, body: m.body });
         return 1;
       },
+      async toUsers() {
+        return 0;
+      },
     },
     now: () => new Date(clock.now),
     newId: () => uuidN(++idSeq, 'f'),

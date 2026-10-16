@@ -19,7 +19,8 @@ import type { BookingRepository } from './types.ts';
 
 type TableName = keyof Database['public']['Tables'];
 
-const BUSINESS_COLS = 'id, clerk_org_id, name, slug, timezone, currency, logo_url, address, phone, email, booking_rules';
+const BUSINESS_COLS =
+  'id, clerk_org_id, name, slug, timezone, currency, logo_url, address, phone, email, booking_rules, attendance_mode';
 const SERVICE_COLS =
   'id, business_id, name, description, category, duration_minutes, price_cents, deposit_cents, is_active, sort_order';
 const STAFF_COLS =

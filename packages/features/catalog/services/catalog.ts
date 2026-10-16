@@ -94,15 +94,32 @@ export async function getMe(
 
 // ---------- business ----------
 
-export async function updateBusiness(repo: BookingRepository, businessId: UUID, req: UpdateBusinessRequest): Promise<BusinessDTO> {
+export async function updateBusiness(
+  repo: BookingRepository,
+  businessId: UUID,
+  req: UpdateBusinessRequest,
+  /** Owner making the change; recorded in audit_log when the attendance mode changes */
+  actorId?: string,
+): Promise<BusinessDTO> {
   const current = await requireBusiness(repo, businessId);
   const patch = {
-    ...pick(req, ['name', 'slug', 'timezone', 'currency', 'logo_url', 'address', 'phone', 'email'] as const),
+    ...pick(req, ['name', 'slug', 'timezone', 'currency', 'logo_url', 'address', 'phone', 'email', 'attendance_mode'] as const),
     ...(req.booking_rules ? { booking_rules: { ...bookingRules(current), ...req.booking_rules } } : {}),
   };
   if (typeof patch.phone === 'string') patch.phone = normalizePhone(patch.phone);
   if (Object.keys(patch).length === 0) return toBusinessDTO(current);
-  return toBusinessDTO(await repo.updateBusiness(businessId, patch));
+  const updated = await repo.updateBusiness(businessId, patch);
+  if (actorId && patch.attendance_mode && patch.attendance_mode !== current.attendance_mode) {
+    await repo.recordAudit({
+      businessId,
+      actorId,
+      action: 'update',
+      entity: 'attendance_mode',
+      entityId: businessId,
+      diff: { attendance_mode: { old: current.attendance_mode, new: patch.attendance_mode } },
+    });
+  }
+  return toBusinessDTO(updated);
 }
 
 export async function replaceBusinessHours(

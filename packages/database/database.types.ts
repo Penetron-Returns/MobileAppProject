@@ -174,6 +174,111 @@ export type Database = {
           },
         ]
       }
+      attendance_checks: {
+        Row: {
+          answered_at: string | null
+          answered_by: string | null
+          appointment_id: string
+          audience: string
+          business_id: string
+          created_at: string
+          escalated_at: string | null
+          id: string
+          notified_at: string | null
+          outcome: string | null
+          recipient_user_id: string | null
+          status: string
+        }
+        Insert: {
+          answered_at?: string | null
+          answered_by?: string | null
+          appointment_id: string
+          audience: string
+          business_id: string
+          created_at?: string
+          escalated_at?: string | null
+          id?: string
+          notified_at?: string | null
+          outcome?: string | null
+          recipient_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          answered_at?: string | null
+          answered_by?: string | null
+          appointment_id?: string
+          audience?: string
+          business_id?: string
+          created_at?: string
+          escalated_at?: string | null
+          id?: string
+          notified_at?: string | null
+          outcome?: string | null
+          recipient_user_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_checks_appointment_fkey"
+            columns: ["business_id", "appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["business_id", "id"]
+          },
+          {
+            foreignKeyName: "attendance_checks_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_checks_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_pushes: {
+        Row: {
+          business_id: string
+          check_ids: string[]
+          id: string
+          kind: string
+          local_date: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          check_ids?: string[]
+          id?: string
+          kind: string
+          local_date: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          check_ids?: string[]
+          id?: string
+          kind?: string
+          local_date?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_pushes_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -489,6 +594,7 @@ export type Database = {
       businesses: {
         Row: {
           address: string | null
+          attendance_mode: string
           booking_rules: Json
           clerk_org_id: string
           created_at: string
@@ -507,6 +613,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          attendance_mode?: string
           booking_rules?: Json
           clerk_org_id: string
           created_at?: string
@@ -525,6 +632,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          attendance_mode?: string
           booking_rules?: Json
           clerk_org_id?: string
           created_at?: string
@@ -1441,6 +1549,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attendance_due_appointments: {
+        Args: {
+          p_ended_after: string
+          p_ended_before: string
+          p_limit: number
+        }
+        Returns: {
+          appointment_id: string
+          business_id: string
+          checked_in_at: string
+          client_name: string
+          ends_at: string
+          service_name: string
+          staff_user_id: string
+          starts_at: string
+        }[]
+      }
       business_features: {
         Args: {
           p_business_id?: string

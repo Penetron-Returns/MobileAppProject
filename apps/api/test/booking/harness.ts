@@ -1,4 +1,7 @@
 import { createApp } from '../../src/app.ts';
+import { createAttendanceServiceFromRepository } from '@booking/features/attendance/index.ts';
+import type { AttendancePushMessage, AttendanceService } from '@booking/features/attendance/ports.ts';
+import { createMemoryAttendanceRepository, type MemoryAttendance } from '@booking/testing/attendanceMemory.ts';
 import { createBookingServiceFromRepository } from '@booking/features/bookings/services/bookingService.ts';
 import type { Env } from '../../src/env.ts';
 import type { Db } from '@booking/features/lib/db.ts';
@@ -42,6 +45,11 @@ export interface RequestOptions {
 export interface Harness extends Seed {
   app: ReturnType<typeof createApp>;
   events: AppointmentChangedEvent[];
+  /** In-memory attendance checks and push log (see packages/testing/attendanceMemory.ts) */
+  attendanceRepo: MemoryAttendance;
+  attendance: AttendanceService;
+  /** Attendance pushes the fake Expo sender received; a user without a device in `device_push_tokens` gets none */
+  attendancePushes: { businessId: string; userId: string; message: AttendancePushMessage }[];
   clerk: FakeClerkAdmin;
   call(method: string, path: string, opts?: RequestOptions): Promise<{ status: number; body: any; headers: Headers }>;
 }
@@ -58,9 +66,27 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
     logger: silentLogger,
     clock: () => NOW,
   });
+  const attendanceRepo = createMemoryAttendanceRepository(s.repo.tables, () => NOW);
+  const attendancePushes: Harness['attendancePushes'] = [];
+  let attendanceIds = 0;
+  const attendance = createAttendanceServiceFromRepository({
+    repo: attendanceRepo,
+    booking,
+    clock: () => NOW,
+    logger: silentLogger,
+    newId: () => `00000000-0000-4000-9000-${String(++attendanceIds).padStart(12, '0')}`,
+    push: {
+      async toUsers(businessId, userIds, message) {
+        const devices = await attendanceRepo.listDeviceTokens(businessId, userIds);
+        for (const d of devices) attendancePushes.push({ businessId, userId: d.userId, message });
+        return devices.length;
+      },
+    },
+  });
   const container: BookingContainer = {
     ...testContainer({
       booking,
+      attendance,
       db: authDb(s.business.id),
       clerkAdmin: clerk,
       env: { ...TEST_ENV, ...opts.env },
@@ -95,5 +121,5 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
     return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
   }
 
-  return { ...s, app, events, clerk, call };
+  return { ...s, app, events, attendance, attendanceRepo, attendancePushes, clerk, call };
 }

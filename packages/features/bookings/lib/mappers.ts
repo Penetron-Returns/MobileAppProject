@@ -40,6 +40,7 @@ export function toBusinessDTO(row: BusinessRow): BusinessDTO {
     phone: row.phone,
     email: row.email,
     booking_rules: bookingRules(row),
+    attendance_mode: row.attendance_mode,
   };
 }
 

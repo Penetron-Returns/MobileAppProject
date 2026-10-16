@@ -1,3 +1,4 @@
+import { createAttendanceServiceFromRepository, createSupabaseAttendanceRepository } from '@booking/features/attendance/index.ts';
 import { createBookingService } from '@booking/features/bookings/index.ts';
 import { getEnv, type Env } from './env.ts';
 import { createClerkAdmin } from '@booking/features/team/lib/clerkAdmin.ts';
@@ -12,8 +13,9 @@ import { createNerovaClientFromEnv } from '@booking/companion/nerova/httpClient.
 import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
+import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
 import { createEntitlementService } from '@booking/features/plans/services/entitlements.ts';
-import type { AccountEventsPort, BookingService, ClerkAdmin, EntitlementService, NotificationService, UsageService } from '@booking/features/ports.ts';
+import type { AccountEventsPort, AttendanceService, BookingService, ClerkAdmin, EntitlementService, NotificationService, UsageService } from '@booking/features/ports.ts';
 
 /**
  * Composition root. Built once per warm function instance.
@@ -23,6 +25,8 @@ export interface Container {
   env: Env;
   db: Db;
   booking: BookingService;
+  /** Attendance check: pending questions, answers and the cron job */
+  attendance: AttendanceService;
   notifications: NotificationService;
   entitlements: EntitlementService;
   nerovaEvents: AccountEventsPort;
@@ -46,6 +50,17 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     appointmentEvents: appointmentEventsFromEnv(env, entitlements),
     defer: (task) => runInBackground(task, bookingLogger, 'appointment_notification_deferred_failed'),
   });
+  const attendanceRepo = createSupabaseAttendanceRepository(db);
+  const attendance = createAttendanceServiceFromRepository({
+    repo: attendanceRepo,
+    booking,
+    clock: () => new Date(),
+    push: createPushSender({
+      listUserTokens: async (businessId, userIds) => (await attendanceRepo.listDeviceTokens(businessId, userIds)).map((d) => d.token),
+      accessToken: env.EXPO_ACCESS_TOKEN,
+      logger: createLogger({ module: 'attendance_push' }),
+    }),
+  });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
   const clock = () => new Date();
   const planRepo = createPlanRepository({ db });
@@ -57,7 +72,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     clock,
   });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
-  return { env, db, booking, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, clock };
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, clock };
 }
 
 let cached: Container | undefined;

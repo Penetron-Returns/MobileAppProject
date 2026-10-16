@@ -108,6 +108,9 @@ export interface BookingRules {
   allow_staff_selection: boolean;
 }
 
+/** Who answers "did the client come?": each staff member for their own appointments, or the owner for everyone. */
+export type AttendanceMode = 'staff' | 'owner';
+
 export interface BusinessDTO {
   id: UUID;
   name: string;
@@ -119,6 +122,7 @@ export interface BusinessDTO {
   phone: string | null;
   email: string | null;
   booking_rules: BookingRules;
+  attendance_mode: AttendanceMode;
 }
 
 export interface UpdateBusinessRequest {
@@ -131,6 +135,8 @@ export interface UpdateBusinessRequest {
   phone?: string | null;
   email?: string | null;
   booking_rules?: Partial<BookingRules>;
+  /** Owner only; audited */
+  attendance_mode?: AttendanceMode;
 }
 
 export interface BusinessHoursRow {
@@ -526,6 +532,53 @@ export interface SetAppointmentStatusRequest {
 export interface UpdateAppointmentRequest {
   notes: string | null;
 }
+
+// ---------- attendance check ----------
+/** What the answerer reports. The server never sets no_show on its own. */
+export type AttendanceOutcome = 'came' | 'no_show';
+export type AttendanceStatus = 'pending' | 'answered';
+
+/**
+ * One "did the client make it?" question. Pending questions never expire.
+ * `outcome` is resolved_elsewhere when the appointment left `confirmed` by another route before an answer.
+ */
+export interface AttendanceCheckDTO {
+  id: UUID;
+  appointment_id: UUID;
+  status: AttendanceStatus;
+  outcome: AttendanceOutcome | 'resolved_elsewhere' | null;
+  /** 'staff' = addressed to the appointment's staff member, 'owner' = to the owner(s) */
+  audience: 'staff' | 'owner';
+  /** True once the question was also sent to the owner(s) (60 min without an answer, or nobody reachable) */
+  escalated: boolean;
+  created_at: ISODateTime;
+  answered_at: ISODateTime | null;
+  /** Appointment details for the list row (client first name only) */
+  client_first_name: string;
+  service_name: string;
+  starts_at: ISODateTime;
+  ends_at: ISODateTime;
+}
+
+/** POST /v1/attendance/:checkId/answer (member: the recipient or an owner; Idempotency-Key required) */
+export interface AnswerAttendanceRequest {
+  outcome: AttendanceOutcome;
+}
+
+/** GET /v1/attendance/pending (member): the caller's open questions, oldest first */
+export interface AttendancePendingResponse {
+  count: number;
+  checks: AttendanceCheckDTO[];
+}
+
+/**
+ * Expo push `data` for the attendance check (all values are strings). Notification category
+ * `attendance_check` carries the [She came] [No-show] actions.
+ */
+export type AttendancePushData =
+  | { type: 'attendance_check'; checkId: UUID; appointmentId: UUID }
+  | { type: 'attendance_batch'; count: string }
+  | { type: 'attendance_summary'; count: string };
 
 // ---------- dashboard (RPC dashboard_summary) ----------
 export interface DashboardSummary {

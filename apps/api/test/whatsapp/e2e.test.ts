@@ -50,6 +50,7 @@ function salon(clock: { now: Date }): Salon {
     phone: null,
     email: null,
     booking_rules: { ...DEFAULT_BOOKING_RULES, slot_interval_minutes: 30 },
+    attendance_mode: 'staff',
   });
   for (const weekday of [1, 2, 3, 4, 5]) booking.tables.business_hours.push({ business_id: BIZ, weekday, opens_at: '09:00:00', closes_at: '17:00:00' });
   const cut: ServiceRow = {
