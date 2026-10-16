@@ -5,9 +5,11 @@
  * Rules (docs/BUILD_PLAN.md "Attendance check"):
  *  - 10 min after an appointment ends, a still-`confirmed` one gets ONE question, or is silently
  *    completed when it was checked in. Nothing here ever produces `no_show`.
+ *  - questions are only created for appointments that ended within CREATE_WINDOW_MINUTES (90).
  *  - staff mode asks the staff member's linked user; owner mode asks the owner(s). Staff questions
- *    are escalated once to the owner(s) when nobody reachable is linked, or 60 min after the
- *    first push without an answer.
+ *    are escalated once to the owner(s) when no reachable staff user is linked, or 60 min after
+ *    `notified_at` (never `created_at`) without an answer. Escalation needs a reachable owner: with
+ *    no devices nothing is sent, so the question stays pending and is not marked escalated.
  *  - at most one push per recipient every 30 min; several open questions become one grouped push.
  *  - pushes only between opening and closing + 1 h (business-local, that day's hours; no hours
  *    row = no restriction). One end-of-day summary at closing + 30 min.
@@ -18,6 +20,13 @@ import type { AttendanceMode } from '@booking/types';
 import { dateInZone, parseTimeOfDay, wallClockToEpoch, weekdayOf } from '../../lib/time.ts';
 
 export const ASK_DELAY_MINUTES = 10;
+/**
+ * A question is only created while the appointment ended at most this long ago. Older ones are
+ * never backfilled (e.g. after a deploy or an outage): asking "did X make it?" hours later is
+ * noise, and they belong in the end-of-day summary / the app's "Needs you" list instead.
+ */
+export const CREATE_WINDOW_MINUTES = 90;
+/** Staff questions escalate to the owner this long after the FIRST SUCCESSFUL push (`notified_at`). */
 export const ESCALATE_AFTER_MINUTES = 60;
 export const PUSH_GAP_MINUTES = 30;
 export const SUMMARY_AFTER_CLOSE_MINUTES = 30;
@@ -50,6 +59,8 @@ export interface OpenCheck {
   appointmentId: string;
   audience: 'staff' | 'owner';
   recipientUserId: string | null;
+  /** When the first push for this question was delivered; null while nobody has been told */
+  notifiedAt: string | null;
   escalatedAt: string | null;
   startsAt: string;
   clientFirstName: string | null;
@@ -149,7 +160,9 @@ function planDue(input: PlanInput, actions: PlannedAction[]): OpenCheck[] {
   const ordered = [...input.due].sort((a, b) => a.endsAt.localeCompare(b.endsAt) || a.appointmentId.localeCompare(b.appointmentId));
   for (const d of ordered) {
     if (asked.has(d.appointmentId)) continue;
-    if (Date.parse(d.endsAt) + ASK_DELAY_MINUTES * MINUTE > now) continue;
+    const endedAt = Date.parse(d.endsAt);
+    if (endedAt + ASK_DELAY_MINUTES * MINUTE > now) continue;
+    if (endedAt + CREATE_WINDOW_MINUTES * MINUTE < now) continue; // too late to ask; never backfill
     if (d.checkedInAt) {
       actions.push({ type: 'complete', appointmentId: d.appointmentId });
       continue;
@@ -160,6 +173,7 @@ function planDue(input: PlanInput, actions: PlannedAction[]): OpenCheck[] {
       appointmentId: d.appointmentId,
       audience,
       recipientUserId: audience === 'staff' ? d.staffUserId : null,
+      notifiedAt: null,
       escalatedAt: null,
       startsAt: d.startsAt,
       clientFirstName: d.clientFirstName,
@@ -171,16 +185,12 @@ function planDue(input: PlanInput, actions: PlannedAction[]): OpenCheck[] {
   return created;
 }
 
-function firstPushAt(input: PlanInput, userId: string, checkId: string): number | null {
-  const times = input.pushes.filter((p) => p.userId === userId && p.checkIds.includes(checkId)).map((p) => Date.parse(p.sentAt));
-  return times.length ? Math.min(...times) : null;
-}
-
 function shouldEscalate(input: PlanInput, c: OpenCheck): boolean {
   if (c.audience !== 'staff' || c.escalatedAt) return false;
+  // Escalating to owners nobody can reach would only mark the question escalated without telling anyone.
+  if (!input.business.ownerIds.some((o) => input.reachable.has(o))) return false;
   if (!c.recipientUserId || !input.reachable.has(c.recipientUserId)) return true;
-  const first = firstPushAt(input, c.recipientUserId, c.id);
-  return first !== null && input.now.getTime() - first >= ESCALATE_AFTER_MINUTES * MINUTE;
+  return c.notifiedAt !== null && input.now.getTime() - Date.parse(c.notifiedAt) >= ESCALATE_AFTER_MINUTES * MINUTE;
 }
 
 function resolveRecipients(input: PlanInput, checks: OpenCheck[], actions: PlannedAction[]): Working[] {

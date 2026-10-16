@@ -2,6 +2,11 @@
 import type { UUID } from '@booking/types';
 import type { BookingRepository } from '../../repositories/types.ts';
 
+/** Sign-out: stops pushes to this phone. Only the user's own token is removed. */
+export async function unregisterDevice(repo: BookingRepository, businessId: UUID, userId: string, token: string): Promise<void> {
+  await repo.deleteDeviceToken(businessId, userId, token);
+}
+
 export async function registerDevice(
   repo: BookingRepository,
   businessId: UUID,
