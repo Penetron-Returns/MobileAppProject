@@ -17,7 +17,11 @@
         "monochromeImage": "./src/assets/images/adaptive-icon-monochrome.png",
         "backgroundColor": "#d4e9f4"
       },
-      "package": "si.nerova.booking.dev"
+      "package": "si.nerova.booking.dev",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",

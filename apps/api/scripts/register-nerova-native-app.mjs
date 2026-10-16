@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-time: registers the native admin app with Nerova so `platform: "native"` widget sessions and the WhatsApp
+ * One-time: registers the native admin app (development, preview and production ids) with Nerova so `platform: "native"` widget sessions and the WhatsApp
  * `returnUrl` are accepted. NEVER runs automatically; run it by hand once Nerova PR #946 is live:
  *
  *   NEROVA_API_KEY=... node apps/api/scripts/register-nerova-native-app.mjs [--dry-run]
@@ -14,13 +14,19 @@
  * It fails loudly, without a PUT, when GET returns no origins.
  */
 const BASE_URL = (process.env.NEROVA_API_BASE_URL || 'https://api.nerova.si').replace(/\/+$/, '');
-const APP = { appId: process.env.NEROVA_APP_ID || 'si.nerova.booking.dev', returnUrlSchemes: ['bookingadmin'] };
+/** One entry per build variant (apps/mobile/app.config.ts): the appId is the Android application id, the scheme its deep-link scheme. */
+const APPS = [
+  { appId: 'si.nerova.booking.dev', returnUrlSchemes: ['bookingadmin'] },
+  { appId: 'app.getclovie.preview', returnUrlSchemes: ['clovie-preview'] },
+  { appId: 'app.getclovie', returnUrlSchemes: ['clovie'] },
+];
 
-/** The PUT body: current origins kept as-is, our app added (or replaced by appId), other native apps kept. */
+/** The PUT body: current origins kept as-is, our apps added (or replaced by appId), other native apps kept. */
 export function buildBody(current) {
   const origins = Array.isArray(current?.origins) ? current.origins : [];
-  const others = (Array.isArray(current?.nativeApps) ? current.nativeApps : []).filter((a) => a?.appId !== APP.appId);
-  return { origins, nativeApps: [...others, APP] };
+  const ours = new Set(APPS.map((a) => a.appId));
+  const others = (Array.isArray(current?.nativeApps) ? current.nativeApps : []).filter((a) => !ours.has(a?.appId));
+  return { origins, nativeApps: [...others, ...APPS] };
 }
 
 async function call(method, body) {

@@ -90,6 +90,11 @@ function mapClerkError(status: number, body: ClerkErrorBody | null, kind: 'invit
   return new AppError('INTERNAL', 'Team service unavailable', { upstream: 'clerk', status });
 }
 
+function ignoreNotFound(err: unknown): void {
+  if (err instanceof AppError && err.code === 'NOT_FOUND') return;
+  throw err;
+}
+
 export function createClerkAdmin(opts: ClerkAdminOptions): ClerkAdmin {
   const doFetch = opts.fetch ?? fetch;
   const base = opts.baseUrl ?? 'https://api.clerk.com/v1';
@@ -178,6 +183,13 @@ export function createClerkAdmin(opts: ClerkAdminOptions): ClerkAdmin {
     },
     async removeMember(orgId, userId) {
       await call('DELETE', `${org(orgId)}/memberships/${encodeURIComponent(userId)}`);
+    },
+    // Deletes are idempotent: Clerk answering 404 means an earlier attempt already did it.
+    async deleteUser(userId) {
+      await call('DELETE', `/users/${encodeURIComponent(userId)}`).catch(ignoreNotFound);
+    },
+    async deleteOrganization(orgId) {
+      await call('DELETE', org(orgId)).catch(ignoreNotFound);
     },
   };
 }

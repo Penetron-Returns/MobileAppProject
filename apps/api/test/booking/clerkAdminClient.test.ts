@@ -130,3 +130,21 @@ describe('createClerkAdmin', () => {
     expect(f.calls).toHaveLength(0);
   });
 });
+
+describe('createClerkAdmin account deletion', () => {
+  it('deletes a user and an organisation with DELETE, never retrying', async () => {
+    const f = fakeFetch([{ body: { deleted: true } }]);
+    await client(f).deleteUser('user_1');
+    await client(f).deleteOrganization('org_1');
+    expect(f.calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      'DELETE https://clerk.test/v1/users/user_1',
+      'DELETE https://clerk.test/v1/organizations/org_1',
+    ]);
+  });
+
+  it('treats a 404 as already deleted but surfaces other failures', async () => {
+    await expect(client(fakeFetch([{ status: 404 }])).deleteUser('user_1')).resolves.toBeUndefined();
+    await expect(client(fakeFetch([{ status: 404 }])).deleteOrganization('org_1')).resolves.toBeUndefined();
+    await expect(client(fakeFetch([{ status: 500 }])).deleteUser('user_1')).rejects.toMatchObject({ code: 'INTERNAL' });
+  });
+});

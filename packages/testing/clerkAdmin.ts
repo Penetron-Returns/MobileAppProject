@@ -5,6 +5,9 @@ export interface FakeClerkAdmin extends ClerkAdmin {
   members: Map<string, ClerkOrgMember[]>;
   invitations: Map<string, ClerkOrgInvitation[]>;
   calls: string[];
+  /** Logins removed with deleteUser, organisations with deleteOrganization */
+  deletedUsers: string[];
+  deletedOrganizations: string[];
   /** Makes every call fail, like a Clerk outage */
   failWith: AppError | null;
   addMember(orgId: string, member: Partial<ClerkOrgMember> & { userId: string }): void;
@@ -18,6 +21,8 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
   const invitations = new Map<string, ClerkOrgInvitation[]>();
   let seq = 0;
   const calls: string[] = [];
+  const deletedUsers: string[] = [];
+  const deletedOrganizations: string[] = [];
   const state = { failWith: null as AppError | null };
 
   const guard = (name: string) => {
@@ -32,6 +37,8 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
     members,
     invitations,
     calls,
+    deletedUsers,
+    deletedOrganizations,
     get failWith() {
       return state.failWith;
     },
@@ -103,6 +110,17 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
       guard('removeMember');
       if (!membersOf(orgId).some((m) => m.userId === userId)) throw new AppError('NOT_FOUND', 'Not found');
       members.set(orgId, membersOf(orgId).filter((m) => m.userId !== userId));
+    },
+    async deleteUser(userId) {
+      guard('deleteUser');
+      for (const [orgId, list] of members) members.set(orgId, list.filter((m) => m.userId !== userId));
+      if (!deletedUsers.includes(userId)) deletedUsers.push(userId);
+    },
+    async deleteOrganization(orgId) {
+      guard('deleteOrganization');
+      members.delete(orgId);
+      invitations.delete(orgId);
+      if (!deletedOrganizations.includes(orgId)) deletedOrganizations.push(orgId);
     },
   };
   return fake;
