@@ -26,6 +26,14 @@ const LABELS = {
   error: 'Didn’t catch that',
 };
 
+// Error reasons the service sends through setMessage; the page owns their text.
+const REASONS = {
+  speech_unavailable: {
+    label: 'Speech isn’t set up on this phone',
+    line: 'Install English in the phone’s speech settings',
+  },
+};
+
 let state = 'idle';
 let transcript = '';
 let message = '';
@@ -49,7 +57,7 @@ function render() {
   }
   $('label').textContent = label;
   $('line').textContent = line;
-  $('msg').textContent = message;
+  $('msg').textContent = REASONS[message] ? '' : message;
   actionButton.classList.toggle('on', Boolean(actionLabel));
   setClovieState(state === 'processing' ? 'working' : 'default');
 }

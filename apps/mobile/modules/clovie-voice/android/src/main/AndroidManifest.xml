@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+  <!-- Lets the voice service find Google's speech recogniser to try it explicitly. -->
+  <queries>
+    <intent>
+      <action android:name="android.speech.RecognitionService" />
+    </intent>
+  </queries>
+
   <application>
     <!-- One-tap "Talk to Clovie": every entry point (tile, widget, shortcut, launcher icon, side key,
          the "ready" notification) lands here. It starts the voice service while an activity is on

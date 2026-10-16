@@ -72,7 +72,7 @@ class VoiceService : Service() {
     notifications = VoiceNotifications(this, config)
     overlay = VoiceOverlay(this, ::onOverlayAction)
     feedback = VoiceFeedback(this)
-    speech = SpeechCapture(this) { overlay.pushRms(it) }
+    speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { overlay.pushRms(it) }
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -227,7 +227,7 @@ class VoiceService : Service() {
     VoiceTimings.sttFinished()
     val text = result.text
     if (text == null) {
-      showOutcome(CommandOutcome("error", NOT_HEARD))
+      showOutcome(CommandOutcome("error", if (result.reason == "language") SPEECH_UNAVAILABLE else NOT_HEARD))
       return
     }
     lastTranscript = text
@@ -285,7 +285,7 @@ class VoiceService : Service() {
       return
     }
     if (isFinished) {
-      notifications.result("Clovie", outcome.message, null)
+      notifications.result("Clovie", if (outcome.message == SPEECH_UNAVAILABLE) SPEECH_UNAVAILABLE_TEXT else outcome.message, null)
     } else {
       notifications.result("Clovie heard you", lastTranscript, lastTranscript)
     }
@@ -420,6 +420,10 @@ class VoiceService : Service() {
     private const val OPEN_MS = 10_000L
     private const val PAUSE_MS = 60L * 60L * 1000L
     private const val NOT_HEARD = "Didn't catch that"
+
+    /** Sent to the overlay page as the error message; it maps it to text. Notifications use the plain text below. */
+    private const val SPEECH_UNAVAILABLE = "speech_unavailable"
+    private const val SPEECH_UNAVAILABLE_TEXT = "Speech isn't set up on this phone. Install English in the phone's speech settings."
     private const val OPEN_LABEL = "Open Clovie"
 
     /** True while the service is alive in this process; the receivers use it to pick how to re-arm. */

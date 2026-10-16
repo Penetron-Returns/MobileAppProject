@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SttPolicyTest {
-  private val first = SttAttempt(localeIndex = 0, useOnDevice = true)
+  private val first = SttAttempt(SttStep.ON_DEVICE)
 
   @Test
   fun namesEveryRecogniserErrorCode() {
@@ -17,56 +17,88 @@ class SttPolicyTest {
   }
 
   @Test
-  fun missingFirstLanguageFallsBackToTheNextOne() {
-    val next = SttPolicy.next(SttErrors.LANGUAGE_UNAVAILABLE, 100, first, 2) as SttNext.Retry
-    assertEquals(1, next.attempt.localeIndex)
-    assertTrue(next.attempt.useOnDevice)
-    assertEquals(0L, next.delayMs)
+  fun triesOnDeviceThenDefaultThenNoLocaleThenGoogle() {
+    assertEquals(
+      listOf(SttStep.ON_DEVICE, SttStep.DEFAULT_LOCALE, SttStep.DEFAULT_NO_LOCALE, SttStep.GOOGLE_NO_LOCALE),
+      SttPolicy.ORDER,
+    )
+    assertTrue(SttStep.ON_DEVICE.useOnDevice)
+    assertTrue(SttStep.DEFAULT_LOCALE.hasLocale)
+    assertEquals(false, SttStep.DEFAULT_NO_LOCALE.hasLocale)
+    assertTrue(SttStep.GOOGLE_NO_LOCALE.isGoogle)
   }
 
   @Test
-  fun missingLastLanguageOnDeviceFallsBackToTheDefaultRecogniser() {
-    val last = SttAttempt(1, true, 2)
-    val next = SttPolicy.next(SttErrors.LANGUAGE_NOT_SUPPORTED, 100, last, 2) as SttNext.Retry
-    assertEquals(0, next.attempt.localeIndex)
-    assertEquals(false, next.attempt.useOnDevice)
+  fun languageErrorsWalkTheStepsInOrder() {
+    for (code in listOf(SttErrors.LANGUAGE_NOT_SUPPORTED, SttErrors.LANGUAGE_UNAVAILABLE)) {
+      var attempt = first
+      val seen = mutableListOf(attempt.step)
+      while (true) {
+        val next = SttPolicy.next(code, 100, attempt) as? SttNext.Retry ?: break
+        assertEquals(0L, next.delayMs)
+        attempt = next.attempt
+        seen.add(attempt.step)
+      }
+      assertEquals(SttPolicy.ORDER, seen)
+      assertEquals(SttNext.GiveUp("language"), SttPolicy.next(code, 100, attempt))
+    }
   }
 
   @Test
-  fun missingLastLanguageOnTheDefaultRecogniserGivesUp() {
-    val last = SttAttempt(1, false, 3)
-    assertEquals(SttNext.GiveUp("error"), SttPolicy.next(SttErrors.LANGUAGE_UNAVAILABLE, 100, last, 2))
+  fun skippingAStepMovesOnWithoutAnError() {
+    val next = SttPolicy.skip(first) as SttNext.Retry
+    assertEquals(SttStep.DEFAULT_LOCALE, next.attempt.step)
+    assertEquals(2, next.attempt.number)
+    assertEquals(SttNext.GiveUp("language"), SttPolicy.skip(SttAttempt(SttStep.GOOGLE_NO_LOCALE, 4)))
   }
 
   @Test
-  fun busyRecogniserRetriesOnTheDefaultRecogniserAfterADelay() {
-    val next = SttPolicy.next(SttErrors.RECOGNIZER_BUSY, 150, first, 2) as SttNext.Retry
-    assertEquals(false, next.attempt.useOnDevice)
+  fun busyRecogniserLeavesOnDeviceAfterADelay() {
+    val next = SttPolicy.next(SttErrors.RECOGNIZER_BUSY, 150, first) as SttNext.Retry
+    assertEquals(SttStep.DEFAULT_LOCALE, next.attempt.step)
     assertEquals(SttPolicy.RETRY_DELAY_MS, next.delayMs)
     assertEquals(2, next.attempt.number)
   }
 
   @Test
+  fun busyRecogniserOnTheDefaultOneRetriesTheSameStep() {
+    val next = SttPolicy.next(SttErrors.RECOGNIZER_BUSY, 150, SttAttempt(SttStep.DEFAULT_NO_LOCALE, 3)) as SttNext.Retry
+    assertEquals(SttStep.DEFAULT_NO_LOCALE, next.attempt.step)
+  }
+
+  @Test
   fun aFastNoMatchIsRetriedOnceBecauseTheMicrophoneWasLikelyStarved() {
-    assertTrue(SttPolicy.next(SttErrors.NO_MATCH, 154, first, 2) is SttNext.Retry)
-    val second = first.copy(number = 2)
-    assertEquals(SttNext.GiveUp("no_speech"), SttPolicy.next(SttErrors.NO_MATCH, 154, second, 2))
+    assertTrue(SttPolicy.next(SttErrors.NO_MATCH, 154, first) is SttNext.Retry)
+    assertEquals(SttNext.GiveUp("no_speech"), SttPolicy.next(SttErrors.NO_MATCH, 154, first.copy(number = 2)))
   }
 
   @Test
   fun aSlowNoMatchIsGenuineSilence() {
-    assertEquals(SttNext.GiveUp("no_speech"), SttPolicy.next(SttErrors.SPEECH_TIMEOUT, 5_000, first, 2))
+    assertEquals(SttNext.GiveUp("no_speech"), SttPolicy.next(SttErrors.SPEECH_TIMEOUT, 5_000, first))
   }
 
   @Test
   fun missingPermissionNeverRetries() {
-    assertEquals(SttNext.GiveUp("permission"), SttPolicy.next(SttErrors.INSUFFICIENT_PERMISSIONS, 10, first, 2))
+    assertEquals(SttNext.GiveUp("permission"), SttPolicy.next(SttErrors.INSUFFICIENT_PERMISSIONS, 10, first))
   }
 
   @Test
   fun givesUpAfterTheAttemptCap() {
-    val capped = first.copy(number = SttPolicy.MAX_ATTEMPTS)
-    assertEquals(SttNext.GiveUp("error"), SttPolicy.next(SttErrors.AUDIO, 10, capped, 2))
+    assertEquals(5, SttPolicy.MAX_ATTEMPTS)
+    val capped = SttAttempt(SttStep.DEFAULT_NO_LOCALE, SttPolicy.MAX_ATTEMPTS)
+    assertEquals(SttNext.GiveUp("error"), SttPolicy.next(SttErrors.AUDIO, 10, capped))
+    assertEquals(SttNext.GiveUp("language"), SttPolicy.next(SttErrors.LANGUAGE_UNAVAILABLE, 10, capped))
+  }
+
+  @Test
+  fun choosesTheBestEnglishFromWhatThePhoneReports() {
+    assertEquals("en-ZA", SttLanguages.choose(listOf("en-US", "en-ZA", "fr-FR")))
+    assertEquals("en-GB", SttLanguages.choose(listOf("en-US", "en_GB")))
+    assertEquals("en-US", SttLanguages.choose(listOf("de-DE", "en-US")))
+    assertEquals("en-AU", SttLanguages.choose(listOf("de-DE", "en-AU")))
+    assertEquals("en-GB", SttLanguages.choose(listOf("en_GB")))
+    assertNull(SttLanguages.choose(listOf("de-DE", "fr-FR")))
+    assertNull(SttLanguages.choose(emptyList()))
   }
 }
 
