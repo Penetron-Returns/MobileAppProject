@@ -9,10 +9,13 @@ import { Buffer } from 'node:buffer';
 
 import { Hono } from 'hono';
 
-import { getBookingRepository } from '@booking/features/bookings/index.ts';
+import { createBookingServiceFromRepository, getBookingRepository } from '@booking/features/bookings/index.ts';
 import { extractBearer, isValidConnectorToken } from '@booking/companion/connector/auth.ts';
 import { handleMcpMessage } from '@booking/companion/connector/mcp.ts';
-import { createNerovaConnectorService } from '@booking/companion/connector/service.ts';
+import { createNerovaConnectorService, type NerovaConnectorService } from '@booking/companion/connector/service.ts';
+import { STATIC_READ_TTL_MS, withEntitlementCache, withStaticReadCache } from '@booking/companion/connector/staticReadCache.ts';
+import type { Container } from '../container.ts';
+import { withDbTiming } from '../lib/dbTiming.ts';
 import type { AppEnv } from '../types.ts';
 
 const MAX_BODY_BYTES = 256 * 1024;
@@ -50,6 +53,46 @@ async function readTextCapped(request: Request, limit: number): Promise<string |
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
+/**
+ * One connector service per container (per warm isolate), so its read-through caches survive across requests.
+ * Tests build a fresh container each, so they never share cache state.
+ */
+const services = new WeakMap<Container, NerovaConnectorService>();
+
+/** NEROVA_CONNECTOR_CACHE_TTL_MS: unset or invalid = 30 s, 0 = off. */
+function cacheTtlMs(raw: string | undefined): number {
+  const parsed = raw === undefined || raw === '' ? NaN : Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : STATIC_READ_TTL_MS;
+}
+
+function connectorService(container: Container): NerovaConnectorService {
+  let service = services.get(container);
+  if (!service) {
+    const ttl = cacheTtlMs(container.env.NEROVA_CONNECTOR_CACHE_TTL_MS);
+    const reads = withStaticReadCache(getBookingRepository(container), { ttlMs: ttl });
+    service = createNerovaConnectorService({
+      booking: container.booking,
+      // Reads of static data go through the cache; every write above still uses the live service.
+      readBooking: createBookingServiceFromRepository({
+        repository: reads.repo,
+        notifications: { appointmentChanged: async () => undefined },
+        clock: container.clock,
+      }),
+      entitlements: withEntitlementCache(container.entitlements, { ttlMs: ttl * 2 }),
+      repo: reads.repo,
+      clock: container.clock,
+    });
+    services.set(container, service);
+  }
+  return service;
+}
+
+/** JSON-RPC method of a parsed message, for timing logs only (never arguments). */
+const methodOf = (message: unknown): string =>
+  message && typeof message === 'object' && typeof (message as { method?: unknown }).method === 'string'
+    ? (message as { method: string }).method
+    : 'invalid';
+
 export const nerovaRoutes = new Hono<AppEnv>();
 
 nerovaRoutes.all('/mcp', async (c) => {
@@ -79,17 +122,16 @@ nerovaRoutes.all('/mcp', async (c) => {
     return rpcFailure(400, -32700, 'Parse error');
   }
 
-  const service = createNerovaConnectorService({
-    booking: container.booking,
-    entitlements: container.entitlements,
-    repo: getBookingRepository(container),
-    clock: container.clock,
+  const started = performance.now();
+  const { result: outcome, stats } = await withDbTiming(() => handleMcpMessage(message, connectorService(container)));
+  const total = Math.round(performance.now() - started);
+  logger.info('connector_timing', {
+    tool: outcome.tool?.name ?? methodOf(message),
+    result: outcome.tool?.code ?? 'ok',
+    total_ms: total,
+    db_ms: Math.round(stats.ms),
+    db_calls: stats.calls,
   });
-  const started = Date.now();
-  const outcome = await handleMcpMessage(message, service);
-  if (outcome.tool) {
-    logger.info('nerova_tool_call', { tool: outcome.tool.name, result: outcome.tool.code, duration_ms: Date.now() - started });
-  }
   if (outcome.status === 202) return new Response(null, { status: 202 });
   return c.json(outcome.body as object, outcome.status);
 });

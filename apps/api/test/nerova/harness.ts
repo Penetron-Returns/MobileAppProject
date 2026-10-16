@@ -4,6 +4,7 @@ import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { notFound } from '@booking/features/lib/errors.ts';
 import type { Env } from '../../src/env.ts';
 import type { AccountEventsPort, AppointmentChangedEvent, BookingService, EntitlementService } from '@booking/features/ports.ts';
+import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import type { FeatureKey, PlanKey } from '@booking/types';
 import { silentLogger } from '../booking/harness.ts';
 import { NOW, seed, type Seed } from '../booking/fixtures.ts';
@@ -56,7 +57,15 @@ export interface NerovaHarness extends Seed {
   ok(name: string, args: Record<string, unknown>): Promise<any>;
 }
 
-export function nerovaHarness(opts: { env?: Partial<Env>; wrapBooking?: (booking: BookingService) => BookingService } = {}): NerovaHarness {
+export interface HarnessOptions {
+  env?: Partial<Env>;
+  wrapBooking?: (booking: BookingService) => BookingService;
+  /** Wraps the repository the connector reads through (e.g. to count calls); `h.repo` stays the raw fake */
+  wrapRepo?: (repo: BookingRepository) => BookingRepository;
+  wrapEntitlements?: (entitlements: EntitlementService) => EntitlementService;
+}
+
+export function nerovaHarness(opts: HarnessOptions = {}): NerovaHarness {
   const s = seed();
   const free = { ...s.business, id: s.repo.nextId(), clerk_org_id: 'org_free', slug: 'free-salon', name: 'Free Salon' };
   s.repo.tables.businesses.push(free);
@@ -78,12 +87,12 @@ export function nerovaHarness(opts: { env?: Partial<Env>; wrapBooking?: (booking
   const container: BookingContainer = {
     ...testContainer({
       booking,
-      entitlements: plansEntitlements(plans),
+      entitlements: opts.wrapEntitlements ? opts.wrapEntitlements(plansEntitlements(plans)) : plansEntitlements(plans),
       nerovaEvents,
       clock: () => NOW,
-      env: { ...TEST_ENV, NEROVA_CONNECTOR_TOKEN_HASHES: sha256Hex(CONNECTOR_TOKEN), ...opts.env },
+      env: { ...TEST_ENV, NEROVA_CONNECTOR_TOKEN_HASHES: sha256Hex(CONNECTOR_TOKEN), NEROVA_CONNECTOR_CACHE_TTL_MS: '0', ...opts.env },
     }),
-    bookingRepository: s.repo,
+    bookingRepository: opts.wrapRepo ? opts.wrapRepo(s.repo) : s.repo,
   };
   const app = createApp({ getContainer: () => container, idempotencyStore: () => memoryIdempotencyStore() });
 

@@ -293,32 +293,3 @@ describe('appointments_get and appointments_list', () => {
     expect(WED).toBe('2026-09-30');
   });
 });
-
-describe('availability_search load', () => {
-  it('queries at most four days at a time and keeps the results in date order', async () => {
-    let inFlight = 0;
-    let peak = 0;
-    const h = nerovaHarness({
-      wrapBooking: (real) => ({
-        ...real,
-        async listAvailableSlots(query) {
-          inFlight += 1;
-          peak = Math.max(peak, inFlight);
-          await new Promise((resolve) => setTimeout(resolve, 1));
-          try {
-            return await real.listAvailableSlots(query);
-          } finally {
-            inFlight -= 1;
-          }
-        },
-      }),
-    });
-    const { data } = await h.ok('availability_search', {
-      accountId: h.business.id, serviceId: h.cut.id, start: sast('00:00', '2026-09-30'), end: sast('00:00', '2026-10-25'),
-    });
-    expect(peak).toBeGreaterThan(1);
-    expect(peak).toBeLessThanOrEqual(4);
-    const starts = data.map((s: { startTime: string }) => s.startTime);
-    expect(starts).toEqual([...starts].sort());
-  });
-});

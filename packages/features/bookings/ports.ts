@@ -101,6 +101,11 @@ export interface BookingService {
   listBookableStaff(businessId: UUID, serviceId: UUID): Promise<StaffDTO[]>;
   listAvailableDays(query: DaysQuery): Promise<ISODate[]>;
   listAvailableSlots(query: SlotQuery): Promise<AvailableSlotsResponse>;
+  /**
+   * One entry per calendar date in [from, to], computed from a single load of the schedule data
+   * (same slots as calling listAvailableSlots per date, without repeating the queries for each one).
+   */
+  listAvailableSlotsForRange(query: DaysQuery): Promise<AvailableSlotsResponse[]>;
   /** Validates against live availability, then writes atomically via the create_appointment RPC */
   createAppointment(input: CreateAppointmentInput): Promise<AppointmentDTO>;
   /** Customer actors are held to cancellation_window_minutes (RULE_VIOLATION rule=CANCELLATION_WINDOW) */

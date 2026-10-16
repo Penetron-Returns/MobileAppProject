@@ -32,6 +32,8 @@ const EnvSchema = z.object({
 
   /** Nerova Booking connector: comma-separated SHA-256 hex hashes of accepted bearer tokens (empty = connector off) */
   NEROVA_CONNECTOR_TOKEN_HASHES: optional,
+  /** Connector read-cache TTL in ms for catalogue/staff/hours (default 30000; the plan gate uses twice that; 0 = no caching) */
+  NEROVA_CONNECTOR_CACHE_TTL_MS: optional,
   /** "true" turns on signed account events to Nerova (off by default) */
   NEROVA_EVENTS_ENABLED: optional,
   NEROVA_EVENTS_URL: optional,
