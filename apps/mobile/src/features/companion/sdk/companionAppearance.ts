@@ -1,21 +1,24 @@
 import { RADII, type DepthTokens } from '@booking/ui';
 import type { Appearance } from '@nerova/react-native';
+import { Platform } from 'react-native';
 
 /**
  * Maps our Depth tokens onto the SDK's `Appearance`, so the SDK sheet wears
  * the app's own colours. Pure: the screen passes in `useDepth()` and the
  * scheme. The SDK colours are flat (hex or rgb), so each surface takes the
- * solid fallback of its gradient. No `font.family`: the SDK then uses the
- * platform font (SF on iOS, Roboto on Android), as the rest of the app does
- * (we ship no Inter).
+ * solid fallback of its gradient. Fonts follow docs/design-language.md: the
+ * system font on iOS (SF), Inter on Android. We bundle no Inter yet, so the SDK
+ * skips it (via expo-font) and falls back to the system font until we do.
  */
 export function buildCompanionAppearance(
   depth: DepthTokens,
   isDark: boolean,
+  os: string = Platform.OS,
 ): Appearance {
   const { colors } = depth;
   return {
     colorMode: isDark ? 'dark' : 'light',
+    font: { family: os === 'android' ? ['Inter', 'System'] : 'System' },
     colors: {
       primary: colors.tint,
       background: depth.ground.backgroundColor as string,

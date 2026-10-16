@@ -1,4 +1,5 @@
 import { SPRING, useReduceMotion } from '@booking/ui';
+import type { CompanionSheetProps } from '@nerova/react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import Animated, {
@@ -10,29 +11,40 @@ import Animated, {
 
 import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
 
-import type { ClovieMood } from '../logic';
-
 const POP_SCALE = 1.18;
 
+type AvatarArgs = Parameters<
+  NonNullable<CompanionSheetProps['renderAvatar']>
+>[0];
+
+/** The SDK's activity state, as the mood names our a11y labels already use. */
+const MOOD = {
+  idle: 'idle',
+  working: 'thinking',
+  nod: 'replied',
+  listening: 'idle',
+} as const satisfies Record<AvatarArgs['state'], string>;
+
 /**
- * The one Clovie of the SDK sheet, drawn by the SDK's `renderAvatar` (its own
- * plush character is not rendered then). Same behaviour as the iframe path's
- * `CompanionEdgeClovie`: works while the companion is busy, pops once when a
- * reply lands (no pop under reduced motion), otherwise idle. The SDK
+ * The one Clovie of the SDK sheet, drawn by the SDK's `renderAvatar` (with
+ * `avatar="hidden"` its own plush character is not rendered). Driven by the
+ * activity `state` the SDK passes: works while the companion is busy, pops
+ * once on the reply nod (no pop under reduced motion), otherwise idle. The SDK
  * positions it, so this has no absolute offsets.
  */
-export function SdkClovie({ mood, size }: { mood: ClovieMood; size: number }) {
+export function SdkClovie({ state, size }: Pick<AvatarArgs, 'state' | 'size'>) {
+  const mood = MOOD[state];
   const { t } = useTranslation();
   const reduceMotion = useReduceMotion();
   const scale = useSharedValue(1);
 
   React.useEffect(() => {
-    if (mood !== 'replied' || reduceMotion) return;
+    if (state !== 'nod' || reduceMotion) return;
     scale.value = withSequence(
       withSpring(POP_SCALE, SPRING.bouncy),
       withSpring(1, SPRING.bouncy),
     );
-  }, [mood, reduceMotion, scale]);
+  }, [state, reduceMotion, scale]);
 
   const popStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -48,7 +60,7 @@ export function SdkClovie({ mood, size }: { mood: ClovieMood; size: number }) {
       style={[{ width: size, height: size, overflow: 'visible' }, popStyle]}
     >
       <ClovieAnimated
-        state={mood === 'thinking' ? 'working' : 'default'}
+        state={state === 'working' ? 'working' : 'default'}
         size={size}
       />
     </Animated.View>
