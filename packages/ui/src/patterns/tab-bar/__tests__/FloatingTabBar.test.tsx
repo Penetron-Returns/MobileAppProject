@@ -133,6 +133,41 @@ describe('FloatingTabBar', () => {
     expect(navigation.navigate).toHaveBeenCalledWith('clients');
   });
 
+  it('colours the raised Reports tab like the other tabs, never the blue primary fill', () => {
+    const colourOf = (active: string, label: string) => {
+      const props = {
+        tabs: ['index', 'calendar', 'reports', 'clients', 'settings'],
+        centerTab: 'reports',
+      } as const;
+      const routes = NAMES.map((name) => ({ key: `${name}-key`, name }));
+      const tree = render(
+        <FloatingTabBar
+          {...({
+            state: {
+              index: routes.findIndex((r) => r.name === active),
+              routes,
+            },
+            descriptors: Object.fromEntries(
+              routes.map((r) => [r.key, { options: {} }]),
+            ),
+            navigation: { emit: jest.fn(), navigate: jest.fn() },
+            ...props,
+          } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
+        />,
+      );
+      const tab = pressable(tree, label);
+      return tab.findAll((n) => typeof n.props.color === 'string')[0]?.props
+        .color;
+    };
+    expect(colourOf('index', 'Reports')).toBe(colourOf('index', 'Calendar'));
+    expect(colourOf('reports', 'Reports')).toBe(
+      colourOf('calendar', 'Calendar'),
+    );
+    expect(colourOf('reports', 'Reports')).not.toBe(
+      colourOf('index', 'Reports'),
+    );
+  });
+
   it('navigates to a tab and emits tabPress first', () => {
     const { tree, navigation } = renderBar('index');
     act(() => pressable(tree, 'Calendar').props.onPress());

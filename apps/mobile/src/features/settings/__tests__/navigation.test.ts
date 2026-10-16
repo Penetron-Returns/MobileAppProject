@@ -18,16 +18,20 @@ describe('settingsGroups', () => {
       'attendance',
     ]);
     expect(groups[1].items).toEqual(['whatsapp']);
-    expect(groups[2].items).toEqual(['plan', 'notifications']);
+    expect(groups[2].items).toEqual(['plan', 'notifications', 'deleteAccount']);
   });
 
   it('swaps WhatsApp for the Companion on paid plans', () => {
     expect(settingsGroups(true, 'ai')[1].items).toEqual(['companion']);
   });
 
-  it('gives staff one untitled group with only notifications', () => {
+  it('gives staff one untitled group with notifications and delete account', () => {
     expect(settingsGroups(false)).toEqual([
-      { id: 'account', items: ['notifications'], titled: false },
+      {
+        id: 'account',
+        items: ['notifications', 'deleteAccount'],
+        titled: false,
+      },
     ]);
   });
 });
@@ -56,6 +60,7 @@ describe('settingsGroups with Hey Clovie', () => {
   it('never shows it to staff', () => {
     expect(settingsGroups(false, 'free', { hasVoice: true })[0].items).toEqual([
       'notifications',
+      'deleteAccount',
     ]);
   });
 });

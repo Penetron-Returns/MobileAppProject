@@ -251,16 +251,17 @@ export function FloatingTabBar({
             {({ pressed }) => (
               <Animated.View
                 style={[
-                  depth.primary,
-                  pressed && depth.primaryPressed,
+                  // Raised like the Inbox dome, but coloured like every other tab (never the blue primary fill).
+                  depth.dome,
+                  pressed && { opacity: 0.85 },
                   addBounce.style,
                 ]}
                 className="h-[52px] w-[52px] items-center justify-center rounded-full"
               >
                 <CentreIcon
                   size={26}
-                  strokeWidth={2.2}
-                  color={depth.colors.onFill}
+                  strokeWidth={activeName === centre ? 2.2 : 1.8}
+                  color={centreColor(depth, activeName === centre)}
                 />
               </Animated.View>
             )}
@@ -297,6 +298,11 @@ export function FloatingTabBar({
   );
 }
 
+/** The raised centre tab uses the same state colours as TabItem. */
+export function centreColor(depth: DepthTokens, isActive: boolean): string {
+  return isActive ? depth.colors.tint : depth.colors.inactive;
+}
+
 function TabItem({
   icon: IconGlyph,
   label,
@@ -312,7 +318,7 @@ function TabItem({
   onPress: () => void;
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
-  const color = isActive ? depth.colors.tint : depth.colors.inactive;
+  const color = centreColor(depth, isActive);
   // Every tap dips the icon (1, 0.86, 1) and springs it back, even on the
   // tab that is already selected. Reduce motion makes both legs instant.
   const pop = useSharedValue(1);

@@ -28,6 +28,8 @@ export interface ChatTurn {
   reply: string;
   approvals: ChatApproval[];
   suggestions: string[];
+  /** `done.awaitingReply` when Nerova sends it: whether the companion is waiting for the owner to answer */
+  awaitingReply?: boolean;
   /** An `error` event: the reply failed after it started */
   error: ChatStreamError | null;
   /** A `done` event was seen */
@@ -94,6 +96,7 @@ export function parseChatStream(body: string): ChatTurn {
       case 'done':
         turn.isDone = true;
         if (Array.isArray(data.suggestions)) turn.suggestions = data.suggestions.filter((s): s is string => typeof s === 'string');
+        if (typeof data.awaitingReply === 'boolean') turn.awaitingReply = data.awaitingReply;
         break;
       case 'error':
         turn.error = { code: str(data.code) ?? 'companion.turn_failed', message: str(data.message) ?? '', retryable: data.retryable === true };

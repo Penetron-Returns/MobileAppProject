@@ -19,6 +19,12 @@ const approvalFrame = (id: string, title: string): [string, unknown] => [
 ];
 
 describe('parseChatStream', () => {
+  it('parses done.awaitingReply as a boolean and ignores other types', () => {
+    expect(parseChatStream(sse(['done', { awaitingReply: true }])).awaitingReply).toBe(true);
+    expect(parseChatStream(sse(['done', { awaitingReply: false }])).awaitingReply).toBe(false);
+    expect(parseChatStream(sse(['done', { awaitingReply: 'yes' }])).awaitingReply).toBeUndefined();
+  });
+
   it('joins the text deltas and reads done suggestions', () => {
     const turn = parseChatStream(
       sse(['tool', { name: 'x', label: 'Checking', status: 'start' }], ['text-delta', { delta: 'You have ' }], ['text-delta', { delta: 'two bookings.' }], ['done', { suggestions: ['Show today'] }]),
@@ -206,6 +212,13 @@ describe('voice ask service', () => {
       approvals: [{ id: 'oapr_1', kind: 'create_appointment', title: 'Book A?', lines: [{ label: 'When', from: null, to: 'Fri 16 Oct, 20:30' }] }],
       suggestions: ['No'],
     });
+  });
+
+  it('carries done.awaitingReply through the service only when Nerova sends it', async () => {
+    const sent = serviceHarness(async () => parseChatStream(sse(['text-delta', { delta: 'Done.' }], ['done', { suggestions: [], awaitingReply: false }])));
+    expect(await sent.service.ask(caller, 'hi')).toMatchObject({ awaitingReply: false });
+    const absent = serviceHarness(async () => parseChatStream(sse(['text-delta', { delta: 'Done.' }], ['done', { suggestions: [] }])));
+    expect(await absent.service.ask(caller, 'hi')).not.toHaveProperty('awaitingReply');
   });
 
   it('decides exactly the approval id it is given, with the key', async () => {

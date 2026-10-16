@@ -49,6 +49,7 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   voice: GLYPHS.chat,
   plan: GLYPHS.card,
   notifications: GLYPHS.bell,
+  deleteAccount: GLYPHS.team,
 };
 
 const ROUTES: Record<SettingsItem, string> = {
@@ -59,10 +60,11 @@ const ROUTES: Record<SettingsItem, string> = {
   rules: '/settings/booking-rules',
   attendance: '/settings/attendance',
   whatsapp: '/settings/whatsapp',
-  companion: '/companion',
+  companion: '/settings/companion',
   voice: '/settings/voice',
   plan: '/settings/plan',
   notifications: '/settings/notifications',
+  deleteAccount: '/settings/delete-account',
 };
 
 type Translate = (key: string, values?: Record<string, unknown>) => string;

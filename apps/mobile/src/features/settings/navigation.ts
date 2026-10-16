@@ -11,7 +11,8 @@ export type SettingsItem =
   | 'companion'
   | 'voice'
   | 'plan'
-  | 'notifications';
+  | 'notifications'
+  | 'deleteAccount';
 
 export interface SettingsGroup {
   id: 'business' | 'customize' | 'account';
@@ -23,7 +24,7 @@ export interface SettingsGroup {
 /**
  * What Settings lists, per the board (Settings.dc.html). Owners get "Your
  * business", "Customize" and "Account"; staff only an untitled group with
- * Notifications (the API refuses the rest anyway). Customize holds WhatsApp
+ * Notifications and Delete account (the API refuses the rest anyway; every role may delete their own account). Customize holds WhatsApp
  * on Free and the Companion on paid plans (`mode`); Account leads with Plan.
  * Hey Clovie (`options.hasVoice`, Android only) follows that row.
  * Extensions, connected apps and Help are not in v1 (docs/v1-scope.md).
@@ -34,7 +35,13 @@ export function settingsGroups(
   options: { hasVoice?: boolean } = {},
 ): SettingsGroup[] {
   if (!isOwner) {
-    return [{ id: 'account', items: ['notifications'], titled: false }];
+    return [
+      {
+        id: 'account',
+        items: ['notifications', 'deleteAccount'],
+        titled: false,
+      },
+    ];
   }
   return [
     {
@@ -57,7 +64,11 @@ export function settingsGroups(
       ],
       titled: true,
     },
-    { id: 'account', items: ['plan', 'notifications'], titled: true },
+    {
+      id: 'account',
+      items: ['plan', 'notifications', 'deleteAccount'],
+      titled: true,
+    },
   ];
 }
 

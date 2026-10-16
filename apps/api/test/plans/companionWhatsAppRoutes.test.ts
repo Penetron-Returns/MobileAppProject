@@ -103,7 +103,7 @@ describe('POST /v1/companion/whatsapp/connect-session', () => {
   describe('returnUrl forwarding', () => {
     const allowed = 'bookingadmin://companion/whatsapp-return';
 
-    it.each([allowed, `${allowed}?status=done`, 'bookingadmin:///companion/whatsapp-return'])('forwards %s as returnUrl when the flag is on', async (return_url) => {
+    it.each([allowed, `${allowed}?status=done`, 'bookingadmin:///companion/whatsapp-return', 'clovie://companion/whatsapp-return', 'clovie-preview://companion/whatsapp-return?status=done'])('forwards %s as returnUrl when the flag is on', async (return_url) => {
       const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
       const r = await h.call('POST', path, { body: { return_url } });
       expect(r.status).toBe(201);
@@ -117,6 +117,7 @@ describe('POST /v1/companion/whatsapp/connect-session', () => {
       'bookingadmin://companion/whatsapp-return#frag',
       'bookingadmin://evil.test/companion/whatsapp-return',
       'otherapp://companion/whatsapp-return',
+      'clovie.evil://companion/whatsapp-return',
     ])('rejects %s with 400 and never reaches Nerova when the flag is on', async (return_url) => {
       const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
       const r = await h.call('POST', path, { body: { return_url } });
