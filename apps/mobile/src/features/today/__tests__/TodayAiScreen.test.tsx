@@ -231,7 +231,7 @@ describe('TodayAiScreen', () => {
       const open = jest.fn();
       const tree = render(live(), open);
       act(() => {
-        pressableByLabel(tree, 'Talk to Clovie').props.onPress();
+        pressableByLabel(tree, 'Clovie').props.onPress();
       });
       expect(open).toHaveBeenCalledTimes(1);
       expect(mockPush).not.toHaveBeenCalled();
@@ -251,7 +251,7 @@ describe('TodayAiScreen', () => {
         </CompanionSheetControlProvider>,
       );
       act(() => {
-        pressableByLabel(tree, 'Talk to Clovie').props.onPress();
+        pressableByLabel(tree, 'Clovie').props.onPress();
       });
       expect(mockPush).toHaveBeenCalledWith('/companion');
     });
