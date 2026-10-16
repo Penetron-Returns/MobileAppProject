@@ -35,7 +35,7 @@ export function useAppointmentsRealtime(enabled: boolean) {
 }
 
 const LIST_SELECT =
-  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client:clients(id, name, phone_e164), service:services(name), staff:staff(id, name)';
+  'id, starts_at, ends_at, duration_minutes, status, checked_in_at, client_confirmed_at, client:clients(id, name, phone_e164), service:services(name), staff:staff(id, name)';
 
 export async function fetchAppointmentsBetween(from: string, to: string) {
   return unwrap(
@@ -66,7 +66,7 @@ async function fetchAppointment(id: string) {
   const res = await supabase
     .from('appointments')
     .select(
-      'id, client_id, service_id, staff_id, starts_at, ends_at, duration_minutes, status, source, price_cents, notes, checked_in_at, created_at, client:clients(id, name, phone_e164, tags), service:services(name, category), staff:staff(name, photo_url)',
+      'id, client_id, service_id, staff_id, starts_at, ends_at, duration_minutes, status, source, price_cents, notes, checked_in_at, client_confirmed_at, created_at, client:clients(id, name, phone_e164, tags), service:services(name, category), staff:staff(name, photo_url)',
     )
     .eq('id', id)
     .maybeSingle();

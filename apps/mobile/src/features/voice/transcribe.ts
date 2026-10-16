@@ -1,5 +1,5 @@
 import { ApiError, newIdempotencyKey, parseEnvelope } from '@/lib/api';
-import { getAuthToken } from '@/lib/auth-token';
+import { reportBearerResult, resolveBearer } from '@/lib/auth-token';
 import { env } from '@/lib/env';
 
 /** `EXPO_PUBLIC_VOICE_CLOUD_STT=1` turns on own-capture + backend transcription. */
@@ -16,7 +16,8 @@ export interface Transcription {
  * Uploads a WAV clip (a `file://` path or absolute path) to
  * `POST /v1/voice/transcriptions` as multipart field `audio`. No language is
  * sent: the server detects it (English or Afrikaans). Throws `ApiError` on
- * network, 4xx (404 while the backend is not live) or 5xx failures.
+ * network, 4xx (404 while the backend is not live) or 5xx failures. Authenticated with the Clerk
+ * session, or the device voice token when there is none.
  */
 export async function transcribeClip(clipPath: string): Promise<Transcription> {
   if (!env.apiUrl) {
@@ -26,8 +27,9 @@ export async function transcribeClip(clipPath: string): Promise<Transcription> {
       status: 0,
     });
   }
-  const token = await getAuthToken();
-  if (!token) {
+  // No Clerk session while the app is backgrounded or killed: the scoped device voice token stands in.
+  const credential = await resolveBearer({ allowDeviceToken: true });
+  if (!credential) {
     throw new ApiError({
       code: 'NOT_SIGNED_IN',
       message: 'No session token is available yet.',
@@ -45,7 +47,7 @@ export async function transcribeClip(clipPath: string): Promise<Transcription> {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${credential.token}`,
         'Idempotency-Key': newIdempotencyKey(),
       },
       body: form,
@@ -57,5 +59,6 @@ export async function transcribeClip(clipPath: string): Promise<Transcription> {
       status: 0,
     });
   }
+  reportBearerResult(credential, res.status);
   return parseEnvelope<Transcription>(res);
 }

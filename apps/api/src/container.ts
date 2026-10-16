@@ -15,6 +15,9 @@ import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
 import { createEntitlementService } from '@booking/features/plans/services/entitlements.ts';
+import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
+import { createSupabaseDeviceTokenRepository } from '@booking/features/voice/repository.ts';
+import type { DeviceTokenService } from '@booking/features/voice/ports.ts';
 import type { AccountEventsPort, AttendanceService, BookingService, ClerkAdmin, EntitlementService, NotificationService, UsageService } from '@booking/features/ports.ts';
 
 /**
@@ -36,6 +39,8 @@ export interface Container {
   companion: CompanionService;
   /** Clerk Backend API (organisation members and invitations) */
   clerkAdmin: ClerkAdmin;
+  /** Scoped long-lived credential for the voice upload and attendance answer while the app is backgrounded */
+  voiceTokens: DeviceTokenService;
   /** Injected clock for connector-level "now" (tests pin it) */
   clock: () => Date;
 }
@@ -72,7 +77,8 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     clock,
   });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
-  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, clock };
+  const voiceTokens = createDeviceTokenService({ repo: createSupabaseDeviceTokenRepository(db), clock });
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, clerkAdmin, voiceTokens, clock };
 }
 
 let cached: Container | undefined;

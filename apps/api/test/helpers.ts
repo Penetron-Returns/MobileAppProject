@@ -4,6 +4,8 @@ import type { Db } from '@booking/features/lib/db.ts';
 import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import type { AttendanceService, BookingService, NotificationService } from '@booking/features/ports.ts';
+import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
+import { createMemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
 import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
@@ -65,6 +67,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
     companion: createCompanionService({ nerova: createFakeNerovaClient(), plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
     clerkAdmin: createFakeClerkAdmin(),
+    voiceTokens: createDeviceTokenService({ repo: createMemoryDeviceTokenRepository() }),
     clock: () => new Date(),
     ...overrides,
   };

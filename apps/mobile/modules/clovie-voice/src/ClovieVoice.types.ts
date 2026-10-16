@@ -69,3 +69,6 @@ export interface ClovieVoiceHandsFreeConfig {
 
 export type ClovieVoiceTileResult =
   'added' | 'already' | 'dismissed' | 'unsupported' | 'error';
+
+/** The device voice token the native service holds. `rejected`: the server refused it (401). */
+export type ClovieVoiceTokenState = 'none' | 'ok' | 'rejected';

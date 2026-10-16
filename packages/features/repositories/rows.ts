@@ -7,6 +7,7 @@ import type {
   ActorType,
   AttendanceMode,
   AppointmentSource,
+  ClientConfirmationChannel,
   AppointmentStatus,
   BookingRules,
   MemberRole,
@@ -187,6 +188,8 @@ export interface AppointmentRow {
   notes: string | null;
   idempotency_key: string | null;
   checked_in_at: string | null;
+  client_confirmed_at: string | null;
+  client_confirmed_via: ClientConfirmationChannel | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
   created_by: string | null;

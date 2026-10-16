@@ -24,6 +24,8 @@ export type TodayAppointment = Pick<
   | 'checked_in_at'
   | 'price_cents'
 > & {
+  /** Set when the client confirmed on a reminder (optional: older cached rows lack it) */
+  client_confirmed_at?: string | null;
   client: { name: string | null; phone_e164: string } | null;
   service: { name: string } | null;
   staff: { name: string } | null;

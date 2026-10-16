@@ -127,6 +127,8 @@ export function appointment(over: Partial<AppointmentDTO> & { id: string; client
     duration_minutes: 60,
     notes: null,
     checked_in_at: null,
+    client_confirmed_at: null,
+    client_confirmed_via: null,
     cancelled_at: null,
     cancel_reason: null,
     created_at: NOW.toISOString(),
@@ -189,6 +191,16 @@ export function fakeBooking(world: World): BookingService {
         starts_at: input.startsAt,
       });
       world.appointments.push(Object.assign(appt, { key: input.idempotencyKey }));
+      return appt;
+    },
+    async confirmByClient(input) {
+      log('confirmByClient', input);
+      const appt = world.appointments.find((a) => a.id === input.appointmentId);
+      if (!appt) throw new AppError('NOT_FOUND', 'nope');
+      if (appt.status === 'confirmed' && !appt.client_confirmed_at) {
+        appt.client_confirmed_at = input.confirmedAt;
+        appt.client_confirmed_via = input.via;
+      }
       return appt;
     },
     async rescheduleAppointment(input) {

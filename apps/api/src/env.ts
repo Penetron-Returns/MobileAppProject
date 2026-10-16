@@ -41,6 +41,8 @@ const EnvSchema = z.object({
   NEROVA_EVENTS_SIGNING_SECRET: optional,
   /** "true" also sends signed appointment.* events (off by default; contract not yet confirmed by Nerova). Needs the URL + secret above */
   NEROVA_APPOINTMENT_EVENTS_ENABLED: optional,
+  /** "true" turns on the confirm_appointments connector capability (client confirmed on a reminder). Off by default; the tool contract is pending from Nerova */
+  NEROVA_CONFIRM_APPOINTMENTS_ENABLED: optional,
 
   /** Nerova REST API key (https://api.nerova.si): companion sessions and outcome counts. Never logged or returned. Empty = companion off */
   NEROVA_API_KEY: optional,

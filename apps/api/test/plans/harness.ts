@@ -33,6 +33,7 @@ function authDb(): Db {
 
 export interface PlansHarness {
   app: ReturnType<typeof createApp>;
+  container: Container;
   nerova: FakeNerovaClient;
   plans: MemoryPlanRepository;
   call(method: string, path: string, opts?: { token?: 'owner' | 'staff'; body?: unknown; key?: string }): Promise<{ status: number; body: any; text: string }>;
@@ -56,6 +57,8 @@ export function plansHarness(
     env?: Partial<Env>;
     /** Replaces the Nerova client the companion service uses (e.g. the real HTTP client over a fake fetch) */
     nerovaClient?: NerovaClient;
+    /** Replaces container parts (e.g. `voiceTokens`, `attendance`) */
+    overrides?: Partial<Container>;
   } = {},
 ): PlansHarness {
   const plan = opts.plan ?? 'growth';
@@ -81,6 +84,7 @@ export function plansHarness(
       clock,
     }),
     clock,
+    ...opts.overrides,
   });
   const store = memoryIdempotencyStore();
   const app = createApp({
@@ -108,7 +112,7 @@ export function plansHarness(
     return { status: res.status, body, text };
   }
 
-  return { app, nerova, plans, call };
+  return { app, container, nerova, plans, call };
 }
 
 /** An appointment helper: SAST wall-clock start, minutes long, defaults to a confirmed 'app' booking worth R250. */

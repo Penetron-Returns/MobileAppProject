@@ -132,6 +132,12 @@ class ClovieVoiceModule : Module() {
     // tile, widget and side key start the service without any JS running.
     Function("setCloudStt") { enabled: Boolean -> CloudStt.setEnabled(context, enabled) }
 
+    // The scoped device voice token and API base URL for native clip upload (encrypted at rest). `state` is
+    // 'none' | 'ok' | 'rejected' (the server answered 401: mint a new one).
+    Function("setVoiceToken") { token: String, apiUrl: String -> VoiceTokenStore.forContext(context).save(token, apiUrl) }
+    Function("clearVoiceToken") { VoiceTokenStore.forContext(context).clear() }
+    Function("getVoiceTokenState") { VoiceTokenStore.forContext(context).state().wire }
+
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
   }

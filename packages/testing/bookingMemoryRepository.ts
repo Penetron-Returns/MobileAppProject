@@ -420,6 +420,8 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
         notes: a.notes,
         idempotency_key: a.idempotencyKey,
         checked_in_at: null,
+        client_confirmed_at: null,
+        client_confirmed_via: null,
         cancelled_at: null,
         cancel_reason: null,
         created_by: a.actorId,
@@ -463,6 +465,20 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     async findLatestAppointmentEventId(appointmentId, type) {
       const match = tables.appointment_events.filter((e) => e.appointment_id === appointmentId && e.type === type).at(-1);
       return match?.id ?? null;
+    },
+    async confirmAppointmentByClient(a) {
+      const row = appointmentById(a.appointmentId);
+      if (row.business_id !== a.businessId) throw notFound('Appointment');
+      const replay =
+        !!a.idempotencyKey &&
+        tables.appointment_events.some(
+          (e) => e.appointment_id === row.id && e.type === 'client_confirmed' && (e.payload as { idempotency_key?: string }).idempotency_key === a.idempotencyKey,
+        );
+      if (row.status !== 'confirmed' || row.client_confirmed_at || replay) return clone(row);
+      row.client_confirmed_at = a.confirmedAt;
+      row.client_confirmed_via = a.via;
+      event(row.id, 'client_confirmed', a.actor, a.actorId, { via: a.via, confirmed_at: a.confirmedAt, idempotency_key: a.idempotencyKey });
+      return clone(row);
     },
     async checkInAppointment(appointmentId, actorId) {
       const row = appointmentById(appointmentId);

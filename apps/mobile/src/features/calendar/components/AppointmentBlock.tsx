@@ -12,6 +12,7 @@ import { Pressable, View } from 'react-native';
 
 import type { AppointmentListItem } from '@/features/appointments/hooks';
 import { bookingMenuActions } from '@/features/appointments/menuActions';
+import { ClientConfirmedBadge } from '@/features/appointments/components/ClientConfirmedBadge';
 import { formatTime } from '@/lib/time';
 
 import { blockTone, type BlockTone } from '../logic';
@@ -76,6 +77,14 @@ function BlockBody({ appointment, timezone, height }: BlockProps) {
         style={{ backgroundColor: accent }}
         className="absolute bottom-0 left-0 top-0 w-1"
       />
+      {appointment.client_confirmed_at ? (
+        <View className="absolute right-1.5 top-1.5">
+          <ClientConfirmedBadge
+            confirmedAt={appointment.client_confirmed_at}
+            variant="glyph"
+          />
+        </View>
+      ) : null}
       <View className="min-w-0 flex-1 py-1.5 pl-3 pr-2">
         <Text numberOfLines={1} className="text-subtitle font-semibold">
           {client}

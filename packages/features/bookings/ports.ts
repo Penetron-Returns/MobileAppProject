@@ -2,6 +2,7 @@
 import type {
   AppointmentDTO,
   AppointmentSource,
+  ClientConfirmationChannel,
   AppointmentStatus,
   AvailableSlotsResponse,
   BusinessDTO,
@@ -81,6 +82,15 @@ export interface CancelAppointmentInput {
   now?: Date;
 }
 
+export interface ConfirmByClientInput {
+  businessId: UUID;
+  appointmentId: UUID;
+  confirmedAt: ISODateTime;
+  via: ClientConfirmationChannel;
+  actor: Actor;
+  idempotencyKey?: string | null;
+}
+
 export interface AppointmentWindowQuery {
   businessId: UUID;
   /** Appointments starting in [from, to) */
@@ -123,6 +133,11 @@ export interface BookingService {
     status: 'completed' | 'no_show',
     actor: Actor,
   ): Promise<AppointmentDTO>;
+  /**
+   * The client confirmed attendance (reminder reply). Idempotent: an already confirmed appointment, a repeated key or a
+   * status other than confirmed returns the appointment unchanged. Writes the columns and a `client_confirmed` event.
+   */
+  confirmByClient(input: ConfirmByClientInput): Promise<AppointmentDTO>;
 }
 
 export type AppointmentChangeKind = 'created' | 'rescheduled' | 'cancelled';

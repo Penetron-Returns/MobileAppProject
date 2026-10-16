@@ -7,6 +7,10 @@ import { queryClient } from '@/lib/query';
 import { useSignOut } from '../useSignOut';
 
 const mockSignOut = jest.fn();
+const mockClearToken = jest.fn();
+jest.mock('@/features/voice/deviceToken', () => ({
+  clearDeviceTokenOnSignOut: () => mockClearToken(),
+}));
 jest.mock('@clerk/expo', () => ({
   useClerk: () => ({ signOut: mockSignOut }),
   useAuth: jest.fn(),
@@ -26,6 +30,7 @@ function mountSignOut() {
 
 beforeEach(() => {
   mockSignOut.mockReset();
+  mockClearToken.mockReset().mockResolvedValue(undefined);
   queryClient.clear();
   queryClient.setQueryData(['appointments', 'one', 'a-1'], {
     client: 'Olivia',
@@ -41,6 +46,27 @@ describe('useSignOut', () => {
     });
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('revokes the device voice token before the session ends', async () => {
+    const order: string[] = [];
+    mockClearToken.mockImplementation(async () => void order.push('revoke'));
+    mockSignOut.mockImplementation(async () => void order.push('signOut'));
+    const signOut = mountSignOut();
+    await act(async () => {
+      await signOut.current();
+    });
+    expect(order).toEqual(['revoke', 'signOut']);
+  });
+
+  it('still signs out when the token cleanup fails', async () => {
+    mockClearToken.mockRejectedValue(new Error('offline'));
+    mockSignOut.mockResolvedValue(undefined);
+    const signOut = mountSignOut();
+    await act(async () => {
+      await signOut.current();
+    });
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the cache when sign-out fails, since the session is still live', async () => {

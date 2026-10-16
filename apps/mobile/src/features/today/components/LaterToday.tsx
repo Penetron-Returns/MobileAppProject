@@ -17,6 +17,7 @@ import {
   cancelHref,
 } from '@/features/appointments/menuActions';
 import { canChange } from '@/features/bookings/logic';
+import { ClientConfirmedBadge } from '@/features/appointments/components/ClientConfirmedBadge';
 import { setCalendarViewMode } from '@/features/calendar/navigation';
 import { formatTime } from '@/lib/time';
 
@@ -163,6 +164,10 @@ function LaterRowBody({
           {service}
         </Text>
       </View>
+      <ClientConfirmedBadge
+        confirmedAt={appointment.client_confirmed_at}
+        variant="glyph"
+      />
       {needsConfirming(appointment) ? (
         <View
           style={{

@@ -10,7 +10,7 @@
  */
 import { Buffer } from 'node:buffer';
 
-import type { AppointmentDTO, UUID } from '@booking/types';
+import type { AppointmentDTO, ClientConfirmationChannel, UUID } from '@booking/types';
 import { upsertClient } from '@booking/features/clients/services/clients.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
@@ -40,6 +40,8 @@ export interface NerovaConnectorDeps {
   entitlements: EntitlementService;
   repo: BookingRepository;
   clock: () => Date;
+  /** capability confirm_appointments (NEROVA_CONFIRM_APPOINTMENTS_ENABLED); default off */
+  confirmAppointmentsEnabled?: boolean;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,9 +88,21 @@ const WINDOW_EXEMPT_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_cha
  */
 const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && WINDOW_EXEMPT_CHANNELS.has(origin.channel));
 
+/** Internal arguments of confirmAppointment. NOT the MCP schema: the wire contract is still pending from Nerova. */
+export interface ConfirmAppointmentArgs {
+  accountId: string;
+  appointmentId: string;
+  idempotencyKey?: string;
+  confirmedAt?: string;
+  via?: ClientConfirmationChannel;
+  origin?: { conversationId?: string };
+}
+
 export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
   const reads = deps.readBooking ?? booking;
+  const wireOptions = { clientConfirmation: deps.confirmAppointmentsEnabled === true };
+  const wire = (appointment: AppointmentDTO) => toAppointment(appointment, wireOptions);
 
   /** The business behind an account id, or not_found when it is unknown, malformed or not on a companion plan. */
   async function requireAccount(accountId: string): Promise<UUID> {
@@ -227,7 +241,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     },
 
     async appointmentsGet(args: ToolArgs<'appointments_get'>) {
-      return gated(args.accountId, async (businessId) => toAppointment(await appointmentOf(businessId, args.appointmentId)));
+      return gated(args.accountId, async (businessId) => wire(await appointmentOf(businessId, args.appointmentId)));
     },
 
     async appointmentsList(args: ToolArgs<'appointments_list'>) {
@@ -272,7 +286,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       };
       const last = page[page.length - 1];
       return {
-        items: page.map((a) => toAppointmentListItem(a, lookups)),
+        items: page.map((a) => toAppointmentListItem(a, lookups, wireOptions)),
         ...(rows.length > limit && last ? { nextCursor: encodeCursor(last) } : {}),
       };
     },
@@ -282,7 +296,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       // The key is globally unique in the database, so it is scoped to the account here.
       const idempotencyKey = `nerova:${businessId}:${args.idempotencyKey}`;
       const replay = await repo.findAppointmentByIdempotencyKey(businessId, idempotencyKey);
-      if (replay) return toAppointment(await appointmentOf(businessId, replay.id));
+      if (replay) return wire(await appointmentOf(businessId, replay.id));
 
       if (!isUuid(args.externalServiceId)) throw connectorNotFound('Service');
       if (!isUuid(args.externalStaffId)) throw connectorNotFound('Staff');
@@ -303,12 +317,12 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
           notifyCustomer: false,
           now: deps.clock(),
         });
-        return toAppointment(appointment);
+        return wire(appointment);
       } catch (error) {
         // A retry racing its twin loses on the exclusion constraint; the twin's booking is the answer, not a conflict.
         if (error instanceof AppError && error.code === 'SLOT_UNAVAILABLE') {
           const winner = await repo.findAppointmentByIdempotencyKey(businessId, idempotencyKey);
-          if (winner) return toAppointment(await appointmentOf(businessId, winner.id));
+          if (winner) return wire(await appointmentOf(businessId, winner.id));
         }
         throw error;
       }
@@ -329,8 +343,33 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
         enforceCancellationWindow: holdToWindow(args.origin),
         now: deps.clock(),
       });
-      return toAppointment(appointment);
+      return wire(appointment);
     },
+
+    /**
+     * Client tapped "Confirm" on a reminder. Only reachable once the tool is wired (see the TODO below), so it is
+     * inert while NEROVA_CONFIRM_APPOINTMENTS_ENABLED is off. The key is scoped to the account like create's.
+     * Idempotent and a no-op for cancelled/completed appointments: both come back unchanged (BookingService.confirmByClient).
+     */
+    async confirmAppointment(args: ConfirmAppointmentArgs) {
+      const businessId = await requireAccount(args.accountId);
+      if (!isUuid(args.appointmentId)) throw connectorNotFound('Appointment');
+      const appointment = await booking.confirmByClient({
+        businessId,
+        appointmentId: args.appointmentId,
+        confirmedAt: args.confirmedAt ?? deps.clock().toISOString(),
+        via: args.via ?? 'whatsapp',
+        actor: nerovaActor(args.origin),
+        idempotencyKey: args.idempotencyKey ? `nerova:${businessId}:${args.idempotencyKey}` : null,
+      });
+      return wire(appointment);
+    },
+
+    // TODO(nerova-contract): register the `appointments_confirm` MCP tool once Nerova sends the final request and
+    // response field names: add its zod schema to args.ts (argSchemas), its entry to tools.ts and
+    // booking-connector.mcp-tools.json, dispatch it to confirmAppointment above (map the wire fields onto
+    // ConfirmAppointmentArgs), and advertise CONFIRM_APPOINTMENTS_CAPABILITY via advertisedCapabilities() in the
+    // manifest, only when NEROVA_CONFIRM_APPOINTMENTS_ENABLED is on. Nothing is exposed over MCP until then.
 
     async appointmentsCancel(args: ToolArgs<'appointments_cancel'>) {
       const businessId = await requireAccount(args.accountId);
@@ -344,7 +383,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
         enforceCancellationWindow: holdToWindow(args.origin),
         now: deps.clock(),
       });
-      return toAppointment(appointment);
+      return wire(appointment);
     },
   };
 }

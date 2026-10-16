@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 import { getContainer as defaultGetContainer, type Container } from './container.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { requireAuth, requireOrgOwnerSession, type ClerkClaims } from './middleware/auth.ts';
+import { allowDeviceToken } from './middleware/deviceToken.ts';
 import { baseContext, errorHandler, requireCronSecret } from './middleware/common.ts';
 import { idempotency, type IdempotencyStore } from './middleware/idempotency.ts';
 import { clerkWebhookRoutes } from './routes/clerk.ts';
@@ -49,7 +50,8 @@ export function createApp(options: AppOptions = {}) {
   app.route('/v1/onboarding', onboardingRoutes);
 
   // Owner/staff API (Clerk JWT)
-  app.use('/v1/*', requireAuth(options.verifyToken), idem);
+  // A `cvt_` device voice token is accepted on two routes only; everything else needs the Clerk session.
+  app.use('/v1/*', allowDeviceToken(requireAuth(options.verifyToken)), idem);
   app.route('/v1/whatsapp', v1WhatsAppRoutes);
   app.route('/v1', v1InboxRoutes);
   app.route('/v1', v1Routes);

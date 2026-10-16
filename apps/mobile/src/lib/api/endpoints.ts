@@ -10,6 +10,7 @@ import type {
   AvailableSlotsResponse,
   BillingUsageDTO,
   BusinessDTO,
+  DeviceTokenDTO,
   CancelAppointmentRequest,
   ClientDTO,
   CompanionSessionDTO,
@@ -302,6 +303,18 @@ export const api = {
       'POST',
       `/v1/attendance/${enc(checkId)}/answer`,
     )(b, key),
+
+  // voice: the scoped device token for background voice and attendance answers
+  mintVoiceDeviceToken: (b: { device_label: string }, key: string) =>
+    send<{ device_label: string }, DeviceTokenDTO>(
+      'POST',
+      '/v1/voice/device-token',
+    )(b, key),
+  revokeVoiceDeviceToken: (key: string) =>
+    send<undefined, { revoked: boolean }>('DELETE', '/v1/voice/device-token')(
+      undefined,
+      key,
+    ),
 
   // devices
   registerDevice: (b: RegisterDeviceRequest, key: string) =>

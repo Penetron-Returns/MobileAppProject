@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 
+import { ClientConfirmedBadge } from '@/features/appointments/components/ClientConfirmedBadge';
 import { useCheckInAppointment } from '@/features/appointments/hooks';
 import { whatsAppChatUrl } from '@/features/dashboard/logic';
 import { formatDuration } from '@/lib/format';
@@ -80,6 +81,12 @@ export function UpNextCard({
             })
           : (appointment.service?.name ?? '')}
       </Text>
+
+      {appointment.client_confirmed_at ? (
+        <View className="mt-2">
+          <ClientConfirmedBadge confirmedAt={appointment.client_confirmed_at} />
+        </View>
+      ) : null}
 
       {isArrived ? (
         <View className="mt-3.5 flex-row items-center gap-1.5">

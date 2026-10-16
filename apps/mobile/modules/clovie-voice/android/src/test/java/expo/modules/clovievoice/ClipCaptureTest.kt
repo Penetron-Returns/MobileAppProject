@@ -24,14 +24,26 @@ class ClipVadTest {
   }
 
   @Test
-  fun endsAfterEightHundredMsOfSilenceFollowingSpeech() {
+  fun endsAfterTwelveHundredMsOfSilenceFollowingSpeech() {
     val vad = ClipVad()
     assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 200)) // calibration
     assertEquals(ClipDecision.CONTINUE, feed(vad, loud, 1_000))
     assertTrue(vad.hasSpeech)
-    assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 780))
+    assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 1_180))
     assertEquals(ClipDecision.END_OF_SPEECH, feed(vad, quiet, 40))
-    assertEquals(1_000L, vad.speechMs)
+    // 1 s of loud frames plus the 300 ms hangover after the last one.
+    assertEquals(1_300L, vad.speechMs)
+  }
+
+  @Test
+  fun neverEndsSoonerThanOneAndAHalfSecondsAfterSpeechStarted() {
+    val vad = ClipVad()
+    feed(vad, quiet, 200)
+    feed(vad, loud, 200) // a short word, starting 200 ms into the clip...
+    // ...then silence: 1.2 s of it is enough only once 1.5 s have passed since the word began.
+    assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 1_280))
+    assertEquals(ClipDecision.END_OF_SPEECH, feed(vad, quiet, 20))
+    assertEquals(1_500L, vad.elapsedMs - 200L)
   }
 
   @Test
@@ -39,9 +51,61 @@ class ClipVadTest {
     val vad = ClipVad()
     feed(vad, quiet, 200)
     feed(vad, loud, 500)
-    assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 600))
+    assertEquals(ClipDecision.CONTINUE, feed(vad, quiet, 1_000))
     assertEquals(ClipDecision.CONTINUE, feed(vad, loud, 500))
-    assertEquals(ClipDecision.END_OF_SPEECH, feed(vad, quiet, 1_000))
+    assertEquals(ClipDecision.END_OF_SPEECH, feed(vad, quiet, 1_500))
+  }
+
+  /** Frame energies for "client has arrived": words with soft syllable valleys and short pauses between them. */
+  private fun sentence(): List<Pair<Float, Long>> = listOf(
+    0.0926f to 120L, 0.030f to 60L, 0.060f to 100L, 0.009f to 80L, // "cli-ent"
+    0.020f to 160L, 0.007f to 140L, // pause
+    0.050f to 120L, 0.012f to 60L, 0.070f to 140L, // "has"
+    0.006f to 300L, // pause (below threshold)
+    0.040f to 100L, 0.011f to 80L, 0.065f to 100L, 0.015f to 80L, 0.050f to 160L, // "a-rri-ved"
+  )
+
+  @Test
+  fun aSentenceWithPausesBetweenWordsDoesNotEndEarlyAndEndsAfterTheLastWord() {
+    val vad = ClipVad()
+    feed(vad, 0.003f, 200)
+    for ((rms, ms) in sentence()) {
+      assertEquals("ended mid-sentence at " + vad.elapsedMs + " ms", ClipDecision.CONTINUE, feed(vad, rms, ms))
+    }
+    assertTrue(vad.hasSpeech)
+    assertEquals(ClipDecision.CONTINUE, feed(vad, 0.003f, 1_160))
+    assertEquals(ClipDecision.END_OF_SPEECH, feed(vad, 0.003f, 40))
+    // Most of the sentence counts as speech, not the 820 ms the old threshold saw.
+    assertTrue("speechMs=" + vad.speechMs, vad.speechMs >= 1_600)
+  }
+
+  @Test
+  fun softSpeechAboveTheAdaptiveThresholdStillCounts() {
+    val vad = ClipVad()
+    feed(vad, 0.003f, 200)
+    assertEquals(0.0075f, vad.threshold, 0.0001f) // floor x 2.5
+    feed(vad, 0.010f, 400) // a quiet talker, below the old floor + 0.012 threshold
+    assertTrue(vad.hasSpeech)
+  }
+
+  @Test
+  fun aVeryQuietRoomStillUsesTheAbsoluteMinimumThreshold() {
+    val vad = ClipVad()
+    feed(vad, 0.0005f, 200)
+    assertEquals(ClipVad.MIN_THRESHOLD, vad.threshold, 0f)
+    feed(vad, 0.005f, 3_000) // hiss under the minimum
+    assertFalse(vad.hasSpeech)
+  }
+
+  @Test
+  fun hangoverKeepsTheTailOfAWordCountedAsSpeechButNotMore() {
+    val vad = ClipVad()
+    feed(vad, quiet, 200)
+    feed(vad, loud, 200)
+    feed(vad, quiet, 100)
+    assertEquals(300L, vad.speechMs)
+    feed(vad, quiet, 400)
+    assertEquals(500L, vad.speechMs) // 200 loud + 300 hangover
   }
 
   @Test
@@ -83,8 +147,8 @@ class ClipVadTest {
   fun aNoisyRoomRaisesTheSpeechThresholdAboveItsFloor() {
     val vad = ClipVad()
     feed(vad, 0.02f, 200)
-    assertTrue(vad.threshold >= 0.06f)
-    feed(vad, 0.03f, 4_000) // loud-ish hum below the threshold is not speech
+    assertTrue(vad.threshold >= 0.0499f)
+    feed(vad, 0.03f, 3_000) // loud-ish hum below the threshold is not speech
     assertFalse(vad.hasSpeech)
   }
 
