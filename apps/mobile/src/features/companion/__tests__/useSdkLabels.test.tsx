@@ -1,19 +1,10 @@
-import * as path from 'path';
+import { defaultLabels } from '@nerova/react-native';
 import * as React from 'react';
 
 import enUS from '@/lib/i18n/locales/en-US.json';
 import { mount } from '@/testing/render';
 
 import { useSdkLabels } from '../sdk/useSdkLabels';
-
-// `defaultLabels` is not re-exported from the package root (preview.2), so
-// read it from the CJS build next to the package manifest.
-const { defaultLabels } = jest.requireActual(
-  path.join(
-    path.dirname(require.resolve('@nerova/react-native/package.json')),
-    'dist/cjs/labels.js',
-  ),
-) as { defaultLabels: Record<string, string> };
 
 const placeholders = (text: string) => (text.match(/\{\w+\}/g) ?? []).sort();
 
@@ -34,11 +25,22 @@ describe('SDK labels', () => {
     );
   });
 
+  // The avatar button hints ("Opens the chat") deliberately drop {name}: the
+  // button's own label already says who it is.
+  const HINTS = ['openSheet', 'closeSheet'];
+
   it('keeps the SDK placeholders of every label', () => {
     const labels = readLabels();
     for (const [key, original] of Object.entries(defaultLabels)) {
+      if (HINTS.includes(key)) continue;
       expect(placeholders(labels[key])).toEqual(placeholders(original));
     }
+  });
+
+  it('words the open and close labels as hints', () => {
+    const labels = readLabels();
+    expect(labels.openSheet).toBe('Opens the chat');
+    expect(labels.closeSheet).toBe('Closes the chat');
   });
 
   it('resolves every label to real text, never a key path', () => {
@@ -49,6 +51,6 @@ describe('SDK labels', () => {
   });
 
   it('says Clovie where the SDK has no profile name yet', () => {
-    expect(readLabels().openSheetNoName).toBe('Open Clovie');
+    expect(readLabels().avatarButtonNoName).toBe('Clovie, {state}');
   });
 });

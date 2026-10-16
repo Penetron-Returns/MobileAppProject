@@ -1,17 +1,17 @@
-import type { CompanionProviderProps } from '@nerova/react-native';
+import type { CompanionLabels, LabelKey } from '@nerova/react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import enUS from '@/lib/i18n/locales/en-US.json';
 
-type SdkLabels = Required<NonNullable<CompanionProviderProps['labels']>>;
+type SdkLabels = Required<CompanionLabels>;
 
-const SDK_LABEL_KEYS = Object.keys(enUS.companion.sdk) as (keyof SdkLabels &
+const SDK_LABEL_KEYS = Object.keys(enUS.companion.sdk) as (LabelKey &
   keyof typeof enUS.companion.sdk)[];
 
 // Compile-time guard: a label the SDK adds and we have not translated fails
 // `tsc` here. The runtime twin is `useSdkLabels.test.ts`.
-enUS.companion.sdk satisfies Record<keyof SdkLabels, string>;
+enUS.companion.sdk satisfies Record<LabelKey, string>;
 
 /**
  * The SDK's `labels` prop, built from `companion.sdk.*` so every string the
