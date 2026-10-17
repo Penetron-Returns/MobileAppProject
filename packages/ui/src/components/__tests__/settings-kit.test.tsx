@@ -605,3 +605,30 @@ describe('FormSheet footer', () => {
     ).toBeGreaterThanOrEqual(96 + 34);
   });
 });
+
+describe('GroupRow disabled', () => {
+  it('stays visible, dimmed, with its reason and without a press handler or chevron', () => {
+    const onPress = jest.fn();
+    const tree = render(
+      <GroupRow
+        title="Clovie voice"
+        detail="Off"
+        reason="Available on Android"
+        disabled
+        onPress={onPress}
+      />,
+    );
+    expect(textOf(tree)).toContain('Clovie voice');
+    expect(textOf(tree)).toContain('Available on Android');
+    const row = byLabel(tree, 'Clovie voice, Off, Available on Android').find(
+      (n) => typeof n.type === 'string',
+    );
+    expect(row?.props.accessibilityState).toEqual({ disabled: true });
+    expect(row?.props.onPress).toBeUndefined();
+    expect(flat(row?.props.style).opacity).toBe(0.55);
+    expect(() =>
+      pressable(tree, 'Clovie voice, Off, Available on Android'),
+    ).toThrow();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+});
