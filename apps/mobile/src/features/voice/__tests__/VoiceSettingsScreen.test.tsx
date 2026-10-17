@@ -226,6 +226,35 @@ describe('hands-free section', () => {
     expect(toggle(tree, 'Only while charging').props.checked).toBe(false);
   });
 
+  it('opens with a two-sentence disclosure and keeps the full text behind Read more', async () => {
+    const tree = mount(<VoiceSettingsScreen />);
+    await flush();
+    act(() => toggle(tree, 'Hey Clovie').props.onCheckedChange(true));
+
+    const [, short, firstButtons] = (Alert.alert as jest.Mock).mock.calls[0];
+    expect(short).toBe(
+      'Hey Clovie listens through your microphone, even when Clovie is closed. Nothing is recorded until you say Hey Clovie.',
+    );
+    expect(firstButtons.map((b: { text: string }) => b.text)).toEqual([
+      'Cancel',
+      'Read more',
+      'Allow',
+    ]);
+    act(() =>
+      firstButtons
+        .find((b: { text: string }) => b.text === 'Read more')
+        .onPress(),
+    );
+    const [, full, fullButtons] = (Alert.alert as jest.Mock).mock.calls[1];
+    expect(full).toContain('uses your microphone to listen on this phone');
+    expect(full).toContain('Nothing is recorded or sent while it waits');
+    expect(fullButtons.map((b: { text: string }) => b.text)).toEqual([
+      'Cancel',
+      'Allow',
+    ]);
+    expect(mockPermissions).not.toHaveBeenCalled();
+  });
+
   it('shows on duty until closing time in the business timezone', async () => {
     jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-15T08:00:00Z'));
     mockNative.handsFree = {

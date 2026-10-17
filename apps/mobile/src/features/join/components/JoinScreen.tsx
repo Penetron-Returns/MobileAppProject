@@ -1,4 +1,12 @@
-import { Avatar, Button, InsetInput, Text, useDepth } from '@booking/ui';
+import {
+  Avatar,
+  Button,
+  ConfirmDialog,
+  InsetInput,
+  Pressable,
+  Text,
+  useDepth,
+} from '@booking/ui';
 import { useUser } from '@clerk/expo';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +14,7 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthBackdrop } from '@/features/auth/components/AuthBackdrop';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { toast } from '@/lib/toast';
 
 import { useAcceptInvitation, type PendingInvitation } from '../hooks';
@@ -27,6 +36,8 @@ export function JoinScreen({
   const depth = useDepth();
   const insets = useSafeAreaInsets();
   const accept = useAcceptInvitation();
+  const signOut = useSignOut();
+  const [isConfirmingDecline, setIsConfirmingDecline] = React.useState(false);
   const [first, ...others] = invitations;
   const { user } = useUser();
   const [joiningId, setJoiningId] = React.useState<string | null>(null);
@@ -177,17 +188,50 @@ export function JoinScreen({
               </Text>
             </Button>
           ))}
-          <Button
-            size="xl"
-            variant="secondary"
-            onPress={onDecline}
+          <Pressable
+            feedback="dim"
+            onPress={() => setIsConfirmingDecline(true)}
             disabled={busy}
+            accessibilityRole="button"
             accessibilityLabel={t('join.createOwn')}
+            className="min-h-11 items-center justify-center"
           >
-            <Text>{t('join.createOwn')}</Text>
-          </Button>
+            <Text
+              style={{ color: depth.colors.tint }}
+              className="text-subtitle"
+            >
+              {t('join.createOwn')}
+            </Text>
+          </Pressable>
+          <Pressable
+            feedback="dim"
+            onPress={() => void signOut()}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={t('join.wrongEmail')}
+            className="min-h-11 items-center justify-center px-4"
+          >
+            <Text
+              style={{ color: depth.colors.secondary }}
+              className="text-center text-subtitle"
+            >
+              {t('join.wrongEmail')}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
+      <ConfirmDialog
+        open={isConfirmingDecline}
+        onOpenChange={setIsConfirmingDecline}
+        title={t('join.confirmOwn.title')}
+        description={t('join.confirmOwn.description')}
+        confirmLabel={t('join.confirmOwn.confirm')}
+        cancelLabel={t('join.confirmOwn.cancel')}
+        onConfirm={() => {
+          setIsConfirmingDecline(false);
+          onDecline();
+        }}
+      />
     </AuthBackdrop>
   );
 }

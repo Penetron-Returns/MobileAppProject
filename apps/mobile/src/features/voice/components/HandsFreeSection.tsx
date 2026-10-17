@@ -8,7 +8,7 @@ import {
 } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, View } from 'react-native';
+import { Alert, type AlertButton, Linking, View } from 'react-native';
 
 import { useBusiness } from '@/features/business/hooks';
 
@@ -31,10 +31,20 @@ export function HandsFreeSection() {
   const canToggle = canTurnOnVoice(state.status) && !voice.isPending;
   const timezone = business.data?.timezone ?? 'Africa/Johannesburg';
 
-  /** Prominent disclosure (Google Play): what is recorded, when and where it goes, before any permission prompt. */
-  const confirmTurnOn = () =>
-    Alert.alert(
-      t('voice.permissionRationale.title'),
+  /**
+   * Prominent disclosure (Google Play), before any permission prompt. The first dialog says the
+   * essentials in two sentences (microphone, also when Clovie is closed, nothing recorded until the
+   * wake phrase); Read more opens the full text, with the same choices.
+   */
+  const askAllow = (body: string, buttons: AlertButton[]) =>
+    Alert.alert(t('voice.permissionRationale.title'), body, buttons);
+  const allow: AlertButton = {
+    text: t('voice.permissionRationale.ok'),
+    onPress: () => void voice.turnOn(),
+  };
+  const cancel: AlertButton = { text: t('common.cancel'), style: 'cancel' };
+  const showFullDisclosure = () =>
+    askAllow(
       [
         t('voice.disclosure.what'),
         t('voice.disclosure.recording'),
@@ -43,14 +53,17 @@ export function HandsFreeSection() {
         t('voice.permissionRationale.overlay'),
         t('voice.hf.consent'),
       ].join('\n\n'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('voice.permissionRationale.ok'),
-          onPress: () => void voice.turnOn(),
-        },
-      ],
+      [cancel, allow],
     );
+  const confirmTurnOn = () =>
+    askAllow(t('voice.permissionRationale.short'), [
+      cancel,
+      {
+        text: t('voice.permissionRationale.readMore'),
+        onPress: showFullDisclosure,
+      },
+      allow,
+    ]);
 
   const line = handsFreeLine(handsFree, Date.now(), timezone);
   const statusLine =
