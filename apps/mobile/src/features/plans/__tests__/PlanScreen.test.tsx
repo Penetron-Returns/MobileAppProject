@@ -6,18 +6,41 @@ import type {
 } from '@booking/types';
 import * as React from 'react';
 
-import { act, mount, pressableByText, text } from '@/testing/render';
+import {
+  act,
+  mount,
+  pressableByLabel,
+  pressableByText,
+  text,
+} from '@/testing/render';
 
 import { PlanScreen } from '../components/PlanScreen';
 
-const mockInfo = jest.fn();
+const mockStart = jest.fn();
+let mockPhase: { kind: string } = { kind: 'idle' };
+jest.mock('../useCheckout', () => ({
+  useCheckout: () => ({
+    phase: mockPhase,
+    start: mockStart,
+    checkAgain: jest.fn(),
+    notPaid: jest.fn(),
+    reset: jest.fn(),
+  }),
+}));
+const mockChange = jest.fn();
+const mockManage = jest.fn();
+jest.mock('../useBillingActions', () => ({
+  useChangePlan: () => ({ mutate: mockChange }),
+  useManageSubscription: () => ({ mutate: mockManage }),
+}));
+const mockBlocked = jest.fn();
 jest.mock('@/lib/toast', () => ({
   ...jest.requireActual('@/lib/toast'),
-  toast: { info: (...a: unknown[]) => mockInfo(...a) },
+  toast: { blocked: (...a: unknown[]) => mockBlocked(...a) },
 }));
-const mockOpenBrowser = jest.fn();
-jest.mock('expo-web-browser', () => ({
-  openBrowserAsync: (...a: unknown[]) => mockOpenBrowser(...a),
+let mockCanManage = true;
+jest.mock('@/features/business/me', () => ({
+  useCanManage: () => mockCanManage,
 }));
 
 const mockUsePlans = jest.fn();
@@ -28,9 +51,13 @@ jest.mock('../hooks', () => ({
 }));
 
 function plan(id: PlanKey, over: Partial<PlanDTO> = {}): PlanDTO {
-  const paid = id !== 'free';
-  const price = { free: 0, starter: 20000, growth: 40000, pro: 80000 }[id];
-  const jobs = { free: null, starter: 50, growth: 100, pro: 200 }[id];
+  const paid = id !== 'free' && id !== 'none';
+  const price = { none: 0, free: 0, starter: 20000, growth: 40000, pro: 80000 }[
+    id
+  ];
+  const jobs = { none: null, free: null, starter: 50, growth: 100, pro: 200 }[
+    id
+  ];
   return {
     id,
     name: id[0].toUpperCase() + id.slice(1),
@@ -82,48 +109,33 @@ const query = (over: Record<string, unknown>) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPhase = { kind: 'idle' };
+  mockCanManage = true;
   mockUseUsage.mockReturnValue(query({ data: usage() }));
 });
 
 describe('PlanScreen', () => {
-  it('Free: the Free card, three equal tiers and no usage bar', () => {
-    mockUsePlans.mockReturnValue(query({ data: plans('free') }));
-    mockUseUsage.mockReturnValue(
-      query({
-        data: usage({
-          plan: 'free',
-          included_jobs: null,
-          usage_percent: null,
-        }),
-      }),
-    );
+  it('never mentions Free, even when the catalogue still lists a free plan', () => {
+    mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
     const tree = mount(<PlanScreen />);
-    const out = text(tree);
-    expect(out).toContain('Plan & billing');
-    expect(out).toContain('R4 per completed job. Pick the size that fits.');
-    expect(out).toContain("You're on Free. Add your AI companion from R200.");
-    for (const tier of ['Starter', 'Growth', 'Pro']) {
-      expect(out).toContain(`Choose ${tier}`);
-    }
-    expect(out).toContain('R200');
-    expect(out).toContain('50 completed jobs');
-    expect(out).toContain('R4 per job');
-    expect(out).toContain('Every paid plan includes your AI companion');
-    expect(out).not.toContain('Current plan');
-    expect(
-      tree.root.findAll((n) => n.props.accessibilityRole === 'progressbar'),
-    ).toHaveLength(0);
+    expect(text(tree)).not.toMatch(/free/i);
+    mockUsePlans.mockReturnValue(query({ data: plans('none') }));
+    expect(text(mount(<PlanScreen />))).not.toMatch(/free/i);
   });
 
-  it('paid: the usage card, and the current tier is not a button', () => {
+  it('shows the usage card, the three paid tiers and bookings wording', () => {
     mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
     const tree = mount(<PlanScreen />);
     const out = text(tree);
-    expect(out).toContain('63 of 100 jobs this month · resets 1 Nov');
+    expect(out).toContain('Plan & billing');
+    expect(out).toContain('63 of 100 bookings this month · resets 1 Nov');
+    expect(out).toContain('50 bookings a month');
+    expect(out).toContain('Extra bookings R4');
     expect(out).toContain('Current plan');
     expect(out).toContain('Choose Starter');
     expect(out).toContain('Choose Pro');
     expect(out).not.toContain('Choose Growth');
+    expect(out).not.toContain('completed');
     expect(
       tree.root.findAll(
         (n) =>
@@ -159,38 +171,53 @@ describe('PlanScreen', () => {
     );
     const out = text(mount(<PlanScreen />));
     expect(out).toContain("You're over your limit");
-    expect(out).toContain('4 extra jobs, R16 so far');
+    expect(out).toContain('4 extra bookings, R16 so far');
   });
 
-  it('tells the owner checkout is coming while there is no checkout URL', () => {
-    mockUsePlans.mockReturnValue(query({ data: plans('free') }));
-    const tree = mount(<PlanScreen />);
-    act(() => pressableByText(tree, 'Choose Growth').props.onPress());
-    expect(mockInfo).toHaveBeenCalledWith('Checkout opens soon');
-    expect(mockOpenBrowser).not.toHaveBeenCalled();
-  });
-
-  it('opens the checkout URL once the API has one', () => {
-    mockUsePlans.mockReturnValue(
-      query({ data: plans('free', 'https://pay.example/checkout') }),
-    );
-    const tree = mount(<PlanScreen />);
-    act(() => pressableByText(tree, 'Choose Pro').props.onPress());
-    expect(mockOpenBrowser).toHaveBeenCalledWith(
-      'https://pay.example/checkout',
-    );
-    expect(mockInfo).not.toHaveBeenCalled();
-  });
-
-  it('always lists Manage subscription, dimmed with its reason until a URL exists', () => {
+  it('a subscriber switches plan through the plan endpoint, not checkout', () => {
     mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
     const tree = mount(<PlanScreen />);
-    const out = text(tree);
-    expect(out).toContain('Managed on web');
-    expect(out).toContain('Manage subscription');
-    expect(out).toContain('Managed on the web');
+    act(() => pressableByText(tree, 'Choose Pro').props.onPress());
+    expect(mockChange).toHaveBeenCalledWith('pro');
+    expect(mockStart).not.toHaveBeenCalled();
+  });
+
+  it('a business with no plan starts checkout for the chosen plan', () => {
+    mockUsePlans.mockReturnValue(query({ data: plans('none') }));
+    mockUseUsage.mockReturnValue(query({ data: undefined }));
+    const tree = mount(<PlanScreen />);
+    act(() => pressableByText(tree, 'Choose Pro').props.onPress());
+    expect(mockStart).toHaveBeenCalledWith('pro');
+  });
+
+  it('tells staff that choosing a plan is for the owner', () => {
+    mockCanManage = false;
+    mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
+    const tree = mount(<PlanScreen />);
+    act(() => pressableByText(tree, 'Choose Pro').props.onPress());
+    expect(mockStart).not.toHaveBeenCalled();
+    expect(mockBlocked).toHaveBeenCalled();
+  });
+
+  it('shows what is happening while checkout is open, with a way on', () => {
+    mockPhase = { kind: 'not_configured' };
+    mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
+    const out = text(mount(<PlanScreen />));
+    expect(out).toContain("Payments aren't switched on yet");
+    expect(out).toContain('Try again');
+  });
+
+  it('Manage subscription opens the portal for an owner with a plan, and is dimmed with a reason otherwise', () => {
+    mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
+    const tree = mount(<PlanScreen />);
+    act(() => pressableByLabel(tree, 'Manage subscription').props.onPress());
+    expect(mockManage).toHaveBeenCalled();
+
+    mockUsePlans.mockReturnValue(query({ data: plans('none') }));
+    const none = mount(<PlanScreen />);
+    expect(text(none)).toContain('No subscription to manage yet');
     expect(
-      tree.root.findAll(
+      none.root.findAll(
         (n) =>
           typeof n.props.accessibilityLabel === 'string' &&
           n.props.accessibilityLabel.startsWith('Manage subscription') &&
@@ -199,15 +226,15 @@ describe('PlanScreen', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('opens the comparison table from the disclosure', () => {
-    mockUsePlans.mockReturnValue(query({ data: plans('free') }));
+  it('opens the comparison table from the disclosure, without Free-era rows', () => {
+    mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
     const tree = mount(<PlanScreen />);
-    expect(text(tree)).not.toContain('Team inbox');
     act(() => pressableByText(tree, 'Compare plans').props.onPress());
     const out = text(tree);
-    expect(out).toContain('Team inbox');
     expect(out).toContain('AI companion');
     expect(out).toContain('R800');
+    expect(out).not.toContain('Team inbox');
+    expect(out).not.toContain('Manual booking');
   });
 
   it('shows a skeleton, then an error with retry', () => {

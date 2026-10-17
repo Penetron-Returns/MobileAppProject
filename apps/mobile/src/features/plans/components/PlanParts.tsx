@@ -203,7 +203,12 @@ function cellText(
 }
 
 /** Billing rows: payment and invoices are handled on the web, and there is nothing to manage until a URL exists. */
-export function BillingRows({ manageUrl }: { manageUrl: string | null }) {
+export function BillingRows({
+  onManage,
+}: {
+  /** Opens the subscription portal; absent when there is no subscription to manage. */
+  onManage?: () => void;
+}) {
   const { t } = useTranslation();
   const rows = [
     { key: 'payment', value: t('plans.billing.managedOnWeb') },
@@ -233,7 +238,7 @@ export function BillingRows({ manageUrl }: { manageUrl: string | null }) {
           </View>
         ))}
       </Surface>
-      <ManageRow url={manageUrl} />
+      <ManageRow onManage={onManage} />
       <Text className="mx-5 mt-2.5 text-meta text-muted-foreground">
         {t('plans.billing.footnote')}
       </Text>
@@ -242,24 +247,18 @@ export function BillingRows({ manageUrl }: { manageUrl: string | null }) {
 }
 
 /**
- * Always listed. Until the API hands out a subscription-management URL it is
+ * Always listed. Without a subscription to manage it is
  * dimmed with its reason, never hidden.
  */
-function ManageRow({ url }: { url: string | null }) {
+function ManageRow({ onManage }: { onManage?: () => void }) {
   const { t } = useTranslation();
   return (
     <Group className="mt-3" radius={26}>
       <GroupRow
         title={t('plans.billing.manage')}
-        disabled={!url}
+        disabled={!onManage}
         reason={t('plans.billing.managedOnWebReason')}
-        onPress={() => {
-          if (url) {
-            void import('expo-web-browser').then((m) =>
-              m.openBrowserAsync(url),
-            );
-          }
-        }}
+        onPress={onManage}
       />
     </Group>
   );

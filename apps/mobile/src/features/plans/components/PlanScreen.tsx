@@ -8,6 +8,7 @@ import {
   Text,
   useDepth,
 } from '@booking/ui';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -17,10 +18,12 @@ import { OwnerOnlyNote } from '@/features/settings/components/OwnerOnlyNote';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError, toast } from '@/lib/toast';
 
-import { startCheckout } from '../checkout';
-import { lowestPaidPriceCents, paidPlans } from '../compare';
+import { isCheckoutPlan, type CheckoutPlanId } from '../checkout';
+import { paidPlans } from '../compare';
 import { useBillingUsage, usePlans } from '../hooks';
 import { formatRand } from '../logic';
+import { useChangePlan, useManageSubscription } from '../useBillingActions';
+import { useCheckout } from '../useCheckout';
 import {
   BillingRows,
   CheckoutNote,
@@ -28,12 +31,13 @@ import {
   ComparePlans,
   TierCard,
 } from './PlanParts';
+import { CheckoutStatus } from './CheckoutStatus';
 import { UsageCard } from './UsageCard';
 
 /**
  * Plan & billing (PlanBilling.dc.html): the headline, "Your plan" with live
- * usage (or the Free card), three equal tiers, what the companion includes,
- * a comparison and the billing rows. Purchase happens on the web.
+ * usage, three equal tiers, what the companion includes, a comparison and the
+ * billing rows. Choosing a plan opens secure checkout (`useStartCheckout`).
  */
 export function PlanScreen() {
   const { t } = useTranslation();
@@ -84,13 +88,26 @@ function PlanBody({
   const tiers = paidPlans(plans);
   const current = plans.find((p) => p.id === currentPlan);
   const isPaid = Boolean(current?.has_companion);
-  const lowest = lowestPaidPriceCents(plans);
   const rate = formatRand(tiers[0]?.extra_job_cents ?? 0);
   const canManage = useCanManage();
   // Staff see the plans; choosing one is the owner's call (the API refuses it too).
+  const checkout = useCheckout();
+  const manage = useManageSubscription();
+  const changePlan = useChangePlan();
+  const lastPlan = React.useRef<CheckoutPlanId | null>(null);
+  const start = (id: CheckoutPlanId) => {
+    lastPlan.current = id;
+    void checkout.start(id);
+  };
   const choose = canManage
-    ? startCheckout
+    ? (plan: PlanDTO) => {
+        if (!isCheckoutPlan(plan.id)) return;
+        // A subscriber switches plan; only a first purchase goes through checkout.
+        if (isPaid) changePlan.mutate(plan.id);
+        else start(plan.id);
+      }
     : () => toast.blocked(t('settings.ownerOnly'));
+  const { phase } = checkout;
 
   return (
     <>
@@ -120,9 +137,7 @@ function PlanBody({
             name={current?.name ?? ''}
             isLoading={usage.isPending && !isFailed(usage)}
           />
-        ) : (
-          <FreeCard from={lowest === null ? null : formatRand(lowest)} />
-        )}
+        ) : null}
       </Reveal>
 
       <Text
@@ -132,6 +147,15 @@ function PlanBody({
       >
         {t('plans.tiers')}
       </Text>
+      {phase.kind !== 'idle' && phase.kind !== 'active' ? (
+        <CheckoutStatus
+          phase={phase}
+          onRetry={() => lastPlan.current && start(lastPlan.current)}
+          onCheckAgain={() => void checkout.checkAgain()}
+          onNotPaid={checkout.notPaid}
+          onBack={checkout.reset}
+        />
+      ) : null}
       {tiers.map((plan) => (
         <TierCard key={plan.id} plan={plan} onChoose={choose} />
       ))}
@@ -145,7 +169,7 @@ function PlanBody({
         {t('plans.perksTitle')}
       </Text>
       <CompanionPerks />
-      <ComparePlans plans={plans} />
+      <ComparePlans plans={tiers} />
 
       <Text
         role="heading"
@@ -154,36 +178,11 @@ function PlanBody({
       >
         {t('plans.billing.title')}
       </Text>
-      <BillingRows manageUrl={null} />
+      <BillingRows
+        onManage={isPaid && canManage ? () => manage.mutate() : undefined}
+      />
       <OwnerOnlyNote />
     </>
-  );
-}
-
-/** The Free card: what the plan is, and where the companion starts. */
-function FreeCard({ from }: { from: string | null }) {
-  const { t } = useTranslation();
-  const depth = useDepth();
-  return (
-    <Surface variant="raised" radius={26} className="mx-5 mt-5 p-4">
-      <View className="flex-row items-baseline justify-between">
-        <Text className="text-[20px] font-semibold leading-[25px]">
-          {t('plans.names.free')}
-        </Text>
-        <Text
-          style={{ color: depth.colors.green }}
-          className="text-subtitle font-semibold"
-        >
-          {t('plans.yourPlan')}
-        </Text>
-      </View>
-      <Text className="mt-1.5 text-title">
-        {from ? t('plans.free.line', { from }) : t('plans.free.lineNoPrice')}
-      </Text>
-      <Text className="mt-0.5 text-subtitle text-muted-foreground">
-        {t('plans.free.body')}
-      </Text>
-    </Surface>
   );
 }
 

@@ -23,18 +23,6 @@ export function monthlyLimit(
   return features?.find((f) => f.feature === feature)?.monthly_limit ?? null;
 }
 
-/** Which app the plan gets: Free is the research app, paid plans get the companion and reports. */
-export type AppMode = 'free' | 'ai';
-
-/** Paid plans carry `companion` or `reports`; everything else (and unloaded data) is Free. */
-export function appMode(
-  features: readonly FeatureEntitlementDTO[] | undefined,
-): AppMode {
-  return hasFeature(features, 'companion') || hasFeature(features, 'reports')
-    ? 'ai'
-    : 'free';
-}
-
 /**
  * Rand from integer cents, as the plan boards write it: "R200", "R16",
  * "R1,250", and "R4.50" only when there are cents.
@@ -51,7 +39,7 @@ export function formatRand(cents: number): string {
 /** What the usage card needs, with the arithmetic done once. */
 export interface UsageView {
   state: UsageState;
-  /** False on Free: there is no allowance to measure against. */
+  /** False when the plan has no allowance to measure against. */
   hasAllowance: boolean;
   used: number;
   limit: number;

@@ -9,7 +9,7 @@ import renderer, {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BookingRulesScreen } from '../components/BookingRulesScreen';
-import { WhatsAppSettingsScreen } from '../components/WhatsAppScreens';
+import { PaidWhatsAppSettings as WhatsAppSettingsScreen } from '../components/PaidWhatsAppSettings';
 
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
@@ -27,13 +27,11 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 let mockRole: 'owner' | 'staff' = 'owner';
-let mockMode: 'free' | 'ai' = 'ai';
 jest.mock('@/features/business/me', () => ({
   useMe: () => ({ data: { role: mockRole } }),
   useCanManage: () => mockRole !== 'staff',
 }));
 jest.mock('@/features/plans/hooks', () => ({
-  useAppMode: () => mockMode,
   useEntitlements: () => ({ has: () => false, isLoading: false }),
 }));
 
@@ -71,9 +69,6 @@ jest.mock('../hooks', () => ({
     },
   }),
   useSaveBookingRules: () => ({ mutate: mockSave, isPending: false }),
-  useWhatsAppChannel: () => ({ isPending: true }),
-  useWhatsAppAction: () => ({ mutate: jest.fn(), isPending: false }),
-  useSendTestMessage: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
 const METRICS = {
@@ -109,7 +104,6 @@ const pressable = (tree: ReactTestRenderer, label: string) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockRole = 'owner';
-  mockMode = 'ai';
   mockSetup.data.whatsapp = { connected: false, display_phone_number: null };
 });
 

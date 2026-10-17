@@ -29,7 +29,7 @@ describe('UsageCard', () => {
     const out = text(tree);
     expect(out).toContain('Growth');
     expect(out).toContain('Your plan');
-    expect(out).toContain('63 of 100 jobs this month · resets 1 Nov');
+    expect(out).toContain('63 of 100 bookings this month · resets 1 Nov');
     expect(out).toContain('Nothing is ever cut off');
     expect(out).not.toContain('close to your limit');
     expect(bar(tree).props.accessibilityValue).toEqual({
@@ -52,10 +52,10 @@ describe('UsageCard', () => {
         />,
       ),
     );
-    expect(out).toContain('86 of 100 jobs this month');
+    expect(out).toContain('86 of 100 bookings this month');
     expect(out).toContain("You're close to your limit");
     expect(out).toContain(
-      'Nothing stops at the limit. Extra jobs are R4 each, billed at month end.',
+      'Nothing stops at the limit. Extra bookings are R4 each, billed at month end.',
     );
   });
 
@@ -74,13 +74,13 @@ describe('UsageCard', () => {
         />,
       ),
     );
-    expect(out).toContain('104 of 100 · 4 extra jobs, R16 so far');
+    expect(out).toContain('104 of 100 · 4 extra bookings, R16 so far');
     expect(out).toContain("You're over your limit");
     expect(out).toContain('Nothing was cut off.');
     expect(out).toContain('Resets 1 Nov.');
   });
 
-  it('says "1 extra job" for one', () => {
+  it('says "1 extra booking" for one', () => {
     const out = text(
       mount(
         <UsageCard
@@ -95,6 +95,6 @@ describe('UsageCard', () => {
         />,
       ),
     );
-    expect(out).toContain('1 extra job, R4 so far');
+    expect(out).toContain('1 extra booking, R4 so far');
   });
 });

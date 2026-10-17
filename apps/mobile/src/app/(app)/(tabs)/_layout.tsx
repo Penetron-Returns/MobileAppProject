@@ -3,20 +3,18 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { AppTabBar } from '@/components/AppTabBar';
-import { useAppMode } from '@/features/plans/hooks';
 
 /**
- * The tab routes (the bar shows four on Free, with a centre "+" for New booking, and five on paid plans, with Reports). Detail pages (booking, client, settings sub-pages) live in
+ * The tab routes (the bar shows five: Clovie, Calendar, Reports, Clients, Settings). Detail pages (booking, client, settings sub-pages) live in
  * the parent stack so they slide over the tab bar instead of hiding it.
  */
 export default function TabsLayout() {
   const { t } = useTranslation();
-  const mode = useAppMode();
   const ground = useDepth().ground.backgroundColor as string;
   return (
     <Tabs
       backBehavior="history"
-      // The floating capsule draws itself (icons, labels and the Free-plan "+" button).
+      // The floating capsule draws itself (icons, labels and the companion bubble).
       tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{
         headerShown: false,
@@ -29,10 +27,7 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: ground },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: mode === 'ai' ? t('tabs.clovie') : t('tabs.today') }}
-      />
+      <Tabs.Screen name="index" options={{ title: t('tabs.clovie') }} />
       <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
       <Tabs.Screen name="reports" options={{ title: t('tabs.reports') }} />
       <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />

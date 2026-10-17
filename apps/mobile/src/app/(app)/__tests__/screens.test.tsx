@@ -3,6 +3,9 @@ import '@/lib/i18n';
 import * as React from 'react';
 import renderer, { act } from 'react-test-renderer';
 
+jest.mock('@/features/setup-checklist/components/GetSetUpRow', () => ({
+  GetSetUpRow: () => null,
+}));
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
@@ -445,8 +448,8 @@ beforeEach(() => {
     }),
     useMe: success({
       role: 'owner',
-      plan: 'free',
-      features: [{ feature: 'whatsapp_menu', monthly_limit: null }],
+      plan: 'growth',
+      features: [{ feature: 'companion', monthly_limit: null }],
     }),
     useDashboardSummary: success(SUMMARY),
     useDaySchedule: success(SCHEDULE),
@@ -696,14 +699,14 @@ describe('New booking', () => {
 });
 
 describe('Settings', () => {
-  it('shows the profile, role, settings links and WhatsApp status', () => {
+  it('shows the profile, role and settings links', () => {
     const json = render(<SettingsRoute />);
     expect(json).toContain('Ashgrove Hair & Beauty');
     expect(json).toContain('Owner');
     expect(json).toContain('Opening hours');
     expect(json).toContain('Team');
     expect(json).toContain('Booking rules');
-    expect(json).toContain('Connected');
+    expect(json).toContain('WhatsApp');
     expect(json).toContain('Sign out');
   });
 

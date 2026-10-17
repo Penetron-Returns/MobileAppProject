@@ -4,12 +4,11 @@ import { useTranslation } from 'react-i18next';
 import {
   useBusinessDetails,
   useBusinessHours,
-  useWhatsAppAccount,
 } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { useServices, useStaff } from '@/features/catalog/hooks';
 import { useCompanionSetup } from '@/features/companion/hooks';
-import { useAppMode, useEntitlements } from '@/features/plans/hooks';
+import { useEntitlements } from '@/features/plans/hooks';
 
 import { formatMinutes } from './format';
 import { useBookingRules } from './hooks';
@@ -33,56 +32,39 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
   const { t } = useTranslation();
   const me = useMe();
   const isOwner = me.data?.role !== 'staff';
-  const mode = useAppMode();
   const entitlements = useEntitlements();
   const details = useBusinessDetails();
   const hours = useBusinessHours();
   const services = useServices();
   const staff = useStaff();
   const rules = useBookingRules();
-  const legacyWhatsApp = useWhatsAppAccount();
-  const isPaid = mode === 'ai';
-  const setup = useCompanionSetup({ enabled: isOwner && isPaid });
+  const setup = useCompanionSetup({ enabled: isOwner });
 
   return React.useMemo(() => {
     const none: RowModel = {};
     const days = hours.data ? openDaysSummary(hours.data) : undefined;
 
-    const clovie: RowModel = isPaid
-      ? setup.data
-        ? {
-            detail: t(
-              setup.data.companion_live
-                ? 'settings.clovie.live'
-                : 'settings.clovie.paused',
-            ),
-            tone: setup.data.companion_live ? 'success' : 'secondary',
-          }
-        : none
-      : { disabled: true, reason: t('settings.clovie.paidOnly') };
-
-    let whatsapp: RowModel = none;
-    if (isPaid) {
-      if (setup.data) {
-        const connected = setup.data.whatsapp.connected;
-        whatsapp = {
+    const clovie: RowModel = setup.data
+      ? {
           detail: t(
-            connected
+            setup.data.companion_live
+              ? 'settings.clovie.live'
+              : 'settings.clovie.paused',
+          ),
+          tone: setup.data.companion_live ? 'success' : 'secondary',
+        }
+      : none;
+
+    const whatsapp: RowModel = setup.data
+      ? {
+          detail: t(
+            setup.data.whatsapp.connected
               ? 'settings.whatsapp.rowStatus.live'
               : 'settings.whatsapp.rowStatus.none',
           ),
-          tone: connected ? 'success' : 'secondary',
-        };
-      }
-    } else if (!entitlements.isLoading && !entitlements.has('whatsapp_menu')) {
-      whatsapp = { disabled: true, reason: t('settings.whatsapp.notInPlan') };
-    } else if (legacyWhatsApp.data !== undefined) {
-      const status = legacyWhatsApp.data?.status ?? 'none';
-      whatsapp = {
-        detail: t(`settings.whatsapp.rowStatus.${status}`),
-        tone: status === 'live' ? 'success' : 'secondary',
-      };
-    }
+          tone: setup.data.whatsapp.connected ? 'success' : 'secondary',
+        }
+      : none;
 
     return {
       businessDetails: { detail: details.data?.name },
@@ -113,10 +95,8 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
     };
   }, [
     t,
-    isPaid,
     setup.data,
     entitlements,
-    legacyWhatsApp.data,
     details.data,
     hours.data,
     services.data,

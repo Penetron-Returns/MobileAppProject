@@ -6,7 +6,7 @@ import { useMe } from '@/features/business/me';
 import { api } from '@/lib/api';
 import { qk } from '@/lib/query';
 
-import { appMode, hasFeature, monthlyLimit, type AppMode } from './logic';
+import { hasFeature, monthlyLimit } from './logic';
 
 export interface Entitlements {
   /** null until the session is loaded or if loading failed */
@@ -35,11 +35,6 @@ export function useEntitlements(): Entitlements {
     }),
     [me.data?.plan, features, me.isPending, me.isError],
   );
-}
-
-/** Free (the research app) or paid (companion and reports), from the same `/v1/me` entitlements. */
-export function useAppMode(): AppMode {
-  return appMode(useMe().data?.features);
 }
 
 /** Plans and prices for the Plan page, in catalogue order. */
