@@ -23,6 +23,9 @@ const runWarmJob: Job = async () => ({});
 /** Attendance check (every 5 minutes, see migration 20261021000002): questions, pushes, escalation, summaries. */
 const runAttendanceJob: Job = (container, now) => container.attendance.runJob(now);
 
+/** Stories (every 15 minutes, migration 20261027000003): Brief, Client updates and Business update, see docs/stories.md. */
+const runStoriesJob: Job = (container, now) => container.stories.runJob(now);
+
 export const CRON_JOBS: Record<string, Job> = {
   reminders: runRemindersJob,
   'conversation-expiry': runConversationExpiryJob,
@@ -33,6 +36,7 @@ export const CRON_JOBS: Record<string, Job> = {
   attendance: runAttendanceJob,
   /** Act-then-undo (every minute, migration 20261026000003): sends held client messages once the undo window has passed. */
   'client-notifications': runHeldClientNotificationsJob,
+  stories: runStoriesJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

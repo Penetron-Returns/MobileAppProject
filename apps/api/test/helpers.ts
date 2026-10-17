@@ -70,6 +70,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     companion: createCompanionService({ nerova, plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
     companionSettings: createCompanionSettingsService({ nerova, plans: planRepo, recordAudit: async () => {} }),
     voiceAsk: unimplemented as Container['voiceAsk'],
+    stories: unimplemented as Container['stories'],
     clerkAdmin: createFakeClerkAdmin(),
     voiceTokens: createDeviceTokenService({ repo: createMemoryDeviceTokenRepository() }),
     clock: () => new Date(),

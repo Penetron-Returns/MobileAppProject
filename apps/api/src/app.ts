@@ -40,7 +40,7 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.use('*', baseContext(options.getContainer ?? defaultGetContainer));
-  app.use('/v1/*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] }));
+  app.use('/v1/*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id', 'X-App-Version', 'X-Platform'], exposeHeaders: ['X-Request-Id'] }));
   app.use('/public/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] }));
 
   app.get('/health', (c) => c.json({ data: { ok: true, time: new Date().toISOString() } }));

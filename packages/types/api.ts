@@ -962,3 +962,86 @@ export interface VoiceApprovalResultDTO {
   decision: 'approved' | 'declined';
   kind: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Clovie stories (docs/stories.md)
+// ---------------------------------------------------------------------------
+
+export type StoryKind = 'brief' | 'clients' | 'business';
+export type StoryTone = 'positive' | 'neutral' | 'attention' | 'concern';
+export type StoryEmotion =
+  | 'delighted'
+  | 'proud'
+  | 'curious'
+  | 'thoughtful'
+  | 'sympathetic'
+  | 'presenter'
+  | 'sleepy';
+
+/** One card of a story. Every value comes from the business's own data and a fixed English template. */
+export interface StoryCardDTO {
+  id: string;
+  tone: StoryTone;
+  kicker: string;
+  headline: string;
+  body?: string;
+  /** `count` and `percent` are plain numbers; `money` is integer cents in the business currency */
+  number?: {
+    value: number;
+    format: 'count' | 'money' | 'percent';
+    unit?: string;
+  };
+  list?: { name: string; initials: string; detail: string }[];
+  /** `kind` is an in-app action the app handles (e.g. `invite_lapsed`); `deeplink` is a URL such as `clovie://voice` */
+  action?: { label: string; kind?: string; deeplink?: string };
+  emotion?: StoryEmotion;
+  /** Product updates only: the client-side demo id (e.g. `undo`, `names`) */
+  demo?: string;
+}
+
+export interface StoryDTO {
+  id: string;
+  kind: StoryKind;
+  title: string;
+  tone: StoryTone;
+  /** ISO-8601 UTC */
+  generatedAt: string;
+  /** True once the caller has opened this story (per person) */
+  viewed: boolean;
+  cards: StoryCardDTO[];
+}
+
+/** GET /v1/stories response data: Brief, Client updates, Business update, then Product updates. Empty stories are omitted. */
+export interface StoriesResponseDTO {
+  stories: StoryDTO[];
+  /** Unseen, approved product updates for this caller (at most 3, newest first); `viewed` is false whenever there are cards */
+  productUpdates: { viewed: boolean; cards: StoryCardDTO[] };
+}
+
+/** POST /v1/stories/:id/view body */
+export interface StoryViewRequest {
+  lastCardIndex: number;
+}
+
+/** POST /v1/product-updates/view body: product update ids (the same as the product update card ids) */
+export interface ProductUpdatesViewRequest {
+  ids: string[];
+}
+
+export type StoryEventName =
+  'open' | 'card_view' | 'complete' | 'skip' | 'close' | 'action';
+
+/** One analytics event; ids, kind and a card index only, never personal data */
+export interface StoryEventDTO {
+  storyKind: StoryKind | 'product';
+  storyId?: string | null;
+  cardIndex: number;
+  event: StoryEventName;
+  /** ISO-8601 UTC; defaults to the server time */
+  at?: string;
+}
+
+/** POST /v1/stories/events body: up to 50 events */
+export interface StoryEventsRequest {
+  events: StoryEventDTO[];
+}
