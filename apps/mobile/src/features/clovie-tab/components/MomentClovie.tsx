@@ -28,6 +28,7 @@ const EMOTION: Record<MomentAvatarProperties['state'], ClovieEmotion> = {
 export function MomentClovie({ state, size }: MomentAvatarProperties) {
   const isActive = useMotionActive();
   const drawn = size >= HERO_MIN_SIZE ? Math.round(size * HERO_SCALE) : size;
+  // Grown to the right and evenly up and down, so his left edge stays on the text's.
   const offset = (size - drawn) / 2;
   return (
     <View
@@ -37,7 +38,7 @@ export function MomentClovie({ state, size }: MomentAvatarProperties) {
       pointerEvents="none"
       style={{ width: size, height: size, overflow: 'visible' }}
     >
-      <View style={{ marginLeft: offset, marginTop: offset }}>
+      <View style={{ marginTop: offset }}>
         <ClovieCharacter
           emotion={EMOTION[state]}
           size={drawn}

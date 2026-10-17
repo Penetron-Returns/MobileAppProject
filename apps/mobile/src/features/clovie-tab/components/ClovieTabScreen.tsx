@@ -101,17 +101,23 @@ export function ClovieTabScreen() {
 
   return (
     <Ground className="flex-1">
+      {/* In `padding` mode the view overwrites its own paddingBottom with the
+          keyboard height, so the tab-bar clearance lives on the inner View. */}
       <KeyboardAvoidingView
         behavior={KEYBOARD_AVOIDING_BEHAVIOR}
-        style={{
-          flex: 1,
-          paddingTop: insets.top + 8,
-          // The floating bar sits under the keyboard, so only clear it when
-          // the keyboard is down; the composer then rests right on the keys.
-          paddingBottom: isKeyboardUp ? 8 : tabBarClearance(insets.bottom) + 8,
-        }}
+        style={{ flex: 1, paddingTop: insets.top + 8 }}
       >
-        <View className="w-full max-w-2xl flex-1 self-center">
+        <View
+          className="w-full max-w-2xl flex-1 self-center"
+          style={{
+            minHeight: 0,
+            // The floating bar sits under the keyboard, so only clear it when
+            // the keyboard is down; the composer then rests right on the keys.
+            paddingBottom: isKeyboardUp
+              ? 8
+              : tabBarClearance(insets.bottom) + 8,
+          }}
+        >
           {isKeyboardUp ? null : (
             <>
               <ClovieHeader
