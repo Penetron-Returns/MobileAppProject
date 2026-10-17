@@ -1,10 +1,10 @@
 import type { OnboardingRequest } from '@booking/types';
 
-/** Pure onboarding flow logic (design: Onboarding.dc.html). No React, no I/O. */
-
-export const STEP_COUNT = 5;
-export type Step = 1 | 2 | 3 | 4 | 5;
-export const MAX_TEAM = 20;
+/**
+ * Pure first-run logic. The owner answers two questions (business type, then
+ * name); everything else starts from the type's template and is reviewed later
+ * from the "Get set up" checklist. No React, no I/O.
+ */
 
 export type BusinessTypeId = 'barber' | 'salon' | 'beauty' | 'mix';
 
@@ -16,35 +16,20 @@ export const BUSINESS_TYPE_IDS: BusinessTypeId[] = [
   'mix',
 ];
 
-// ----- hours -----
+/** Questions asked in onboarding itself; the plan and setup screens follow. */
+export type OnboardingStep = 1 | 2;
+/** Type, name, plan, setup: the progress bar spans all four screens. */
+export const STAGE_COUNT = 4;
 
-export type DayGroupId = 'weekdays' | 'saturday' | 'sunday';
+// ----- templates -----
 
-export const DAY_GROUPS: {
-  id: DayGroupId;
-  /** 0 = Sunday, matching the API. */
-  weekdays: number[];
-  defaultOpen: boolean;
-}[] = [
-  {
-    id: 'weekdays',
-    weekdays: [1, 2, 3, 4, 5],
-    defaultOpen: true,
-  },
-  { id: 'saturday', weekdays: [6], defaultOpen: true },
-  { id: 'sunday', weekdays: [0], defaultOpen: false },
-];
-
-/** [weekday open, weekday close, Saturday open, Saturday close] per type. */
+/** [weekday open, weekday close, Saturday open, Saturday close] per type; Sunday stays closed. */
 const TYPE_HOURS: Record<BusinessTypeId, [string, string, string, string]> = {
   barber: ['08:00', '18:00', '08:00', '15:00'],
   salon: ['08:30', '17:30', '08:00', '15:00'],
   beauty: ['09:00', '17:00', '09:00', '14:00'],
   mix: ['08:30', '17:30', '08:00', '15:00'],
 };
-const SUNDAY_RANGE: [string, string] = ['09:00', '13:00'];
-
-// ----- services -----
 
 export interface ServiceTemplate {
   name: string;
@@ -80,215 +65,105 @@ const SERVICES_BY_TYPE: Record<BusinessTypeId, ServiceTemplate[]> = {
   ],
 };
 
-// ----- draft -----
-
-export interface TeamMember {
-  name: string;
-  title: string;
-}
-
-/** Everything the owner has entered. Defaults are derived, overrides stored. */
-export interface OnboardingDraft {
-  typeId: BusinessTypeId;
-  businessName: string;
-  dayOpen: Partial<Record<DayGroupId, boolean>>;
-  serviceOff: Record<string, boolean>;
-  /** Price text per service name (digits only); absent = template price. */
-  prices: Record<string, string>;
-  team: TeamMember[];
-}
-
-export function initialDraft(): OnboardingDraft {
-  return {
-    typeId: 'salon',
-    businessName: '',
-    dayOpen: {},
-    serviceOff: {},
-    prices: {},
-    team: [],
-  };
-}
-
-export interface HoursRowView {
-  id: DayGroupId;
-  isOpen: boolean;
-  opens: string;
-  closes: string;
-}
-
-export function hoursFor(draft: OnboardingDraft): HoursRowView[] {
-  const [wkOpen, wkClose, satOpen, satClose] = TYPE_HOURS[draft.typeId];
-  const ranges: Record<DayGroupId, [string, string]> = {
-    weekdays: [wkOpen, wkClose],
-    saturday: [satOpen, satClose],
-    sunday: SUNDAY_RANGE,
-  };
-  return DAY_GROUPS.map((g) => {
-    const isOpen = draft.dayOpen[g.id] ?? g.defaultOpen;
-    const [opens, closes] = ranges[g.id];
-    return {
-      id: g.id,
-      isOpen,
-      opens,
-      closes,
-    };
-  });
-}
-
-export interface ServiceRowView extends ServiceTemplate {
-  isOn: boolean;
-  /** What the price field shows (rand, digits only). */
-  priceText: string;
-  detail: string;
-}
-
-export function servicesFor(draft: OnboardingDraft): ServiceRowView[] {
-  return SERVICES_BY_TYPE[draft.typeId].map((s) => ({
-    ...s,
-    isOn: !draft.serviceOff[s.name],
-    priceText: draft.prices[s.name] ?? String(s.price),
-    detail: `${s.durationMinutes} min`,
+/** Monday to Friday, then Saturday; 0 = Sunday matches the API. */
+function defaultHours(typeId: BusinessTypeId): OnboardingRequest['hours'] {
+  const [wkOpen, wkClose, satOpen, satClose] = TYPE_HOURS[typeId];
+  return [1, 2, 3, 4, 5, 6].map((weekday) => ({
+    weekday,
+    opens_at: weekday === 6 ? satOpen : wkOpen,
+    closes_at: weekday === 6 ? satClose : wkClose,
   }));
 }
 
-/** Keeps digits only, at most 6 (R 999 999). */
-export function sanitizePrice(text: string): string {
-  return text.replace(/[^0-9]/g, '').slice(0, 6);
+// ----- draft -----
+
+/** Where the owner is and what they have entered; this is what survives a killed app. */
+export interface OnboardingDraft {
+  step: OnboardingStep;
+  typeId: BusinessTypeId | null;
+  businessName: string;
 }
 
+export const NAME_MAX = 120;
+
+export function initialDraft(): OnboardingDraft {
+  return { step: 1, typeId: null, businessName: '' };
+}
+
+/** One tap on a type card picks it and moves on to the name. */
 export function selectType(
   draft: OnboardingDraft,
   typeId: BusinessTypeId,
 ): OnboardingDraft {
-  return { ...draft, typeId };
+  return { ...draft, typeId, step: 2 };
 }
 
-export function toggleDay(
+export function setName(
   draft: OnboardingDraft,
-  id: DayGroupId,
+  businessName: string,
 ): OnboardingDraft {
-  const current = hoursFor(draft).find((h) => h.id === id)?.isOpen ?? false;
-  return { ...draft, dayOpen: { ...draft.dayOpen, [id]: !current } };
+  return { ...draft, businessName: businessName.slice(0, NAME_MAX) };
 }
 
-export function toggleService(
-  draft: OnboardingDraft,
-  name: string,
-): OnboardingDraft {
-  return {
-    ...draft,
-    serviceOff: { ...draft.serviceOff, [name]: !draft.serviceOff[name] },
-  };
+export function goBack(draft: OnboardingDraft): OnboardingDraft {
+  return draft.step === 2 ? { ...draft, step: 1 } : draft;
 }
 
-export function setPrice(
-  draft: OnboardingDraft,
-  name: string,
-  text: string,
-): OnboardingDraft {
-  return { ...draft, prices: { ...draft.prices, [name]: sanitizePrice(text) } };
-}
+/** Back is shown from the name question only. */
+export const canGoBack = (draft: OnboardingDraft) => draft.step === 2;
 
-// ----- team -----
-
-export function canAddTeamMember(team: TeamMember[], name: string): boolean {
-  const clean = name.trim().toLowerCase();
-  return (
-    clean.length > 0 &&
-    team.length < MAX_TEAM &&
-    !team.some((m) => m.name.trim().toLowerCase() === clean)
-  );
-}
-
-export function addTeamMember(
-  draft: OnboardingDraft,
-  name: string,
-  title = '',
-): OnboardingDraft {
-  if (!canAddTeamMember(draft.team, name)) return draft;
-  return {
-    ...draft,
-    team: [...draft.team, { name: name.trim(), title: title.trim() }],
-  };
-}
-
-export function removeTeamMember(
-  draft: OnboardingDraft,
-  index: number,
-): OnboardingDraft {
-  return { ...draft, team: draft.team.filter((_, i) => i !== index) };
-}
-
-// ----- navigation -----
-
-export function nextStep(step: Step): Step {
-  return Math.min(STEP_COUNT, step + 1) as Step;
-}
-
-export function prevStep(step: Step): Step {
-  return Math.max(1, step - 1) as Step;
-}
-
-/** Back is hidden on the first step and on the done screen. */
-export const canGoBack = (step: Step) => step > 1 && step < STEP_COUNT;
-
-/** The team step can be skipped ("Do this later"). */
-export const canSkip = (step: Step) => step === 4;
-
-/** Progress bar fill, 0..1 (the design fills step / 5). */
-export const progressFraction = (step: Step) => step / STEP_COUNT;
-
-export function canContinue(step: Step, draft: OnboardingDraft): boolean {
-  if (step === 2) {
-    return (
-      draft.businessName.trim().length > 0 &&
-      hoursFor(draft).some((h) => h.isOpen)
-    );
-  }
-  return true;
+/** The name question can be submitted once a type is chosen and the name is not blank. */
+export function canSubmit(draft: OnboardingDraft): boolean {
+  return draft.typeId !== null && draft.businessName.trim().length > 0;
 }
 
 // ----- submit -----
 
+/**
+ * The whole business in one request: the type's hours and services at template
+ * prices, the API's default booking rules, and the owner as the only staff.
+ * Returns null until the draft can be submitted.
+ */
 export function buildOnboardingRequest(
   draft: OnboardingDraft,
   ownerName: string | null,
-): OnboardingRequest {
+): OnboardingRequest | null {
+  if (!canSubmit(draft) || draft.typeId === null) return null;
   return {
     business: { name: draft.businessName.trim() },
     owner_name: ownerName?.trim() || null,
-    hours: hoursFor(draft).flatMap((h) =>
-      h.isOpen
-        ? (DAY_GROUPS.find((g) => g.id === h.id)?.weekdays ?? []).map(
-            (weekday) => ({
-              weekday,
-              opens_at: h.opens,
-              closes_at: h.closes,
-            }),
-          )
-        : [],
-    ),
-    services: servicesFor(draft)
-      .filter((s) => s.isOn)
-      .map((s) => ({
-        name: s.name,
-        duration_minutes: s.durationMinutes,
-        price_cents: (Number(s.priceText) || 0) * 100,
-      })),
-    team: draft.team.map((m) => ({
-      name: m.name,
-      title: m.title || null,
+    hours: defaultHours(draft.typeId),
+    services: SERVICES_BY_TYPE[draft.typeId].map((s) => ({
+      name: s.name,
+      duration_minutes: s.durationMinutes,
+      price_cents: s.price * 100,
     })),
+    team: [],
   };
 }
 
-/** The facts the done screen states; the sentence itself is i18n copy. */
-export function summaryFacts(draft: OnboardingDraft): {
-  typeId: BusinessTypeId;
-  serviceCount: number;
-} {
-  return {
-    typeId: draft.typeId,
-    serviceCount: servicesFor(draft).filter((s) => s.isOn).length,
-  };
+// ----- persistence -----
+
+export function serializeDraft(draft: OnboardingDraft): string {
+  return JSON.stringify(draft);
+}
+
+/** Reads a stored draft back; anything unrecognised starts over rather than crashing. */
+export function parseDraft(raw: string | null): OnboardingDraft {
+  if (!raw) return initialDraft();
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null) return initialDraft();
+    const { step, typeId, businessName } = value as Record<string, unknown>;
+    const type = BUSINESS_TYPE_IDS.find((id) => id === typeId) ?? null;
+    return {
+      // A name step without a type would be a dead end.
+      step: step === 2 && type ? 2 : 1,
+      typeId: type,
+      businessName:
+        typeof businessName === 'string' ? businessName.slice(0, NAME_MAX) : '',
+    };
+  } catch {
+    return initialDraft();
+  }
 }

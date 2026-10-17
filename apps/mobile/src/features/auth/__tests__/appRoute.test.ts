@@ -1,8 +1,18 @@
 import {
+  isBusinessActive,
+  provisioningStatus,
   resolveAppRoute,
+  type BillingInput,
   type AppRoute,
   type AppRouteInput,
 } from '../appRoute';
+
+const paidOwner: BillingInput = {
+  plan: 'growth',
+  hasCompanion: true,
+  role: 'owner',
+  provisioning: 'ready',
+};
 
 const base: AppRouteInput = {
   authLoaded: true,
@@ -14,6 +24,7 @@ const base: AppRouteInput = {
   membershipOrgIds: ['org_1'],
   membershipsStatus: 'idle',
   me: 'ok',
+  billing: paidOwner,
   invitations: { status: 'idle', count: 0 },
   joinDeclined: false,
   inOnboarding: false,
@@ -187,10 +198,130 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
     { kind: 'session-error' },
   ],
   ['active with org and /me ok shows tabs', {}, { kind: 'tabs' }],
+  [
+    'a new business with plan none: the owner chooses a plan',
+    { billing: { ...paidOwner, plan: 'none', hasCompanion: false } },
+    { kind: 'choose-plan' },
+  ],
+  [
+    'a legacy free business with no companion also chooses a plan',
+    { billing: { ...paidOwner, plan: 'free', hasCompanion: false } },
+    { kind: 'choose-plan' },
+  ],
+  [
+    'staff of an inactive business see the inactive screen, not the plans',
+    {
+      billing: {
+        ...paidOwner,
+        role: 'staff',
+        plan: 'none',
+        hasCompanion: false,
+      },
+    },
+    { kind: 'inactive-business' },
+  ],
+  [
+    'a paid owner whose companion account is still being provisioned waits',
+    { billing: { ...paidOwner, provisioning: 'pending' } },
+    { kind: 'companion-setup' },
+  ],
+  [
+    'staff never wait for provisioning',
+    { billing: { ...paidOwner, role: 'staff', provisioning: 'pending' } },
+    { kind: 'tabs' },
+  ],
+  ['billing not loaded yet waits', { billing: null }, { kind: 'splash' }],
+  [
+    'onboarding still wins while it is mounted, even for an inactive business',
+    {
+      inOnboarding: true,
+      billing: { ...paidOwner, plan: 'none', hasCompanion: false },
+    },
+    { kind: 'onboarding' },
+  ],
 ];
 
 describe('resolveAppRoute', () => {
   it.each(cases)('%s', (_name, patch, expected) => {
     expect(resolveAppRoute({ ...base, ...patch })).toEqual(expected);
+  });
+});
+
+describe('isBusinessActive', () => {
+  it.each([
+    ['none', false, false],
+    ['free', false, false],
+    ['starter', false, true],
+    ['growth', true, true],
+    ['free', true, true],
+  ] as const)('plan %s, companion %s -> %s', (plan, hasCompanion, expected) => {
+    expect(isBusinessActive({ plan, hasCompanion })).toBe(expected);
+  });
+});
+
+describe('provisioningStatus', () => {
+  const ready = { isLoading: false, nextStep: 'connect_whatsapp' } as const;
+  it.each([
+    [
+      'staff never wait',
+      {
+        isOwner: false,
+        isActive: true,
+        setup: { isLoading: true, nextStep: null },
+      },
+      'ready',
+    ],
+    [
+      'an inactive business does not ask',
+      {
+        isOwner: true,
+        isActive: false,
+        setup: { isLoading: true, nextStep: null },
+      },
+      'ready',
+    ],
+    [
+      'loading waits',
+      {
+        isOwner: true,
+        isActive: true,
+        setup: { isLoading: true, nextStep: null },
+      },
+      'pending',
+    ],
+    [
+      'provision_account waits',
+      {
+        isOwner: true,
+        isActive: true,
+        setup: { isLoading: false, nextStep: 'provision_account' },
+      },
+      'pending',
+    ],
+    [
+      'connect_whatsapp is ready',
+      { isOwner: true, isActive: true, setup: ready },
+      'ready',
+    ],
+    [
+      'none is ready',
+      {
+        isOwner: true,
+        isActive: true,
+        setup: { isLoading: false, nextStep: 'none' },
+      },
+      'ready',
+    ],
+    [
+      'a failed lookup never locks the owner out',
+      {
+        isOwner: true,
+        isActive: true,
+        setup: { isLoading: false, nextStep: null },
+      },
+      'ready',
+    ],
+  ] as const)('%s', (_name, input, expected) => {
+    expect(provisioningStatus(input)).toBe(expected);
   });
 });

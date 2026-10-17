@@ -18,7 +18,13 @@ function pressDome(isAvailable: boolean, hasFailed = false) {
   const open = jest.fn();
   const tree = mount(
     <CompanionSheetControlProvider
-      value={{ isAvailable, hasFailed, open, close: jest.fn() }}
+      value={{
+        isAvailable,
+        hasFailed,
+        open,
+        close: jest.fn(),
+        openSetup: jest.fn(),
+      }}
     >
       <CompanionEntryDome />
     </CompanionSheetControlProvider>,
@@ -57,6 +63,7 @@ describe('CompanionEntryDome', () => {
             hasFailed: false,
             open: jest.fn(),
             close: jest.fn(),
+            openSetup: jest.fn(),
           }}
         >
           <CompanionEntryDome isHidden={isHidden} />

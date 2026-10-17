@@ -1,3 +1,4 @@
+import type { MeDTO } from '@booking/types';
 import { DURATION, useDepth } from '@booking/ui';
 import { useAuth, useClerk, useSession, useUser } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
@@ -12,15 +13,22 @@ import { useBusinessRealtime } from '@/features/realtime/useBusinessRealtime';
 import { useAttendanceNotifications } from '@/features/attendance/notifications';
 import { useVoiceDeviceToken } from '@/features/voice/deviceToken';
 import { PushRegistration } from '@/features/notifications/components/PushRegistration';
+import { useCompanionSetup } from '@/features/companion/hooks';
 import { useEntitlements } from '@/features/plans/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
 import { usePendingInvitations } from '@/features/join/hooks';
+import { ChoosePlanScreen } from '@/features/onboarding/components/ChoosePlanScreen';
+import { CompanionSetupScreen } from '@/features/onboarding/components/CompanionSetupScreen';
+import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import {
+  isBusinessActive,
+  provisioningStatus,
   resolveAppRoute,
+  type BillingInput,
   type InvitationsInput,
   type LookupStatus,
   type MeStatus,
@@ -72,6 +80,37 @@ function toMeStatus(
 }
 
 /**
+ * The plan facts the router needs, from `/v1/me` plus (for the owner of a paid
+ * business) Nerova's setup state, which says whether the companion account
+ * exists yet. Null until `/v1/me` has loaded.
+ */
+function useBilling(me: MeDTO | undefined): BillingInput | null {
+  const isOwner = me?.role !== 'staff';
+  const plan = me?.plan ?? 'none';
+  const hasCompanion = Boolean(
+    me?.features.some((f) => f.feature === 'companion'),
+  );
+  const isActive = isBusinessActive({ plan, hasCompanion });
+  const setup = useCompanionSetup({
+    enabled: Boolean(me) && isOwner && isActive,
+  });
+  if (!me) return null;
+  return {
+    plan,
+    hasCompanion,
+    role: me.role,
+    provisioning: provisioningStatus({
+      isOwner,
+      isActive,
+      setup: {
+        isLoading: setup.isPending && setup.fetchStatus !== 'idle',
+        nextStep: setup.data?.next_step ?? null,
+      },
+    }),
+  };
+}
+
+/**
  * Protected group. All routing decisions live in the pure `resolveAppRoute`;
  * this component gathers Clerk/API state, runs the one side effect (activating
  * the first organisation, which also completes a pending
@@ -116,6 +155,7 @@ export default function AppLayout() {
   );
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
+  const billing = useBilling(me.data);
   useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
   useVoiceScheduleSync(hasOrg);
 
@@ -134,6 +174,7 @@ export default function AppLayout() {
     membershipOrgIds,
     membershipsStatus: toLookupStatus(asksMemberships, memberships),
     me: toMeStatus(hasOrg, me),
+    billing,
     invitations: toInvitationsInput(asksInvitations, invitations),
     joinDeclined,
     inOnboarding,
@@ -175,6 +216,12 @@ export default function AppLayout() {
       );
     case 'onboarding':
       return <OnboardingFlow onDone={() => setInOnboarding(false)} />;
+    case 'choose-plan':
+      return <ChoosePlanScreen />;
+    case 'inactive-business':
+      return <InactiveBusinessScreen />;
+    case 'companion-setup':
+      return <CompanionSetupScreen />;
     case 'unsupported-task':
       return (
         <SessionErrorScreen

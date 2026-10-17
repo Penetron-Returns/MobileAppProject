@@ -1,200 +1,131 @@
-import {
-  Button,
-  KEYBOARD_AVOIDING_BEHAVIOR,
-  ErrorState,
-  FlowFooter,
-  FlowHeading,
-  FlowTopBar,
-  Ground,
-  Text,
-  useDepth,
-} from '@booking/ui';
+import { Button, ErrorState, LabeledInsetField, Text } from '@booking/ui';
 import { useUser } from '@clerk/expo';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  ScrollView,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 
+import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { describeError } from '@/lib/toast';
 
 import { useCompleteOnboarding } from '../hooks';
 import {
-  addTeamMember,
   buildOnboardingRequest,
-  canContinue,
   canGoBack,
-  canSkip,
+  canSubmit,
+  goBack,
   initialDraft,
-  nextStep,
-  prevStep,
-  removeTeamMember,
   selectType,
-  setPrice,
-  STEP_COUNT,
-  toggleDay,
-  toggleService,
+  setName,
   type OnboardingDraft,
-  type Step,
 } from '../logic';
-import {
-  DoneStep,
-  HoursStep,
-  ServicesStep,
-  TypeStep,
-  type StepActions,
-} from './OnboardingSteps';
-import { TeamStep } from './TeamStep';
+import { clearDraft, loadDraft, saveDraft } from '../storage';
+import { OnboardingFrame } from './OnboardingFrame';
+import { TypeStep } from './TypeStep';
 
 /**
- * The first-run flow for a signed-in user with no business: type, name and
- * hours, services, team (skippable), done. Creates the Clerk organisation and
- * the business at the end of the team step; `onDone` leaves for Today.
+ * The first-run flow for a signed-in user with no business: two questions
+ * (type, then name). Continue on the name creates the Clerk organisation and
+ * the business from the type's template, then `onDone` hands over to the plan
+ * screen. The draft is kept in secure storage, so a killed app resumes.
  */
 export function OnboardingFlow({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const depth = useDepth();
   const { user } = useUser();
   const ownerName = user?.fullName ?? user?.firstName ?? null;
-  const [step, setStep] = React.useState<Step>(1);
-  const [draft, setDraft] = React.useState<OnboardingDraft>(initialDraft);
+  const [draft, setDraft] = React.useState<OnboardingDraft | null>(null);
   const submit = useCompleteOnboarding();
 
+  React.useEffect(() => {
+    let alive = true;
+    void loadDraft().then((stored) => {
+      if (alive) setDraft(stored);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const update = React.useCallback(
-    (fn: (d: OnboardingDraft) => OnboardingDraft) => setDraft(fn),
+    (fn: (d: OnboardingDraft) => OnboardingDraft) =>
+      setDraft((current) => {
+        const next = fn(current ?? initialDraft());
+        void saveDraft(next);
+        return next;
+      }),
     [],
   );
-  const actions: StepActions = React.useMemo(
-    () => ({
-      selectType: (id) => update((d) => selectType(d, id)),
-      setName: (name) => update((d) => ({ ...d, businessName: name })),
-      toggleDay: (id) => update((d) => toggleDay(d, id)),
-      toggleService: (name) => update((d) => toggleService(d, name)),
-      setPrice: (name, text) => update((d) => setPrice(d, name, text)),
-      addMember: (name, title) => update((d) => addTeamMember(d, name, title)),
-      removeMember: (i) => update((d) => removeTeamMember(d, i)),
-    }),
-    [update],
-  );
 
-  const finish = async (skipTeam: boolean) => {
-    const source = skipTeam ? { ...draft, team: [] } : draft;
-    if (skipTeam) setDraft(source);
+  if (!draft) return <ClovieLoading />;
+
+  const finish = async () => {
+    const request = buildOnboardingRequest(draft, ownerName);
+    if (!request) return;
     try {
-      await submit.mutateAsync(buildOnboardingRequest(source, ownerName));
-      setStep(STEP_COUNT);
+      await submit.mutateAsync(request);
+      await clearDraft();
+      onDone();
     } catch {
       // Shown inline via submit.error; the same payload retries with the same key.
     }
   };
 
-  const onPrimary = () => {
-    if (step === 4) void finish(false);
-    else if (step === STEP_COUNT) onDone();
-    else setStep(nextStep(step));
-  };
+  if (draft.step === 1) {
+    return (
+      <OnboardingFrame stage={1} title={t('onboarding.type.title')}>
+        <TypeStep
+          selected={draft.typeId}
+          onSelect={(id) => update((d) => selectType(d, id))}
+        />
+      </OnboardingFrame>
+    );
+  }
 
-  const isDone = step === STEP_COUNT;
-  const stepKey = isDone ? null : (step as 1 | 2 | 3 | 4);
-  const primaryLabel = isDone
-    ? t('onboarding.goToToday')
-    : t('onboarding.continue');
-
+  const ready = canSubmit(draft) && !submit.isPending;
   return (
-    <Ground className="flex-1">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={{
-            paddingTop: insets.top + 58,
-            paddingBottom: 190,
-          }}
-        >
-          <View className="w-full max-w-2xl self-center">
-            {stepKey ? (
-              <View className="px-5 pb-6 pt-2">
-                <FlowHeading
-                  title={t(`onboarding.steps.${stepKey}.title`)}
-                  subtitle={t(`onboarding.steps.${stepKey}.subtitle`)}
-                />
-              </View>
-            ) : null}
-            {step === 1 ? <TypeStep draft={draft} actions={actions} /> : null}
-            {step === 2 ? <HoursStep draft={draft} actions={actions} /> : null}
-            {step === 3 ? (
-              <ServicesStep draft={draft} actions={actions} />
-            ) : null}
-            {step === 4 ? (
-              <>
-                <TeamStep
-                  draft={draft}
-                  actions={actions}
-                  ownerName={ownerName}
-                />
-                {submit.error ? (
-                  <View className="mx-5 mt-4">
-                    <ErrorState
-                      variant="banner"
-                      {...describeError(submit.error)}
-                      onRetry={() => void finish(false)}
-                    />
-                  </View>
-                ) : null}
-              </>
-            ) : null}
-            {isDone ? <DoneStep draft={draft} /> : null}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      <FlowTopBar
-        value={step}
-        max={STEP_COUNT}
-        progressLabel={t('onboarding.progress')}
-        showBack={canGoBack(step) && !submit.isPending}
-        onBack={() => setStep(prevStep(step))}
-      />
-      <FlowFooter>
+    <OnboardingFrame
+      stage={2}
+      title={t('onboarding.name.title')}
+      showBack={canGoBack(draft) && !submit.isPending}
+      onBack={() => update(goBack)}
+      footer={
         <Button
-          size="lg"
-          className="h-14 rounded-[28px]"
-          disabled={!canContinue(step, draft) || submit.isPending}
-          onPress={onPrimary}
-          accessibilityLabel={primaryLabel}
-          accessibilityState={{
-            disabled: !canContinue(step, draft) || submit.isPending,
-            busy: submit.isPending,
-          }}
+          size="xl"
+          loading={submit.isPending}
+          disabled={!ready}
+          onPress={() => void finish()}
+          accessibilityLabel={t('onboarding.continue')}
         >
-          {submit.isPending ? (
-            <ActivityIndicator color={depth.colors.onFill} />
-          ) : (
-            <Text className="text-title font-semibold">{primaryLabel}</Text>
-          )}
+          <Text>{t('onboarding.continue')}</Text>
         </Button>
-        {canSkip(step) ? (
-          <Button
-            variant="ghost"
-            className="mt-1.5 h-12 rounded-full"
-            disabled={submit.isPending}
-            onPress={() => void finish(true)}
-            accessibilityLabel={t('onboarding.later')}
-          >
-            <Text style={{ color: depth.colors.tint }} className="text-title">
-              {t('onboarding.later')}
-            </Text>
-          </Button>
-        ) : null}
-      </FlowFooter>
-    </Ground>
+      }
+    >
+      <View className="mx-5">
+        <LabeledInsetField
+          label={t('onboarding.name.label')}
+          value={draft.businessName}
+          onChangeText={(name) => update((d) => setName(d, name))}
+          placeholder={t('onboarding.name.placeholder')}
+          autoCapitalize="words"
+          autoComplete="organization"
+          autoFocus
+          maxLength={120}
+          returnKeyType="done"
+          onSubmitEditing={() => ready && void finish()}
+          editable={!submit.isPending}
+        />
+        <Text className="mt-3 text-subtitle text-muted-foreground">
+          {t('onboarding.name.micTip')}
+        </Text>
+      </View>
+      {submit.error ? (
+        <View className="mx-5 mt-4">
+          <ErrorState
+            variant="banner"
+            {...describeError(submit.error)}
+            onRetry={() => void finish()}
+          />
+        </View>
+      ) : null}
+    </OnboardingFrame>
   );
 }
