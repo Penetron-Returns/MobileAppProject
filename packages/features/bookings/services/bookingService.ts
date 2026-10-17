@@ -24,6 +24,7 @@ import {
   freeStaffIgnoringHours,
   listAvailableDays as engineListDays,
 } from '../../availability/lib/availability.ts';
+import { computeFreeTime } from '../../availability/lib/freeTime.ts';
 import { createAppointmentEventPublisher } from '../lib/appointmentEvents.ts';
 import { loadAvailabilityInput, type AvailabilityContextArgs } from '../lib/availabilityInput.ts';
 import { bookingRules, toAppointmentDTO, toBusinessDTO, toServiceDTO, toStaffDTO } from '../lib/mappers.ts';
@@ -240,6 +241,23 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         now: query.now ?? clock(),
       });
       return dates.map((date) => ({ ...empty(date), slots: computeSlots(input, date) }));
+    },
+
+    async listFreeTime(query) {
+      const business = await requireBusiness(query.businessId);
+      const all = (await repo.listStaff(query.businessId)).filter((s) => s.is_active && s.accepts_bookings);
+      const staff = query.staffId ? all.filter((s) => s.id === query.staffId) : all;
+      if (staff.length === 0) return [];
+      const tz = business.timezone;
+      const input = await availabilityInput({
+        business,
+        durationMinutes: 0,
+        staff,
+        from: dateInZone(new Date(query.start), tz),
+        to: dateInZone(new Date(Date.parse(query.end) - 1), tz),
+        now: clock(),
+      });
+      return computeFreeTime(input, query);
     },
 
     async listAvailableDays(query) {

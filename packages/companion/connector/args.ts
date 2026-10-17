@@ -46,6 +46,14 @@ export const argSchemas = {
     end: instant,
     staffId: z.string().max(100).optional(),
   }),
+  // Contract 2026-10-18: optional ReadFreeTime. minimumMinutes defaults to 15 in the service.
+  availability_free_time: z.object({
+    ...account,
+    start: instant,
+    end: instant,
+    staffId: z.string().max(100).optional(),
+    minimumMinutes: z.number().int().min(0).max(1440).optional(),
+  }),
   appointments_get: z.object({ ...account, appointmentId: text }),
   appointments_list: z.object({
     ...account,

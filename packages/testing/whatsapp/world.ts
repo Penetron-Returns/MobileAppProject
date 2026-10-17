@@ -177,6 +177,10 @@ export function fakeBooking(world: World): BookingService {
       }
       return out;
     },
+    async listFreeTime(q) {
+      log('listFreeTime', q);
+      return [];
+    },
     async createAppointment(input) {
       log('createAppointment', input);
       const existing = world.appointments.find((a) => (a as AppointmentDTO & { key?: string }).key === input.idempotencyKey);

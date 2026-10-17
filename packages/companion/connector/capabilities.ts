@@ -11,9 +11,12 @@ export const CREATE_CLIENTS_CAPABILITY = 'CreateClients';
 /** Act-then-undo: `origin.clientNotification` (hold on create, suppress on cancel) is honoured; declared by publishing it in the create schema. */
 export const HOLD_CLIENT_NOTIFICATIONS_CAPABILITY = 'HoldClientNotifications';
 
+/** Free-time read (contract 2026-10-18): `availability_free_time` returns each staff member's maximal free windows. */
+export const READ_FREE_TIME_CAPABILITY = 'ReadFreeTime';
+
 type OriginSchema = { properties?: { origin?: { properties?: Record<string, unknown> } } };
 
-/** Capabilities a published tool list declares: clients_search → ReadClients (+ SearchClientsByName with a name input), clients_create → CreateClients, appointments_confirm → ConfirmAppointments, an `origin.clientNotification` property on appointments_create → HoldClientNotifications. */
+/** Capabilities a published tool list declares: clients_search → ReadClients (+ SearchClientsByName with a name input), clients_create → CreateClients, appointments_confirm → ConfirmAppointments, availability_free_time → ReadFreeTime, an `origin.clientNotification` property on appointments_create → HoldClientNotifications. */
 export function declaredToolCapabilities(tools: { name: string; inputSchema: unknown }[]): string[] {
   const search = tools.find((t) => t.name === 'clients_search');
   const hasHold = !!(tools.find((t) => t.name === 'appointments_create')?.inputSchema as OriginSchema | undefined)?.properties?.origin?.properties?.clientNotification;
@@ -23,6 +26,7 @@ export function declaredToolCapabilities(tools: { name: string; inputSchema: unk
     ...(search && hasName ? [SEARCH_CLIENTS_BY_NAME_CAPABILITY] : []),
     ...(tools.some((t) => t.name === 'clients_create') ? [CREATE_CLIENTS_CAPABILITY] : []),
     ...(tools.some((t) => t.name === 'appointments_confirm') ? [CONFIRM_APPOINTMENTS_CAPABILITY] : []),
+    ...(tools.some((t) => t.name === 'availability_free_time') ? [READ_FREE_TIME_CAPABILITY] : []),
     ...(hasHold ? [HOLD_CLIENT_NOTIFICATIONS_CAPABILITY] : []),
   ];
 }

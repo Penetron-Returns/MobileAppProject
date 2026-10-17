@@ -48,6 +48,7 @@ export interface NerovaConnectorDeps {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_MS = 86_400_000;
 const MAX_WINDOW_DAYS = 31;
+const DEFAULT_MINIMUM_FREE_MINUTES = 15;
 const DEFAULT_PAGE = 50;
 const EXCEPTION_HORIZON_DAYS = 180;
 const DEFAULT_CLIENT_LIMIT = 10;
@@ -145,6 +146,28 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       repo.listSpecialDays(businessId, today, addDays(today, EXCEPTION_HORIZON_DAYS)),
     ]);
     return toAccount(business, toOpeningHours(business.id, hours, specialDays));
+  }
+
+  async function freeTime(businessId: UUID, args: ToolArgs<'availability_free_time'>) {
+    const start = Date.parse(args.start);
+    const end = Date.parse(args.end);
+    if (end <= start) throw invalidRequest('end must be after start');
+    if (end - start > MAX_WINDOW_DAYS * DAY_MS) throw invalidRequest(`window is at most ${MAX_WINDOW_DAYS} days`);
+    if (args.staffId && !isUuid(args.staffId)) throw connectorNotFound('Staff');
+    const [staff] = await Promise.all([args.staffId ? repo.getStaff(businessId, args.staffId) : Promise.resolve(null), reads.getBusiness(businessId)]);
+    if (args.staffId && !staff) throw connectorNotFound('Staff');
+    const entries = await reads.listFreeTime({
+      businessId,
+      staffId: args.staffId,
+      start: args.start,
+      end: args.end,
+      minimumMinutes: args.minimumMinutes ?? DEFAULT_MINIMUM_FREE_MINUTES,
+    });
+    const data = entries.map((e) => ({
+      externalStaffId: e.staff_id,
+      windows: e.windows.map((w) => ({ startTime: w.starts_at, endTime: w.ends_at })),
+    }));
+    return { data };
   }
 
   async function searchAvailability(businessId: UUID, args: ToolArgs<'availability_search'>) {
@@ -342,6 +365,10 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     async availabilitySearch(args: ToolArgs<'availability_search'>) {
       return gated(args.accountId, (businessId) => searchAvailability(businessId, args));
+    },
+
+    async availabilityFreeTime(args: ToolArgs<'availability_free_time'>) {
+      return gated(args.accountId, (businessId) => freeTime(businessId, args));
     },
 
     async appointmentsGet(args: ToolArgs<'appointments_get'>) {

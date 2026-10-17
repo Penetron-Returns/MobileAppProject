@@ -1,6 +1,6 @@
 # Nerova Booking connector
 
-Lets Nerova's AI companion (Pip) read and act on the bookings of paid-plan businesses. We implement **Nerova Booking MCP v1** (contract `2026-10-17`; Nerova still accepts the older `2026-10-12`) as an MCP server inside the existing `api` Edge Function. Spec: Nerova docs `guides/nerova-booking-mcp-v1`, `guides/build-an-mcp-booking-connector`, `guides/booking-mcp-tool-schemas`, `guides/booking-connector-contract`.
+Lets Nerova's AI companion (Pip) read and act on the bookings of paid-plan businesses. We implement **Nerova Booking MCP v1** (contract `2026-10-18`; Nerova still accepts `2026-10-17` and `2026-10-12`) as an MCP server inside the existing `api` Edge Function. Spec: Nerova docs `guides/nerova-booking-mcp-v1`, `guides/build-an-mcp-booking-connector`, `guides/booking-mcp-tool-schemas`, `guides/booking-connector-contract`.
 
 Contract summary lives in [BUILD_PLAN.md](BUILD_PLAN.md) (section "Nerova Booking connector"). This page is the design and the runbook.
 
@@ -67,6 +67,12 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 - **Existing clients:** `appointments_create` with a phone only fills blank name and email of an existing client; it never overwrites what the owner stored.
 - **Same-key races:** a create that loses the slot to a concurrent call with the same `idempotencyKey` returns that booking instead of `conflict`.
 - **Notes:** `notes` and `reason` are merged into the appointment notes (`Reason: ...`). `subject`, `intakeResponses` and `externalLocationId` are accepted and ignored (single location, no subjects or intake forms yet).
+
+### Free time (optional, contract 2026-10-18, capability `ReadFreeTime`)
+
+`availability_free_time` (read-only): `{ accountId, start, end, staffId?, minimumMinutes? }` returns `{ data: [{ externalStaffId, windows: [{ startTime, endTime }] }] }`. `BookingService.listFreeTime` loads the schedule with the same `loadAvailabilityInput` as the slot engine and `computeFreeTime` (pure, `packages/features/availability/lib/freeTime.ts`) intersects each staff member's working windows (`staffWindowsFor`: business hours, special days, staff hours or override, breaks, time off) per local day, joins windows across midnight, subtracts busy ranges and clips to `[start, end)`.
+
+Buffer decision: busy ranges are the appointments' `blocked` ranges, which already contain the appointment's own buffer, so free windows end at the next `blocked` start. A slot is accepted only when `[t, t + duration + buffer)` clears every busy range, so `[t, t + duration)` is inside working time and clear of busy: slots are always a subset of free time. Free time deliberately ignores lead time, the booking horizon, the slot grid and any service duration (it is the raw schedule). Errors match `availability_search`: `end <= start` or more than 31 days is `invalid_request`, an unknown or malformed `staffId` is `not_found`. Inactive or non-bookable staff are omitted. MCP only: there is no REST route here.
 
 ### Client tools (optional, contract 2026-10-17)
 
