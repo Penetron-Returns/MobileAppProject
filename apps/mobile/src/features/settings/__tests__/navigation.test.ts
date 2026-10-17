@@ -1,38 +1,37 @@
-import { appVersionLabel, settingsGroups } from '../navigation';
+import {
+  appVersionLabel,
+  SETTINGS_ROUTES,
+  settingsGroups,
+} from '../navigation';
 
 describe('settingsGroups', () => {
-  it('gives owners the business, customize and account groups, all titled', () => {
-    const groups = settingsGroups(true);
-    expect(groups.map((g) => g.id)).toEqual([
-      'business',
-      'customize',
-      'account',
+  it('lists the groups in the agreed order, one row set for everyone', () => {
+    expect(settingsGroups().map((g) => [g.id, g.items])).toEqual([
+      ['business', ['businessDetails', 'hours', 'services', 'rules']],
+      ['team', ['team']],
+      ['assistant', ['clovie', 'whatsapp']],
+      ['notifications', ['notifications']],
+      ['plan', ['plan']],
+      ['account', ['appearance', 'deleteAccount']],
     ]);
-    expect(groups.every((g) => g.titled)).toBe(true);
-    expect(groups[0].items).toEqual([
-      'businessDetails',
-      'hours',
-      'services',
-      'team',
-      'rules',
-      'attendance',
-    ]);
-    expect(groups[1].items).toEqual(['whatsapp']);
-    expect(groups[2].items).toEqual(['plan', 'notifications', 'deleteAccount']);
   });
 
-  it('swaps WhatsApp for the Companion on paid plans', () => {
-    expect(settingsGroups(true, 'ai')[1].items).toEqual(['companion']);
+  it('takes no role, platform or plan, so nothing can be dropped for them', () => {
+    expect(settingsGroups.length).toBe(0);
   });
 
-  it('gives staff one untitled group with notifications and delete account', () => {
-    expect(settingsGroups(false)).toEqual([
-      {
-        id: 'account',
-        items: ['notifications', 'deleteAccount'],
-        titled: false,
-      },
-    ]);
+  it('keeps attendance, voice and client reminders off the home list', () => {
+    const items = settingsGroups().flatMap((g) => g.items) as string[];
+    for (const nested of ['attendance', 'voice', 'reminders']) {
+      expect(items).not.toContain(nested);
+    }
+  });
+
+  it('opens every row but the appearance switch on a settings route', () => {
+    for (const item of settingsGroups().flatMap((g) => g.items)) {
+      if (item === 'appearance') continue;
+      expect(SETTINGS_ROUTES[item]).toMatch(/^\/settings\//);
+    }
   });
 });
 
@@ -42,25 +41,5 @@ describe('appVersionLabel', () => {
     ['Booking', '1.0.0', null, 'Booking 1.0.0'],
   ])('formats %s %s build %s', (name, version, build, expected) => {
     expect(appVersionLabel(name, version, build)).toBe(expected);
-  });
-});
-
-describe('settingsGroups with Hey Clovie', () => {
-  it('adds the voice row after the customize item on devices that support it', () => {
-    expect(settingsGroups(true, 'free', { hasVoice: true })[1].items).toEqual([
-      'whatsapp',
-      'voice',
-    ]);
-    expect(settingsGroups(true, 'ai', { hasVoice: true })[1].items).toEqual([
-      'companion',
-      'voice',
-    ]);
-  });
-
-  it('never shows it to staff', () => {
-    expect(settingsGroups(false, 'free', { hasVoice: true })[0].items).toEqual([
-      'notifications',
-      'deleteAccount',
-    ]);
   });
 });

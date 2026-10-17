@@ -19,6 +19,7 @@ import { View } from 'react-native';
 import { useBusinessDetails } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
 import { Gate } from '@/features/plans/components/Gate';
+import { useAppMode } from '@/features/plans/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { formatPhone } from '@/lib/format';
 import { toast, describeError } from '@/lib/toast';
@@ -29,13 +30,34 @@ import {
   useWhatsAppChannel,
 } from '../hooks';
 import { whatsAppStatusKey } from '../whatsapp';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
+import { PaidWhatsAppSettings } from './PaidWhatsAppSettings';
+import { RemindersRow } from './RemindersRow';
 
 /** Settings > WhatsApp: on/off for the booking menu, and a way into the details. */
 export function WhatsAppSettingsScreen() {
+  const mode = useAppMode();
+  // Paid plans run on the companion, not the free booking menu, so they must not meet its gate.
+  if (mode === 'ai') return <PaidWhatsAppSettings />;
   return (
-    <Gate feature="whatsapp_menu">
+    <Gate feature="whatsapp_menu" fallback={<NotInPlan />}>
       <WhatsAppSettingsBody />
     </Gate>
+  );
+}
+
+function NotInPlan() {
+  const { t } = useTranslation();
+  return (
+    <Page
+      title={t('settings.whatsapp.title')}
+      backLabel={t('tabs.settings')}
+      backFallback="/settings"
+    >
+      <Text className="mx-5 mt-5 text-title text-muted-foreground">
+        {t('settings.whatsapp.notInPlan')}
+      </Text>
+    </Page>
   );
 }
 
@@ -83,19 +105,21 @@ function WhatsAppSettingsBody() {
               ) : undefined
             }
           />
-          {c.connected ? (
-            <GroupRow
-              showSeparator
-              title={t('settings.whatsapp.detailsRow')}
-              onPress={() => router.push('/settings/whatsapp-detail' as never)}
-            />
-          ) : null}
+          <GroupRow
+            showSeparator
+            title={t('settings.whatsapp.detailsRow')}
+            onPress={() => router.push('/settings/whatsapp-detail' as never)}
+            disabled={!c.connected}
+            reason={t('settings.whatsapp.detailsNeedsNumber')}
+          />
+          <RemindersRow showSeparator />
         </Group>
         <Text className="mx-5 mt-3 text-meta text-muted-foreground">
           {t(`settings.whatsapp.footer.${key}`, {
             phone: formatPhone(c.display_phone ?? ''),
           })}
         </Text>
+        <OwnerOnlyNote />
       </>
     );
   }
@@ -182,15 +206,11 @@ function WhatsAppDetailBody() {
         ) : null}
 
         <SectionTitle>{t('settings.whatsapp.customersSee')}</SectionTitle>
-        <Group>
-          {['book', 'bookings', 'talk'].map((id, i) => (
-            <GroupRow
-              key={id}
-              showSeparator={i > 0}
-              title={t(`settings.whatsapp.menu.${id}`)}
-            />
-          ))}
-        </Group>
+        <Text className="mx-5 text-title text-muted-foreground">
+          {['book', 'bookings', 'talk']
+            .map((id) => t(`settings.whatsapp.menu.${id}`))
+            .join(', ')}
+        </Text>
 
         {c.templates.length > 0 ? (
           <>
@@ -245,6 +265,7 @@ function WhatsAppDetailBody() {
             </Button>
           </View>
         ) : null}
+        <OwnerOnlyNote />
         <ConfirmDialog
           open={confirmOff}
           onOpenChange={setConfirmOff}

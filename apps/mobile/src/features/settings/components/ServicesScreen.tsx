@@ -39,6 +39,7 @@ import {
   groupByCategory,
   joinMeta,
 } from '../lists';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { ServiceForm } from './ServiceForm';
 
 export function ServicesScreen() {
@@ -154,6 +155,7 @@ export function ServicesScreen() {
           />
         ) : null}
         {body}
+        <OwnerOnlyNote />
       </GlassPage>
       {editing && business.data ? (
         <ServiceForm

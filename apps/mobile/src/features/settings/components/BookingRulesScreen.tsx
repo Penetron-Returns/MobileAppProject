@@ -16,37 +16,21 @@ import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 
+import { formatDays, formatMinutes } from '../format';
 import { useBookingRules, useSaveBookingRules, type RulePatch } from '../hooks';
-import {
-  minutesToParts,
-  REMINDER_OPTIONS,
-  RULE_OPTIONS,
-  sameOffsets,
-} from '../rules';
-
-type Translate = ReturnType<typeof useTranslation>['t'];
-
-export function formatMinutes(t: Translate, minutes: number): string {
-  const p = minutesToParts(minutes);
-  return t(`settings.units.${p.unit}`, { count: p.count });
-}
-
-function formatDays(t: Translate, days: number): string {
-  return t('settings.units.days', { count: days });
-}
-
-function formatReminders(t: Translate, offsets: number[]): string {
-  if (offsets.length === 0) return t('settings.rules.noReminders');
-  return offsets
-    .map((m) => formatMinutes(t, m))
-    .join(` ${t('settings.rules.and')} `);
-}
+import { RULE_OPTIONS } from '../rules';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 
 type NumericKey = keyof typeof RULE_OPTIONS;
-type Picker =
-  { kind: 'number'; key: NumericKey; days?: boolean } | { kind: 'reminders' };
+interface Picker {
+  key: NumericKey;
+  days: boolean;
+}
 
-/** Booking rules as plain sentences; tap a value to change it. */
+/**
+ * Booking rules as plain sentences; tap a value to change it. Staff see the
+ * same rows read-only. Client reminders live under WhatsApp, where they are sent.
+ */
 export function BookingRulesScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -58,13 +42,7 @@ export function BookingRulesScreen() {
   const patch = (body: RulePatch) => save.mutate({ booking_rules: body });
 
   let body: React.ReactNode;
-  if (!canManage) {
-    body = (
-      <Text className="mx-5 mt-5 text-title text-muted-foreground">
-        {t('settings.ownerOnly')}
-      </Text>
-    );
-  } else if (isFailed(rules)) {
+  if (isFailed(rules)) {
     body = (
       <ErrorState
         variant="banner"
@@ -79,25 +57,22 @@ export function BookingRulesScreen() {
     const numeric = (key: NumericKey, days = false) => ({
       title: t(`settings.rules.${key}`),
       value: days ? formatDays(t, r[key]) : formatMinutes(t, r[key]),
-      open: () => setPicker({ kind: 'number', key, days }),
+      open: () => setPicker({ key, days }),
     });
     const rows = [
       numeric('lead_time_minutes'),
       numeric('booking_horizon_days', true),
       numeric('cancellation_window_minutes'),
-      {
-        title: t('settings.rules.reminders'),
-        value: formatReminders(t, r.reminder_offsets_minutes),
-        open: () => setPicker({ kind: 'reminders' }),
-      },
       numeric('slot_interval_minutes'),
       numeric('buffer_minutes'),
     ];
     body = (
       <>
-        <Text className="mx-5 mt-2 text-title text-muted-foreground">
-          {t('settings.rules.hint')}
-        </Text>
+        {canManage ? (
+          <Text className="mx-5 mt-2 text-title text-muted-foreground">
+            {t('settings.rules.hint')}
+          </Text>
+        ) : null}
         <Group className="mt-5">
           {rows.map((row, i) => (
             <GroupRow
@@ -105,11 +80,15 @@ export function BookingRulesScreen() {
               showSeparator={i > 0}
               title={row.title}
               detail={row.value}
-              onPress={row.open}
-              accessibilityLabel={t('settings.rules.change', {
-                rule: row.title,
-                value: row.value,
-              })}
+              onPress={canManage ? row.open : undefined}
+              accessibilityLabel={
+                canManage
+                  ? t('settings.rules.change', {
+                      rule: row.title,
+                      value: row.value,
+                    })
+                  : `${row.title}, ${row.value}`
+              }
             />
           ))}
           <GroupRow
@@ -118,7 +97,7 @@ export function BookingRulesScreen() {
             trailing={
               <Switch
                 checked={r.allow_staff_selection}
-                disabled={save.isPending}
+                disabled={!canManage || save.isPending}
                 onCheckedChange={(v) => patch({ allow_staff_selection: v })}
                 accessibilityLabel={t('settings.rules.allow_staff_selection')}
               />
@@ -128,12 +107,15 @@ export function BookingRulesScreen() {
         <Text className="mx-5 mt-3 text-meta text-muted-foreground">
           {t('settings.rules.footer')}
         </Text>
-        <RulePicker
-          picker={picker}
-          rules={r}
-          onClose={() => setPicker(null)}
-          onPatch={patch}
-        />
+        <OwnerOnlyNote />
+        {picker ? (
+          <RulePicker
+            picker={picker}
+            current={r[picker.key]}
+            onClose={() => setPicker(null)}
+            onPatch={patch}
+          />
+        ) : null}
       </>
     );
   }
@@ -152,39 +134,16 @@ export function BookingRulesScreen() {
 
 function RulePicker({
   picker,
-  rules,
+  current,
   onClose,
   onPatch,
 }: {
-  picker: Picker | null;
-  rules: NonNullable<ReturnType<typeof useBookingRules>['data']>;
+  picker: Picker;
+  current: number;
   onClose: () => void;
   onPatch: (p: RulePatch) => void;
 }) {
   const { t } = useTranslation();
-  if (!picker) return null;
-  if (picker.kind === 'reminders') {
-    const options = REMINDER_OPTIONS.map((offsets, i) => ({
-      value: String(i),
-      label: formatReminders(t, offsets),
-    }));
-    const selected = REMINDER_OPTIONS.findIndex((o) =>
-      sameOffsets(o, rules.reminder_offsets_minutes),
-    );
-    return (
-      <OptionSheet
-        open
-        onOpenChange={(open) => !open && onClose()}
-        title={t('settings.rules.reminders')}
-        options={options}
-        selected={selected >= 0 ? String(selected) : null}
-        onSelect={(v) =>
-          onPatch({ reminder_offsets_minutes: REMINDER_OPTIONS[Number(v)] })
-        }
-      />
-    );
-  }
-  const current = rules[picker.key];
   const values = RULE_OPTIONS[picker.key];
   const options = (values.includes(current) ? values : [...values, current])
     .sort((a, b) => a - b)

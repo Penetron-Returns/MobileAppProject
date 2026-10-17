@@ -184,10 +184,8 @@ beforeEach(() => {
 });
 
 describe('Holidays and special days', () => {
-  it('stays closed until opened, then lists upcoming days by date with their value', () => {
+  it('lists upcoming days by date with their value, always visible', () => {
     const tree = mount();
-    expect(text(tree)).not.toContain('Christmas Day');
-    press(tree, 'Holidays and special days');
     const json = text(tree);
     expect(json.indexOf('Christmas Day')).toBeLessThan(
       json.indexOf('Day of Goodwill'),
@@ -206,7 +204,6 @@ describe('Holidays and special days', () => {
 
   it('offers only upcoming public holidays not yet added, and adds one as closed', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     expect(text(tree)).toContain('Public holidays');
     expect(
@@ -238,7 +235,6 @@ describe('Holidays and special days', () => {
       ],
     };
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     await pressAsync(tree, 'Add all upcoming public holidays (2)');
     expect(mockCheck).toHaveBeenCalledWith([
@@ -250,7 +246,6 @@ describe('Holidays and special days', () => {
 
   it('saves a custom closed day with a name after a clean bookings check', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
     await pressAsync(tree, SAVE);
@@ -269,7 +264,6 @@ describe('Holidays and special days', () => {
 
   it('needs a name', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     await pressAsync(tree, SAVE);
     expect(mockSave).not.toHaveBeenCalled();
@@ -278,7 +272,6 @@ describe('Holidays and special days', () => {
 
   it('saves special hours checked as open-only, from the time wheel', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Early close'));
     press(tree, 'Special hours');
@@ -302,7 +295,6 @@ describe('Holidays and special days', () => {
 
   it('picks the date from the month grid', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     press(tree, 'Date, Thu 15 Oct');
     press(tree, 'Next month');
@@ -320,7 +312,6 @@ describe('Bookings in the way', () => {
   async function openWithConflicts() {
     mockCheck.mockResolvedValue(conflicts);
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
     await pressAsync(tree, SAVE);
@@ -365,7 +356,6 @@ describe('Bookings in the way', () => {
   it('says why when the check cannot run, and saves nothing', async () => {
     mockCheck.mockRejectedValue(new Error('offline'));
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Staff party'));
     await pressAsync(tree, SAVE);
@@ -378,7 +368,6 @@ describe('Bookings in the way', () => {
 describe('Editing and deleting a special day', () => {
   it('opens a day for editing and saves a rename without a bookings check', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Christmas Day, Fri 25 Dec, Closed');
     expect(text(tree)).toContain('Edit special day');
     expect(text(tree)).not.toContain('Public holidays');
@@ -397,7 +386,6 @@ describe('Editing and deleting a special day', () => {
 
   it('checks the bookings when an edit turns a closed day into special hours', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Christmas Day, Fri 25 Dec, Closed');
     press(tree, 'Special hours');
     await pressAsync(tree, 'Save');
@@ -413,7 +401,6 @@ describe('Editing and deleting a special day', () => {
 
   it('confirms before deleting, after closing the sheet', () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Christmas Day, Fri 25 Dec, Closed');
     press(tree, 'Delete special day');
     expect(text(tree)).not.toContain('Edit special day');
@@ -426,7 +413,6 @@ describe('Editing and deleting a special day', () => {
 
   it('explains a date that already has a special day', async () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     press(tree, 'Add special day');
     act(() => input(tree, 'Name').props.onChangeText('Again'));
     await pressAsync(tree, SAVE);
@@ -451,7 +437,6 @@ describe('Editing and deleting a special day', () => {
 describe('Special day swipe action', () => {
   it('offers Delete on a day and asks before deleting', () => {
     const tree = mount();
-    press(tree, 'Holidays and special days');
     const [first] = byLabel(tree, 'Delete').filter((n) => !!n.props.onPress);
     act(() => first.props.onPress());
     const dialog = tree.root.findByProps({ testID: 'confirm-dialog' });

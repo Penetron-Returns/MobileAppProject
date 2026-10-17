@@ -1,16 +1,13 @@
 import { Redirect } from 'expo-router';
 
-import { OwnerOnly } from '@/features/business/components/OwnerOnly';
 import { Gate } from '@/features/plans/components/Gate';
 import { CompanionSettingsScreen } from '@/features/settings/components/CompanionSettingsScreen';
 
-/** Paid plans only (Free has no companion), owners only. */
+/** Paid plans only (Free has no companion; its row is shown disabled). Staff open it read-only. */
 export default function Route() {
   return (
-    <OwnerOnly>
-      <Gate feature="companion" fallback={<Redirect href="/settings" />}>
-        <CompanionSettingsScreen />
-      </Gate>
-    </OwnerOnly>
+    <Gate feature="companion" fallback={<Redirect href="/settings" />}>
+      <CompanionSettingsScreen />
+    </Gate>
   );
 }

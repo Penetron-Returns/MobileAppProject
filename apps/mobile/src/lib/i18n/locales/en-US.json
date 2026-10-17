@@ -606,7 +606,7 @@
         "subtitle": "Opening times and breaks"
       },
       "services": "Services",
-      "hours": "Hours",
+      "hours": "Opening hours",
       "team": "Team",
       "rules": "Booking rules",
       "attendance": "Who confirms attendance",
@@ -615,7 +615,9 @@
       "companion": "Companion",
       "plan": "Plan",
       "voice": "Clovie voice",
-      "deleteAccount": "Delete account"
+      "deleteAccount": "Delete account",
+      "clovie": "Clovie",
+      "appearance": "Appearance"
     },
     "companionSettings": {
       "title": "Companion",
@@ -715,13 +717,21 @@
         "needs_reauth": "Reconnect",
         "disconnected": "Off",
         "paused": "Paused"
-      }
+      },
+      "reminders": "Reminders to clients",
+      "remindersFooter": "WhatsApp reminders go to clients before their booking.",
+      "customersSeeLine": "Clients can choose: {{menu}}.",
+      "connect": "Connect WhatsApp",
+      "notInPlan": "WhatsApp booking is not part of your plan.",
+      "detailsNeedsNumber": "Connect a number first"
     },
     "title": "Settings",
     "groups": {
       "business": "Your business",
-      "customize": "Customize",
-      "whatsapp": "WhatsApp",
+      "team": "Team",
+      "assistant": "Clovie and WhatsApp",
+      "notifications": "Notifications",
+      "plan": "Plan & billing",
       "account": "Account"
     },
     "ownerOnly": "Only the owner can change this.",
@@ -762,7 +772,8 @@
       "address": "Address",
       "regional": "Money and time",
       "timezone": "Time zone",
-      "currencyChange": "Currency, {{value}}. Tap to change"
+      "currencyChange": "Currency, {{value}}. Tap to change",
+      "timezoneFixed": "Set when the business was created"
     },
     "hours": {
       "hint": "Tap a time to change it. Switch a day off to close the shop that day."
@@ -772,6 +783,22 @@
       "summary_other": "{{count}} services. Tap one to edit.",
       "add": "Add a service",
       "open": "{{name}}, {{meta}}"
+    },
+    "hoursClosed": "Closed",
+    "rulesValue": "{{lead}} notice",
+    "clovie": {
+      "live": "Live",
+      "paused": "Paused",
+      "paidOnly": "Part of the paid plans",
+      "ownerOnly": "Owner only",
+      "on": "On",
+      "off": "Off",
+      "voiceAndroidOnly": "Available on Android",
+      "moreTitle": "Attendance and voice",
+      "attendance": {
+        "staff": "Staff",
+        "owner": "Owner"
+      }
     }
   },
   "businessDetails": {
@@ -800,8 +827,8 @@
   "hours": {
     "title": "Operating hours",
     "breaks": {
-      "title": "Breaks and time off",
-      "subtitle": "Set per person in Team"
+      "open": "Open Team",
+      "hint": "Breaks and time off are set per person in Team."
     },
     "intro": "Set your standard opening times. One range per day: add a team member's lunch as a break.",
     "open": "Open",
@@ -1253,7 +1280,9 @@
       "title": "Remove {{name}} from the team?",
       "description": "This removes their access to the app. {{name}} stays in the calendar with their bookings unless you make them inactive.",
       "confirm": "Remove",
-      "keep": "Keep"
+      "keep": "Keep",
+      "self": "You cannot remove yourself from the team.",
+      "viaEdit": "This person has no login. Delete them from Edit details."
     },
     "revoke": {
       "action": "Revoke invite"
@@ -1805,7 +1834,8 @@
         "pausedUntil": "Paused until {{time}}",
         "pausedNoTime": "Paused"
       },
-      "consent": "Outside your conditions the microphone is fully off. Hey Clovie uses some battery. Turn it off here any time."
+      "consent": "Outside your conditions the microphone is fully off. Hey Clovie uses some battery. Turn it off here any time.",
+      "conditionsOff": "Turn on Hey Clovie to choose when it listens."
     },
     "disclosure": {
       "what": "While Hey Clovie is on, Clovie uses your microphone to listen on this phone for \"Hey Clovie\". It keeps listening when Clovie is closed or the screen is off, until you turn it off or your chosen times end. Android shows a microphone indicator and a notification the whole time.",
@@ -1939,7 +1969,8 @@
       "managedOnWeb": "Managed on web",
       "noInvoices": "None yet",
       "manage": "Manage subscription",
-      "footnote": "Prices in rand. Cancel anytime."
+      "footnote": "Prices in rand. Cancel anytime.",
+      "managedOnWebReason": "Managed on the web"
     },
     "free": {
       "line": "You're on Free. Add your AI companion from {{from}}.",
