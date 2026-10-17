@@ -180,15 +180,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.14)',
-    boxShadow: [
-      {
-        offsetX: 0,
-        offsetY: 8,
-        blurRadius: 18,
-        spreadDistance: -6,
-        color: 'rgba(0,0,0,0.4)',
-      },
-    ],
+    // No drop shadow: black on the near-black card background is all but
+    // invisible, and the blur would re-render with every slide and rise.
   },
   solid: { backgroundColor: '#143A52' },
   highlight: {

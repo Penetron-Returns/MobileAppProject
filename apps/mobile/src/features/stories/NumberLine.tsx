@@ -1,23 +1,35 @@
 import { useReduceMotion } from '@booking/ui';
 import * as React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  type TextInputProps,
+} from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
-  useAnimatedReaction,
+  useAnimatedProps,
   useAnimatedStyle,
+  useDerivedValue,
 } from 'react-native-reanimated';
 
 import {
   COUNT_MS,
-  COUNT_STEPS,
-  countStep,
+  countText,
+  fitFontSize,
   formatCount,
   valueAtStep,
 } from './countUp';
 import { EASE_SPRING } from './motion';
 import type { StoryCardNumber } from './model';
 import { useReveal } from './useReveal';
+
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
+/** The big number's size, and the width it has: the screen less the 24 pt content margins. */
+const FONT_SIZE = 88;
+const SIDE_MARGIN = 24;
 
 interface NumberLineProps {
   number: StoryCardNumber;
@@ -27,13 +39,14 @@ interface NumberLineProps {
 }
 
 /**
- * The big number. It counts up in 16 steps: the progress runs on the UI thread
- * and only the 16 step changes reach JS to re-render the text. Screen readers
- * always get the final value. Reduce Motion shows the final value at once.
+ * The big number. It counts up in 16 steps on the UI thread: the text is a
+ * derived value written straight to a read-only TextInput, so counting never
+ * renders React. Screen readers always get the final value. Reduce Motion
+ * shows the final value at once, as plain text.
  */
 export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
   const isReduced = useReduceMotion();
-  const [step, setStep] = React.useState(isReduced ? COUNT_STEPS : 0);
+  const { width } = useWindowDimensions();
 
   const enter = useReveal(
     hasPush ? 250 : 120,
@@ -42,15 +55,11 @@ export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
     isReduced,
   );
   const count = useReveal(0, COUNT_MS, Easing.linear, isReduced);
-  useAnimatedReaction(
-    () => countStep(count.value),
-    (s, prev) => {
-      if (s !== prev) runOnJS(setStep)(s);
-    },
+
+  const text = useDerivedValue(() => countText(number, count.value));
+  const animatedProps = useAnimatedProps(
+    () => ({ text: text.value }) as Partial<TextInputProps>,
   );
-  React.useEffect(() => {
-    if (isReduced) setStep(COUNT_STEPS);
-  }, [isReduced]);
 
   const animated = useAnimatedStyle(() => {
     if (hasPush && !isReduced) {
@@ -68,22 +77,36 @@ export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
     };
   });
 
-  const shown = formatCount(
-    valueAtStep(number.value, step),
+  const final = formatCount(number.value, number.format, number.unit);
+  const first = formatCount(
+    valueAtStep(number.value, 0),
     number.format,
     number.unit,
   );
-  const final = formatCount(number.value, number.format, number.unit);
+  const fontSize = fitFontSize(final, width - 2 * SIDE_MARGIN, FONT_SIZE);
+  const textStyle = [styles.number, { color: accent, fontSize }];
   return (
     <Animated.View style={[styles.wrap, animated]}>
-      <Text
-        accessibilityLabel={final}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        style={[styles.number, { color: accent }]}
-      >
-        {shown}
-      </Text>
+      {isReduced ? (
+        <Text
+          accessibilityLabel={final}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={textStyle}
+        >
+          {final}
+        </Text>
+      ) : (
+        <AnimatedTextInput
+          accessibilityLabel={final}
+          editable={false}
+          pointerEvents="none"
+          scrollEnabled={false}
+          defaultValue={first}
+          animatedProps={animatedProps}
+          style={textStyle}
+        />
+      )}
     </Animated.View>
   );
 }
@@ -91,10 +114,11 @@ export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
 const styles = StyleSheet.create({
   wrap: { marginTop: -8, transformOrigin: '0% 50%' },
   number: {
-    fontSize: 88,
     lineHeight: 96,
     fontWeight: '700',
     letterSpacing: -2,
     fontVariant: ['tabular-nums'],
+    padding: 0,
+    includeFontPadding: false,
   },
 });

@@ -1,97 +1,103 @@
 import { useReduceMotion } from '@booking/ui';
 import * as React from 'react';
-import { StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import type { StoryTone } from './model';
-import { glowStops, TONE_ORDER } from './tones';
+
+/**
+ * One blurred glow per tone, pre-rendered by scripts/clovie/render-sprites.mjs
+ * (the two radial gradients of the board, on a 402 x 874 reference at half
+ * scale). Stretched to the screen, so a card change is only an opacity fade.
+ */
+const GLOWS: Record<StoryTone, number> = {
+  positive: require('@/assets/images/clovie/glow-positive.png'),
+  neutral: require('@/assets/images/clovie/glow-neutral.png'),
+  attention: require('@/assets/images/clovie/glow-attention.png'),
+  concern: require('@/assets/images/clovie/glow-concern.png'),
+};
+
+const FADE_MS = 600;
+const REDUCED_FADE_MS = 300;
 
 interface GlowLayerProps {
   tone: StoryTone;
   isActive: boolean;
-  width: number;
-  height: number;
+  /** The glow that is there when the viewer opens starts fully visible; later ones fade in. */
+  isInstant: boolean;
+  fadeMs: number;
 }
 
-function GlowLayer({ tone, isActive, width, height }: GlowLayerProps) {
-  const isReduced = useReduceMotion();
-  const opacity = useSharedValue(isActive ? 1 : 0);
+function GlowLayer({ tone, isActive, isInstant, fadeMs }: GlowLayerProps) {
+  const opacity = useSharedValue(isInstant ? 1 : 0);
   React.useEffect(() => {
-    opacity.value = withTiming(isActive ? 1 : 0, {
-      duration: isReduced ? 300 : 600,
-    });
-  }, [opacity, isActive, isReduced]);
+    opacity.value = withTiming(isActive ? 1 : 0, { duration: fadeMs });
+  }, [opacity, isActive, fadeMs]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const { first, second } = glowStops(tone);
   return (
     <Animated.View
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, style]}
     >
-      <Svg width={width} height={height}>
-        <Defs>
-          <RadialGradient
-            id={`g1-${tone}`}
-            cx={width * 0.06}
-            cy={height * 0.06 * 0.9}
-            r={340}
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop
-              offset="0"
-              stopColor={`rgb(${first.rgb})`}
-              stopOpacity={first.alpha}
-            />
-            <Stop offset="1" stopColor={`rgb(${first.rgb})`} stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient
-            id={`g2-${tone}`}
-            cx={width * 0.92}
-            cy={height * 0.88}
-            r={300}
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop
-              offset="0"
-              stopColor={`rgb(${second.rgb})`}
-              stopOpacity={second.alpha}
-            />
-            <Stop offset="1" stopColor={`rgb(${second.rgb})`} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect width={width} height={height} fill={`url(#g1-${tone})`} />
-        <Rect width={width} height={height} fill={`url(#g2-${tone})`} />
-      </Svg>
+      <Image
+        source={GLOWS[tone]}
+        resizeMode="stretch"
+        fadeDuration={0}
+        style={StyleSheet.absoluteFill}
+      />
     </Animated.View>
   );
 }
 
-/** One radial glow per tone; the active tone fades in while the others fade out. */
-export function ToneGlow({
-  tone,
-  width,
-  height,
-}: {
-  tone: StoryTone;
-  width: number;
-  height: number;
-}) {
+/**
+ * The active tone's glow fades in while the previous one fades out and is then
+ * unmounted, so at most two bitmaps exist and none outlives its fade.
+ */
+export function ToneGlow({ tone }: { tone: StoryTone }) {
+  const isReduced = useReduceMotion();
+  const fadeMs = isReduced ? REDUCED_FADE_MS : FADE_MS;
+  const [glow, setGlow] = React.useState<{
+    current: StoryTone;
+    leaving: StoryTone | null;
+  }>({ current: tone, leaving: null });
+  const hasMounted = React.useRef(false);
+  const isInstant = !hasMounted.current;
+  React.useEffect(() => {
+    hasMounted.current = true;
+  }, []);
+  // Derived during render, so the old glow stays mounted through the same commit that brings in the new one.
+  if (glow.current !== tone) setGlow({ current: tone, leaving: glow.current });
+  React.useEffect(() => {
+    if (glow.leaving === null) return;
+    const timer = setTimeout(
+      () => setGlow((g) => ({ ...g, leaving: null })),
+      fadeMs + 50,
+    );
+    return () => clearTimeout(timer);
+  }, [glow.leaving, fadeMs]);
+  const { leaving } = glow;
   return (
     <>
-      {TONE_ORDER.map((t) => (
+      {leaving && leaving !== tone ? (
         <GlowLayer
-          key={t}
-          tone={t}
-          isActive={t === tone}
-          width={width}
-          height={height}
+          key={leaving}
+          tone={leaving}
+          isActive={false}
+          isInstant={false}
+          fadeMs={fadeMs}
         />
-      ))}
+      ) : null}
+      <GlowLayer
+        key={tone}
+        tone={tone}
+        isActive
+        isInstant={isInstant}
+        fadeMs={fadeMs}
+      />
     </>
   );
 }

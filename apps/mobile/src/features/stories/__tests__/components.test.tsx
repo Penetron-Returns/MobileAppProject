@@ -12,11 +12,6 @@ jest.mock('@booking/ui', () => ({
   useReduceMotion: () => mockReduce,
 }));
 
-jest.mock('react-native-webview', () => {
-  const { View } = require('react-native');
-  return { WebView: View };
-});
-
 // The native gesture handler is a device concern: a chainable stand-in is enough here.
 jest.mock('react-native-gesture-handler', () => {
   const { View } = require('react-native');
@@ -100,12 +95,15 @@ describe('StoryViewer', () => {
     act(() => tree.unmount());
   });
 
-  it('runs exactly one live canvas, on the persistent Clovie', () => {
+  it('runs one blinking sprite on the persistent Clovie and no WebView', () => {
     const { tree } = setup();
-    const canvases = tree.root.findAll(
-      (n) => n.props.testID === 'clovie-webview' && typeof n.type === 'string',
+    const sprites = tree.root.findAll(
+      (n) => n.props.testID === 'clovie-sprite' && typeof n.type === 'string',
     );
-    expect(canvases).toHaveLength(1);
+    expect(sprites).toHaveLength(1);
+    expect(
+      tree.root.findAll((n) => n.props.testID === 'clovie-webview'),
+    ).toHaveLength(0);
     act(() => tree.unmount());
   });
 

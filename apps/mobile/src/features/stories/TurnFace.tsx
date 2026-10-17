@@ -20,6 +20,8 @@ interface TurnFaceProps {
   turnId: number;
   width: number;
   isReduced: boolean;
+  /** True while both faces are mounted: the face is cached as one bitmap and only that bitmap moves. */
+  isTransitioning: boolean;
   children: React.ReactNode;
 }
 
@@ -27,9 +29,10 @@ interface TurnFaceProps {
  * One face of the story cube. Between stories the faces turn like a cube
  * (translate plus 78 degree rotateY under perspective, hinged on the shared
  * edge). Between cards they slide 28 / 20 pt and fade. Reduce Motion: a plain
- * crossfade, no travel.
+ * crossfade, no travel. Only transform and opacity animate, and the face is
+ * rasterised for the duration so no frame re-draws its content.
  */
-export function TurnFace({
+export const TurnFace = React.memo(function TurnFace({
   role,
   kind,
   dir,
@@ -37,6 +40,7 @@ export function TurnFace({
   turnId,
   width,
   isReduced,
+  isTransitioning,
   children,
 }: TurnFaceProps) {
   const isIn = role === 'in';
@@ -71,9 +75,11 @@ export function TurnFace({
   return (
     <Animated.View
       pointerEvents="none"
+      renderToHardwareTextureAndroid={isTransitioning}
+      shouldRasterizeIOS={isTransitioning}
       style={[StyleSheet.absoluteFill, { transformOrigin: origin }, style]}
     >
       {children}
     </Animated.View>
   );
-}
+});
