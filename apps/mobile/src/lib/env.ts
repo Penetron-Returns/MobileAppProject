@@ -41,6 +41,17 @@ export type NerovaApi = 'legacy' | 'v1';
 export const nerovaApi: NerovaApi =
   process.env.EXPO_PUBLIC_NEROVA_API === 'v1' ? 'v1' : 'legacy';
 
+/**
+ * PostHog (onboarding funnel only for now). Optional: with no key analytics is a
+ * no-op, so it never reaches the missing-config screen.
+ */
+export const analyticsConfig = {
+  key: process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '',
+  host:
+    (process.env.EXPO_PUBLIC_POSTHOG_HOST ?? '').trim() ||
+    'https://eu.i.posthog.com',
+};
+
 export type EnvKey = keyof typeof env;
 
 const ENV_NAMES: Record<EnvKey, string> = {

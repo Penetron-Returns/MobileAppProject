@@ -15,7 +15,8 @@ import { SessionCacheGuard } from '@/components/SessionCacheGuard';
 import { ConfigErrorScreen } from '@/components/ConfigErrorScreen';
 import { holdNativeSplash, hideNativeSplash } from '@/features/brand/splash';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import { env, validateEnv } from '@/lib/env';
+import { initAnalytics } from '@/features/analytics';
+import { analyticsConfig, env, validateEnv } from '@/lib/env';
 import { registerDeviceTokenSource } from '@/features/voice/deviceToken';
 import { registerVoiceHeadlessTask } from '@/features/voice/headlessTask';
 import { startFocusSync, startOnlineSync } from '@/lib/online';
@@ -23,6 +24,7 @@ import { queryClient } from '@/lib/query';
 
 const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
+initAnalytics(analyticsConfig);
 startOnlineSync();
 startFocusSync();
 // Hey Clovie (Android): lets the voice service run a command with the app in the background.
