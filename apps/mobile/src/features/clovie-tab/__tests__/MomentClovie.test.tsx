@@ -6,10 +6,10 @@ let mockActive = true;
 jest.mock('@/hooks/useMotionActive', () => ({
   useMotionActive: () => mockActive,
 }));
-let mockCharacterProps: Record<string, unknown> = {};
-jest.mock('@/features/clovie-character', () => ({
-  ClovieCharacter: (props: Record<string, unknown>) => {
-    mockCharacterProps = props;
+let mockProps: Record<string, unknown> = {};
+jest.mock('@/features/brand/ClovieAnimated', () => ({
+  ClovieAnimated: (props: Record<string, unknown>) => {
+    mockProps = props;
     return null;
   },
 }));
@@ -17,30 +17,28 @@ jest.mock('@/features/clovie-character', () => ({
 const base = { placement: 'moment', blinkToken: 0 } as const;
 
 describe('MomentClovie', () => {
-  it('runs the live character while the tab is focused and in the foreground', () => {
+  it('runs the live Clovie while the tab is focused and in the foreground', () => {
     mockActive = true;
     mount(<MomentClovie {...base} state="idle" size={64} />);
-    expect(mockCharacterProps).toMatchObject({
-      isActive: true,
-      isLive: true,
-      emotion: 'calm',
-    });
+    expect(mockProps).toMatchObject({ isPaused: false, state: 'default' });
   });
 
-  it('shows the still image when motion is gated off', () => {
+  it('pauses to the still image when motion is gated off', () => {
     mockActive = false;
+    mount(<MomentClovie {...base} state="idle" size={64} />);
+    expect(mockProps.isPaused).toBe(true);
+  });
+
+  it('works while the companion is busy and idles on the reply nod', () => {
+    mockActive = true;
     mount(<MomentClovie {...base} state="working" size={44} />);
-    expect(mockCharacterProps).toMatchObject({
-      isActive: false,
-      isLive: false,
-      emotion: 'thoughtful',
-      size: 44,
-    });
+    expect(mockProps).toMatchObject({ state: 'working', size: 44 });
+    mount(<MomentClovie {...base} state="nod" size={44} />);
+    expect(mockProps.state).toBe('default');
   });
 
   it('draws the hero slot larger than the SDK box', () => {
-    mockActive = true;
-    mount(<MomentClovie {...base} state="nod" size={64} />);
-    expect(mockCharacterProps.size).toBeGreaterThan(64);
+    mount(<MomentClovie {...base} state="idle" size={64} />);
+    expect(mockProps.size).toBeGreaterThan(64);
   });
 });

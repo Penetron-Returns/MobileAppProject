@@ -85,6 +85,8 @@ export function StoriesRow({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        testID="stories-row"
+        style={{ flexGrow: 0 }}
         accessibilityLabel={t('stories.listLabel')}
         contentContainerClassName="gap-2 px-4 pt-4"
       >
