@@ -1,6 +1,6 @@
-import { Surface, Text, initials, useDepth } from '@booking/ui';
+import { Pressable, Surface, Text, initials, useDepth } from '@booking/ui';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import type { BookClient } from '../phoneBook';
 import { clientDisplayName } from '../phoneBook';
@@ -37,7 +37,6 @@ export const RecentCard = React.memo(function RecentCard({
             onPress={() => onOpen(client.id)}
             accessibilityRole="button"
             accessibilityLabel={name}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
             className="min-h-11 min-w-0 flex-1 items-center gap-1.5"
           >
             <Surface

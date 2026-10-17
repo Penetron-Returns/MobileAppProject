@@ -1,8 +1,9 @@
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import {
   GroupBlock,
+  Pressable,
   SwipeableRow,
   Text,
   Turn,
@@ -59,6 +60,7 @@ export function ScheduleSection({
   return (
     <GroupBlock showSeparator={showSeparator}>
       <Pressable
+        feedback="none"
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityLabel={`${title}, ${summary}`}

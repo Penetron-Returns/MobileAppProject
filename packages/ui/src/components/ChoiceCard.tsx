@@ -1,7 +1,8 @@
 import { Check, type LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
+import { Pressable } from '../primitives/Pressable';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 import { RADII } from '../tokens/radii';
@@ -29,6 +30,7 @@ export function ChoiceCard({
   const depth = useDepth();
   return (
     <Pressable
+      feedback="none"
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
