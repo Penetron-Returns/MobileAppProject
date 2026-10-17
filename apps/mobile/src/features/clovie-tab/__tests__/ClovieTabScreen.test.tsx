@@ -1,6 +1,6 @@
 import type { AttendanceCheckDTO } from '@booking/types';
 
-import { mount, pressableByLabel, text } from '@/testing/render';
+import { mount, text } from '@/testing/render';
 
 import { ClovieTabScreen } from '../components/ClovieTabScreen';
 
@@ -14,10 +14,21 @@ jest.mock('@/hooks/useNow', () => ({
 jest.mock('@/features/business/hooks', () => ({
   useBusiness: () => ({ data: { timezone: 'Africa/Johannesburg' } }),
 }));
-jest.mock('@/features/companion/sdk/useOpenCompanion', () => ({
-  useOpenCompanion: () => jest.fn(),
+let mockSheet = { isAvailable: true, hasFailed: false };
+jest.mock('@/features/companion/sdk/companionSheetControl', () => ({
+  useCompanionSheet: () => mockSheet,
 }));
-jest.mock('../useStartVoice', () => ({ useStartVoice: () => jest.fn() }));
+const mockStartVoice = jest.fn();
+jest.mock('../useStartVoice', () => ({ useStartVoice: () => mockStartVoice }));
+
+// Nerova owns the chat UI: the screen only has to host it with the right props.
+let mockMomentProps: Record<string, any> = {};
+jest.mock('@nerova/react-native', () => ({
+  CompanionMoment: (props: Record<string, unknown>) => {
+    mockMomentProps = props;
+    return null;
+  },
+}));
 
 const mockAnswer = jest.fn();
 let mockChecks: AttendanceCheckDTO[] = [];
@@ -51,6 +62,9 @@ beforeEach(() => {
   mockChecks = [];
   mockStories = { stories: [], isLoading: false };
   mockAnswer.mockReset();
+  mockStartVoice.mockReset();
+  mockSheet = { isAvailable: true, hasFailed: false };
+  mockMomentProps = {};
 });
 
 describe('ClovieTabScreen', () => {
@@ -75,21 +89,48 @@ describe('ClovieTabScreen', () => {
     ).toHaveLength(0);
   });
 
-  it('offers the chat and voice entries', () => {
-    const tree = mount(<ClovieTabScreen />);
-    expect(pressableByLabel(tree, 'Ask Clovie anything')).toBeTruthy();
-    expect(pressableByLabel(tree, 'Talk to Clovie')).toBeTruthy();
+  it('hosts the companion moment with a calm idle line and undo off', () => {
+    mount(<ClovieTabScreen />);
+    expect(mockMomentProps.idleLine).toBe('Ask me anything about your day.');
+    expect(mockMomentProps.enableUndo).toBe(false);
+    expect(typeof mockMomentProps.renderAvatar).toBe('function');
   });
 
-  it('asks about one attendance check at a time with a count of the rest', () => {
+  it('renders no chat area without a companion session', () => {
+    mockSheet = { isAvailable: false, hasFailed: false };
+    mount(<ClovieTabScreen />);
+    expect(mockMomentProps).toEqual({});
+  });
+
+  it('starts native voice from the moment mic', () => {
+    mount(<ClovieTabScreen />);
+    mockMomentProps.onMicPress();
+    expect(mockStartVoice).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps attendance checks to queue items, oldest first', () => {
     mockChecks = [
-      check('a', '2026-10-17T07:00:00Z'),
       check('b', '2026-10-17T08:00:00Z'),
+      check('a', '2026-10-17T07:00:00Z'),
     ];
-    const tree = mount(<ClovieTabScreen />);
-    expect(text(tree)).toContain('Did Daniel make it to their 09:00 Cut?');
-    expect(text(tree)).toContain('1 more');
-    pressableByLabel(tree, 'Mark Daniel as came').props.onPress();
-    expect(mockAnswer).toHaveBeenCalledWith(mockChecks[0], 'came');
+    mount(<ClovieTabScreen />);
+    const items = mockMomentProps.queueItems;
+    expect(items.map((i: { id: string }) => i.id)).toEqual(['a', 'b']);
+    expect(items[0].title).toBe('Did Daniel make it to their 09:00 Cut?');
+    expect(items[0].actions.map((x: { id: string }) => x.id)).toEqual([
+      'came',
+      'no_show',
+    ]);
+  });
+
+  it('answers the attendance check from a queue action', () => {
+    mockChecks = [check('a', '2026-10-17T07:00:00Z')];
+    mount(<ClovieTabScreen />);
+    mockMomentProps.onQueueAction('a', 'no_show');
+    expect(mockAnswer).toHaveBeenCalledWith(mockChecks[0], 'no_show');
+    mockAnswer.mockClear();
+    mockMomentProps.onQueueAction('a', 'unknown');
+    mockMomentProps.onQueueAction('gone', 'came');
+    expect(mockAnswer).not.toHaveBeenCalled();
   });
 });

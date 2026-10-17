@@ -1,6 +1,9 @@
 import { useUser } from '@clerk/expo';
 import { Ground, tabBarClearance } from '@booking/ui';
-import { router } from 'expo-router';
+import {
+  CompanionMoment,
+  type MomentAvatarProperties,
+} from '@nerova/react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
@@ -8,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
-import { useOpenCompanion } from '@/features/companion/sdk/useOpenCompanion';
+import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { formatDayCaption } from '@/features/today/logic';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/lib/toast';
@@ -20,9 +23,8 @@ import { storyActionOutcome } from '../storyActions';
 import { useStartVoice } from '../useStartVoice';
 import { useStories } from '../useStories';
 import { useStoryEvents } from '../useStoryEvents';
-import { AttendanceQueue } from './AttendanceQueue';
-import { ChatPlaceholder } from './ChatPlaceholder';
 import { ClovieHeader } from './ClovieHeader';
+import { MomentClovie } from './MomentClovie';
 import { StoriesRow } from './StoriesRow';
 
 /** The greeting only changes on the hour, so a slow clock is plenty. */
@@ -31,10 +33,16 @@ const FALLBACK_TIMEZONE = 'UTC';
 
 /**
  * The Clovie tab (first tab): our shell, the greeting and the stories row,
- * around Nerova's chat area. The chat area is a placeholder until
- * `<CompanionMoment>` ships; the attendance queue sits above it and becomes
- * its `queueItems`. Nothing here animates at rest.
+ * around Nerova's `<CompanionMoment>` (the chat UI is theirs; we host it). It
+ * shares the app-wide SDK session from `CompanionSdkHost`, so with no companion
+ * on the plan (or the flag off) there is no chat area. The attendance questions
+ * are its `queueItems`. Nothing here animates at rest.
  */
+/** Stable: the SDK would otherwise redraw the avatar on every render. */
+const renderAvatar = (props: MomentAvatarProperties) => (
+  <MomentClovie {...props} />
+);
+
 export function ClovieTabScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -42,7 +50,7 @@ export function ClovieTabScreen() {
   const business = useBusiness();
   const now = useNow(CLOCK_MS);
   const timezone = business.data?.timezone ?? FALLBACK_TIMEZONE;
-  const openChat = useOpenCompanion();
+  const { isAvailable, hasFailed } = useCompanionSheet();
   const startVoice = useStartVoice();
   const attendance = useAttendance();
   const { stories, isLoading, markViewed } = useStories();
@@ -72,6 +80,8 @@ export function ClovieTabScreen() {
     },
     [attendance.checks, answer],
   );
+
+  const onMicPress = React.useCallback(() => void startVoice(), [startVoice]);
 
   const onStoryAction = React.useCallback(
     (card: Parameters<typeof storyActionOutcome>[0]) => {
@@ -105,13 +115,17 @@ export function ClovieTabScreen() {
             onAction={onStoryAction}
             onClose={events.flush}
           />
-          <AttendanceQueue
-            items={queue}
-            confirmation={attendance.confirmation}
-            onAction={onQueueAction}
-            onOpenAll={() => router.push('/attendance' as never)}
-          />
-          <ChatPlaceholder onOpenChat={openChat} onStartVoice={startVoice} />
+          {isAvailable || hasFailed ? (
+            <CompanionMoment
+              testID="clovie-moment"
+              idleLine={t('clovieTab.idleLine')}
+              queueItems={queue}
+              onQueueAction={onQueueAction}
+              onMicPress={onMicPress}
+              enableUndo={false}
+              renderAvatar={renderAvatar}
+            />
+          ) : null}
         </View>
       </ScrollView>
     </Ground>

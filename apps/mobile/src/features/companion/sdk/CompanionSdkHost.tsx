@@ -49,17 +49,23 @@ function StatusBridge({ onChange }: { onChange: (isFailed: boolean) => void }) {
 
 /**
  * Mounted once for the whole signed-in shell so the session is minted and the
- * thread loaded before the owner ever taps Clovie. The sheet starts at `rest`
- * (no dim, no avatar), so it is invisible until `open()`.
+ * thread loaded before the owner ever taps Clovie. It is also the app's one
+ * `CompanionProvider`: it wraps the screens, so an inline `<CompanionMoment>`
+ * (the Clovie tab) shares this session, thread and store with the sheet. The
+ * sheet starts at `rest` (no dim, no avatar), so it is invisible until `open()`.
  */
-const PersistentSheet = React.forwardRef<
+const SdkShell = React.forwardRef<
   SheetHandle,
   {
     transport?: CompanionTransport;
     onFailedChange: (isFailed: boolean) => void;
     onLiveChange: (live: CompanionLive) => void;
+    children: React.ReactNode;
   }
->(function PersistentSheet({ transport, onFailedChange, onLiveChange }, ref) {
+>(function SdkShell(
+  { transport, onFailedChange, onLiveChange, children },
+  ref,
+) {
   const { isDark } = useAppColorScheme();
   const depth = useDepth();
   const appearance = React.useMemo(
@@ -98,17 +104,27 @@ const PersistentSheet = React.forwardRef<
     >
       <StatusBridge onChange={onFailedChange} />
       <CompanionLiveBridge onChange={onLiveChange} />
-      <CompanionSheet
-        ref={sheetRef}
-        defaultDetent="rest"
-        restAvatar="hidden"
-        insets={insets}
-        context={context}
-        onContextChange={setContext}
-        renderAvatar={({ state, size, placement }) =>
-          placement === 'rest' ? null : <SdkClovie state={state} size={size} />
-        }
-      />
+      {children}
+      <View
+        testID="companion-sdk-layer"
+        pointerEvents="box-none"
+        style={StyleSheet.absoluteFill}
+      >
+        <CompanionSheet
+          ref={sheetRef}
+          defaultDetent="rest"
+          restAvatar="hidden"
+          insets={insets}
+          context={context}
+          onContextChange={setContext}
+          renderAvatar={({ state, size, placement }) =>
+            placement === 'rest' ? null : (
+              <SdkClovie state={state} size={size} />
+            )
+          }
+        />
+        <InAppVoiceLayer />
+      </View>
     </CompanionProvider>
   );
 });
@@ -136,30 +152,27 @@ function EnabledHost({
   return (
     <CompanionSheetControlProvider value={control}>
       <CompanionLiveProvider value={isEntitled ? live : null}>
-        {children}
-      </CompanionLiveProvider>
-      {isEntitled ? (
-        <View
-          testID="companion-sdk-layer"
-          pointerEvents="box-none"
-          style={StyleSheet.absoluteFill}
-        >
-          <PersistentSheet
+        {isEntitled ? (
+          <SdkShell
             ref={sheetRef}
             transport={transport}
             onFailedChange={setHasFailed}
             onLiveChange={setLive}
-          />
-          <InAppVoiceLayer />
-        </View>
-      ) : null}
+          >
+            {children}
+          </SdkShell>
+        ) : (
+          children
+        )}
+      </CompanionLiveProvider>
     </CompanionSheetControlProvider>
   );
 }
 
 /**
  * Wraps the signed-in app. With `EXPO_PUBLIC_COMPANION_SDK=1` and a plan that
- * has the companion it keeps Nerova's native sheet mounted over everything;
+ * has the companion it provides the one SDK session to the whole app and keeps
+ * Nerova's native sheet mounted over everything;
  * otherwise it renders the children untouched (the iframe path).
  * `transport` replaces the HTTP transport (tests and demos only).
  */

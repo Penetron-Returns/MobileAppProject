@@ -24,6 +24,8 @@ export function buildCompanionAppearance(
     font: { family: os === 'android' ? ['Inter', 'System'] : 'System' },
     colors: {
       primary: colors.tint,
+      userBubble: colors.tint,
+      userBubbleText: '#FFFFFF',
       background: depth.ground.backgroundColor as string,
       surface: depth.sheet.backgroundColor as string,
       raised: depth.raised.backgroundColor as string,
