@@ -1,7 +1,8 @@
 /** In-memory NerovaClient: accounts keyed by `acct_` id and externalReference, recorded session requests. */
-import type { CompanionOutcomesDTO } from '@booking/types';
+import type { CompanionOutcomesDTO, CompanionSettingsDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import type {
+  CompanionSettingsPatch,
   CreateConnectionSessionInput,
   CreateOwnerChatSessionInput,
   NerovaAccount,
@@ -46,6 +47,10 @@ export interface FakeNerovaClient extends NerovaClient {
   /** The next N createConnectionSession calls fail with a version conflict and move the activation version on */
   versionConflicts: number;
   outcomes: CompanionOutcomesDTO;
+  /** The companion settings every account returns; PATCH merges into it */
+  settings: CompanionSettingsDTO;
+  /** Every updateCompanionSettings call (account, patch, key), in order */
+  settingsUpdates: { accountId: string; patch: CompanionSettingsPatch; idempotencyKey: string }[];
   /** When set, every call throws this (a Nerova outage) */
   failWith: AppError | null;
 }
@@ -66,6 +71,21 @@ export function createFakeNerovaClient(
     versionConflicts: 0,
     outcomes: options.outcomes ?? { bookings_created: 0, bookings_rescheduled: 0, bookings_cancelled: 0, conversations_handled: 0 },
     failWith: null,
+    settings: { approvalPolicy: 'risky_only', undoWindowSeconds: 30, updatedAt: '2026-10-26T08:00:00.000Z' },
+    settingsUpdates: [],
+    async getCompanionSettings(idOrReference) {
+      if (fake.failWith) throw fake.failWith;
+      return fake.accounts.some((a) => a.id === idOrReference || a.externalReference === idOrReference) ? { ...fake.settings } : null;
+    },
+    async updateCompanionSettings(idOrReference, patch, idempotencyKey) {
+      if (fake.failWith) throw fake.failWith;
+      if (patch.undoWindowSeconds !== undefined && (patch.undoWindowSeconds < 0 || patch.undoWindowSeconds > 120)) {
+        throw new AppError('VALIDATION_FAILED', 'The companion settings were rejected', { reason: 'settings.invalid', nerova_code: 'settings.invalid' });
+      }
+      fake.settingsUpdates.push({ accountId: idOrReference, patch, idempotencyKey });
+      fake.settings = { ...fake.settings, ...patch, updatedAt: clock().toISOString() };
+      return { ...fake.settings };
+    },
     async getAccount(idOrReference) {
       if (fake.failWith) throw fake.failWith;
       const found = fake.accounts.find((a) => a.id === idOrReference || a.externalReference === idOrReference);

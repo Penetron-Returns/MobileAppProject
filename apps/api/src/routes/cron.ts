@@ -10,6 +10,7 @@ import {
   runTokenRefreshJob,
   runWabaHealthJob,
 } from '@booking/app-store/whatsapp/jobs.ts';
+import { runHeldClientNotificationsJob } from '@booking/app-store/whatsapp/heldNotifications.ts';
 
 type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
 
@@ -30,6 +31,8 @@ export const CRON_JOBS: Record<string, Job> = {
   cleanup: runCleanupJob,
   warm: runWarmJob,
   attendance: runAttendanceJob,
+  /** Act-then-undo (every minute, migration 20261026000003): sends held client messages once the undo window has passed. */
+  'client-notifications': runHeldClientNotificationsJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

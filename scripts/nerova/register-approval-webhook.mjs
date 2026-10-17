@@ -5,7 +5,7 @@
  *   node scripts/nerova/register-approval-webhook.mjs <api-key-file> <secret-out-file> [--url <endpoint>] [--dry-run]
  *
  * Reads the Nerova API key from a file (needs `webhooks:write`), POSTs /v1/webhooks with an Idempotency-Key and
- * eventFilters ["approval.requested"], and writes the returned `whsec_` signing secret (shown once) to the second
+ * eventFilters ["approval.requested"] (add action.executed / action.undone to an existing endpoint with update-webhook-events.mjs), and writes the returned `whsec_` signing secret (shown once) to the second
  * file with owner-only permissions. Neither the key nor the secret is ever printed. Put the secret in
  * NEROVA_WEBHOOK_SECRET (Doppler + Supabase secrets).
  *

@@ -192,6 +192,10 @@ export interface AppointmentRow {
   client_confirmed_via: ClientConfirmationChannel | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
+  /** Act-then-undo: the client hears nothing before this instant; the hold cron clears it. Absent on partial selects. */
+  client_notify_after?: string | null;
+  /** Act-then-undo: set when the owner undid a Nerova-made booking (status stays cancelled) */
+  voided_at?: string | null;
   created_by: string | null;
   created_at: string;
 }

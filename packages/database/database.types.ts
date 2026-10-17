@@ -82,6 +82,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -107,6 +109,8 @@ export type Database = {
           checked_in_at?: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -132,6 +136,8 @@ export type Database = {
           checked_in_at?: string | null
           client_confirmed_at?: string | null
           client_confirmed_via?: string | null
+          client_notify_after?: string | null
+          voided_at?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -1645,6 +1651,61 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          duration_minutes: number
+          ends_at: string
+          id: string
+          idempotency_key: string | null
+          notes: string | null
+          price_cents: number
+          service_id: string
+          slot: unknown
+          source: Database["public"]["Enums"]["appointment_source"]
+          staff_id: string
+          starts_at: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      claim_due_client_notifications: {
+        Args: {
+          p_limit?: number
+          p_now: string
+        }
+        Returns: {
+          appointment_id: string
+          business_id: string
+          client_id: string
+          status: Database["public"]["Enums"]["appointment_status"]
+          voided: boolean
+        }[]
+      }
+      void_appointment: {
+        Args: {
+          p_actor: Database["public"]["Enums"]["actor_type"]
+          p_actor_id: string
+          p_appointment_id: string
+        }
+        Returns: {
+          blocked: unknown
+          business_id: string
+          cancel_reason: string | null
+          cancelled_at: string | null
+          checked_in_at: string | null
+          client_confirmed_at: string | null
+          client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1682,6 +1743,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1756,6 +1819,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1801,6 +1866,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1951,6 +2018,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -1990,6 +2059,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
+          client_notify_after: string | null
+          voided_at: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -2052,7 +2123,7 @@ export type Database = {
     }
     Enums: {
       actor_type: "customer" | "staff" | "system" | "nerova"
-      appointment_event_type: "created" | "rescheduled" | "cancelled" | "completed" | "no_show" | "checked_in" | "reminder_sent" | "confirmation_sent" | "notes_updated" | "client_confirmed"
+      appointment_event_type: "created" | "voided" | "rescheduled" | "cancelled" | "completed" | "no_show" | "checked_in" | "reminder_sent" | "confirmation_sent" | "notes_updated" | "client_confirmed"
       appointment_source: "whatsapp" | "app" | "web" | "nerova"
       appointment_status: "confirmed" | "cancelled" | "completed" | "no_show"
       attempt_outcome: "in_progress" | "completed" | "abandoned" | "failed"

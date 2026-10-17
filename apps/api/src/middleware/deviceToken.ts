@@ -16,6 +16,8 @@ const DEVICE_TOKEN_ROUTES: readonly { method: string; path: RegExp }[] = [
   { method: 'GET', path: /^(\/api)?\/v1\/voice\/ping$/ },
   { method: 'POST', path: /^(\/api)?\/v1\/voice\/ask$/ },
   { method: 'POST', path: /^(\/api)?\/v1\/voice\/approvals\/[^/]+\/(approve|decline)$/ },
+  { method: 'POST', path: /^(\/api)?\/v1\/voice\/actions\/[^/]+\/undo$/ },
+  { method: 'GET', path: /^(\/api)?\/v1\/voice\/actions$/ },
 ];
 
 export function isDeviceTokenRoute(method: string, path: string): boolean {

@@ -10,7 +10,8 @@ import { buildOutboundDeps, type OutboundDeps, type WhatsAppEnv } from '../deps.
 import { confirmationDedupeKey } from '../engine/transition.ts';
 import { sendOutbound } from '../outbound.ts';
 import type { AppointmentBrief, BusinessBrief } from '../repo.ts';
-import { appointmentMessage, staffPush } from './customer.ts';
+import { appointmentMessage, nerovaNotification, staffPush } from './customer.ts';
+import { nerovaIdempotencyKey } from './nerovaChannel.ts';
 
 export interface NotificationDeps {
   env: WhatsAppEnv;
@@ -41,7 +42,7 @@ export async function notifyAppointmentChanged(deps: OutboundDeps, event: Appoin
   const business = appt ? await deps.repo.getBusinessBrief(event.businessId) : null;
   if (!appt || !business) return 'skipped';
 
-  if (event.actor.type === 'customer' || event.actor.type === 'nerova') {
+  if (!event.skipStaffPush && (event.actor.type === 'customer' || event.actor.type === 'nerova')) {
     await deps.push.toBusiness(event.businessId, staffPush(event.kind, appt, business));
   }
   if (!event.notifyCustomer) return 'skipped';
@@ -61,6 +62,8 @@ async function notifyCustomer(
   const client = await deps.repo.getClient(event.businessId, appt.client_id);
   if (!client) return skip('no_client');
   if (client.is_blocked || !client.whatsapp_opt_in) return skip('client_opted_out');
+  // A number on Nerova cannot send through our Meta integration: Nerova delivers it (never both channels).
+  if (await deps.nerovaChannel?.ownsNumber(event.businessId)) return sendViaNerova(deps, event, appt, business, client);
   const account = await deps.repo.getAccountByBusiness(event.businessId);
   if (!account || account.status !== 'live') return skip('channel_not_live');
 
@@ -78,4 +81,24 @@ async function notifyCustomer(
     },
   );
   return outcome.status;
+}
+
+async function sendViaNerova(
+  deps: OutboundDeps,
+  event: AppointmentChangedEvent,
+  appt: AppointmentBrief,
+  business: BusinessBrief,
+  client: { name: string | null; phone_e164: string },
+): Promise<NotifyOutcome> {
+  try {
+    const outcome = await deps.nerovaChannel?.send(event.businessId, nerovaNotification(event.kind, appt, business, client), nerovaIdempotencyKey(event.kind, appt));
+    if (outcome === 'opted_out') {
+      deps.logger.info('notification_skipped', { appointment_id: appt.id, kind: event.kind, reason: 'nerova_recipient_opted_out' });
+      return 'skipped';
+    }
+    return 'sent';
+  } catch (err) {
+    deps.logger.error('nerova_notification_failed', { appointment_id: appt.id, kind: event.kind, error: err });
+    return 'failed';
+  }
 }

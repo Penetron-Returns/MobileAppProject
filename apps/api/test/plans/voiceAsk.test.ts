@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ApprovalDecision, CompanionChatClient, CompanionChatSession } from '@booking/companion/nerova/chatClient.ts';
-import { parseChatStream, type ChatTurn } from '@booking/companion/nerova/chatStream.ts';
+import { parseChatStream, type ChatAction, type ChatTurn } from '@booking/companion/nerova/chatStream.ts';
 import type { CompanionService } from '@booking/companion/nerova/companionService.ts';
 import { createHttpCompanionChatClient } from '@booking/companion/nerova/httpChatClient.ts';
 import { createVoiceAskService, SESSION_MARGIN_MS, type VoiceAskService } from '@booking/companion/nerova/voiceAsk.ts';
@@ -123,9 +123,11 @@ function serviceHarness(chatImpl?: (session: CompanionChatSession, message: stri
       return { url: 'u', expires_at: new Date(now + 15 * 60_000).toISOString(), session_id: `wsn_${minted}`, state: `state_${minted}` };
     }),
   } as unknown as CompanionService;
-  const emptyTurn: ChatTurn = { reply: 'ok', approvals: [], suggestions: [], error: null, isDone: true };
+  const emptyTurn: ChatTurn = { reply: 'ok', approvals: [], actions: [], suggestions: [], error: null, isDone: true };
   const calls: { sessionId: string }[] = [];
   const decisions: { id: string; decision: ApprovalDecision; key: string }[] = [];
+  const undos: { id: string; key: string }[] = [];
+  let undoImpl: (() => Promise<ChatAction>) | null = null;
   const chat: CompanionChatClient = {
     chat: async (s, m) => {
       calls.push({ sessionId: s.sessionId });
@@ -135,9 +137,15 @@ function serviceHarness(chatImpl?: (session: CompanionChatSession, message: stri
       decisions.push({ id, decision, key });
       return { kind: null };
     },
+    undoAction: async (_s, id, key) => {
+      undos.push({ id, key });
+      if (undoImpl) return undoImpl();
+      return { id, kind: 'create_appointment', status: 'undone', title: 'T', readBack: '', lines: [], executedAt: null, undoUntil: null, undoable: false, undoneAt: '2026-10-26T08:00:00.000Z' };
+    },
+    listActions: async () => [],
   };
   const service = createVoiceAskService({ companion, chat, clock: () => new Date(now) });
-  return { service, companion, calls, decisions, advance: (ms: number) => (now += ms), minted: () => minted };
+  return { service, companion, calls, decisions, undos, setUndo: (fn: () => Promise<ChatAction>) => (undoImpl = fn), advance: (ms: number) => (now += ms), minted: () => minted };
 }
 
 const expired = () => new AppError('UPSTREAM_COMPANION_ERROR', 'x', { status: 401, nerova_code: 'companion.session_expired' });
@@ -173,7 +181,7 @@ describe('voice ask service', () => {
         first = false;
         throw expired();
       }
-      return { reply: 'second try', approvals: [], suggestions: [], error: null, isDone: true };
+      return { reply: 'second try', approvals: [], actions: [], suggestions: [], error: null, isDone: true };
     });
     const out = await h.service.ask(caller, 'hi');
     expect(out.reply).toBe('second try');
@@ -210,8 +218,20 @@ describe('voice ask service', () => {
     expect(out).toEqual({
       reply: 'Shall I?',
       approvals: [{ id: 'oapr_1', kind: 'create_appointment', title: 'Book A?', lines: [{ label: 'When', from: null, to: 'Fri 16 Oct, 20:30' }] }],
+      actions: [],
       suggestions: ['No'],
     });
+  });
+
+  it('returns executed actions without awaitingReply, and undoes exactly the id it is given', async () => {
+    const action = { id: 'oact_9', kind: 'create_appointment', status: 'executed', title: 'Gel', readBack: 'Done.', lines: [], executedAt: '2026-10-16T08:00:00Z', undoUntil: '2026-10-16T08:00:30Z', undoable: true };
+    const h = serviceHarness(async () => parseChatStream(sse(['action', action], ['done', { suggestions: [] }])));
+    const out = await h.service.ask(caller, 'book gel');
+    expect(out.actions).toEqual([expect.objectContaining({ id: 'oact_9', status: 'executed', undoable: true, readBack: 'Done.' })]);
+    expect(out).not.toHaveProperty('awaitingReply');
+    const undone = await h.service.undo(caller, 'oact_9', 'idem-key-0003');
+    expect(undone).toMatchObject({ id: 'oact_9', status: 'undone' });
+    expect(h.undos).toEqual([{ id: 'oact_9', key: 'idem-key-0003' }]);
   });
 
   it('carries done.awaitingReply through the service only when Nerova sends it', async () => {
@@ -239,6 +259,7 @@ describe('voice ask service', () => {
 function fakeVoiceAsk() {
   const asked: string[] = [];
   const decided: { id: string; decision: string; key: string }[] = [];
+  const undone: { id: string; key: string }[] = [];
   const service: VoiceAskService = {
     ask: async (_c, text) => {
       asked.push(text);
@@ -248,8 +269,13 @@ function fakeVoiceAsk() {
       decided.push({ id, decision, key });
       return { id, decision: decision === 'approve' ? 'approved' : 'declined', kind: null };
     },
+    undo: async (_c, id, key) => {
+      undone.push({ id, key });
+      return { id, kind: 'create_appointment', status: 'undone', title: 't', readBack: '', lines: [], executedAt: null, undoUntil: null, undoable: false, undoneAt: '2026-10-26T08:00:00.000Z' };
+    },
+    listActions: async () => [],
   };
-  return { service, asked, decided };
+  return { service, asked, decided, undone };
 }
 
 function routeSetup() {

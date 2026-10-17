@@ -1,8 +1,8 @@
 /** fetch implementation of NerovaClient. Bearer key, per-call timeout, every failure mapped to an AppError. */
-import type { CompanionNotReadyReason, CompanionOutcomesDTO } from '@booking/types';
+import type { CompanionNotReadyReason, CompanionOutcomesDTO, CompanionSettingsDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
-import type { NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
+import type { CompanionSettingsPatch, NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
 
 export const NEROVA_API_BASE_URL = 'https://api.nerova.si';
@@ -80,6 +80,15 @@ function transcriptionTiming(header: string | null): { providerMs: number | null
   return { providerMs: lone ? Number(lone[1]) : null, totalMs: null };
 }
 
+const APPROVAL_POLICIES = ['always', 'risky_only', 'never'] as const;
+
+function parseSettings(body: Json): CompanionSettingsDTO {
+  const policy = APPROVAL_POLICIES.find((p) => p === body.approvalPolicy);
+  const window = body.undoWindowSeconds;
+  if (!policy || typeof window !== 'number' || !Number.isInteger(window)) throw upstream('The companion service returned unexpected settings', { reason: 'unexpected_response' });
+  return { approvalPolicy: policy, undoWindowSeconds: window, updatedAt: text(body.updatedAt) };
+}
+
 export function createHttpNerovaClient(options: HttpNerovaClientOptions): NerovaClient {
   const doFetch = options.fetch ?? fetch;
   const logger = options.logger ?? createLogger({ module: 'companion_http' });
@@ -87,7 +96,7 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
 
   /** One request. Returns null on 404 when `allowNotFound`; every other failure is an upstream AppError. */
   async function request(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH',
     path: string,
     init: { body?: unknown; idempotencyKey?: string; allowNotFound?: boolean; notReadyOn?: (status: number, code: string | null) => CompanionNotReadyReason | null } = {},
   ): Promise<Json | null> {
@@ -253,6 +262,23 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
 
     transcribe,
 
+    async getCompanionSettings(idOrReference) {
+      const body = await request('GET', `${account(idOrReference)}/companion/settings`, { allowNotFound: true, notReadyOn: accountNotAvailable });
+      return body ? parseSettings(body) : null;
+    },
+
+    async updateCompanionSettings(idOrReference, patch: CompanionSettingsPatch, idempotencyKey) {
+      try {
+        const body = await request('PATCH', `${account(idOrReference)}/companion/settings`, { body: patch, idempotencyKey, notReadyOn: accountNotAvailable });
+        return parseSettings(body ?? {});
+      } catch (error) {
+        if (error instanceof AppError && error.details?.nerova_code === 'settings.invalid') {
+          throw new AppError('VALIDATION_FAILED', 'The companion settings were rejected', { reason: 'settings.invalid', nerova_code: 'settings.invalid' });
+        }
+        throw error;
+      }
+    },
+
     async getOutcomeSummary(idOrReference, period): Promise<CompanionOutcomesDTO> {
       const query = `?year=${period.year}&month=${period.month}`;
       const body = await request('GET', `${account(idOrReference)}/outcomes/summary${query}`);
@@ -266,7 +292,7 @@ export const unconfiguredNerovaClient: NerovaClient = (() => {
   const fail = async (): Promise<never> => {
     throw new AppError('COMPANION_NOT_READY', 'The companion is not available yet', { reason: 'unavailable' });
   };
-  return { getAccount: fail, getCompanionSetup: fail, createConnectionSession: fail, createOwnerChatSession: fail, transcribe: fail, getOutcomeSummary: fail };
+  return { getAccount: fail, getCompanionSetup: fail, createConnectionSession: fail, createOwnerChatSession: fail, transcribe: fail, getOutcomeSummary: fail, getCompanionSettings: fail, updateCompanionSettings: fail };
 })();
 
 export function createNerovaClientFromEnv(env: NerovaEnv, options: Omit<HttpNerovaClientOptions, 'apiKey'> = {}): NerovaClient {

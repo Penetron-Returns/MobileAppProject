@@ -9,6 +9,7 @@ import { longDate, summaryLines, timeOf } from '../format.ts';
 import { rid } from '../ids.ts';
 import { buttons, template, type OutMessage } from '../messages.ts';
 import type { AppointmentBrief, BusinessBrief } from '../repo.ts';
+import type { NerovaNotification } from './nerovaChannel.ts';
 
 const TEMPLATE_BY_KIND = {
   created: 'booking_confirmation',
@@ -57,4 +58,23 @@ export function staffPush(kind: AppointmentChangeKind, appt: AppointmentBrief, b
     body: `${service}, ${whenText(appt.starts_at, business.timezone)}`,
     data: { type: 'appointment', appointment_id: appt.id, kind },
   };
+}
+
+/**
+ * The same three changes as `appointmentMessage`, as a Nerova notification (numbers on Nerova). Nerova has no
+ * "booked" or "moved" template with our fields, so those travel as a free `update`; cancellations have their own type.
+ */
+export function nerovaNotification(
+  kind: AppointmentChangeKind,
+  appt: AppointmentBrief,
+  business: BusinessBrief,
+  client: { name: string | null; phone_e164: string },
+): NerovaNotification {
+  const service = appt.service_name ?? 'your appointment';
+  const when = whenText(appt.starts_at, business.timezone);
+  const base = { to: client.phone_e164, clientName: client.name ?? 'there', businessName: business.name, serviceName: service, when };
+  if (kind === 'cancelled') return { ...base, type: 'cancelled' };
+  const withStaff = appt.staff_name ? ` with ${appt.staff_name}` : '';
+  const message = kind === 'created' ? `Your ${service} is booked for ${when}${withStaff}.` : `Your ${service} has been moved to ${when}${withStaff}.`;
+  return { ...base, type: 'update', message };
 }

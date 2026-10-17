@@ -4,9 +4,10 @@
  * A session is cached per business and user for its lifetime minus a margin, so a voice command does not mint one each
  * time. Never logs the text, the reply, titles or names.
  */
-import type { UUID, VoiceApprovalResultDTO, VoiceAskDTO } from '@booking/types';
+import type { UUID, VoiceActionDTO, VoiceApprovalResultDTO, VoiceAskDTO } from '@booking/types';
 import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
+import type { ChatAction } from './chatStream.ts';
 import type { ApprovalDecision, CompanionChatClient, CompanionChatSession } from './chatClient.ts';
 import type { CompanionService } from './companionService.ts';
 
@@ -25,6 +26,10 @@ export interface VoiceAskService {
   ask(caller: VoiceCaller, text: string): Promise<VoiceAskDTO>;
   /** Decides exactly `approvalId`: never "the latest pending". */
   decide(caller: VoiceCaller, approvalId: string, decision: ApprovalDecision, idempotencyKey: string): Promise<VoiceApprovalResultDTO>;
+  /** Undoes exactly `actionId` while its window is open. Errors as CompanionChatClient.undoAction. */
+  undo(caller: VoiceCaller, actionId: string, idempotencyKey: string): Promise<VoiceActionDTO>;
+  /** The owner's actions with this status (the app shows what can still be undone) */
+  listActions(caller: VoiceCaller, status: 'executed' | 'undone'): Promise<VoiceActionDTO[]>;
 }
 
 export interface VoiceAskDeps {
@@ -32,6 +37,19 @@ export interface VoiceAskDeps {
   chat: CompanionChatClient;
   clock: () => Date;
 }
+
+const toActionDTO = (a: ChatAction): VoiceActionDTO => ({
+  id: a.id,
+  kind: a.kind,
+  status: a.status,
+  title: a.title,
+  readBack: a.readBack,
+  lines: a.lines,
+  executedAt: a.executedAt,
+  undoUntil: a.undoUntil,
+  undoable: a.undoable,
+  ...(a.undoneAt ? { undoneAt: a.undoneAt } : {}),
+});
 
 const isSessionError = (error: unknown): boolean =>
   error instanceof AppError && error.code === 'UPSTREAM_COMPANION_ERROR' && typeof error.details?.nerova_code === 'string' && SESSION_ERRORS.has(error.details.nerova_code);
@@ -86,6 +104,7 @@ export function createVoiceAskService(deps: VoiceAskDeps): VoiceAskService {
       return {
         reply: turn.reply,
         approvals: turn.approvals.map(({ id, kind, title, lines }) => ({ id, kind, title, lines })),
+        actions: turn.actions.map(toActionDTO),
         suggestions: turn.suggestions,
         ...(turn.awaitingReply === undefined ? {} : { awaitingReply: turn.awaitingReply }),
       };
@@ -94,6 +113,14 @@ export function createVoiceAskService(deps: VoiceAskDeps): VoiceAskService {
     async decide(caller, approvalId, decision, idempotencyKey) {
       const outcome = await withSession(caller, (s) => chat.decide(s, approvalId, decision, nerovaKey(idempotencyKey)));
       return { id: approvalId, decision: decision === 'approve' ? 'approved' : 'declined', kind: outcome.kind };
+    },
+
+    async undo(caller, actionId, idempotencyKey) {
+      return toActionDTO(await withSession(caller, (s) => chat.undoAction(s, actionId, nerovaKey(idempotencyKey))));
+    },
+
+    async listActions(caller, status) {
+      return (await withSession(caller, (s) => chat.listActions(s, status))).map(toActionDTO);
     },
   };
 }

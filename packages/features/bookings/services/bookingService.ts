@@ -291,7 +291,9 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         notes: input.notes ?? null,
         ...actorRef(input.actor),
       });
-      await notify(input.businessId, row, 'created', input.actor, input.notifyCustomer);
+      const held = !!input.notifyCustomer && !!input.holdClientNotificationUntil;
+      if (held) await repo.holdClientNotification(input.businessId, row.id, parseInstant(input.holdClientNotificationUntil ?? '', 'holdClientNotificationUntil'));
+      await notify(input.businessId, row, 'created', input.actor, held ? false : input.notifyCustomer);
       await publishEvent(row, 'created', input.actor);
       return toAppointmentDTO(row);
     },
@@ -325,7 +327,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         staffId,
         ...actorRef(input.actor),
       });
-      await notify(input.businessId, row, 'rescheduled', input.actor, input.notifyCustomer);
+      await notify(input.businessId, row, 'rescheduled', input.actor, input.notifyCustomer && !current.client_notify_after);
       await publishEvent(row, 'rescheduled', input.actor);
       return toAppointmentDTO(row);
     },
@@ -337,12 +339,19 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
         requireAppointment(input.businessId, input.appointmentId, input.actor),
       ]);
       assertCustomerWindow(business, current, input.actor, now, input.enforceCancellationWindow);
+      if (input.voided) {
+        // Undo: nothing for the client, no outbound `cancelled` event (Nerova made the undo itself).
+        const voidedRow = await repo.voidAppointment({ appointmentId: current.id, ...actorRef(input.actor) });
+        await notify(input.businessId, voidedRow, 'cancelled', input.actor, false);
+        return toAppointmentDTO(voidedRow);
+      }
       const row = await repo.cancelAppointment({
         appointmentId: current.id,
         reason: input.reason ?? null,
         ...actorRef(input.actor),
       });
-      await notify(input.businessId, row, 'cancelled', input.actor, input.notifyCustomer);
+      // A still-held booking was never announced to the client, so its cancellation is not either.
+      await notify(input.businessId, row, 'cancelled', input.actor, input.notifyCustomer && !current.client_notify_after);
       await publishEvent(row, 'cancelled', input.actor);
       return toAppointmentDTO(row);
     },

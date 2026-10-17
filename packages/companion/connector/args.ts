@@ -10,11 +10,21 @@ const instant = z
   .refine(isInstant, 'must be an ISO 8601 instant with an explicit offset (Z or +hh:mm)')
   .transform(normaliseInstant);
 
+/**
+ * Act-then-undo (contract 2026-10-17, additive): `hold` on create (`until` required) or `suppress` on cancel.
+ * A mode on the wrong tool is checked in the service; an absent field means today's behaviour.
+ */
+const clientNotification = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('hold'), until: instant }),
+  z.object({ mode: z.literal('suppress') }),
+]);
+
 const origin = z
   .object({
     source: z.string().min(1).max(40),
     channel: z.string().max(40).optional(),
     conversationId: z.string().max(100).optional(),
+    clientNotification: clientNotification.optional(),
   })
   .optional();
 

@@ -11,6 +11,7 @@ import type { Db } from '@booking/features/lib/db.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import { createPushSender, type PushSender } from './notifications/push.ts';
 import type { BookingService, EntitlementService } from '@booking/features/ports.ts';
+import type { NerovaClientChannel } from './notifications/nerovaChannel.ts';
 import { createGraphClient, type GraphClient } from './graph.ts';
 import type { WaAccountRow, WaRepo } from './repo.ts';
 import { supabaseWaRepo } from './supabaseRepo.ts';
@@ -38,6 +39,8 @@ export interface OutboundDeps {
   push: PushSender;
   now: () => Date;
   logger: Logger;
+  /** Client-message channel for businesses whose WhatsApp number is on Nerova; absent = every business uses our Meta path */
+  nerovaChannel?: NerovaClientChannel | undefined;
 }
 
 export interface WaDeps extends OutboundDeps {
@@ -53,6 +56,7 @@ export interface WaContainer {
   db: Db;
   booking: BookingService;
   entitlements: EntitlementService;
+  nerovaChannel?: NerovaClientChannel | undefined;
   whatsapp?: Partial<WaDeps>;
 }
 
@@ -73,6 +77,7 @@ export function buildOutboundDeps(input: {
       createPushSender({ listTokens: (id) => repo.listPushTokens(id), accessToken: input.env.EXPO_ACCESS_TOKEN, logger }),
     now: o.now ?? (() => new Date()),
     logger,
+    nerovaChannel: o.nerovaChannel,
   };
 }
 
@@ -85,7 +90,7 @@ export function getWaDeps(container: WaContainer, logger?: Logger): WaDeps {
     const base = buildOutboundDeps({
       env: container.env,
       db: overrides.repo ? undefined : container.db,
-      overrides,
+      overrides: { ...overrides, nerovaChannel: overrides.nerovaChannel ?? container.nerovaChannel },
     });
     deps = {
       ...base,
