@@ -20,8 +20,7 @@ const text = (value: string): CompareCell => ({ text: value, tone: 'text' });
 
 /**
  * The "Compare plans" table, built from the plan list so prices and
- * allowances never drift from the catalogue. Free has the manual booking and
- * the team Inbox; paid plans swap the Inbox for the companion and reports.
+ * allowances never drift from the catalogue.
  * Yes/No cells carry English words that the screen replaces with translated ones.
  */
 export function comparisonRows(plans: readonly PlanDTO[]): CompareRow[] {
@@ -41,8 +40,6 @@ export function comparisonRows(plans: readonly PlanDTO[]): CompareRow[] {
         p.extra_job_cents === null ? NO : text(formatRand(p.extra_job_cents)),
       ),
     },
-    { key: 'manual', cells: each(() => YES) },
-    { key: 'inbox', cells: each((p) => (p.has_companion ? NO : YES)) },
     { key: 'companion', cells: each((p) => (p.has_companion ? YES : NO)) },
     { key: 'reports', cells: each((p) => (p.has_companion ? YES : NO)) },
   ];

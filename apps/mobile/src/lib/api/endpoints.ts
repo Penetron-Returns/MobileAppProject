@@ -11,6 +11,11 @@ import type {
   AvailableSlotsResponse,
   BillingUsageDTO,
   BusinessDTO,
+  CheckoutSessionDTO,
+  ChangePlanRequest,
+  PortalSessionDTO,
+  SubscriptionDTO,
+  CreateCheckoutRequest,
   DeviceTokenDTO,
   VoiceTodayDTO,
   VoiceAskDTO,
@@ -105,6 +110,21 @@ export const api = {
   plans: () => get<PlansDTO>('/v1/plans'),
   billingUsage: (month?: string) =>
     get<BillingUsageDTO>('/v1/billing/usage', { month }),
+  createCheckout: (b: CreateCheckoutRequest, key: string) =>
+    send<CreateCheckoutRequest, CheckoutSessionDTO>(
+      'POST',
+      '/v1/billing/checkout',
+    )(b, key),
+  changePlan: (b: ChangePlanRequest, key: string) =>
+    send<ChangePlanRequest, SubscriptionDTO>('POST', '/v1/billing/plan')(
+      b,
+      key,
+    ),
+  createPortalSession: (key: string) =>
+    send<undefined, PortalSessionDTO>('POST', '/v1/billing/portal')(
+      undefined,
+      key,
+    ),
   createCompanionSession: (b: CreateCompanionSessionRequest, key: string) =>
     send<CreateCompanionSessionRequest, CompanionSessionDTO>(
       'POST',

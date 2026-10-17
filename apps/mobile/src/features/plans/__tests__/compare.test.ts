@@ -52,11 +52,11 @@ describe('comparisonRows', () => {
     expect(cells('extra')).toEqual(['–', 'R4', 'R4', 'R4']);
   });
 
-  it('gives Free the inbox and paid plans the companion and reports', () => {
-    expect(tones('inbox')).toEqual(['yes', 'no', 'no', 'no']);
+  it('gives paid plans the companion and reports, and has no Free-era rows', () => {
     expect(tones('companion')).toEqual(['no', 'yes', 'yes', 'yes']);
     expect(tones('reports')).toEqual(['no', 'yes', 'yes', 'yes']);
-    expect(tones('manual')).toEqual(['yes', 'yes', 'yes', 'yes']);
+    expect(tones('inbox')).toBeUndefined();
+    expect(tones('manual')).toBeUndefined();
   });
 });
 

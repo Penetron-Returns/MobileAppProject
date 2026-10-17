@@ -18,14 +18,9 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-let mockMode: 'free' | 'ai' = 'free';
 let mockHas: (feature: string) => boolean = () => false;
 jest.mock('@/features/plans/hooks', () => ({
-  useAppMode: () => mockMode,
   useEntitlements: () => ({ has: (f: string) => mockHas(f) }),
-}));
-jest.mock('@/features/inbox/useInboxEntry', () => ({
-  useInboxEntry: () => ({ isVisible: mockHas('inbox'), unreadCount: 2 }),
 }));
 
 const NAMES = ['index', 'calendar', 'reports', 'clients', 'settings'];
@@ -59,21 +54,7 @@ beforeEach(() => {
 });
 
 describe('AppTabBar', () => {
-  it('Free: the plus opens New booking and the Inbox dome shows', () => {
-    mockMode = 'free';
-    mockHas = (f) => f === 'inbox' || f === 'whatsapp_menu';
-    const tree = bar();
-    const all = labels(tree);
-    expect(all).toContain('New booking');
-    expect(all).toContain('Inbox, 2 need a reply');
-    expect(all).not.toContain('Reports');
-    expect(all.some((l) => l.startsWith('Open your companion'))).toBe(false);
-    act(() => pressableByLabel(tree, 'New booking').props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/new-booking');
-  });
-
-  it('paid: Reports is an ordinary tab, there is no plus and the companion bubble replaces the Inbox', () => {
-    mockMode = 'ai';
+  it('Reports is an ordinary tab, there is no plus and the companion bubble replaces the Inbox', () => {
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();
     const all = labels(tree);
@@ -99,8 +80,7 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/companion');
   });
 
-  it('paid: the companion bubble is hidden on the Clovie tab', () => {
-    mockMode = 'ai';
+  it('the companion bubble is hidden on the Clovie tab', () => {
     mockHas = (f) => f === 'companion';
     const tree = bar();
     const fade = tree.root.findByProps({ testID: 'companion-dome-fade' });

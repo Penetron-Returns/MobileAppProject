@@ -4,37 +4,23 @@ import { mount, text } from '@/testing/render';
 
 import { TodayHome } from '../components/TodayHome';
 
-let mockEntitlements = { isLoading: false, has: (_feature: string) => false };
+let mockEntitlements = { isLoading: false };
 jest.mock('@/features/plans/hooks', () => ({
   useEntitlements: () => mockEntitlements,
 }));
-jest.mock('../components/TodayScreen', () => {
-  const { Text } = require('react-native');
-  return { TodayScreen: () => <Text>classic today</Text> };
-});
 jest.mock('@/features/clovie-tab/components/ClovieTabScreen', () => {
   const { Text } = require('react-native');
-  return { ClovieTabScreen: () => <Text>ai today</Text> };
+  return { ClovieTabScreen: () => <Text>clovie tab</Text> };
 });
 
 describe('TodayHome', () => {
-  it('keeps the classic Today for plans without the companion', () => {
-    mockEntitlements = { isLoading: false, has: () => false };
-    const out = text(mount(<TodayHome />));
-    expect(out).toContain('classic today');
-    expect(out).not.toContain('ai today');
+  it('shows the Clovie tab once the plan has loaded', () => {
+    mockEntitlements = { isLoading: false };
+    expect(text(mount(<TodayHome />))).toContain('clovie tab');
   });
 
-  it('shows the AI home for plans with the companion', () => {
-    mockEntitlements = { isLoading: false, has: (f) => f === 'companion' };
-    const out = text(mount(<TodayHome />));
-    expect(out).toContain('ai today');
-    expect(out).not.toContain('classic today');
-  });
-
-  it('shows neither while the plan is still loading', () => {
-    mockEntitlements = { isLoading: true, has: () => false };
-    const out = text(mount(<TodayHome />));
-    expect(out).not.toContain('today');
+  it('shows nothing while the plan is still loading', () => {
+    mockEntitlements = { isLoading: true };
+    expect(text(mount(<TodayHome />))).not.toContain('clovie tab');
   });
 });

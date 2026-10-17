@@ -1,7 +1,6 @@
 import type { BillingUsageDTO, FeatureEntitlementDTO } from '@booking/types';
 
 import {
-  appMode,
   DEFAULT_EXTRA_JOB_CENTS,
   extraJobRateCents,
   formatRand,
@@ -40,20 +39,6 @@ describe('monthlyLimit', () => {
     expect(monthlyLimit(growth, 'companion')).toBeNull();
     expect(monthlyLimit(growth, 'inbox')).toBeNull();
     expect(monthlyLimit(undefined, 'companion')).toBeNull();
-  });
-});
-
-describe('appMode', () => {
-  it.each([
-    [[{ feature: 'companion', monthly_limit: null }], 'ai'],
-    [[{ feature: 'reports', monthly_limit: null }], 'ai'],
-    [[{ feature: 'inbox', monthly_limit: null }], 'free'],
-    [[], 'free'],
-    [undefined, 'free'],
-  ] as const)('maps %j to %s', (features, expected) => {
-    expect(appMode(features as FeatureEntitlementDTO[] | undefined)).toBe(
-      expected,
-    );
   });
 });
 

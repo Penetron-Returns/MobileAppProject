@@ -11,6 +11,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SettingsScreen } from '../components/SettingsScreen';
 import { settingsGroups } from '../navigation';
 
+jest.mock('@/features/setup-checklist/components/GetSetUpRow', () => ({
+  GetSetUpRow: () => null,
+}));
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy({}, { get: () => View });
@@ -155,11 +158,11 @@ const asOwner = (plan: string, features: string[] = []) => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  asOwner('free', ['whatsapp_menu']);
+  asOwner('growth', ['companion']);
   mockSetup.data.whatsapp.connected = false;
 });
 
-describe('Settings as owner on Free', () => {
+describe('Settings as owner', () => {
   it('lists every group and row with its value', () => {
     const out = text(mount());
     expect(out).toContain('Ashgrove Hair & Beauty');
@@ -170,23 +173,17 @@ describe('Settings as owner on Free', () => {
     expect(out).toContain('Services | 14');
     expect(out).toContain('Booking rules | 1 hour notice');
     expect(out).toContain('Team | 4');
-    expect(out).toContain('WhatsApp | Connected');
-    expect(out).toContain('Plan | Free');
+    expect(out).toContain('WhatsApp | Not connected');
+    expect(out).toContain('Plan | Growth');
     expect(out).toContain('Sign out');
     expect(out).toContain('Clovie 1.0.0 (24)');
-  });
-
-  it('keeps Clovie in the list, dimmed with the reason, because Free has no companion', () => {
-    const tree = mount();
-    expect(text(tree)).toContain('Part of the paid plans');
-    expect(pressable(tree, 'Clovie, Part of the paid plans')).toBeUndefined();
   });
 
   it('opens each row on its own route', () => {
     const tree = mount();
     act(() => pressable(tree, 'Team, 4')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/team');
-    act(() => pressable(tree, 'Plan, Free')?.props.onPress());
+    act(() => pressable(tree, 'Plan, Growth')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/plan');
     act(() => pressable(tree, 'Delete account')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/delete-account');
@@ -205,16 +202,11 @@ describe('Settings as owner on Free', () => {
   });
 });
 
-describe('Settings as owner on a paid plan', () => {
-  beforeEach(() => asOwner('growth', ['companion', 'reports']));
-
+describe('Settings as owner of a business with a plan', () => {
   it('shows Clovie as Live and WhatsApp from the companion setup', () => {
     const tree = mount();
-    const out = text(tree);
-    expect(out).toContain('Clovie | Live');
-    expect(out).toContain('WhatsApp | Not connected');
-    expect(out).toContain('Plan | Growth');
     act(() => pressable(tree, 'Clovie, Live')?.props.onPress());
+    expect(text(tree)).toContain('Clovie | Live');
     expect(mockPush).toHaveBeenCalledWith('/settings/companion');
     expect(mockPush).not.toHaveBeenCalledWith('/companion');
   });
@@ -223,6 +215,14 @@ describe('Settings as owner on a paid plan', () => {
     mockSetup.data.whatsapp.connected = true;
     expect(text(mount())).toContain('WhatsApp | Connected');
   });
+
+  it.each(['none', 'free'])(
+    'never says Free, even for a leftover %s plan',
+    (plan) => {
+      asOwner(plan);
+      expect(text(mount())).not.toMatch(/free/i);
+    },
+  );
 });
 
 describe('Settings as staff', () => {
@@ -266,8 +266,7 @@ describe('No row ever disappears', () => {
   };
 
   it.each([
-    ['owner on Free', () => asOwner('free', ['whatsapp_menu'])],
-    ['Free without the booking menu', () => asOwner('free')],
+    ['an owner with no plan yet', () => asOwner('none')],
     ['owner on a paid plan', () => asOwner('growth', ['companion'])],
     [
       'staff',

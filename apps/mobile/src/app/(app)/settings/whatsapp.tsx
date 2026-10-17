@@ -1,5 +1,5 @@
-import { WhatsAppSettingsScreen } from '@/features/settings/components/WhatsAppScreens';
+import { PaidWhatsAppSettings } from '@/features/settings/components/PaidWhatsAppSettings';
 
 export default function Route() {
-  return <WhatsAppSettingsScreen />;
+  return <PaidWhatsAppSettings />;
 }

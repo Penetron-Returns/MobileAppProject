@@ -23,6 +23,7 @@ import { View } from 'react-native';
 
 import { useSignOut } from '@/features/auth/useSignOut';
 import { useMe } from '@/features/business/me';
+import { GetSetUpRow } from '@/features/setup-checklist/components/GetSetUpRow';
 
 import {
   appVersionLabel,
@@ -125,6 +126,8 @@ export function SettingsScreen() {
           />
         </View>
       </Pressable>
+
+      <GetSetUpRow />
 
       {settingsGroups().map((group, index) => (
         <Reveal key={group.id} scope="settings" index={index}>

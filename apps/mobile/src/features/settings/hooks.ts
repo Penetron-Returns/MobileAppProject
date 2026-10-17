@@ -30,29 +30,6 @@ export function useSaveBookingRules() {
 
 export type RulePatch = Partial<BookingRules>;
 
-/** Channel status, flows and templates from the API (gated by `whatsapp_menu`). */
-export function useWhatsAppChannel() {
-  return useQuery({
-    queryKey: [...qk.whatsapp, 'channel'],
-    queryFn: api.whatsapp,
-  });
-}
-
-export function useWhatsAppAction(opts: { onSuccess?: () => void } = {}) {
-  return useApiMutation<'sync' | 'pause' | 'resume' | 'disconnect'>({
-    mutationFn: (action, key) => api.whatsappAction(action, key),
-    invalidate: [qk.whatsapp],
-    onSuccess: opts.onSuccess,
-  });
-}
-
-export function useSendTestMessage(opts: { onSuccess?: () => void } = {}) {
-  return useApiMutation<string>({
-    mutationFn: (to, key) => api.whatsappTestMessage({ to }, key),
-    onSuccess: opts.onSuccess,
-  });
-}
-
 export function useRegisterDevice() {
   return useApiMutation<{ token: string; platform: 'ios' | 'android' | 'web' }>(
     {
