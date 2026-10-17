@@ -55,6 +55,14 @@ const TAB_ICONS: Record<TabRouteName, LucideIcon> = {
   settings: SlidersHorizontal,
 };
 
+/** What a custom tab icon is drawn with. */
+export interface TabIconProps {
+  size: number;
+  strokeWidth: number;
+  color: string;
+  isActive: boolean;
+}
+
 // expo-router bundles its own react-navigation, so take the props type from it.
 type TabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>
@@ -84,11 +92,19 @@ export function FloatingTabBar({
   descriptors,
   navigation,
   tabs = DEFAULT_TABS,
+  tabLabels,
+  tabIcons,
   onAdd,
   dome,
 }: TabBarProps & {
   /** The tabs to show, left to right. Routes missing from the navigator are skipped. */
   tabs?: readonly TabRouteName[];
+  /** Replaces a tab's label (the app renames the first tab per plan). */
+  tabLabels?: Partial<Record<TabRouteName, string>>;
+  /** Replaces a tab's icon, e.g. the Clovie glyph. */
+  tabIcons?: Partial<
+    Record<TabRouteName, (props: TabIconProps) => React.ReactNode>
+  >;
   /** When given, a centre "+" opens New booking (a route, not a tab) through this. */
   onAdd?: () => void;
   /** The Inbox or Companion dome (or nothing) shown above the right-hand end of the bar. */
@@ -169,7 +185,10 @@ export function FloatingTabBar({
       <TabItem
         key={name}
         icon={TAB_ICONS[name]}
-        label={t(`tabs.${name === 'index' ? 'today' : name}`)}
+        renderIcon={tabIcons?.[name]}
+        label={
+          tabLabels?.[name] ?? t(`tabs.${name === 'index' ? 'today' : name}`)
+        }
         isActive={activeName === name}
         depth={depth}
         onPress={() => goTo(name, route.key)}
@@ -263,6 +282,7 @@ function tabColor(depth: DepthTokens, isActive: boolean): string {
 
 function TabItem({
   icon: IconGlyph,
+  renderIcon,
   label,
   isActive,
   depth,
@@ -270,6 +290,7 @@ function TabItem({
   onLayout,
 }: {
   icon: LucideIcon;
+  renderIcon?: (props: TabIconProps) => React.ReactNode;
   label: string;
   isActive: boolean;
   depth: DepthTokens;
@@ -302,7 +323,20 @@ function TabItem({
       className="min-w-0 flex-1 items-center justify-center gap-px"
     >
       <Animated.View style={popStyle}>
-        <IconGlyph size={24} strokeWidth={isActive ? 2.2 : 1.8} color={color} />
+        {renderIcon ? (
+          renderIcon({
+            size: 24,
+            strokeWidth: isActive ? 2.2 : 1.8,
+            color,
+            isActive,
+          })
+        ) : (
+          <IconGlyph
+            size={24}
+            strokeWidth={isActive ? 2.2 : 1.8}
+            color={color}
+          />
+        )}
       </Animated.View>
       <Text
         numberOfLines={1}

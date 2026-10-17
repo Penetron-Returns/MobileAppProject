@@ -38,6 +38,10 @@ import type {
   CreateStaffRequest,
   ManualConnectRequest,
   MeDTO,
+  ProductUpdatesViewRequest,
+  StoriesResponseDTO,
+  StoryEventsRequest,
+  StoryViewRequest,
   OnboardingRequest,
   PlansDTO,
   RegisterDeviceRequest,
@@ -69,7 +73,7 @@ import type {
   WhatsAppChannelDTO,
 } from '@booking/types';
 
-import { enc, get, send } from './client';
+import { apiRequest, enc, get, send } from './client';
 
 /** PATCH /v1/companion/settings body: either field. */
 export type CompanionSettingsPatch = Partial<
@@ -120,6 +124,22 @@ export const api = {
       'POST',
       '/v1/companion/whatsapp/connect-session',
     )(undefined, key),
+
+  // Clovie stories: the app sends its version and platform so product updates can be filtered
+  stories: (headers: Record<string, string>) =>
+    apiRequest<StoriesResponseDTO>('GET', '/v1/stories', { headers }),
+  markStoryViewed: (id: string, b: StoryViewRequest, key: string) =>
+    send<StoryViewRequest, { viewed: boolean }>(
+      'POST',
+      `/v1/stories/${enc(id)}/view`,
+    )(b, key),
+  markProductUpdatesViewed: (b: ProductUpdatesViewRequest, key: string) =>
+    send<ProductUpdatesViewRequest, { viewed: boolean }>(
+      'POST',
+      '/v1/product-updates/view',
+    )(b, key),
+  recordStoryEvents: (b: StoryEventsRequest, key: string) =>
+    send<StoryEventsRequest, unknown>('POST', '/v1/stories/events')(b, key),
 
   // onboarding: needs only an org-owner session, no business yet
   onboard: (b: OnboardingRequest, key: string) =>

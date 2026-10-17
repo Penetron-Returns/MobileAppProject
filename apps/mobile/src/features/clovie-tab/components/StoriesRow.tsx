@@ -1,0 +1,118 @@
+import { useAppColorScheme } from '@booking/ui';
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, View } from 'react-native';
+
+import {
+  StoryRing,
+  StoryViewer,
+  type OriginFrame,
+  type Story,
+  type StoryCard,
+  type StoryEvent,
+} from '@/features/stories';
+
+interface OpenState {
+  index: number;
+  frame: OriginFrame;
+}
+
+/** Static placeholder rings while the stories load: no shimmer, nothing moves. */
+function SkeletonRings() {
+  const { isDark } = useAppColorScheme();
+  const fill = isDark ? 'rgba(235,235,245,0.12)' : 'rgba(60,60,67,0.1)';
+  return (
+    <View
+      testID="stories-skeleton"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      className="flex-row gap-2 px-4 pt-4"
+    >
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ width: 80 }} className="items-center">
+          <View
+            style={{
+              width: 76,
+              height: 76,
+              borderRadius: 38,
+              backgroundColor: fill,
+            }}
+          />
+          <View
+            style={{
+              width: 56,
+              height: 10,
+              borderRadius: 5,
+              marginTop: 12,
+              backgroundColor: fill,
+            }}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The stories row: skeleton rings while loading, nothing when there are none,
+ * otherwise a ring per story. A tap opens the viewer from that ring's frame.
+ */
+export function StoriesRow({
+  stories,
+  isLoading,
+  onViewed,
+  onEvent,
+  onAction,
+  onClose,
+}: {
+  stories: Story[];
+  isLoading: boolean;
+  onViewed: (storyId: string, lastCardIndex: number) => void;
+  onEvent: (event: StoryEvent) => void;
+  onAction: (card: StoryCard) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = React.useState<OpenState | null>(null);
+  // The viewer keeps the stories it opened with, so a ring flipping to viewed
+  // underneath never reshuffles the cards it is showing.
+  const opened = React.useRef<Story[]>(stories);
+
+  if (isLoading) return <SkeletonRings />;
+  if (stories.length === 0) return null;
+  return (
+    <>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityLabel={t('stories.listLabel')}
+        contentContainerClassName="gap-2 px-4 pt-4"
+      >
+        {stories.map((story, index) => (
+          <StoryRing
+            key={story.id}
+            story={story}
+            onPress={(_id, frame) => {
+              opened.current = stories;
+              setOpen({ index, frame });
+            }}
+          />
+        ))}
+      </ScrollView>
+      {open ? (
+        <StoryViewer
+          stories={opened.current}
+          initialIndex={open.index}
+          originFrame={open.frame}
+          onClose={() => {
+            setOpen(null);
+            onClose();
+          }}
+          onViewed={onViewed}
+          onEvent={onEvent}
+          onAction={onAction}
+        />
+      ) : null}
+    </>
+  );
+}

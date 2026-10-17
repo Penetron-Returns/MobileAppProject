@@ -70,6 +70,7 @@ export const qk = {
   reportRows: (from: string, to: string) =>
     ['appointments', 'report', from, to] as const,
   attendance: ['attendance'] as const,
+  stories: ['stories'] as const,
   accountDeletionPreview: ['account', 'deletion-preview'] as const,
   openEscalations: ['escalations', 'open-count'] as const,
 };

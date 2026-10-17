@@ -84,12 +84,15 @@ describe('AppTabBar', () => {
       .findAll((n) => n.props.accessibilityRole === 'tab')
       .map((n) => n.props.accessibilityLabel as string);
     expect([...new Set(tabs)]).toEqual([
-      'Home',
+      'Clovie',
       'Calendar',
       'Reports',
       'Clients',
       'Settings',
     ]);
+    expect(
+      tree.root.findAllByProps({ testID: 'clovie-tab-icon' }).length,
+    ).toBeGreaterThan(0);
     act(() => pressableByLabel(tree, 'Reports').props.onPress());
     expect(mockPush).not.toHaveBeenCalled();
     act(() => pressableByLabel(tree, 'Open your companion').props.onPress());

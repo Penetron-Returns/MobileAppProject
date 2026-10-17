@@ -68,6 +68,8 @@ export interface RequestOptions {
   /** Attach the Clerk bearer token (default true; false for /public/**). */
   auth?: boolean;
   signal?: AbortSignal;
+  /** Extra request headers (e.g. `X-App-Version`). Never overrides auth or idempotency. */
+  headers?: Record<string, string>;
 }
 
 export function buildUrl(base: string, path: string, query?: Query) {
@@ -139,7 +141,10 @@ export async function apiRequest<T>(
       status: 0,
     });
   }
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    ...opts.headers,
+    Accept: 'application/json',
+  };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') {
     if (!opts.idempotencyKey) {
