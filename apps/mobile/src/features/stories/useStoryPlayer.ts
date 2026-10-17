@@ -71,8 +71,16 @@ export function useStoryPlayer(options: PlayerOptions) {
     dir: 1,
   });
 
+  // Both are monotonic so a card change never has to reset them: the bars and
+  // faces compare them with the committed `cardSerial` / `turnId` (see
+  // turnPhase.ts), so no frame can show the old card back at full strength.
+  const [cardSerial, setCardSerial] = React.useState(0);
+  const [turnId, setTurnId] = React.useState(0);
   const progress = useSharedValue(0);
-  const turn = useSharedValue(1);
+  const turn = useSharedValue(0);
+  const serialRef = React.useRef(0);
+  serialRef.current = cardSerial;
+  const isExiting = React.useRef(false);
 
   const latest = React.useRef({ ...options, counts, position });
   latest.current = { ...options, counts, position };
@@ -95,7 +103,7 @@ export function useStoryPlayer(options: PlayerOptions) {
 
   const runTimer = (ms: number) => {
     progress.value = withTiming(
-      1,
+      serialRef.current + 1,
       { duration: ms, easing: Easing.linear },
       (finished) => {
         if (finished) runOnJS(onTimerDone)();
@@ -104,18 +112,18 @@ export function useStoryPlayer(options: PlayerOptions) {
   };
   const startCard = (pos: ViewerPosition) => {
     cancelAnimation(progress);
-    progress.value = 0;
+    progress.value = serialRef.current;
     emit('card_view', pos);
     if (!isHolding.current) runTimer(CARD_MS);
   };
 
   const finishTransition = () => setOutgoing(null);
   const playTurn = (
+    id: number,
     ms: number,
     easing: EasingFunction | EasingFunctionFactory,
   ) => {
-    turn.value = 0;
-    turn.value = withTiming(1, { duration: ms, easing }, (finished) => {
+    turn.value = withTiming(id, { duration: ms, easing }, (finished) => {
       if (finished) runOnJS(finishTransition)();
     });
   };
@@ -126,7 +134,7 @@ export function useStoryPlayer(options: PlayerOptions) {
     const result = navigate(c, cur, action);
     const lastIndex = cur.card;
     if (result.transition === 'restart') {
-      startCard(cur);
+      setCardSerial((n) => n + 1);
       return;
     }
     const isEnd = action === 'next' && lastIndex === c[cur.story] - 1;
@@ -153,9 +161,11 @@ export function useStoryPlayer(options: PlayerOptions) {
       setPosition(result.position);
       setTransition({ kind, dir });
       setTravel((t) => ({ id: t.id + 1, mode, dir }));
-      const ms = isReduced ? REDUCED_MS : kind === 'story' ? CUBE_MS : SLIDE_MS;
-      playTurn(ms, isReduced ? Easing.linear : EASE_SPRING);
-      startCard(result.position);
+      // The turn and the card timer start in layout effects, after this
+      // state has been committed, so they never run ahead of the new faces.
+      isExiting.current = false;
+      setCardSerial((n) => n + 1);
+      setTurnId((n) => n + 1);
     };
 
     if (result.transition === 'card' || isReduced) {
@@ -165,6 +175,7 @@ export function useStoryPlayer(options: PlayerOptions) {
     }
     // Story change: Clovie hops off first, then the cube turns and he lands.
     cancelAnimation(progress);
+    isExiting.current = true;
     setTravel((t) => ({ id: t.id + 1, mode: 'exit', dir }));
     later(() => {
       arrive('story', 'enter');
@@ -182,13 +193,33 @@ export function useStoryPlayer(options: PlayerOptions) {
   const resume = () => {
     if (!isHolding.current) return;
     isHolding.current = false;
-    if (!isLocked.current) runTimer(remainingMs(progress.value));
+    if (isExiting.current) return;
+    runTimer(remainingMs(progress.value - serialRef.current));
   };
 
-  // Open: first card starts, `open` is reported once.
+  // The card timer restarts once the new card has been committed.
+  React.useLayoutEffect(() => {
+    startCard(latest.current.position);
+    // Once per card serial.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardSerial]);
+
+  // The turn plays once the new faces have been committed.
+  React.useLayoutEffect(() => {
+    if (turnId === 0) return;
+    const ms = isReduced
+      ? REDUCED_MS
+      : transition.kind === 'story'
+        ? CUBE_MS
+        : SLIDE_MS;
+    playTurn(turnId, ms, isReduced ? Easing.linear : EASE_SPRING);
+    // Once per transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnId]);
+
+  // `open` is reported once.
   React.useEffect(() => {
     emit('open', latest.current.position);
-    startCard(latest.current.position);
     const pending = timers.current;
     return () => {
       cancelAnimation(progress);
@@ -211,7 +242,9 @@ export function useStoryPlayer(options: PlayerOptions) {
     transition,
     travel,
     progress,
+    cardSerial,
     turn,
+    turnId,
     next: () => go('next', 'tap'),
     prev: () => go('prev', 'tap'),
     pause,

@@ -1,4 +1,6 @@
 import * as React from 'react';
+
+import { turnPhase } from './turnPhase';
 import { StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -13,8 +15,9 @@ interface TurnFaceProps {
   role: 'in' | 'out';
   kind: 'card' | 'story';
   dir: 1 | -1;
-  /** 0..1 progress of the current transition. */
+  /** The monotonic turn timeline and this face's committed transition count. */
   turn: SharedValue<number>;
+  turnId: number;
   width: number;
   isReduced: boolean;
   children: React.ReactNode;
@@ -31,6 +34,7 @@ export function TurnFace({
   kind,
   dir,
   turn,
+  turnId,
   width,
   isReduced,
   children,
@@ -38,7 +42,7 @@ export function TurnFace({
   const isIn = role === 'in';
   const isCube = kind === 'story' && !isReduced;
   const style = useAnimatedStyle(() => {
-    const p = turn.value;
+    const p = turnPhase(turn.value, turnId);
     if (isReduced) return { opacity: isIn ? p : 1 - p };
     if (isCube) {
       const k = isIn ? 1 - p : p;
