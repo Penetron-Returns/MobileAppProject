@@ -96,3 +96,13 @@ export const KIND_GLYPHS: Record<StoryKind, KindGlyph> = {
     dark: { tile: ['#203A52', '#172B3F'], ink: '#9DD9F5' },
   },
 };
+
+/**
+ * Stops of the full-page tone wash behind a story: the tone's two glow colours
+ * run top to bottom over the whole viewer, so the page reads as washed in the
+ * tone and not just two corner blobs. Static colours for a native gradient.
+ */
+export function toneWash(tone: StoryTone): [string, string, string] {
+  const { glow1, glow2 } = TONES[tone];
+  return [`rgba(${glow1},0.34)`, `rgba(${glow2},0.14)`, `rgba(${glow2},0.24)`];
+}

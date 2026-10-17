@@ -1,4 +1,5 @@
 import { useReduceMotion } from '@booking/ui';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Animated, {
@@ -8,9 +9,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { StoryTone } from './model';
+import { toneWash } from './tones';
 
 /**
- * One blurred glow per tone, pre-rendered by scripts/clovie/render-sprites.mjs
+ * A full-page tone wash (native gradient) under one blurred glow per tone, pre-rendered by scripts/clovie/render-sprites.mjs
  * (the two radial gradients of the board, on a 402 x 874 reference at half
  * scale). Stretched to the screen, so a card change is only an opacity fade.
  */
@@ -43,6 +45,7 @@ function GlowLayer({ tone, isActive, isInstant, fadeMs }: GlowLayerProps) {
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, style]}
     >
+      <LinearGradient colors={toneWash(tone)} style={StyleSheet.absoluteFill} />
       <Image
         source={GLOWS[tone]}
         resizeMode="stretch"

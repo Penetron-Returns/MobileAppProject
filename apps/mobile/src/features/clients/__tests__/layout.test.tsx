@@ -37,3 +37,10 @@ describe('phone book rhythm', () => {
     expect(ROW_HEIGHT).toBe(70);
   });
 });
+
+describe('flat client cards', () => {
+  it('drops the drop shadow', () => {
+    const { FLAT_CARD } = require('../components/ClientGroup');
+    expect(FLAT_CARD.boxShadow).toEqual([]);
+  });
+});
