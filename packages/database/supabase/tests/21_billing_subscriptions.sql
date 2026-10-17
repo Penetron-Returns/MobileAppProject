@@ -52,7 +52,7 @@ begin
   noshow := tests.book(fa, 'staff_a', 'service_short', 'client_2', '2031-03-31 13:00Z');
   early := tests.book(fa, 'staff_a', 'service_short', 'client_1', '2031-03-01 09:00Z');
   moved := tests.book(fa, 'staff_a', 'service_short', 'client_1', '2031-04-02 09:00Z');
-  update public.appointments set status = 'cancelled' where id = cancelled.id;
+  update public.appointments set status = 'cancelled', cancelled_at = now() where id = cancelled.id;
   update public.appointments set status = 'no_show' where id = noshow.id;
   update public.appointments set created_at = '2031-03-10 00:00Z' where id = early.id;
   update public.appointments set created_at = '2031-03-20 00:00Z' where id in (confirmed.id, cancelled.id, noshow.id, moved.id);
