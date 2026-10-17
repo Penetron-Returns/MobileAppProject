@@ -49,7 +49,8 @@ import { RecentCard } from './RecentCard';
 const SCRUBBER_TOP_BELOW_INSET = 162;
 const TITLE_LINE = 41;
 const TITLE_TOP = 4;
-const SECTION_HEADER_HEIGHT = 28;
+/** 20pt of air above the 28pt letter row. */
+const SECTION_HEADER_HEIGHT = 48;
 /** Space between two groups. */
 const GROUP_GAP = 12;
 /** Estimate used until the header has been measured. */
@@ -150,7 +151,7 @@ export function PhoneBookList({
   );
 
   const jumpTo = React.useCallback(
-    (letter: string) => {
+    (letter: string, animated = true) => {
       const sectionIndex = sectionIndexForLetter(sections, letter);
       if (sectionIndex < 0) return;
       // itemIndex 0 is the section header; viewOffset lands it on the sticky line.
@@ -158,7 +159,7 @@ export function PhoneBookList({
         sectionIndex,
         itemIndex: 0,
         viewOffset: chrome.jumpViewOffset,
-        animated: true,
+        animated,
       });
     },
     [sections, chrome.jumpViewOffset],
@@ -300,8 +301,13 @@ const SectionHeader = React.memo(function SectionHeader({
   return (
     <View
       accessibilityRole="header"
-      style={{ height: SECTION_HEADER_HEIGHT }}
-      className="overflow-hidden pl-7 pr-9 pt-1"
+      style={{
+        height: SECTION_HEADER_HEIGHT,
+        paddingTop: 24,
+        paddingRight: 36,
+        paddingLeft: 28,
+      }}
+      className="overflow-hidden"
     >
       {Platform.OS === 'ios' ? (
         <BlurView

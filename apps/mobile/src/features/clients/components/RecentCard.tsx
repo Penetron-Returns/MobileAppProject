@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 
 import type { BookClient } from '../phoneBook';
 import { clientDisplayName } from '../phoneBook';
+import { GROUP_MARGIN } from './ClientGroup';
 
 interface RecentCardProps {
   clients: BookClient[];
@@ -24,7 +25,8 @@ export const RecentCard = React.memo(function RecentCard({
       radius={26}
       role="group"
       accessibilityLabel={label}
-      className="mb-0 ml-5 mr-9 flex-row px-2 pb-2.5 pt-3.5"
+      style={GROUP_MARGIN}
+      className="flex-row px-2 pb-2.5 pt-3.5"
     >
       {clients.map((client) => {
         const name = clientDisplayName(client);
