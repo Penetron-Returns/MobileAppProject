@@ -389,6 +389,22 @@ export function createSupabaseRepository(db: Db): BookingRepository {
       if (clientIds.length === 0) return [];
       return rows(await t('clients').select(CLIENT_COLS).eq('business_id', businessId).in('id', clientIds));
     },
+    async lastCompletedVisitByClient(businessId, clientIds, beforeIso) {
+      if (clientIds.length === 0) return {};
+      // newest first (appointments_client_start_idx), so the first row seen per client is its latest visit
+      const found = rows<{ client_id: string; starts_at: string }>(
+        await t('appointments')
+          .select('client_id, starts_at')
+          .eq('business_id', businessId)
+          .in('client_id', clientIds)
+          .eq('status', 'completed')
+          .lt('starts_at', beforeIso)
+          .order('starts_at', { ascending: false }),
+      );
+      const latest: Record<string, string> = {};
+      for (const a of found) latest[a.client_id] ??= a.starts_at;
+      return latest;
+    },
     async upsertClientByPhone(businessId, phoneE164, name) {
       return rpcRow(
         await db.rpc('upsert_client_by_phone', { p_business_id: businessId, p_phone_e164: phoneE164, p_name: name ?? undefined }),

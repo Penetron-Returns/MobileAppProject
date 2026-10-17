@@ -241,6 +241,11 @@ export interface ClientRepository {
   listClientsByNamePatterns(businessId: UUID, patterns: string[], limit: number): Promise<ClientRow[]>;
   /** Clients by id, in no particular order; unknown ids are skipped */
   listClientsByIds(businessId: UUID, clientIds: UUID[]): Promise<ClientRow[]>;
+  /**
+   * Start (ISO) of each client's latest `completed` appointment that started before `beforeIso`, in one
+   * business-scoped query. Clients with none are absent from the result.
+   */
+  lastCompletedVisitByClient(businessId: UUID, clientIds: UUID[], beforeIso: string): Promise<Record<UUID, string>>;
   /** RPC upsert_client_by_phone: inserts or bumps last_seen_at; only fills name when null */
   upsertClientByPhone(businessId: UUID, phoneE164: string, name: string | null): Promise<ClientRow>;
   updateClient(businessId: UUID, clientId: UUID, patch: ClientPatch): Promise<ClientRow | null>;

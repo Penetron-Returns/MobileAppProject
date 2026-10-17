@@ -538,6 +538,15 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
     async listClientsByIds(businessId, ids) {
       return clone(inBusiness(tables.clients, businessId).filter((c) => ids.includes(c.id)));
     },
+    async lastCompletedVisitByClient(businessId, clientIds, beforeIso) {
+      const latest: Record<string, number> = {};
+      for (const a of inBusiness(tables.appointments, businessId)) {
+        const start = Date.parse(rangeBounds(a.slot).start);
+        if (a.status !== 'completed' || !clientIds.includes(a.client_id) || start >= Date.parse(beforeIso)) continue;
+        latest[a.client_id] = Math.max(latest[a.client_id] ?? -Infinity, start);
+      }
+      return Object.fromEntries(Object.entries(latest).map(([id, ms]) => [id, new Date(ms).toISOString()]));
+    },
     async upsertClientByPhone(businessId, phone, name) {
       const existing = tables.clients.find((c) => c.business_id === businessId && c.phone_e164 === phone);
       if (existing) {

@@ -3,8 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { declaredToolCapabilities } from '@booking/companion/connector/capabilities.ts';
 import { matchTier, withinOneEdit } from '@booking/companion/connector/clientSearch.ts';
 import definitions from '@booking/companion/connector/booking-connector.mcp-tools.json' with { type: 'json' };
+import { NOW } from '../booking/fixtures.ts';
+import { addAppointment as addAppointmentAt, NOW as FIXTURE_NOW } from '../voice/vocabularyFixtures.ts';
 import { nerovaHarness, type NerovaHarness } from './harness.ts';
 
+const DAY = 86_400_000;
+/** An appointment `offsetMs` from the harness clock (the shared fixture counts from its own, different, NOW). */
+const addAppointment: typeof addAppointmentAt = (repo, biz, client, offsetMs, status) =>
+  addAppointmentAt(repo, biz, client, NOW.getTime() - FIXTURE_NOW.getTime() + offsetMs, status);
 const code = (r: { structuredContent: { code?: string } }) => r.structuredContent.code;
 
 interface NewClient {
@@ -129,17 +135,37 @@ describe('clients_search by name', () => {
     expect(code(await h.tool('clients_search', { accountId: h.freeBusinessId, name: 'thandi' }))).toBe('not_found');
   });
 
-  it('returns the contract fields, with lastVisitAt only when known', async () => {
+  it('returns the contract fields; a client with no completed visit has no lastVisitAt even if last_seen_at is set', async () => {
     const h = nerovaHarness();
-    const [seen, unseen] = addClients(h, [
+    const [fresh, plain] = addClients(h, [
       { name: 'Thandi Mokoena', phone: '+27820000001', email: 't@example.com', seen: '2026-09-20T10:00:00.000Z' },
       { name: 'Thandi Nel', phone: '+27820000002' },
     ]);
     const { data } = (await search(h, { name: 'thandi' })).structuredContent;
     expect(data).toEqual([
-      { externalClientId: seen!.id, name: 'Thandi Mokoena', phone: '+27820000001', email: 't@example.com', lastVisitAt: '2026-09-20T10:00:00.000Z' },
-      { externalClientId: unseen!.id, name: 'Thandi Nel', phone: '+27820000002' },
+      { externalClientId: fresh!.id, name: 'Thandi Mokoena', phone: '+27820000001', email: 't@example.com' },
+      { externalClientId: plain!.id, name: 'Thandi Nel', phone: '+27820000002' },
     ]);
+  });
+
+  it('lastVisitAt is the start of the latest completed past appointment, ignoring future, cancelled and no-show ones', async () => {
+    const h = nerovaHarness();
+    const [visited, other] = addClients(h, [
+      { name: 'Thandi Mokoena', phone: '+27820000001', seen: '2026-09-28T05:00:00.000Z' },
+      { name: 'Thandi Nel', phone: '+27820000002' },
+    ]);
+    const biz = h.business.id;
+    addAppointment(h.repo, biz, visited!.id, -10 * DAY, 'completed');
+    addAppointment(h.repo, biz, visited!.id, -3 * DAY, 'completed');
+    addAppointment(h.repo, biz, visited!.id, -1 * DAY, 'cancelled');
+    addAppointment(h.repo, biz, visited!.id, -1 * DAY, 'no_show');
+    addAppointment(h.repo, biz, visited!.id, 2 * DAY, 'confirmed');
+    addAppointment(h.repo, biz, other!.id, -2 * DAY, 'cancelled');
+    addAppointment(h.repo, 'other-business', other!.id, -2 * DAY, 'completed');
+    const { data } = (await search(h, { name: 'thandi' })).structuredContent;
+    const byId = Object.fromEntries(data.map((c: { externalClientId: string }) => [c.externalClientId, c]));
+    expect(byId[visited!.id].lastVisitAt).toBe(new Date(NOW.getTime() - 3 * DAY).toISOString());
+    expect(byId[other!.id]).not.toHaveProperty('lastVisitAt');
   });
 
   it('conformance clients.search_by_name: the longest word of a found name, in upper case, limit 25, returns the client', async () => {
