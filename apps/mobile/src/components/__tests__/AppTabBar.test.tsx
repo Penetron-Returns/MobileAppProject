@@ -72,12 +72,12 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/new-booking');
   });
 
-  it('paid: Reports is an ordinary tab, there is no plus and the companion dome replaces the Inbox', () => {
+  it('paid: Reports is an ordinary tab, there is no plus and there is no dome at all', () => {
     mockMode = 'ai';
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();
     const all = labels(tree);
-    expect(all).toContain('Open your companion');
+    expect(all.some((l) => l.startsWith('Open your companion'))).toBe(false);
     expect(all).not.toContain('New booking');
     expect(all.some((l) => l.startsWith('Inbox'))).toBe(false);
     const tabs = tree.root
@@ -95,15 +95,5 @@ describe('AppTabBar', () => {
     ).toBeGreaterThan(0);
     act(() => pressableByLabel(tree, 'Reports').props.onPress());
     expect(mockPush).not.toHaveBeenCalled();
-    act(() => pressableByLabel(tree, 'Open your companion').props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/companion');
-  });
-
-  it('paid: the companion dome has no badge while nothing needs attention', () => {
-    mockMode = 'ai';
-    mockHas = (f) => f === 'companion';
-    const all = labels(bar());
-    expect(all).toContain('Open your companion');
-    expect(all.some((l) => l.includes('need your attention'))).toBe(false);
   });
 });

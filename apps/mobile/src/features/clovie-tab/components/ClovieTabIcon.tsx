@@ -1,28 +1,17 @@
-import { useAppColorScheme, type TabIconProps } from '@booking/ui';
-import { Image } from 'react-native';
-
-const LIGHT = require('@/assets/images/companion-default.png');
-const DARK = require('@/assets/images/companion-default-dark.png');
+import type { TabIconProps } from '@booking/ui';
+import { Clover } from 'lucide-react-native';
 
 /**
- * The Clovie tab's glyph: the static companion image at tab-icon size. Full
- * colour when the tab is selected, dimmed when not. A still
- * image, so it costs nothing at rest.
+ * The Clovie tab's glyph: the lucide clover, drawn with the colour, size and
+ * stroke weight the bar gives every other tab icon.
  */
-export function ClovieTabIcon({ size, isActive }: TabIconProps) {
-  const { isDark } = useAppColorScheme();
+export function ClovieTabIcon({ size, strokeWidth, color }: TabIconProps) {
   return (
-    <Image
+    <Clover
       testID="clovie-tab-icon"
-      source={isDark ? DARK : LIGHT}
-      accessibilityElementsHidden
-      importantForAccessibility="no"
-      resizeMode="contain"
-      style={{
-        width: size + 4,
-        height: size + 4,
-        opacity: isActive ? 1 : 0.5,
-      }}
+      size={size}
+      strokeWidth={strokeWidth}
+      color={color}
     />
   );
 }
