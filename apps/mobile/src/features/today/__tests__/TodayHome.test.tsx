@@ -12,9 +12,9 @@ jest.mock('../components/TodayScreen', () => {
   const { Text } = require('react-native');
   return { TodayScreen: () => <Text>classic today</Text> };
 });
-jest.mock('../components/TodayAiScreen', () => {
+jest.mock('@/features/clovie-tab/components/ClovieTabScreen', () => {
   const { Text } = require('react-native');
-  return { TodayAiScreen: () => <Text>ai today</Text> };
+  return { ClovieTabScreen: () => <Text>ai today</Text> };
 });
 
 describe('TodayHome', () => {

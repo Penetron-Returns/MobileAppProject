@@ -224,6 +224,7 @@ export {
 export type { EmptyStateProps } from './patterns/states/States';
 export { useOfflineGuard } from './patterns/states/useOfflineGuard';
 export { FloatingTabBar } from './patterns/tab-bar/FloatingTabBar';
+export type { TabIconProps } from './patterns/tab-bar/FloatingTabBar';
 export type { TabRouteName } from './patterns/tab-bar/layout';
 export {
   COMPANION_DOME_CHARACTER_SIZE,

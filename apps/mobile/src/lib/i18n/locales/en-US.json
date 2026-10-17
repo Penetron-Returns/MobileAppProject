@@ -174,6 +174,7 @@
   },
   "tabs": {
     "today": "Home",
+    "clovie": "Clovie",
     "calendar": "Calendar",
     "add": "New booking",
     "clients": "Clients",
@@ -1961,6 +1962,27 @@
       "whatDeletedBody": "Your login, email, name, phone and photo, and your push and voice device tokens. If you were the only owner, the business and its bookings, clients and settings are deleted too. A short audit record (that the deletion happened, with no contact details) is kept. Bookings in a business that continues stay in its history without your name.",
       "emailAction": "Email support",
       "privacy": "Privacy policy"
+    }
+  },
+  "clovieTab": {
+    "tabLabel": "Clovie",
+    "ask": "Ask Clovie anything",
+    "askHint": "Opens the chat",
+    "talk": "Talk to Clovie",
+    "micDenied": "Allow the microphone to talk to Clovie",
+    "comingSoon": "Coming soon",
+    "productUpdates": "What's new",
+    "moreWaiting_one": "{{count}} more",
+    "moreWaiting_other": "{{count}} more",
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "morningNoName": "Good morning",
+      "afternoon": "Good afternoon, {{name}}",
+      "afternoonNoName": "Good afternoon",
+      "evening": "Good evening, {{name}}",
+      "eveningNoName": "Good evening",
+      "lateNight": "Burning the late-night oil, {{name}}?",
+      "lateNightNoName": "Burning the late-night oil?"
     }
   },
   "stories": {
