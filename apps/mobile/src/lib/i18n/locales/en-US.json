@@ -205,7 +205,7 @@
   "notifications": {
     "primer": {
       "title": "Stay in the loop",
-      "body": "Clovie can tell you when a client needs an answer, when someone books, and when Clovie needs your OK.",
+      "body": "Get told when someone books or Clovie needs your OK.",
       "accept": "Turn on",
       "decline": "Not now"
     }
@@ -1127,95 +1127,116 @@
   "session": {
     "unsupportedTask": "This account needs an extra step ({{task}}) that the app can't show. Sign out and contact support."
   },
+  "speak": {
+    "read": "Read aloud",
+    "stop": "Stop reading"
+  },
+  "checklist": {
+    "title": "Get set up",
+    "progress": "{{done}} of {{total}} done",
+    "next": "Next: {{item}}",
+    "seeAll": "See all",
+    "allDone": "All set up",
+    "done": "done",
+    "notDone": "not done",
+    "items": {
+      "services": "Check services & prices",
+      "hours": "Check opening hours",
+      "team": "Add your team",
+      "details": "Business details",
+      "rules": "Booking rules",
+      "voice": "Hey Clovie",
+      "notifications": "Notifications",
+      "testMessage": "Send a test message"
+    },
+    "spoken": {
+      "services": "Check your services and prices.",
+      "hours": "Check your opening hours.",
+      "team": "Add the people on your team.",
+      "details": "Add your business details.",
+      "rules": "Check your booking rules.",
+      "voice": "Turn on Hey Clovie, to talk to Clovie hands free.",
+      "notifications": "Turn on notifications.",
+      "testMessage": "Send a test message from Clovie."
+    }
+  },
   "onboarding": {
     "progress": "Setup progress",
     "continue": "Continue",
-    "goToToday": "Go to Today",
-    "later": "Do this later",
     "orgFailed": "Could not create the organisation.",
     "typeLabel": "Business type",
-    "steps": {
-      "1": {
-        "title": "What kind of business?",
-        "subtitle": "We set up sensible defaults. You can change everything later."
-      },
-      "2": {
-        "title": "Your name and hours",
-        "subtitle": "Clients see your name in WhatsApp. Hours are filled in for you."
-      },
-      "3": {
-        "title": "Your services",
-        "subtitle": "Switch off what you do not offer and adjust prices."
-      },
-      "4": {
-        "title": "Your team",
-        "subtitle": "Add the people who take bookings. You are already in."
-      }
+    "type": {
+      "title": "What kind of business?"
     },
     "types": {
-      "barber": {
-        "title": "Barber shop",
-        "subtitle": "Fades, shaves and beard trims",
-        "noun": "barber shop"
-      },
-      "salon": {
-        "title": "Hair salon",
-        "subtitle": "Cuts, colour, braids and styling",
-        "noun": "hair salon"
-      },
-      "beauty": {
-        "title": "Beauty parlour",
-        "subtitle": "Nails, lashes, brows, facials",
-        "noun": "beauty parlour"
-      },
-      "mix": {
-        "title": "A mix",
-        "subtitle": "Hair plus nails or beauty",
-        "noun": "mixed business"
-      }
+      "barber": "Barber",
+      "salon": "Salon",
+      "beauty": "Beauty parlour",
+      "mix": "Mix"
     },
-    "hours": {
-      "nameLabel": "Business name",
-      "namePlaceholder": "Ashgrove Hair & Beauty",
-      "heading": "Opening hours",
-      "days": {
-        "weekdays": "Monday to Friday",
-        "saturday": "Saturday",
-        "sunday": "Sunday"
+    "name": {
+      "title": "What's your business called?",
+      "label": "Business name",
+      "placeholder": "Business name",
+      "micTip": "Tip: tap the mic on your keyboard."
+    },
+    "plan": {
+      "title": "Choose a plan",
+      "perMonth": "{{price}} a month",
+      "bookings": "{{count}} bookings a month",
+      "extra": "Extra bookings {{price}}",
+      "start": "Start",
+      "startNamed": "Start {{name}}, {{price}} a month",
+      "spokenPlan": "{{name}}: {{price}} a month, {{count}} bookings.",
+      "loading": "Loading plans",
+      "loadFailed": "Couldn't load the plans",
+      "retry": "Try again"
+    },
+    "checkout": {
+      "starting": "Opening checkout",
+      "confirming": {
+        "title": "Confirming your payment",
+        "hint": "This can take a minute.",
+        "notPaid": "I didn't pay"
       },
-      "range": "{{opens}} to {{closes}}",
-      "closed": "Closed",
-      "dayOpen": "{{day}} open",
-      "caption": "Change exact times and special days later in Settings."
+      "cancelled": {
+        "title": "Payment cancelled",
+        "hint": "You haven't paid yet."
+      },
+      "unconfirmed": {
+        "title": "Still confirming your payment",
+        "hint": "If you paid, it can take a few minutes.",
+        "check": "Check again"
+      },
+      "failed": {
+        "title": "Checkout didn't open",
+        "hint": "Please try again."
+      },
+      "offline": {
+        "title": "You're offline",
+        "hint": "Get online, then try again."
+      },
+      "notConfigured": {
+        "title": "Payments aren't switched on yet",
+        "hint": "Please try again soon."
+      },
+      "retry": "Try again",
+      "back": "Back to plans"
     },
-    "services": {
-      "offer": "Offer {{name}}",
-      "price": "Price for {{name}} in rand",
-      "caption": "Add your own services later in Settings. Prices are in rand."
+    "setup": {
+      "title": "Clovie is being set up",
+      "hint": "This takes a few seconds.",
+      "slow": {
+        "title": "Taking longer than usual",
+        "hint": "You can wait or try again."
+      },
+      "retry": "Try again",
+      "opening": "Clovie is ready"
     },
-    "team": {
-      "you": "You",
-      "youOwner": "You, the owner",
-      "nameLabel": "Team member name",
-      "namePlaceholder": "Name",
-      "roleLabel": "Team member role",
-      "rolePlaceholder": "Role (optional)",
-      "add": "Add team member",
-      "remove": "Remove {{name}}",
-      "caption": "Team members get their own column in the calendar. Invite them to the app later in Settings."
-    },
-    "done": {
-      "title": "You are ready",
-      "summary": "Your {{noun}} is set up with {{services}}. Connect WhatsApp in Settings to get your first booking.",
-      "setUp": "{{name}} is set up with",
-      "hours_one": "Opening hours on {{count}} day group",
-      "hours_other": "Opening hours on {{count}} day groups",
-      "services_one": "{{count}} service",
-      "services_other": "{{count}} services",
-      "team_one": "You and {{count}} team member",
-      "team_other": "You and {{count}} team members",
-      "teamNone": "You as the first team member",
-      "whatsapp": "Connect WhatsApp in Settings so clients can book in the chat they already use. Invite your team from Settings."
+    "inactive": {
+      "title": "Your business isn't active yet",
+      "hint": "Ask the owner to choose a plan.",
+      "signOut": "Sign out"
     }
   },
   "team": {
@@ -1393,6 +1414,13 @@
       "firstNameRequired": "Enter your first name."
     },
     "createOwn": "Create my own business instead",
+    "confirmOwn": {
+      "title": "Create your own business?",
+      "description": "You won’t join the business that invited you.",
+      "confirm": "Create my own",
+      "cancel": "Go back"
+    },
+    "wrongEmail": "Wrong email? Sign out and use the address the invite went to.",
     "failed": "Couldn't join. Check your connection and try again."
   },
   "availability": {
@@ -1712,6 +1740,8 @@
       "title": "Before Clovie listens",
       "notifications": "Clovie shows a notification while it listens, so you can always see and stop it.",
       "ok": "Allow",
+      "short": "Hey Clovie listens through your microphone, even when Clovie is closed. Nothing is recorded until you say Hey Clovie.",
+      "readMore": "Read more",
       "overlay": "Clovie shows a panel over other apps while you talk to it. Android asks for that separately, in your phone settings."
     },
     "permissionDenied": "Turn on the microphone and notifications for Clovie in your phone settings.",
@@ -1919,18 +1949,18 @@
   "plans": {
     "title": "Plan & billing",
     "names": {
-      "free": "Free",
+      "none": "No plan yet",
       "starter": "Starter",
       "growth": "Growth",
       "pro": "Pro"
     },
     "yourPlan": "Your plan",
-    "headline": "{{rate}} per completed job. Pick the size that fits.",
-    "subline": "No-shows and cancellations don't count. Go over? Extra jobs are {{rate}} each.",
+    "headline": "Pick the size that fits.",
+    "subline": "Every booking counts. Go over? Extra bookings are {{rate}} each.",
     "checkoutSoon": "Checkout opens soon",
     "tiers": "Plans",
     "checkoutNote": "Opens secure checkout on the web.",
-    "completedJobDefinition": "A completed job is a booking whose time has passed and that wasn't cancelled or marked no-show.",
+    "completedJobDefinition": "Every booking you make counts, whoever books it and whatever happens to it.",
     "perksTitle": "Every paid plan includes your AI companion",
     "perks": {
       "whatsapp": "Books and reschedules on WhatsApp 24/7",
@@ -1941,8 +1971,8 @@
     "tier": {
       "priceLabel": "{{price}} a month",
       "perMonth": "/ month",
-      "jobs": "{{count}} completed jobs",
-      "perJob": "{{price}} per job",
+      "jobs": "{{count}} bookings a month",
+      "perJob": "Extra bookings {{price}}",
       "current": "Current plan",
       "currentLabel": "{{name}}, current plan",
       "choose": "Choose {{name}}",
@@ -1954,10 +1984,8 @@
       "no": "–",
       "rows": {
         "price": "Price / month",
-        "jobs": "Completed jobs",
-        "extra": "Extra jobs",
-        "manual": "Manual booking",
-        "inbox": "Team inbox",
+        "jobs": "Bookings",
+        "extra": "Extra bookings",
         "companion": "AI companion",
         "reports": "Reports"
       }
@@ -1970,27 +1998,22 @@
       "noInvoices": "None yet",
       "manage": "Manage subscription",
       "footnote": "Prices in rand. Cancel anytime.",
-      "managedOnWebReason": "Managed on the web"
-    },
-    "free": {
-      "line": "You're on Free. Add your AI companion from {{from}}.",
-      "lineNoPrice": "You're on Free.",
-      "body": "Manual and WhatsApp booking and the team inbox stay free."
+      "managedOnWebReason": "No subscription to manage yet"
     },
     "usage": {
-      "line": "{{used}} of {{limit}} jobs this month · resets {{date}}",
+      "line": "{{used}} of {{limit}} bookings this month · resets {{date}}",
       "lineOver": "{{used}} of {{limit}} · {{extra}}, {{amount}} so far",
-      "extraJobs_one": "{{count}} extra job",
-      "extraJobs_other": "{{count}} extra jobs",
-      "barLabel": "Completed jobs this month",
-      "reassure": "Completed jobs only. Nothing is ever cut off.",
+      "extraJobs_one": "{{count}} extra booking",
+      "extraJobs_other": "{{count}} extra bookings",
+      "barLabel": "Bookings this month",
+      "reassure": "Every booking counts. Nothing is ever cut off.",
       "near": {
         "title": "You're close to your limit",
-        "body": "Nothing stops at the limit. Extra jobs are {{rate}} each, billed at month end."
+        "body": "Nothing stops at the limit. Extra bookings are {{rate}} each, billed at month end."
       },
       "over": {
         "title": "You're over your limit",
-        "body": "Nothing was cut off. Extra jobs are {{rate}} each, billed at month end. Resets {{date}}."
+        "body": "Nothing was cut off. Extra bookings are {{rate}} each, billed at month end. Resets {{date}}."
       },
       "openHint": "Opens your plan",
       "unavailable": "Usage isn't available right now."
