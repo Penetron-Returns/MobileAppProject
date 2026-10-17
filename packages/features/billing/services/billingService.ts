@@ -10,6 +10,8 @@ import type { AccountEventsPort, ClerkAdmin } from '../../ports.ts';
 import { REPORT_HORIZON_MS, accessFor, isCompanionPlan, isPaidPlan, isUsagePrice, planForPrice, priceIdFor, usagePriceFor } from '../lib/policy.ts';
 import { asRecord, asString, parseSubscription, refId } from '../lib/stripeObjects.ts';
 import type {
+  BillingAudit,
+  BillingAuditEntry,
   BillingConfig,
   BillingEventOutcome,
   BookingMeter,
@@ -34,6 +36,8 @@ export interface BillingDeps {
   events: AccountEventsPort;
   /** Mirrors the plan to the Clerk organisation (publicMetadata). Omitted = no mirror. */
   clerk?: Pick<ClerkAdmin, 'updateOrganizationPublicMetadata'>;
+  /** audit_log writer. Omitted = no audit (never in production). */
+  audit?: BillingAudit;
   /** Runs a task without blocking the caller (EdgeRuntime.waitUntil in production) */
   defer?: (task: () => Promise<void>) => void;
   logger?: Logger;
@@ -49,6 +53,18 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
   const clock = deps.clock ?? (() => new Date());
   const defer = deps.defer ?? ((task) => void task().catch(() => undefined));
 
+  /**
+   * audit_log for a billing change. A failed audit write is logged and never blocks the change itself (the checkout
+   * session or plan already exists at Stripe); the Stripe event / request id in the diff lets it be reconstructed.
+   */
+  async function audit(entry: BillingAuditEntry): Promise<void> {
+    try {
+      await deps.audit?.record(entry);
+    } catch (error) {
+      logger.error('billing_audit_failed', { business_id: entry.businessId, entity: entry.entity, error });
+    }
+  }
+
   function requireStripe(): { stripe: StripeClient; config: BillingConfig } {
     if (!deps.stripe || !deps.config) throw notConfigured('Stripe keys, prices or return URLs are missing');
     return { stripe: deps.stripe, config: deps.config };
@@ -61,7 +77,7 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return (await repo.saveCustomer(businessId, created.id)).stripeCustomerId;
   }
 
-  async function createCheckout(input: { businessId: UUID; plan: 'starter' | 'growth' | 'pro'; idempotencyKey: string }) {
+  async function createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }) {
     const { stripe, config } = requireStripe();
     const priceId = priceIdFor(config, input.plan, 'ZAR');
     const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
@@ -81,10 +97,11 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
       cancelUrl: config.cancelUrl,
       idempotencyKey: `checkout:${input.businessId}:${input.idempotencyKey}`,
     });
+    await audit({ businessId: input.businessId, actorId: input.actorId, action: 'insert', entity: 'billing_checkout', entityId: session.id, diff: { plan: input.plan, source: 'owner' } });
     return { checkout_url: session.url };
   }
 
-  async function changePlan(input: { businessId: UUID; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO> {
+  async function changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO> {
     const { stripe, config } = requireStripe();
     const priceId = priceIdFor(config, input.plan, 'ZAR');
     const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
@@ -104,7 +121,7 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
       idempotencyKey: `plan:${input.businessId}:${input.idempotencyKey}`,
     });
     // Apply Stripe's answer now so the app sees the new plan at once; the webhook that follows finds nothing to change.
-    await applySubscription({ ...updated, businessId: input.businessId }, Math.floor(clock().getTime() / 1000));
+    await applySubscription({ ...updated, businessId: input.businessId }, Math.floor(clock().getTime() / 1000), { actorId: input.actorId, source: 'owner_api', ref: input.idempotencyKey });
     return (await getSubscription(input.businessId)) as SubscriptionDTO;
   }
 
@@ -156,7 +173,14 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return priced ?? (isPaidPlan(sub.metadataPlan) ? sub.metadataPlan : null) ?? record?.plan ?? null;
   }
 
-  async function applySubscription(sub: StripeSubscription, eventCreated: number): Promise<BillingEventOutcome> {
+  interface Origin {
+    actorId: string;
+    source: 'stripe' | 'owner_api';
+    /** Stripe event id, or the request's Idempotency-Key */
+    ref: string;
+  }
+
+  async function applySubscription(sub: StripeSubscription, eventCreated: number, origin: Origin): Promise<BillingEventOutcome> {
     const businessId = await resolveBusiness(sub);
     if (!businessId) {
       logger.warn('billing_subscription_unlinked', { subscription_id: sub.id });
@@ -191,6 +215,16 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     const after: PlanKey = access === 'entitled' && tier ? tier : 'none';
     if (before !== after) await repo.setBusinessPlan(businessId, after);
     announce(businessId, before, after);
+    if (before !== after || record?.status !== sub.status || record?.stripeSubscriptionId !== sub.id) {
+      await audit({
+        businessId,
+        actorId: origin.actorId,
+        action: 'update',
+        entity: 'billing_subscription',
+        entityId: sub.id,
+        diff: { source: origin.source, ref: origin.ref, plan_from: before, plan_to: after, status_from: record?.status ?? null, status_to: sub.status },
+      });
+    }
     mirrorToClerk(businessId, after, sub.status, sub.currentPeriodEnd);
     return 'processed';
   }
@@ -218,20 +252,22 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     }
   }
 
+  const stripeOrigin = (event: StripeEvent): Origin => ({ actorId: '', source: 'stripe', ref: event.id });
+
   async function onCheckoutCompleted(event: StripeEvent): Promise<BillingEventOutcome> {
     const session = event.object;
     const subscriptionId = refId(session.subscription);
     const businessId = asString(session.client_reference_id);
     if (session.mode !== 'subscription' || !subscriptionId || !businessId || !deps.stripe) return 'ignored';
     const sub = await deps.stripe.retrieveSubscription(subscriptionId);
-    return applySubscription({ ...sub, businessId: businessId as UUID }, event.created);
+    return applySubscription({ ...sub, businessId: businessId as UUID }, event.created, stripeOrigin(event));
   }
 
   async function onSubscriptionEvent(event: StripeEvent): Promise<BillingEventOutcome> {
     const sub = parseSubscription(event.object);
     if (!sub) return 'ignored';
     // customer.subscription.deleted carries status canceled already; force it in case an old API version does not.
-    return applySubscription(event.type === 'customer.subscription.deleted' ? { ...sub, status: 'canceled' } : sub, event.created);
+    return applySubscription(event.type === 'customer.subscription.deleted' ? { ...sub, status: 'canceled' } : sub, event.created, stripeOrigin(event));
   }
 
   async function onPaymentFailed(event: StripeEvent): Promise<BillingEventOutcome> {
@@ -243,7 +279,16 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     if (record.lastEventAt && event.created * 1000 < Date.parse(record.lastEventAt)) return 'ignored';
     // Access stays (see accessFor); the status makes the app warn the owner.
     await repo.updateSubscription(record.businessId, { status: 'past_due', lastEventAt: new Date(event.created * 1000).toISOString() });
-    mirrorToClerk(record.businessId, await repo.getBusinessPlan(record.businessId), 'past_due', record.currentPeriodEnd);
+    const plan = await repo.getBusinessPlan(record.businessId);
+    await audit({
+      businessId: record.businessId,
+      actorId: '',
+      action: 'update',
+      entity: 'billing_subscription',
+      entityId: record.stripeSubscriptionId ?? '',
+      diff: { source: 'stripe', ref: event.id, plan_from: plan, plan_to: plan, status_from: record.status, status_to: 'past_due' },
+    });
+    mirrorToClerk(record.businessId, plan, 'past_due', record.currentPeriodEnd);
     return 'processed';
   }
 

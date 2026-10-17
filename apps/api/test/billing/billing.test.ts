@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { signStripePayload } from '@booking/features/billing/lib/stripeSignature.ts';
-import type { BillingConfig } from '@booking/features/billing/ports.ts';
+import type { BillingAuditEntry, BillingConfig } from '@booking/features/billing/ports.ts';
 import { createBillingService } from '@booking/features/billing/services/billingService.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
@@ -39,6 +39,7 @@ function setup(opts: Options = {}) {
   const stripe = createFakeStripe();
   const repo = createMemoryBillingRepository({ [BIZ]: { plan: opts.plan ?? 'none', name: 'Salon', email: 'owner@example.test' } });
   const clerk = createFakeClerkAdmin();
+  const audits: BillingAuditEntry[] = [];
   const emitted: { businessId: string; type: AccountEventType }[] = [];
   const pending: Promise<void>[] = [];
   const bookingRepo = createMemoryRepository({ now: () => NOW });
@@ -53,6 +54,7 @@ function setup(opts: Options = {}) {
     config: 'config' in opts ? (opts.config ?? null) : CONFIG,
     repo,
     clerk,
+    audit: { record: async (entry) => void audits.push(entry) },
     events: { accountChanged: async (businessId, type) => void emitted.push({ businessId, type }) },
     defer: (task) => void pending.push(task()),
     clock: () => NOW,
@@ -70,7 +72,7 @@ function setup(opts: Options = {}) {
     await Promise.all(pending);
     return { status: res.status, body: (await res.json()) as any };
   }
-  return { h, stripe, repo, clerk, emitted, webhook, bookingRepo, billing };
+  return { h, stripe, repo, clerk, audits, emitted, webhook, bookingRepo, billing };
 }
 
 const sub = (over: Partial<Record<string, unknown>> & { price?: string; usage?: string | null; status?: string } = {}) => ({
@@ -487,6 +489,82 @@ describe('usage price follows the plan', () => {
     await withCustomer(t);
     await t.webhook('customer.subscription.created', sub({ status: 'incomplete' }));
     expect(t.repo.records.get(BIZ)?.reportingStartedAt).toBeNull();
+  });
+});
+
+describe('audit_log entries', () => {
+  it('records checkout creation by the owner: ids and plan only', async () => {
+    const t = setup();
+    await t.h.call('POST', '/v1/billing/checkout', { body: { plan: 'growth' } });
+    expect(t.audits).toEqual([
+      { businessId: BIZ, actorId: 'user_owner_clerk_id', action: 'insert', entity: 'billing_checkout', entityId: 'cs_1', diff: { plan: 'growth', source: 'owner' } },
+    ]);
+  });
+
+  it('records a webhook plan flip with the system actor, the Stripe event id and the before and after', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub(), { id: 'evt_audit_1' });
+    await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { id: 'evt_audit_2', created: nowSec + 10 });
+    await t.webhook('customer.subscription.deleted', sub({ status: 'canceled' }), { id: 'evt_audit_3', created: nowSec + 20 });
+    expect(t.audits.map((a) => [a.actorId, a.entity, a.entityId, a.diff])).toEqual([
+      ['', 'billing_subscription', 'sub_1', { source: 'stripe', ref: 'evt_audit_1', plan_from: 'none', plan_to: 'growth', status_from: null, status_to: 'active' }],
+      ['', 'billing_subscription', 'sub_1', { source: 'stripe', ref: 'evt_audit_2', plan_from: 'growth', plan_to: 'pro', status_from: 'active', status_to: 'active' }],
+      ['', 'billing_subscription', 'sub_1', { source: 'stripe', ref: 'evt_audit_3', plan_from: 'pro', plan_to: 'none', status_from: 'active', status_to: 'canceled' }],
+    ]);
+  });
+
+  it('records a payment failure as a status change that keeps the plan', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    await t.webhook('invoice.payment_failed', { id: 'in_1', subscription: 'sub_1' }, { id: 'evt_fail', created: nowSec + 10 });
+    expect(t.audits.at(-1)?.diff).toEqual({ source: 'stripe', ref: 'evt_fail', plan_from: 'growth', plan_to: 'growth', status_from: 'active', status_to: 'past_due' });
+  });
+
+  it('writes nothing for an event that changes nothing, or a replay', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub(), { id: 'evt_a' });
+    await t.webhook('customer.subscription.created', sub(), { id: 'evt_a' });
+    await t.webhook('customer.subscription.updated', sub(), { id: 'evt_b', created: nowSec + 5 });
+    expect(t.audits).toHaveLength(1);
+  });
+
+  it('records an owner plan change through the API with the owner as actor', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    t.stripe.subscriptions.set('sub_1', {
+      id: 'sub_1', customerId: 'cus_1', status: 'active',
+      items: [{ id: 'si_base', priceId: PRICES.growth }, { id: 'si_usage', priceId: USAGE.growth }],
+      currentPeriodEnd: null, cancelAtPeriodEnd: false, businessId: null, metadataPlan: 'growth',
+    });
+    await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'pro' }, key: 'plan-change-key-1' });
+    expect(t.audits.at(-1)).toMatchObject({
+      actorId: 'user_owner_clerk_id',
+      entity: 'billing_subscription',
+      diff: { source: 'owner_api', ref: 'plan-change-key-1', plan_from: 'growth', plan_to: 'pro' },
+    });
+  });
+
+  it('never carries personal or card data', async () => {
+    const t = setup();
+    await t.h.call('POST', '/v1/billing/checkout', { body: { plan: 'growth' } });
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    expect(JSON.stringify(t.audits)).not.toMatch(/owner@example.test|Salon|@/);
+  });
+
+  it('does not block the change when the audit write fails', async () => {
+    const t = setup();
+    await withCustomer(t);
+    (t.audits as unknown as { push: unknown }).push = () => {
+      throw new Error('audit down');
+    };
+    const res = await t.webhook('customer.subscription.created', sub());
+    expect(res.status).toBe(200);
+    expect(t.repo.plans.get(BIZ)).toBe('growth');
   });
 });
 
