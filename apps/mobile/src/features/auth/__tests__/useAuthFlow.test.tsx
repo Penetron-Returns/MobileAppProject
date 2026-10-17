@@ -1,6 +1,9 @@
 import * as React from 'react';
 import renderer, { act } from 'react-test-renderer';
 
+import { setAnalytics } from '@/features/analytics';
+import { createFakeAnalytics } from '@/features/analytics/testing';
+
 import { useAuthFlow, type AuthFlow } from '../useAuthFlow';
 
 const mockSignIn = {
@@ -237,5 +240,44 @@ describe('useAuthFlow', () => {
     });
     expect(mockSignIn.emailCode.verifyCode).toHaveBeenCalledTimes(1);
     expect(mockSignIn.finalize).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useAuthFlow analytics', () => {
+  afterEach(() => setAnalytics());
+
+  it('reports sign-in started, code sent and completed, without the email', async () => {
+    const fake = createFakeAnalytics();
+    setAnalytics(fake);
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('colin@nerova.com');
+    });
+    mockSignIn.status = 'complete';
+    await act(async () => {
+      await flow.current.verifyCode('123456');
+    });
+    expect(fake.names()).toEqual([
+      'signin_started',
+      'signin_code_sent',
+      'signin_completed',
+    ]);
+    expect(JSON.stringify(fake.events)).not.toContain('colin');
+  });
+
+  it('does not report completion when the code is wrong', async () => {
+    const fake = createFakeAnalytics();
+    setAnalytics(fake);
+    mockSignIn.emailCode.verifyCode.mockResolvedValue({
+      error: apiError('form_code_incorrect'),
+    });
+    const flow = mountFlow();
+    await act(async () => {
+      await flow.current.submitIdentifier('colin@nerova.com');
+    });
+    await act(async () => {
+      await flow.current.verifyCode('000000');
+    });
+    expect(fake.names()).not.toContain('signin_completed');
   });
 });

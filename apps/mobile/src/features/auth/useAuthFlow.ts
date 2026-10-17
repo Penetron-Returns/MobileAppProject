@@ -2,6 +2,8 @@ import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
 import { router } from 'expo-router';
 import * as React from 'react';
 
+import { analytics } from '@/features/analytics';
+
 import {
   authErrorKey,
   isAlreadySignedIn,
@@ -64,6 +66,10 @@ export function useAuthFlow(): AuthFlow {
   // A ref, not state: two taps (or auto-submit plus a tap) land before a re-render.
   const inFlight = React.useRef(false);
 
+  React.useEffect(() => {
+    analytics.track('signin_started');
+  }, []);
+
   /** Runs one Clerk step: busy flag, error mapping, "already signed in" shortcut. */
   const run = React.useCallback(async (action: () => Promise<boolean>) => {
     if (inFlight.current) return;
@@ -112,6 +118,7 @@ export function useAuthFlow(): AuthFlow {
           setStrategy(parsed.strategy);
           setMode('signIn');
           armResend();
+          analytics.track('signin_code_sent');
           setStep('code');
           return true;
         }
@@ -131,6 +138,7 @@ export function useAuthFlow(): AuthFlow {
         setStrategy(parsed.strategy);
         setMode('signUp');
         armResend();
+        analytics.track('signin_code_sent');
         setStep('code');
         return true;
       });
@@ -152,7 +160,9 @@ export function useAuthFlow(): AuthFlow {
             return false;
           }
           const done = await signIn.finalize({ navigate: goHome });
-          return !failed(done.error);
+          const ok = !failed(done.error);
+          if (ok) analytics.track('signin_completed');
+          return ok;
         }
         const { error } =
           strategy === 'phone_code'
@@ -164,7 +174,9 @@ export function useAuthFlow(): AuthFlow {
           return false;
         }
         const done = await signUp.finalize({ navigate: goHome });
-        return !failed(done.error);
+        const ok = !failed(done.error);
+        if (ok) analytics.track('signin_completed');
+        return ok;
       });
     },
     [mode, strategy, signIn, signUp, run, failed],
@@ -206,6 +218,7 @@ export function useAuthFlow(): AuthFlow {
           session: result.createdSessionId,
           navigate: async () => {},
         });
+        analytics.track('signin_completed');
         goHome();
         return true;
       }
