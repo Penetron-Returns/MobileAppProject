@@ -25,3 +25,9 @@ jest.mock('lucide-react-native', () => {
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () =>
   require('./jest.swipeable-mock'),
 );
+
+// Text-to-speech is native: tests only need to see that it was asked to speak.
+jest.mock('expo-speech', () => ({
+  speak: jest.fn(),
+  stop: jest.fn(() => Promise.resolve()),
+}));
