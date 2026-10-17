@@ -124,4 +124,13 @@ describe('action.undone', () => {
     expect(sent).toHaveLength(0);
     expect(res.body).toEqual({ data: { status: 'ignored' } });
   });
+
+  it('records the event once and acknowledges a redelivery as a duplicate', async () => {
+    const object = { accountId: ACCOUNT, externalReference: s.business.id, actionId: ACTION, kind: 'create_appointment', undoneAt: NOW.toISOString() };
+    const first = await deliver('action.undone', object, 'evt_undo_dup');
+    const second = await deliver('action.undone', object, 'evt_undo_dup');
+    expect(first.body).toEqual({ data: { status: 'ignored' } });
+    expect(second.body).toEqual({ data: { status: 'duplicate' } });
+    expect(sent).toHaveLength(0);
+  });
 });
