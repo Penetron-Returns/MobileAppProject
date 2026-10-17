@@ -20,6 +20,22 @@ jest.mock('lucide-react-native', () => {
   return new Proxy({}, { get: () => View });
 });
 
+// The confirm dialog portals into a host the test renderer lacks: render its
+// props as a plain element so a test can read `open` and call `onConfirm`.
+jest.mock('@booking/ui/components/ConfirmDialog', () => {
+  const { View } = require('react-native');
+  return {
+    ConfirmDialog: (props: Record<string, unknown>) => (
+      <View testID="confirm-dialog" {...props} />
+    ),
+  };
+});
+
+const mockSignOut = jest.fn();
+jest.mock('@/features/auth/useSignOut', () => ({
+  useSignOut: () => mockSignOut,
+}));
+
 const mockSetActive = jest.fn();
 const mockGetInvitations = jest.fn();
 const mockUpdateUser = jest.fn();
@@ -146,7 +162,27 @@ describe('JoinScreen', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.me });
   });
 
-  it('declines to the create-business flow without accepting anything', () => {
+  it('asks before creating your own business, and goes back without declining', () => {
+    const onDecline = jest.fn();
+    const accept = jest.fn();
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair', accept)]}
+        onDecline={onDecline}
+      />,
+    );
+    const dialog = () =>
+      tree.root.find((n) => n.props.testID === 'confirm-dialog');
+    expect(dialog().props.open).toBe(false);
+    act(() => button(tree, 'Create my own business instead').props.onPress());
+    expect(onDecline).not.toHaveBeenCalled();
+    expect(dialog().props.open).toBe(true);
+    act(() => dialog().props.onOpenChange(false));
+    expect(dialog().props.open).toBe(false);
+    expect(onDecline).not.toHaveBeenCalled();
+  });
+
+  it('declines to the create-business flow only after confirming, without accepting anything', () => {
     const onDecline = jest.fn();
     const accept = jest.fn();
     const { tree } = mountWith(
@@ -156,9 +192,41 @@ describe('JoinScreen', () => {
       />,
     );
     act(() => button(tree, 'Create my own business instead').props.onPress());
+    const dialog = tree.root.find((n) => n.props.testID === 'confirm-dialog');
+    act(() => dialog.props.onConfirm());
     expect(onDecline).toHaveBeenCalledTimes(1);
     expect(accept).not.toHaveBeenCalled();
-    expect(mockSetActive).not.toHaveBeenCalled();
+  });
+
+  it('shows Create my own as a small text link, not a full-size button', () => {
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair')]}
+        onDecline={jest.fn()}
+      />,
+    );
+    const link = button(tree, 'Create my own business instead');
+    expect(String(link.props.className)).toContain('min-h-11');
+    expect(String(link.props.className)).not.toContain('h-14');
+  });
+
+  it('offers a way out for the wrong email: sign out', () => {
+    const { tree } = mountWith(
+      <JoinScreen
+        invitations={[invitation('1', 'Ashgrove Hair')]}
+        onDecline={jest.fn()}
+      />,
+    );
+    expect(text(tree)).toContain(
+      'Wrong email? Sign out and use the address the invite went to.',
+    );
+    act(() =>
+      button(
+        tree,
+        'Wrong email? Sign out and use the address the invite went to.',
+      ).props.onPress(),
+    );
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
   it('tells the person when joining fails and stays on the screen', async () => {
