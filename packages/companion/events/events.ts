@@ -21,10 +21,47 @@ export interface AccountEvent {
   data: { id: UUID; [field: string]: unknown };
 }
 
+/** Delivery options for one send. */
+export interface SendOptions {
+  /** Retry with backoff on 5xx and 409 connection.sync_in_progress (account.created: it must reach Nerova) */
+  retry?: boolean;
+}
+
 /** Outbound transport port. */
 export interface AccountEventSender {
-  send(event: AccountEvent): Promise<void>;
+  send(event: AccountEvent, options?: SendOptions): Promise<void>;
 }
+
+/** Nerova refused or failed an event. `code` is Nerova's error code when the body had one (never any customer data). */
+export class EventDeliveryError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+    readonly retryable: boolean,
+  ) {
+    super(`Nerova events endpoint answered ${status}${code ? ` ${code}` : ''}`);
+    this.name = 'EventDeliveryError';
+  }
+}
+
+/** Pulls Nerova's error code (`{ error: { code } }` or `{ code }`) out of a response body, without trusting its shape. */
+function errorCodeOf(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as { code?: unknown; error?: { code?: unknown } | string } | null;
+    const code = parsed?.code ?? (typeof parsed?.error === 'object' ? parsed?.error?.code : undefined);
+    return typeof code === 'string' ? code.slice(0, 80) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 5xx and 409 sync_in_progress are worth another try; 401 (signature/clock) and 409 disconnected are not. */
+function isRetryable(status: number, code: string | null): boolean {
+  return status >= 500 || (status === 409 && code === 'connection.sync_in_progress');
+}
+
+/** Delays before retries 1..n (the first attempt is immediate): 1s, 4s, 15s. */
+export const RETRY_BACKOFF_MS: readonly number[] = [1000, 4000, 15000];
 
 /** `v1,<base64 HMAC-SHA256 of "<id>.<timestamp>.<body>">`, keyed with the base64 part of `whsec_...`. */
 export function signStandardWebhook(signingSecret: string, id: string, timestampSeconds: number, body: string): string {
@@ -39,15 +76,20 @@ export interface HttpSenderOptions {
   fetch?: typeof fetch;
   clock?: () => Date;
   timeoutMs?: number;
+  /** Injected so tests never wait */
+  sleep?: (ms: number) => Promise<void>;
+  backoffMs?: readonly number[];
 }
 
 export function createHttpEventSender(options: HttpSenderOptions): AccountEventSender {
   const doFetch = options.fetch ?? fetch;
   const clock = options.clock ?? (() => new Date());
-  return {
-    async send(event) {
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const backoff = options.backoffMs ?? RETRY_BACKOFF_MS;
+
+  async function attempt(event: AccountEvent): Promise<void> {
       const body = JSON.stringify(event);
-      // Nerova accepts timestamps within five minutes; the id doubles as the replay key.
+      // Nerova accepts timestamps within five minutes (recomputed per attempt); the id doubles as the replay key.
       const timestamp = Math.floor(clock().getTime() / 1000);
       const response = await doFetch(options.url, {
         method: 'POST',
@@ -60,7 +102,22 @@ export function createHttpEventSender(options: HttpSenderOptions): AccountEventS
         body,
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
       });
-      if (!response.ok) throw new Error(`Nerova events endpoint answered ${response.status}`);
+      if (response.ok) return;
+      const code = errorCodeOf(await response.text().catch(() => ''));
+      throw new EventDeliveryError(response.status, code, isRetryable(response.status, code));
+  }
+
+  return {
+    async send(event, sendOptions) {
+      for (let tries = 0; ; tries++) {
+        try {
+          return await attempt(event);
+        } catch (error) {
+          const retryable = !(error instanceof EventDeliveryError) || error.retryable;
+          if (!sendOptions?.retry || !retryable || tries >= backoff.length) throw error;
+          await sleep(backoff[tries]!);
+        }
+      }
     },
   };
 }
@@ -115,9 +172,14 @@ export function createAccountEvents(deps: AccountEventsDeps): AccountEventsPort 
     async accountChanged(businessId, type) {
       try {
         if (type !== 'account.removed' && !(await deps.entitlements.hasFeature(businessId, 'companion'))) return;
-        await deps.sender.send({ id: newId(), type, createdAt: clock().toISOString(), data: { id: businessId } });
+        // account.created uses a stable id per account (Nerova dedupes on it: a replay answers "replayed") and is retried.
+        const isCreated = type === 'account.created';
+        const id = isCreated ? `acct_created:${businessId}` : newId();
+        await deps.sender.send({ id, type, createdAt: clock().toISOString(), data: { id: businessId } }, { retry: isCreated });
       } catch (error) {
-        logger.warn('nerova_event_failed', { business_id: businessId, type, error });
+        // account.no_locations means the connector's accounts read has no location for this business yet.
+        const code = error instanceof EventDeliveryError ? error.code : null;
+        logger.warn('nerova_event_failed', { business_id: businessId, type, status: error instanceof EventDeliveryError ? error.status : null, nerova_code: code, error: code ? undefined : error });
       }
     },
   };

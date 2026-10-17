@@ -6,6 +6,7 @@ import { getEnv } from '../../src/env.ts';
 import {
   createAccountEvents,
   createHttpEventSender,
+  EventDeliveryError,
   disabledEventSender,
   eventSenderFromEnv,
   signStandardWebhook,
@@ -68,6 +69,51 @@ describe('createHttpEventSender', () => {
   });
 });
 
+describe('account.created delivery', () => {
+  const reply = (status: number, code?: string) => new Response(code ? JSON.stringify({ error: { code } }) : null, { status });
+  function sender(responses: Response[], sleeps: number[] = []) {
+    const calls: Record<string, string>[] = [];
+    return {
+      calls,
+      sleeps,
+      send: createHttpEventSender({
+        url: 'https://nerova.test/connections/booking/events/conn_1',
+        signingSecret: SECRET,
+        clock: () => FIXED,
+        sleep: async (ms) => void sleeps.push(ms),
+        fetch: (async (_u: string, init: RequestInit) => {
+          calls.push(init.headers as Record<string, string>);
+          return responses.shift() ?? reply(200);
+        }) as unknown as typeof fetch,
+      }).send,
+    };
+  }
+  const created: AccountEvent = { id: `acct_created:${BIZ}`, type: 'account.created', createdAt: FIXED.toISOString(), data: { id: BIZ } };
+
+  it('retries 5xx and 409 sync_in_progress with backoff, reusing the stable webhook-id', async () => {
+    const s = sender([reply(503, 'connection.accounts_unavailable'), reply(409, 'connection.sync_in_progress'), reply(200)]);
+    await s.send(created, { retry: true });
+    expect(s.calls).toHaveLength(3);
+    expect(new Set(s.calls.map((h) => h['webhook-id']))).toEqual(new Set([`acct_created:${BIZ}`]));
+    expect(s.sleeps).toEqual([1000, 4000]);
+  });
+
+  it.each([[401, undefined], [409, 'connection.disconnected'], [422, 'account.no_locations']])('does not retry %s %s', async (status, code) => {
+    const s = sender([reply(status, code)]);
+    await expect(s.send(created, { retry: true })).rejects.toMatchObject({ status, code: code ?? null, retryable: false });
+    expect(s.calls).toHaveLength(1);
+  });
+
+  it('gives up after the backoff is used up and never retries without the retry option', async () => {
+    const s = sender([reply(500), reply(500), reply(500), reply(500)]);
+    await expect(s.send(created, { retry: true })).rejects.toBeInstanceOf(EventDeliveryError);
+    expect(s.calls).toHaveLength(4);
+    const once = sender([reply(500), reply(200)]);
+    await expect(once.send(created)).rejects.toBeInstanceOf(EventDeliveryError);
+    expect(once.calls).toHaveLength(1);
+  });
+});
+
 describe('eventSenderFromEnv', () => {
   const env = (over: Record<string, string | undefined>) => getEnv({ SUPABASE_URL: 'http://localhost:54321', SUPABASE_SERVICE_ROLE_KEY: 'k', ...over });
 
@@ -112,7 +158,7 @@ describe('createAccountEvents', () => {
     await events.accountChanged(BIZ, 'account.created');
     expect(sent).toEqual([
       { id: 'evt_fixed', type: 'account.updated', createdAt: FIXED.toISOString(), data: { id: BIZ } },
-      { id: 'evt_fixed', type: 'account.created', createdAt: FIXED.toISOString(), data: { id: BIZ } },
+      { id: `acct_created:${BIZ}`, type: 'account.created', createdAt: FIXED.toISOString(), data: { id: BIZ } },
     ]);
   });
 
