@@ -140,8 +140,10 @@ Deliberate divergence from upstream react-native-reusables: `Button` `default` i
 
 `FloatingTabBar` (`@booking/ui`) replaces the default Tabs bar: Today · Calendar · centre "+" (opens `/add`) ·
 Clients · Settings in one capsule on Free (paid plans: Today · Calendar · Reports · Clients · Settings, five equal tabs, no "+"), plus a dome above it. The tabs (`tabs`), the optional "+" (`onAdd`) and the dome
-are slots the app fills per plan through `AppTabBar`: `<InboxEntryDome />` (`features/inbox`, `useInboxEntry()`) on Free (the single place for its plan gating and
-badge count); paid plans pass no dome, Clovie lives only in its own first tab. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
+are slots the app fills per plan through `AppTabBar`: `<InboxEntryDome />` (`features/inbox`, `useInboxEntry()`) on Free,
+`<CompanionEntryDome />` (`features/companion`, `useCompanionEntry()`) on paid plans (a still Clovie, bottom right,
+hidden on the Clovie tab), each the single place for its plan
+gating and badge count. The bar floats over content, so `Screen` and `Page` add bottom padding on the top-level tab screens
 (`isTabRootPath`); screens that opt out with `tabBarStyle: { display: 'none' }` (details, settings sub-pages) hide it.
 
 ### The AI app (paid plans)

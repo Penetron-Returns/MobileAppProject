@@ -72,12 +72,12 @@ describe('AppTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/new-booking');
   });
 
-  it('paid: Reports is an ordinary tab, there is no plus and there is no dome at all', () => {
+  it('paid: Reports is an ordinary tab, there is no plus and the companion bubble replaces the Inbox', () => {
     mockMode = 'ai';
     mockHas = (f) => f === 'companion' || f === 'reports';
     const tree = bar();
     const all = labels(tree);
-    expect(all.some((l) => l.startsWith('Open your companion'))).toBe(false);
+    expect(all).toContain('Open your companion');
     expect(all).not.toContain('New booking');
     expect(all.some((l) => l.startsWith('Inbox'))).toBe(false);
     const tabs = tree.root
@@ -95,5 +95,15 @@ describe('AppTabBar', () => {
     ).toBeGreaterThan(0);
     act(() => pressableByLabel(tree, 'Reports').props.onPress());
     expect(mockPush).not.toHaveBeenCalled();
+    act(() => pressableByLabel(tree, 'Open your companion').props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/companion');
+  });
+
+  it('paid: the companion bubble is hidden on the Clovie tab', () => {
+    mockMode = 'ai';
+    mockHas = (f) => f === 'companion';
+    const tree = bar();
+    const fade = tree.root.findByProps({ testID: 'companion-dome-fade' });
+    expect(fade.props.pointerEvents).toBe('none');
   });
 });

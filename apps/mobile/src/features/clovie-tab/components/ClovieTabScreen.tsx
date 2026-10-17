@@ -1,18 +1,23 @@
 import { useUser } from '@clerk/expo';
-import { Ground, tabBarClearance } from '@booking/ui';
+import {
+  Ground,
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  tabBarClearance,
+} from '@booking/ui';
 import {
   CompanionMoment,
   type MomentAvatarProperties,
 } from '@nerova/react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { formatDayCaption } from '@/features/today/logic';
+import { useIsKeyboardVisible } from '@/hooks/useIsKeyboardVisible';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/lib/toast';
 import { todayISO } from '@/lib/time';
@@ -36,7 +41,8 @@ const FALLBACK_TIMEZONE = 'UTC';
  * around Nerova's `<CompanionMoment>` (the chat UI is theirs; we host it). It
  * shares the app-wide SDK session from `CompanionSdkHost`, so with no companion
  * on the plan (or the flag off) there is no chat area. The attendance questions
- * are its `queueItems`. Nothing here animates at rest.
+ * are its `queueItems`. The screen rides the keyboard and, while it is up, drops
+ * the header and stories so the composer and the answer keep the room.
  */
 /** Stable: the SDK would otherwise redraw the avatar on every render. */
 const renderAvatar = (props: MomentAvatarProperties) => (
@@ -53,6 +59,7 @@ export function ClovieTabScreen() {
   const { isAvailable, hasFailed } = useCompanionSheet();
   const startVoice = useStartVoice();
   const attendance = useAttendance();
+  const isKeyboardUp = useIsKeyboardVisible();
   const { stories, isLoading, markViewed } = useStories();
   const events = useStoryEvents(stories);
 
@@ -94,27 +101,33 @@ export function ClovieTabScreen() {
 
   return (
     <Ground className="flex-1">
-      <ScrollView
-        contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={{
-          flexGrow: 1,
+      <KeyboardAvoidingView
+        behavior={KEYBOARD_AVOIDING_BEHAVIOR}
+        style={{
+          flex: 1,
           paddingTop: insets.top + 8,
-          paddingBottom: tabBarClearance(insets.bottom) + 16,
+          // The floating bar sits under the keyboard, so only clear it when
+          // the keyboard is down; the composer then rests right on the keys.
+          paddingBottom: isKeyboardUp ? 8 : tabBarClearance(insets.bottom) + 8,
         }}
       >
         <View className="w-full max-w-2xl flex-1 self-center">
-          <ClovieHeader
-            caption={caption}
-            greeting={t(greeting.key, greeting.values)}
-          />
-          <StoriesRow
-            stories={stories}
-            isLoading={isLoading}
-            onViewed={markViewed}
-            onEvent={events.record}
-            onAction={onStoryAction}
-            onClose={events.flush}
-          />
+          {isKeyboardUp ? null : (
+            <>
+              <ClovieHeader
+                caption={caption}
+                greeting={t(greeting.key, greeting.values)}
+              />
+              <StoriesRow
+                stories={stories}
+                isLoading={isLoading}
+                onViewed={markViewed}
+                onEvent={events.record}
+                onAction={onStoryAction}
+                onClose={events.flush}
+              />
+            </>
+          )}
           {isAvailable || hasFailed ? (
             <CompanionMoment
               testID="clovie-moment"
@@ -127,7 +140,7 @@ export function ClovieTabScreen() {
             />
           ) : null}
         </View>
-      </ScrollView>
+      </KeyboardAvoidingView>
     </Ground>
   );
 }
