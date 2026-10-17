@@ -15,9 +15,10 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { minutesToTime, type ISODate } from '@/lib/time';
+import { BLOCK_INSET_PX } from '../grid';
 import { columnWidth, minutesToPx, nowMinute } from '../logic';
 import { haptics } from '@booking/ui';
-import { Column, HourLines, type Ready } from './DayColumns';
+import { Column, type Ready } from './DayColumns';
 import type { NewBookingPrefill } from '../logic';
 
 const GUTTER = 52;
@@ -109,16 +110,15 @@ export function DayView({
             }}
             importantForAccessibility="no-hide-descendants"
           >
-            {hours.map((m, index) => (
+            {hours.map((m) => (
               <View
                 key={m}
-                style={{ height: minutesToPx(60) }}
+                style={{ height: minutesToPx(60), paddingTop: BLOCK_INSET_PX }}
                 className="items-end pr-2"
               >
                 <Text
                   style={{
                     fontVariant: ['tabular-nums'],
-                    marginTop: index === 0 ? 0 : -8,
                   }}
                   className="text-meta text-muted-foreground"
                 >
@@ -207,7 +207,6 @@ export function DayView({
             </View>
 
             <View style={{ height }} className="flex-row">
-              <HourLines hours={hours} window={window} />
               {columns.map((c) => (
                 <Column
                   key={c.staff.id}
@@ -219,7 +218,6 @@ export function DayView({
                   closed={closedDay !== null}
                   appointments={c.appointments}
                   timezone={timezone}
-                  hasDivider
                   onLongPressEmpty={
                     onCreateAt
                       ? (minutes) => {

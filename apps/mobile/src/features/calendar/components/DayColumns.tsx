@@ -12,7 +12,10 @@ import {
 } from '../logic';
 import {
   BLOCK_RADIUS,
-  BLOCK_RIGHT_MARGIN_PX,
+  BLOCK_INSET_PX,
+  GRID_CELL,
+  blockHorizontal,
+  cellFrames,
   blockFrame,
   type BlockFrame,
 } from '../grid';
@@ -21,31 +24,6 @@ import { Hatch } from './Hatch';
 import type { CalendarDayView } from '../hooks';
 
 export type Ready = Extract<CalendarDayView, { status: 'ready' }>;
-
-export function HourLines({
-  hours,
-  window,
-}: {
-  hours: number[];
-  window: MinuteSpan;
-}) {
-  const depth = useDepth();
-  return (
-    <>
-      {hours.map((m) => (
-        <View
-          key={m}
-          pointerEvents="none"
-          style={{
-            top: minutesToPx(m - window.startMin),
-            backgroundColor: depth.colors.hairline,
-          }}
-          className="absolute left-0 right-0 h-px"
-        />
-      ))}
-    </>
-  );
-}
 
 export function Column({
   width,
@@ -56,7 +34,6 @@ export function Column({
   closed,
   appointments,
   timezone,
-  hasDivider,
   onLongPressEmpty,
 }: {
   width: number;
@@ -69,23 +46,31 @@ export function Column({
   closed: boolean;
   appointments: Ready['columns'][number]['appointments'];
   timezone: string;
-  hasDivider: boolean;
   /** Long-press on an empty part of the column (paid plans' quiet manual-booking fallback). */
   onLongPressEmpty?: (minutes: number) => void;
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
+  const horizontal = blockHorizontal(width);
   const off = complementSpans(working, window);
   const top = (min: number) => minutesToPx(min - window.startMin);
   return (
-    <View
-      style={{
-        width,
-        height,
-        borderLeftWidth: hasDivider ? 1 : 0,
-        borderLeftColor: depth.colors.hairline,
-      }}
-    >
+    <View style={{ width, height }}>
+      {cellFrames(window).map((cell) => (
+        <View
+          key={cell.top}
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: horizontal.left,
+            top: cell.top,
+            width: horizontal.width,
+            height: cell.height,
+            borderRadius: BLOCK_RADIUS,
+            backgroundColor: GRID_CELL[depth.scheme],
+          }}
+        />
+      ))}
       {onLongPressEmpty ? (
         <Pressable
           // Screen readers use the header New booking action instead.
@@ -100,20 +85,23 @@ export function Column({
         />
       ) : null}
       {off.map((span) => {
-        const spanHeight = minutesToPx(span.endMin - span.startMin);
+        const spanHeight =
+          minutesToPx(span.endMin - span.startMin) - 2 * BLOCK_INSET_PX;
         return (
           <View
             key={span.startMin}
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 0,
-              top: top(span.startMin),
-              width,
+              left: horizontal.left,
+              top: top(span.startMin) + BLOCK_INSET_PX,
+              width: horizontal.width,
               height: spanHeight,
+              borderRadius: BLOCK_RADIUS,
+              overflow: 'hidden',
             }}
           >
-            <Hatch width={width} height={spanHeight} />
+            <Hatch width={horizontal.width} height={spanHeight} />
           </View>
         );
       })}
@@ -122,7 +110,7 @@ export function Column({
           key={`${block.kind}-${block.startMin}-${block.label}`}
           block={block}
           frame={blockFrame(block, window)}
-          width={width - BLOCK_RIGHT_MARGIN_PX}
+          width={horizontal.width}
         />
       ))}
       {working.length === 0 && !closed ? (
@@ -140,8 +128,8 @@ export function Column({
             key={a.id}
             style={{
               position: 'absolute',
-              left: 0,
-              right: BLOCK_RIGHT_MARGIN_PX,
+              left: horizontal.left,
+              width: horizontal.width,
               top: frame.top,
             }}
           >
@@ -187,7 +175,7 @@ function UnavailableBlock({
       })}
       style={{
         position: 'absolute',
-        left: 0,
+        left: BLOCK_INSET_PX,
         top,
         width,
         height,
