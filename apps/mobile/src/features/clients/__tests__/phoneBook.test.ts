@@ -330,16 +330,16 @@ describe('bookItemLayout', () => {
   const layout = bookItemLayout(sections, {
     listHeader: 100,
     sectionHeader: 28,
-    row: 60,
+    row: 70,
     gap: 12,
   });
 
   it('stacks header, group and footer of each section after the list header', () => {
     expect(layout(0)).toEqual({ index: 0, offset: 100, length: 28 });
-    expect(layout(1)).toEqual({ index: 1, offset: 128, length: 132 });
-    expect(layout(2)).toEqual({ index: 2, offset: 260, length: 0 });
-    expect(layout(3)).toEqual({ index: 3, offset: 260, length: 28 });
-    expect(layout(4)).toEqual({ index: 4, offset: 288, length: 72 });
+    expect(layout(1)).toEqual({ index: 1, offset: 128, length: 152 });
+    expect(layout(2)).toEqual({ index: 2, offset: 280, length: 0 });
+    expect(layout(3)).toEqual({ index: 3, offset: 280, length: 28 });
+    expect(layout(4)).toEqual({ index: 4, offset: 308, length: 82 });
   });
 });
 
@@ -391,7 +391,7 @@ describe('listChrome', () => {
       const layout = bookItemLayout(sections, {
         listHeader: 20 + c.topSpacer,
         sectionHeader: 28,
-        row: 60,
+        row: 70,
         gap: 12,
       });
       // scrollToIndex scrolls to offset - viewOffset; a row at content y sits at

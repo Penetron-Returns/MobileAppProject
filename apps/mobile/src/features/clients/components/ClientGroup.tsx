@@ -1,6 +1,5 @@
 import {
   Avatar,
-  Divider,
   RowContextMenu,
   Surface,
   Text,
@@ -9,16 +8,18 @@ import {
 } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { clientMenuActions } from '../menuActions';
 import { visitSubtitle, type BookRow } from '../phoneBook';
 import type { ISODate } from '@/lib/time';
 
 /** Fixed row height: the phone book's `getItemLayout` relies on it. */
-export const ROW_HEIGHT = 60;
+export const ROW_HEIGHT = 70;
 /** Row text stops growing here so two lines always fit the fixed height. */
 const MAX_FONT_SCALE = 1.1;
+/** Board margins: 20pt left, 36pt right (clear of the index strip). Inline styles: the right-side spacing classes were dropped on Android. */
+export const GROUP_MARGIN = { marginLeft: 20, marginRight: 36 } as const;
 
 interface ClientGroupProps {
   rows: BookRow[];
@@ -34,7 +35,11 @@ export const ClientGroup = React.memo(function ClientGroup({
 }: ClientGroupProps) {
   return (
     <View className="pb-3">
-      <Surface variant="raised" className="ml-5 mr-9 overflow-hidden">
+      <Surface
+        variant="raised"
+        style={GROUP_MARGIN}
+        className="overflow-hidden"
+      >
         {rows.map((row, index) => (
           <ClientBookRow
             key={row.id}
@@ -48,6 +53,27 @@ export const ClientGroup = React.memo(function ClientGroup({
     </View>
   );
 });
+
+/** Text starts after 16pt padding + avatar + 12pt gap, measured on device. */
+const SEPARATOR_INSET = 67;
+
+/** iOS Contacts style: a thin line from after the avatar to the group edge. */
+function Hairline({ color }: { color: string }) {
+  return (
+    <View
+      pointerEvents="none"
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: SEPARATOR_INSET,
+        right: 0,
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: color,
+      }}
+    />
+  );
+}
 
 interface ClientBookRowProps {
   row: BookRow;
@@ -101,43 +127,53 @@ function ClientRowBody({
       accessibilityLabel={
         row.isVip ? t('clients.rowLabelVip', { label: spoken }) : spoken
       }
-      style={({ pressed }) => ({
-        height: ROW_HEIGHT,
-        backgroundColor: depth.colors.groupRow,
-        opacity: pressed ? 0.6 : 1,
-      })}
-      className="flex-row items-center gap-3 px-4"
+      // The layout lives on an inner View: a Pressable style is dropped on Android here.
     >
-      {showSeparator ? <Divider inset={0} /> : null}
-      <Avatar name={row.name} />
-      <View className="min-w-0 flex-1">
-        <Text
-          numberOfLines={1}
-          maxFontSizeMultiplier={MAX_FONT_SCALE}
-          className="text-title"
+      {({ pressed }) => (
+        <View
+          style={{
+            height: ROW_HEIGHT,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            paddingHorizontal: 16,
+            backgroundColor: depth.colors.groupRow,
+            opacity: pressed ? 0.6 : 1,
+          }}
         >
-          {row.name}
-        </Text>
-        <Text
-          numberOfLines={1}
-          maxFontSizeMultiplier={MAX_FONT_SCALE}
-          className="text-subtitle text-muted-foreground"
-        >
-          {subtitle}
-        </Text>
-      </View>
-      {row.isVip ? (
-        <Surface
-          variant="vipCapsule"
-          radius={10}
-          importantForAccessibility="no-hide-descendants"
-          className="px-2 py-0.5"
-        >
-          <Text className="text-meta font-semibold text-muted-foreground">
-            {t('clients.vip')}
-          </Text>
-        </Surface>
-      ) : null}
+          {showSeparator ? <Hairline color={depth.engraveLine} /> : null}
+          <Avatar name={row.name} />
+          <View className="min-w-0 flex-1">
+            <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+              className="text-title"
+            >
+              {row.name}
+            </Text>
+            <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+              style={{ marginTop: 3 }}
+              className="text-subtitle text-muted-foreground"
+            >
+              {subtitle}
+            </Text>
+          </View>
+          {row.isVip ? (
+            <Surface
+              variant="vipCapsule"
+              radius={10}
+              importantForAccessibility="no-hide-descendants"
+              className="px-2 py-0.5"
+            >
+              <Text className="text-meta font-semibold text-muted-foreground">
+                {t('clients.vip')}
+              </Text>
+            </Surface>
+          ) : null}
+        </View>
+      )}
     </Pressable>
   );
 }
