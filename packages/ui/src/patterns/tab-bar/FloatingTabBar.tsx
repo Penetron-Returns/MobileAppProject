@@ -258,8 +258,8 @@ export function FloatingTabBar({
             {({ pressed }) => (
               <Animated.View
                 style={[
-                  depth.primary,
-                  pressed && depth.primaryPressed,
+                  depth.navPrimary,
+                  pressed && depth.navPrimaryPressed,
                   addBounce.style,
                 ]}
                 className="h-[52px] w-[52px] items-center justify-center rounded-full"

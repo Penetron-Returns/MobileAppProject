@@ -74,7 +74,7 @@ function MenubarSubContent({
     <NativeOnlyAnimatedView entering={FadeIn.reduceMotion(ReduceMotion.System)}>
       <MenubarPrimitive.SubContent
         className={cn(
-          'bg-popover border-border overflow-hidden rounded-md border p-1 shadow-lg shadow-black/5',
+          'bg-popover border-border overflow-hidden rounded-md border p-1',
           Platform.select({
             web: 'animate-in fade-in-0 zoom-in-95 z-50 min-w-[8rem]',
           }),
@@ -110,7 +110,7 @@ function MenubarContent({
             <TextClassContext.Provider value="text-popover-foreground">
               <MenubarPrimitive.Content
                 className={cn(
-                  'bg-popover border-border min-w-[12rem] overflow-hidden rounded-md border p-1 shadow-lg shadow-black/5',
+                  'bg-popover border-border min-w-[12rem] overflow-hidden rounded-md border p-1',
                   Platform.select({
                     web: 'animate-in fade-in-0 zoom-in-95 z-50 cursor-default',
                   }),

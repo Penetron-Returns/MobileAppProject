@@ -172,7 +172,6 @@ function LaterRowBody({
         <View
           style={{
             backgroundColor: depth.colors.amberFill,
-            boxShadow: depth.inset.boxShadow,
           }}
           className="rounded-xl px-2.5 py-[3px]"
         >

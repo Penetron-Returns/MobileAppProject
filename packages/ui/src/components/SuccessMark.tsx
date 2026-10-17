@@ -36,8 +36,6 @@ export function SuccessMark({ size = 88 }: { size?: number }) {
           height: size,
           borderRadius: size / 2,
           backgroundColor: depth.colors.success,
-          boxShadow:
-            'inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px rgba(16,24,40,0.2), 0 10px 24px -6px rgba(36,138,61,0.45)',
           alignItems: 'center',
           justifyContent: 'center',
         },
