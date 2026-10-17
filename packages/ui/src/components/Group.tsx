@@ -86,6 +86,12 @@ interface GroupRowBaseProps {
   /** Overrides the default "title, detail" spoken label. */
   accessibilityLabel?: string;
   destructive?: boolean;
+  /**
+   * Shown but not usable: dimmed, no chevron, not pressable. Settings are never hidden, so a
+   * row the person cannot use says why in `reason` (shown as the line under the title).
+   */
+  disabled?: boolean;
+  reason?: string;
   /** Ring colour of the avatar (a team member's calendar colour). */
   avatarRing?: string | null;
 }
@@ -116,6 +122,8 @@ export function GroupRow({
   showSeparator,
   accessibilityLabel,
   destructive,
+  disabled,
+  reason,
 }: GroupRowProps) {
   const depth = useDepth();
   // Swipe / long-press actions of an enclosing SwipeableRow or ContextMenu.
@@ -137,13 +145,13 @@ export function GroupRow({
         >
           {title}
         </Text>
-        {subtitle ? (
+        {subtitle || (disabled && reason) ? (
           <Text
             numberOfLines={1}
             style={{ fontVariant: ['tabular-nums'] }}
             className="text-subtitle text-muted-foreground"
           >
-            {subtitle}
+            {disabled && reason ? reason : subtitle}
           </Text>
         ) : null}
       </View>
@@ -163,7 +171,7 @@ export function GroupRow({
         </Text>
       ) : null}
       {trailing ??
-        (onPress ? (
+        (onPress && !disabled ? (
           <ChevronRight
             size={14}
             strokeWidth={2.8}
@@ -178,8 +186,27 @@ export function GroupRow({
     hasAvatar && 'min-h-16 gap-3 py-1.5',
     IconGlyph && 'min-h-14 gap-3.5 py-2',
     !hasAvatar && !IconGlyph && 'gap-2.5 py-1.5',
-    !hasAvatar && !IconGlyph && (subtitle ? 'min-h-[60px]' : 'min-h-14'),
+    !hasAvatar &&
+      !IconGlyph &&
+      (subtitle || (disabled && reason) ? 'min-h-[60px]' : 'min-h-14'),
   );
+  if (disabled) {
+    return (
+      <View
+        accessible
+        accessibilityRole="button"
+        accessibilityState={{ disabled: true }}
+        accessibilityLabel={
+          accessibilityLabel ??
+          [title, detail, reason].filter(Boolean).join(', ')
+        }
+        style={{ opacity: 0.55 }}
+        className={className}
+      >
+        {body}
+      </View>
+    );
+  }
   if (!onPress) {
     return <View className={className}>{body}</View>;
   }
