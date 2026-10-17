@@ -66,6 +66,11 @@ export const GLYPHS = {
     'M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v8.5a2.5 2.5 0 0 1-2.5 2.5h-6.5L8 21.5v-3.5H5A2.5 2.5 0 0 1 2.5 15.5V7A2.5 2.5 0 0 1 5 4.5z',
   ),
   bell: makeGlyph('bell', 'M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z M10 21h4'),
+  trash: makeGlyph(
+    'trash',
+    'M4.5 7h15 M9.5 7V4.5h5V7 M6.5 7l1 12.5h9l1-12.5 M10 11v5 M14 11v5',
+  ),
+  moon: makeGlyph('moon', 'M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z'),
   help: makeGlyph(
     'help',
     'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16z M9.7 9.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1.1.9-1.1 1.8 M12 16.6v.1',
