@@ -5,7 +5,9 @@ import {
   SectionTitle,
   Switch,
   Text,
+  TintLink,
 } from '@booking/ui';
+import { Mic } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Linking, View } from 'react-native';
@@ -55,16 +57,6 @@ export function OneTapSection() {
         />
         <GroupRow
           showSeparator
-          title={t('voice.oneTap.widget.title')}
-          subtitle={t('voice.oneTap.widget.hint')}
-        />
-        <GroupRow
-          showSeparator
-          title={t('voice.oneTap.shortcut.title')}
-          subtitle={t('voice.oneTap.shortcut.hint')}
-        />
-        <GroupRow
-          showSeparator
           title={t('voice.oneTap.sideKey.toggle')}
           subtitle={t('voice.oneTap.sideKey.hint')}
           trailing={
@@ -75,13 +67,23 @@ export function OneTapSection() {
             />
           }
         />
-        <GroupRow
-          showSeparator
-          title={t('voice.oneTap.tryIt.title')}
-          subtitle={t('voice.oneTap.tryIt.hint')}
-          onPress={() => void oneTap.tryIt()}
-        />
       </Group>
+      <Text className="mx-5 mt-3 text-meta text-muted-foreground">
+        {t('voice.oneTap.widget.title')}: {t('voice.oneTap.widget.hint')}
+      </Text>
+      <Text className="mx-5 mt-1 text-meta text-muted-foreground">
+        {t('voice.oneTap.shortcut.title')}: {t('voice.oneTap.shortcut.hint')}
+      </Text>
+      <TintLink
+        variant="action"
+        icon={Mic}
+        label={t('voice.oneTap.tryIt.title')}
+        onPress={() => void oneTap.tryIt()}
+        className="ml-5 mt-1"
+      />
+      <Text className="mx-5 text-meta text-muted-foreground">
+        {t('voice.oneTap.tryIt.hint')}
+      </Text>
       {oneTap.permissionDenied ? (
         <View accessibilityRole="alert" className="mx-5 mt-3 gap-2">
           <Text className="text-meta text-muted-foreground">

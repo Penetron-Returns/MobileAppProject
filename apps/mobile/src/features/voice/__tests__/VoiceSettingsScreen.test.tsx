@@ -156,7 +156,7 @@ describe('one-tap section', () => {
     const tree = mount(<VoiceSettingsScreen />);
     await flush();
     const row = tree.root.find(
-      (n) => !!n.props.onPress && n.props.title === 'Try it now',
+      (n) => !!n.props.onPress && n.props.accessibilityLabel === 'Try it now',
     );
     await act(async () => row.props.onPress());
     await flush();
@@ -193,7 +193,18 @@ describe('hands-free section', () => {
     expect(out).toContain('Off');
     expect(out).toContain('Nothing is recorded or sent');
     expect(toggle(tree, 'Hey Clovie').props.checked).toBe(false);
-    expect(out).not.toContain('When to listen');
+    // The conditions are always listed; they are dimmed, with the reason, until Hey Clovie is on.
+    expect(out).toContain('When to listen');
+    expect(out).toContain('Only during opening hours');
+    expect(out).toContain('Only while charging');
+    expect(out).toContain('Turn on Hey Clovie to choose when it listens.');
+    expect(
+      tree.root.findAll(
+        (n) =>
+          n.props.accessibilityLabel === 'Only while charging' &&
+          n.props.accessibilityState?.disabled === true,
+      ).length,
+    ).toBeGreaterThan(0);
     expect(mockNative.start).not.toHaveBeenCalled();
   });
 
