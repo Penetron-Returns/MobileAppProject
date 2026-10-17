@@ -11,6 +11,7 @@ import { clerkWebhookRoutes } from './routes/clerk.ts';
 import { cronRoutes } from './routes/cron.ts';
 import { invalidateConnectorCache, nerovaRoutes } from './routes/nerova.ts';
 import { nerovaWebhookRoutes } from './routes/nerovaWebhook.ts';
+import { stripeWebhookRoutes } from './routes/stripeWebhook.ts';
 import { publicRoutes } from './routes/public.ts';
 import { onboardingRoutes } from './routes/v1/onboarding.ts';
 import { v1Routes } from './routes/v1/index.ts';
@@ -71,6 +72,7 @@ export function createApp(options: AppOptions = {}) {
   app.route('/webhooks/clerk', clerkWebhookRoutes);
   app.route('/webhooks/whatsapp', whatsappWebhookRoutes);
   app.route('/webhooks/nerova', nerovaWebhookRoutes);
+  app.route('/webhooks/stripe', stripeWebhookRoutes);
   app.route('/flows/whatsapp', whatsappFlowRoutes);
 
   // Nerova Booking connector (bearer token, MCP over streamable HTTP)

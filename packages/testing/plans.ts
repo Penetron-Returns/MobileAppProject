@@ -64,8 +64,9 @@ export function createMemoryPlanRepository(
     async setNerovaAccountId(businessId, accountId) {
       profileOf(businessId).nerovaAccountId = accountId;
     },
-    async countCompletedJobs(businessId, month, now) {
-      return completedJobs(businessId, month, now).length;
+    async countBookingsCreated(businessId, from, to) {
+      profileOf(businessId);
+      return appointments.filter((a) => a.businessId === businessId && Date.parse(a.createdAt) >= from.getTime() && Date.parse(a.createdAt) < to.getTime()).length;
     },
     async getMonthStats(businessId, month, now): Promise<MonthStats> {
       const zone = profileOf(businessId).timezone;

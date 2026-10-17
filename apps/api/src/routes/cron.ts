@@ -33,6 +33,15 @@ const runStoriesJob: Job = (container, now, query = {}) => {
   return container.stories.runJob(now, { force, ...(businessId ? { businessId } : {}) });
 };
 
+/**
+ * Billing usage sweep (every 30 minutes, migration 20261028000004): resends every booking of the last 34 days that was
+ * not reported to the Stripe meter yet (the inline report after a booking can fail). Stripe dedupes on the identifier.
+ */
+const runBillingUsageJob: Job = async (container, now = container.clock()) => {
+  const { reported, failed, notConfigured } = await container.billing.sweepUnreportedBookings(now);
+  return { reported, failed, not_configured: notConfigured };
+};
+
 export const CRON_JOBS: Record<string, Job> = {
   reminders: runRemindersJob,
   'conversation-expiry': runConversationExpiryJob,
@@ -44,6 +53,7 @@ export const CRON_JOBS: Record<string, Job> = {
   /** Act-then-undo (every minute, migration 20261026000003): sends held client messages once the undo window has passed. */
   'client-notifications': runHeldClientNotificationsJob,
   stories: runStoriesJob,
+  'billing-usage': runBillingUsageJob,
 };
 
 /** Mounted at /cron behind requireCronSecret. GET is also accepted for manual triggering. */

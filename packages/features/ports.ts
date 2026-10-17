@@ -6,6 +6,7 @@
 import type { UUID } from '@booking/types';
 
 export * from './attendance/ports.ts';
+export * from './billing/ports.ts';
 export * from './bookings/ports.ts';
 export * from './plans/ports.ts';
 export * from './team/ports.ts';

@@ -17,6 +17,11 @@ import { createCompanionSettingsService, type CompanionSettingsService } from '@
 import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { createVoiceAskService, type VoiceAskService } from '@booking/companion/nerova/voiceAsk.ts';
 import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
+import { billingConfigFromEnv } from '@booking/features/billing/lib/config.ts';
+import { createBillingService } from '@booking/features/billing/services/billingService.ts';
+import { createSupabaseBillingRepository } from '@booking/features/billing/services/billingRepository.ts';
+import { createStripeHttpClient } from '@booking/features/billing/services/stripeHttpClient.ts';
+import type { BillingService, BillingSummary } from '@booking/features/billing/ports.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
@@ -43,6 +48,8 @@ export interface Container {
   nerovaEvents: AccountEventsPort;
   /** Plan usage, catalogue and report statistics */
   usage: UsageService;
+  /** Stripe Checkout/Portal, the Stripe webhook handler and the subscription summary shown with the plans */
+  billing: BillingService & BillingSummary;
   /** Nerova AI companion: owner chat sessions and outcome counts */
   companion: CompanionService;
   /** Owner-only proxy to Nerova's companion settings (approval policy, undo window) */
@@ -67,10 +74,21 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const nerovaChannel = createNerovaClientChannelFromEnv(env, { entitlements, plans: planRepo });
   const notifications = createNotificationService({ env, db, overrides: { nerovaChannel } });
   const bookingLogger = createLogger({ module: 'booking' });
+  const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
+  const clock = () => new Date();
+  const billing = createBillingService({
+    stripe: env.STRIPE_SECRET_KEY ? createStripeHttpClient({ secretKey: env.STRIPE_SECRET_KEY }) : null,
+    config: billingConfigFromEnv(env),
+    repo: createSupabaseBillingRepository(db),
+    events: nerovaEvents,
+    defer: (task) => runInBackground(task, createLogger({ module: 'billing' }), 'billing_deferred_task_failed'),
+    clock,
+  });
   const booking = createBookingService({
     db,
     notifications,
     appointmentEvents: appointmentEventsFromEnv(env, entitlements),
+    meter: billing,
     defer: (task) => runInBackground(task, bookingLogger, 'appointment_notification_deferred_failed'),
   });
   const attendanceRepo = createSupabaseAttendanceRepository(db);
@@ -84,9 +102,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
       logger: createLogger({ module: 'attendance_push' }),
     }),
   });
-  const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
-  const clock = () => new Date();
-  const usage = createUsageService({ repo: planRepo, clock });
+  const usage = createUsageService({ repo: planRepo, clock, billing });
   const companion = createCompanionService({ nerova: createNerovaClientFromEnv(env), plans: planRepo, embedOrigin: env.NEROVA_EMBED_ORIGIN,
     nativeSessions: env.NEROVA_NATIVE_SESSIONS === 'true',
     nativeAppId: env.NEROVA_APP_ID,
@@ -106,7 +122,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   });
   const stories = createStoriesService({ db, entitlements, clock, voiceEnabled: env.VOICE_CLOUD_STT === 'true' });
   const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
-  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, stories, nerovaChannel, clock };
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, billing, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, stories, nerovaChannel, clock };
 }
 
 let cached: Container | undefined;

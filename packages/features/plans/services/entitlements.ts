@@ -19,7 +19,8 @@ export const FEATURE_KEYS: readonly FeatureKey[] = [
   'reports',
 ];
 
-const isFeatureKey = (value: string): value is FeatureKey => (FEATURE_KEYS as readonly string[]).includes(value);
+const isFeatureKey = (value: string | null): value is FeatureKey =>
+  value !== null && (FEATURE_KEYS as readonly string[]).includes(value);
 
 export function createEntitlementService(deps: { db: Db }): EntitlementService {
   async function getEntitlements(businessId: UUID): Promise<EntitlementsDTO> {

@@ -7,6 +7,7 @@ import type { FeatureKey, PlanKey } from '@booking/types';
  * (a test asserts the two stay identical).
  */
 export const PLAN_FEATURES: Record<PlanKey, FeatureKey[]> = {
+  none: [],
   free: ['whatsapp_menu', 'inbox', 'extensions'],
   starter: ['companion', 'desktop_app', 'extensions', 'assistant_bookings', 'reports'],
   growth: ['companion', 'desktop_app', 'extensions', 'assistant_bookings', 'reports'],
