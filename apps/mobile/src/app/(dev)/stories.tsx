@@ -95,7 +95,7 @@ export default function StoriesDemoScreen() {
             onPress={() => setIsAnimating((v) => !v)}
           >
             <Text className="text-primary">
-              {isAnimating ? 'Stop animating' : 'Animate (loops and blinks)'}
+              {isAnimating ? 'Stop animating' : 'Animate (pose loops)'}
             </Text>
           </Pressable>
           <View className="flex-row flex-wrap gap-x-6 gap-y-8 pt-6">
@@ -105,7 +105,6 @@ export default function StoriesDemoScreen() {
                   emotion={emotion}
                   size={84}
                   isActive={isAnimating}
-                  blink="auto"
                   isSearching={emotion === 'curious'}
                 />
                 <Text>{emotion}</Text>

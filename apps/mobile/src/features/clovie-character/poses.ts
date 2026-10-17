@@ -41,8 +41,6 @@ export interface PoseDef {
   frames: Frame[];
   /** Sleepy dims the image to 74% and desaturates it. */
   isDimmed: boolean;
-  /** Resting eyelid scaleY (sleepy eyes sit half shut). */
-  lidRest: number;
 }
 
 const NO_BASE: PoseBase = { scale: 1, rotate: 0, tx: 0 };
@@ -62,7 +60,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, ty: 0, sx: 1, sy: 1 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   proud: {
     base: { ...NO_BASE, scale: 1.08 },
@@ -76,7 +73,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, ty: 0, sx: 1, sy: 1 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   curious: {
     base: { ...NO_BASE, rotate: -7, tx: -3 },
@@ -88,7 +84,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, rot: 0, ty: 0 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   thoughtful: {
     base: { ...NO_BASE, rotate: -11 },
@@ -101,7 +96,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, rot: 0, tx: 0 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   sympathetic: {
     base: { scale: 0.9, rotate: 7, tx: 4 },
@@ -113,7 +107,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, rot: 0, tx: 0 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   presenter: {
     base: { ...NO_BASE, rotate: 4 },
@@ -126,7 +119,6 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, rot: 0, ty: 0 },
     ],
     isDimmed: false,
-    lidRest: 0,
   },
   sleepy: {
     base: { ...NO_BASE, scale: 0.96 },
@@ -137,9 +129,8 @@ const POSES: Record<ClovieEmotion, PoseDef> = {
       { at: 1, sx: 1, sy: 1 },
     ],
     isDimmed: true,
-    lidRest: 0.5,
   },
-  calm: { base: NO_BASE, loopMs: 0, frames: [], isDimmed: false, lidRest: 0 },
+  calm: { base: NO_BASE, loopMs: 0, frames: [], isDimmed: false },
 };
 
 export function poseFor(emotion: ClovieEmotion): PoseDef {

@@ -57,10 +57,9 @@ describe('emotion to pose', () => {
     ]);
   });
 
-  it('dims and half-closes the eyes only when sleepy', () => {
+  it('dims only when sleepy', () => {
     for (const e of EMOTIONS) {
       expect(poseFor(e).isDimmed).toBe(e === 'sleepy');
-      expect(poseFor(e).lidRest).toBe(e === 'sleepy' ? 0.5 : 0);
     }
   });
 

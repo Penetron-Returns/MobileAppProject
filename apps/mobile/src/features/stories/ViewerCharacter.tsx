@@ -142,7 +142,7 @@ export function ViewerCharacter({
         emotion={emotion}
         size={SIZE}
         isActive
-        blink="auto"
+        isLive
         facing={target.facing}
         isSearching={isSearching}
         isCatching={isCatching}

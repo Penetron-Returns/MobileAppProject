@@ -5,11 +5,11 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
-import { BLINK, EYES, startBlinkLoop, type BlinkClock } from './blink';
+import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+
 import { ClovieProps } from './ClovieProps';
 import { sampleFrames } from './keyframes';
 import {
@@ -19,51 +19,41 @@ import {
   propsFor,
   type ClovieEmotion,
 } from './poses';
+import { liveStateFor } from './liveState';
 import { useLoop } from './useLoop';
 
 /** The character is drawn on an 84 pt box and scaled to `size`. */
 const DESIGN = 84;
-const BLINK_EASE = Easing.inOut(Easing.ease);
-
-export type BlinkMode = 'auto' | 'event' | 'off';
-
-export interface ClovieCharacterHandle {
-  /** One blink now. A no-op when blinking is off or Reduce Motion is on. */
-  blinkOnce: () => void;
-}
 
 export interface ClovieCharacterProps {
   emotion: ClovieEmotion;
   /** Layout size in pt. Props spill outside it, so do not clip the parent. */
   size?: number;
-  /** Loops (pose, props, auto blinks) run only while true. At rest nothing animates. */
+  /** Pose and prop loops run only while true. At rest nothing animates. */
   isActive?: boolean;
-  /** `auto`: randomised timer while active. `event`: only `blinkOnce()`. `off`: never. */
-  blink?: BlinkMode;
+  /**
+   * Draws the real companion (live canvas, its own blinking eyes) instead of
+   * the still PNG, but only while also `isActive` and Reduce Motion is off.
+   * It costs a WebView, so pass it for the ONE Clovie that must look alive.
+   */
+  isLive?: boolean;
   /** Curious only: shows the magnifier. */
   isSearching?: boolean;
   /** Delighted only: stars fall into his hands. */
   isCatching?: boolean;
   /** 1 faces right, -1 is mirrored. */
   facing?: 1 | -1;
-  ref?: React.Ref<ClovieCharacterHandle>;
   testID?: string;
 }
-
-const REAL_CLOCK: BlinkClock = {
-  setTimer: (fn, ms) => setTimeout(fn, ms),
-  clearTimer: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
-};
 
 export function ClovieCharacter({
   emotion,
   size = DESIGN,
   isActive = false,
-  blink = 'event',
+  isLive = false,
   isSearching = false,
   isCatching = false,
   facing = 1,
-  ref,
   testID,
 }: ClovieCharacterProps) {
   const { isDark } = useAppColorScheme();
@@ -71,6 +61,7 @@ export function ClovieCharacter({
   const pose = poseFor(emotion);
   const compiled = compiledPose(emotion);
   const isRunning = isActive && !isReduced;
+  const isShowingLive = isLive && isRunning;
 
   const phase = useLoop(pose.loopMs, isRunning && pose.loopMs > 0);
   const poseStyle = useAnimatedStyle(() => {
@@ -102,50 +93,6 @@ export function ClovieCharacter({
     transform: [{ scaleX: flip.value }],
   }));
 
-  // Eyelids: two body-colour ovals, scaleY from the top.
-  const lid = useSharedValue(pose.lidRest);
-  const isSleepy = emotion === 'sleepy';
-  const doBlink = React.useCallback(() => {
-    if (isSleepy) {
-      lid.value = withSequence(
-        withTiming(1, { duration: BLINK.sleepyCloseMs, easing: BLINK_EASE }),
-        withTiming(1, { duration: BLINK.sleepyHoldMs }),
-        withTiming(0.5, { duration: BLINK.sleepyOpenMs, easing: BLINK_EASE }),
-      );
-      return;
-    }
-    lid.value = withSequence(
-      withTiming(1, { duration: BLINK.closeMs, easing: BLINK_EASE }),
-      withTiming(0, { duration: BLINK.openMs, easing: BLINK_EASE }),
-    );
-  }, [isSleepy, lid]);
-
-  React.useEffect(() => {
-    lid.value = pose.lidRest;
-  }, [lid, pose.lidRest]);
-
-  const canBlink = blink !== 'off' && !isReduced;
-  React.useImperativeHandle(
-    ref,
-    () => ({ blinkOnce: () => (canBlink ? doBlink() : undefined) }),
-    [canBlink, doBlink],
-  );
-
-  const isAutoBlinking = blink === 'auto' && isActive && !isReduced;
-  React.useEffect(() => {
-    if (!isAutoBlinking) return;
-    return startBlinkLoop({
-      random: Math.random,
-      clock: REAL_CLOCK,
-      isSleepy: () => isSleepy,
-      onBlink: doBlink,
-    });
-  }, [isAutoBlinking, isSleepy, doBlink]);
-
-  const lidStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: lid.value }],
-  }));
-
   const kinds = propsFor(emotion, { isSearching, isCatching });
   const scale = size / DESIGN;
   return (
@@ -161,18 +108,24 @@ export function ClovieCharacter({
         <Animated.View style={[styles.poseBox, poseStyle]}>
           <Animated.View style={flipStyle}>
             <View style={pose.isDimmed ? styles.dimmed : undefined}>
-              <Image
-                source={
-                  isDark
-                    ? require('@/assets/images/companion-default-dark.png')
-                    : require('@/assets/images/companion-default.png')
-                }
-                resizeMode="contain"
-                fadeDuration={0}
-                style={styles.image}
-              />
-              <Animated.View style={[styles.lid, styles.lidLeft, lidStyle]} />
-              <Animated.View style={[styles.lid, styles.lidRight, lidStyle]} />
+              {isShowingLive ? (
+                <ClovieAnimated
+                  size={DESIGN}
+                  state={liveStateFor(emotion)}
+                  isAlwaysLive
+                />
+              ) : (
+                <Image
+                  source={
+                    isDark
+                      ? require('@/assets/images/companion-default-dark.png')
+                      : require('@/assets/images/companion-default.png')
+                  }
+                  resizeMode="contain"
+                  fadeDuration={0}
+                  style={styles.image}
+                />
+              )}
             </View>
           </Animated.View>
           <ClovieProps kinds={kinds} isRunning={isRunning} facing={facing} />
@@ -181,12 +134,6 @@ export function ClovieCharacter({
     </View>
   );
 }
-
-const lidBase = {
-  top: `${EYES.y - EYES.h / 2}%`,
-  width: `${EYES.w}%`,
-  height: `${EYES.h}%`,
-} as const;
 
 const styles = StyleSheet.create({
   box: {
@@ -211,22 +158,4 @@ const styles = StyleSheet.create({
   },
   image: { width: DESIGN, height: DESIGN },
   dimmed: { filter: [{ brightness: 0.74 }, { saturate: 0.75 }] },
-  lid: {
-    position: 'absolute',
-    ...lidBase,
-    borderRadius: 999,
-    backgroundColor: EYES.lidColor,
-    boxShadow: [
-      {
-        offsetX: 0,
-        offsetY: 0,
-        blurRadius: 3,
-        spreadDistance: 1,
-        color: EYES.lidColor,
-      },
-    ],
-    transformOrigin: '50% 0%',
-  },
-  lidLeft: { left: `${EYES.leftX - EYES.w / 2}%` },
-  lidRight: { left: `${EYES.rightX - EYES.w / 2}%` },
 });
