@@ -12,6 +12,7 @@ import { Buffer } from 'node:buffer';
 
 import type { AppointmentDTO, UUID } from '@booking/types';
 import { upsertClient } from '@booking/features/clients/services/clients.ts';
+import type { ClientRow } from '@booking/features/repositories/rows.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { tryNormalizePhone } from '@booking/features/lib/phone.ts';
@@ -269,7 +270,13 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     const ranked = name ? rankClientsByName(name, byName) : [];
     const found = [byPhone, byEmail, ...ranked].filter((c): c is NonNullable<typeof c> => c !== null);
     const unique = found.filter((c, i) => found.findIndex((other) => other.id === c.id) === i);
-    return { data: unique.slice(0, args.limit ?? DEFAULT_CLIENT_LIMIT).map(toClient) };
+    return { data: await toClientsWithVisits(businessId, unique.slice(0, args.limit ?? DEFAULT_CLIENT_LIMIT)) };
+  }
+
+  /** Contract clients with lastVisitAt from completed past appointments: one batched query for all of them. */
+  async function toClientsWithVisits(businessId: UUID, clients: Pick<ClientRow, 'id' | 'name' | 'phone_e164' | 'email'>[]) {
+    const visits = await repo.lastCompletedVisitByClient(businessId, clients.map((c) => c.id), deps.clock().toISOString());
+    return clients.map((c) => toClient(c, visits[c.id]));
   }
 
   /**
@@ -285,10 +292,10 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     if (phone && (await repo.findClientByPhone(businessId, phone))) {
       const row = await upsertClient(repo, businessId, { phone, name: args.name.trim(), email }, { onlyFillBlank: true });
-      return toClient(row);
+      return (await toClientsWithVisits(businessId, [row]))[0]!;
     }
     const byEmail = email ? await repo.findClientByEmail(businessId, email) : null;
-    if (byEmail) return toClient(byEmail);
+    if (byEmail) return (await toClientsWithVisits(businessId, [byEmail]))[0]!;
     if (!phone) throw invalidRequest('phone is required to create a new client');
     return toClient(await upsertClient(repo, businessId, { phone, name: args.name.trim(), email }, { onlyFillBlank: true }));
   }

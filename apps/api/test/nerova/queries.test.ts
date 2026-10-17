@@ -101,6 +101,26 @@ describe('client lookups (Supabase)', () => {
   });
 });
 
+describe('lastCompletedVisitByClient (Supabase)', () => {
+  it('reads completed past visits for the clients in one business-scoped query and keeps the newest per client', async () => {
+    const { db, requests } = fakeDb(() => [
+      { client_id: 'c1', starts_at: '2026-09-20T08:00:00+00:00' },
+      { client_id: 'c2', starts_at: '2026-09-10T08:00:00+00:00' },
+      { client_id: 'c1', starts_at: '2026-08-01T08:00:00+00:00' },
+    ]);
+    const repo = createSupabaseRepository(db);
+    expect(await repo.lastCompletedVisitByClient(BIZ, [], 'x')).toEqual({});
+    expect(requests).toHaveLength(0);
+    const out = await repo.lastCompletedVisitByClient(BIZ, ['c1', 'c2'], '2026-09-28T06:00:00.000Z');
+    expect(out).toEqual({ c1: '2026-09-20T08:00:00+00:00', c2: '2026-09-10T08:00:00+00:00' });
+    expect(requests).toHaveLength(1);
+    const p = requests[0]!.params;
+    expect([p.get('business_id'), p.get('client_id'), p.get('status'), p.get('starts_at'), p.get('order')]).toEqual([
+      `eq.${BIZ}`, 'in.(c1,c2)', 'eq.completed', 'lt.2026-09-28T06:00:00.000Z', 'starts_at.desc',
+    ]);
+  });
+});
+
 describe('listBusinessIdsWithFeature', () => {
   it('finds the plans that carry the feature, then businesses on them after the cursor', async () => {
     const { db, requests } = fakeDb((req) =>

@@ -73,14 +73,14 @@ export function toStaff(staff: StaffRow, serviceIds: string[]) {
   return { externalStaffId: staff.id, name: staff.name, externalServiceIds: serviceIds };
 }
 
-/** Nerova client: lastVisitAt is clients.last_seen_at, which every booking bumps (upsert_client_by_phone). */
-export function toClient(client: Pick<ClientRow, 'id' | 'name' | 'phone_e164' | 'email' | 'last_seen_at'>) {
+/** Nerova client. lastVisitAt is the start of the latest completed past appointment (not clients.last_seen_at). */
+export function toClient(client: Pick<ClientRow, 'id' | 'name' | 'phone_e164' | 'email'>, lastVisitAt?: string) {
   return {
     externalClientId: client.id,
     name: client.name || client.phone_e164,
     ...(client.phone_e164 ? { phone: client.phone_e164 } : {}),
     ...(client.email ? { email: client.email } : {}),
-    ...(client.last_seen_at ? { lastVisitAt: new Date(client.last_seen_at).toISOString() } : {}),
+    ...(lastVisitAt ? { lastVisitAt: new Date(lastVisitAt).toISOString() } : {}),
   };
 }
 
