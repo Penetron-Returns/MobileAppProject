@@ -1,13 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import type { StoryKind } from './model';
 import { KIND_GLYPHS } from './tones';
-
-/** A 128 px render of the companion (the tile shows him at ~46 pt), not the 360 px logo art. */
-const NEUTRAL_CLOVIE = require('@/assets/images/clovie/neutral-128.png');
 
 interface KindTileProps {
   kind: StoryKind;
@@ -16,7 +13,7 @@ interface KindTileProps {
   isDark: boolean;
 }
 
-/** The round tile inside a story bubble: Clovie for the brief, a glyph for the rest. */
+/** The round tile inside a story bubble: a line glyph per kind. */
 export function KindTile({ kind, size, isDark }: KindTileProps) {
   const g = KIND_GLYPHS[kind];
   const palette = isDark ? g.dark : g.light;
@@ -29,35 +26,25 @@ export function KindTile({ kind, size, isDark }: KindTileProps) {
       ]}
     >
       <LinearGradient colors={palette.tile} style={StyleSheet.absoluteFill} />
-      {g.isImage ? (
-        <Image
-          source={NEUTRAL_CLOVIE}
-          resizeMode="contain"
-          resizeMethod="resize"
-          fadeDuration={0}
-          style={{ width: size * 0.72, height: size * 0.72 }}
+      <Svg width={glyph} height={glyph} viewBox="0 0 24 24">
+        <Path d={g.shape} fill={palette.ink} fillOpacity={0.2} />
+        <Path
+          d={g.line}
+          fill="none"
+          stroke={palette.ink}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-      ) : (
-        <Svg width={glyph} height={glyph} viewBox="0 0 24 24">
-          <Path d={g.shape} fill={palette.ink} fillOpacity={0.2} />
-          <Path
-            d={g.line}
-            fill="none"
-            stroke={palette.ink}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <Path
-            d={g.shape}
-            fill="none"
-            stroke={palette.ink}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      )}
+        <Path
+          d={g.shape}
+          fill="none"
+          stroke={palette.ink}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
     </View>
   );
 }

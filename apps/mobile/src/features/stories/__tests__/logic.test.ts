@@ -119,9 +119,11 @@ describe('tone palettes', () => {
     expect(glowStops('positive').first.alpha).toBe(0.36);
   });
 
-  it('gives the brief the Clovie image and the others a glyph', () => {
-    expect(KIND_GLYPHS.brief.isImage).toBe(true);
-    expect(KIND_GLYPHS.clients.isImage).toBe(false);
+  it('gives every kind, the brief included, a drawn glyph', () => {
+    for (const g of Object.values(KIND_GLYPHS)) {
+      expect(g.shape).not.toBe('M0 0');
+      expect(g.line).not.toBe('M0 0');
+    }
   });
 });
 

@@ -62,25 +62,21 @@ export function glowStops(tone: StoryTone) {
 }
 
 export interface KindGlyph {
-  /** Brief uses the Clovie image instead of a glyph. */
-  isImage: boolean;
   shape: string;
   line: string;
   light: { tile: [string, string]; ink: string };
   dark: { tile: [string, string]; ink: string };
 }
 
-const NONE = 'M0 0';
 export const KIND_GLYPHS: Record<StoryKind, KindGlyph> = {
   brief: {
-    isImage: true,
-    shape: NONE,
-    line: NONE,
+    // lucide "sunrise": the half sun is the filled shape, the rays and horizon the line.
+    shape: 'M16 18a4 4 0 0 0-8 0z',
+    line: 'M12 2v8 M4.93 10.93l1.41 1.41 M2 18h2 M20 18h2 M19.07 10.93l-1.41 1.41 M22 22H2 M8 6l4-4 4 4',
     light: { tile: ['#EAF6FC', '#D2EBF8'], ink: '#1078AF' },
     dark: { tile: ['#1F3E4D', '#16303D'], ink: '#9DD9F5' },
   },
   clients: {
-    isImage: false,
     shape:
       'M9 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7z M2.5 20c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5z',
     line: 'M16 4.4a3.5 3.5 0 0 1 0 6.2 M18.2 14.9c1.9.7 3.3 2.3 3.3 5.1',
@@ -88,16 +84,14 @@ export const KIND_GLYPHS: Record<StoryKind, KindGlyph> = {
     dark: { tile: ['#1D3A4F', '#142B3B'], ink: '#9DD9F5' },
   },
   business: {
-    isImage: false,
-    shape: 'M4 20v-6h4v6z M10 20V6h4v14z M16 20v-9h4v9z',
-    line: 'M3 20.5h18',
+    shape: 'M4 18.75v-6h4v6z M10 18.75V4.75h4v14z M16 18.75v-9h4v9z',
+    line: 'M3 19.25h18',
     light: { tile: ['#E1F7F5', '#C7EEEB'], ink: '#0B7F7A' },
     dark: { tile: ['#1A3D3D', '#122E2F'], ink: '#5ECFC9' },
   },
   product: {
-    isImage: false,
-    shape: 'M11 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z',
-    line: 'M19.5 15v4 M17.5 17h4',
+    shape: 'M11 4l2 6 6 2-6 2-2 6-2-6-6-2 6-2z',
+    line: 'M19.5 16v4 M17.5 18h4',
     light: { tile: ['#E8F0FB', '#D2E1F5'], ink: '#1078AF' },
     dark: { tile: ['#203A52', '#172B3F'], ink: '#9DD9F5' },
   },
