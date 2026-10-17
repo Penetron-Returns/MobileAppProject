@@ -1130,6 +1130,78 @@ export type Database = {
         }
         Relationships: []
       }
+      product_update_views: {
+        Row: {
+          update_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          update_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          update_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_update_views_update_id_fkey"
+            columns: ["update_id"]
+            isOneToOne: false
+            referencedRelation: "product_updates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_update_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_updates: {
+        Row: {
+          action: Json | null
+          body: string
+          created_at: string
+          demo: string | null
+          id: string
+          released_at: string
+          status: string
+          tags: Json
+          title: string
+          tone: string
+        }
+        Insert: {
+          action?: Json | null
+          body: string
+          created_at?: string
+          demo?: string | null
+          id: string
+          released_at: string
+          status?: string
+          tags?: Json
+          title: string
+          tone?: string
+        }
+        Update: {
+          action?: Json | null
+          body?: string
+          created_at?: string
+          demo?: string | null
+          id?: string
+          released_at?: string
+          status?: string
+          tags?: Json
+          title?: string
+          tone?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           business_id: string
@@ -1397,6 +1469,138 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      stories: {
+        Row: {
+          business_id: string
+          cards: Json
+          expires_at: string
+          generated_at: string
+          id: string
+          kind: string
+          period_key: string
+          tone: string
+        }
+        Insert: {
+          business_id: string
+          cards: Json
+          expires_at: string
+          generated_at?: string
+          id?: string
+          kind: string
+          period_key: string
+          tone: string
+        }
+        Update: {
+          business_id?: string
+          cards?: Json
+          expires_at?: string
+          generated_at?: string
+          id?: string
+          kind?: string
+          period_key?: string
+          tone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stories_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_events: {
+        Row: {
+          at: string
+          business_id: string
+          card_index: number
+          event: string
+          id: string
+          story_id: string | null
+          story_kind: string
+          user_id: string
+        }
+        Insert: {
+          at?: string
+          business_id: string
+          card_index?: number
+          event: string
+          id?: string
+          story_id?: string | null
+          story_kind: string
+          user_id: string
+        }
+        Update: {
+          at?: string
+          business_id?: string
+          card_index?: number
+          event?: string
+          id?: string
+          story_id?: string | null
+          story_kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_events_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_events_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_views: {
+        Row: {
+          last_card_index: number
+          story_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          last_card_index?: number
+          story_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          last_card_index?: number
+          story_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }

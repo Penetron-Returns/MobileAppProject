@@ -48,3 +48,29 @@ Selection per person:
 5. The person has not seen it yet.
 
 Show at most 3 cards, newest first.
+
+## Implementation notes
+
+Code: `packages/features/stories/` (aggregators, `lib/schedule.ts`, job, repositories, `strings.ts`), routes in `apps/api/src/routes/v1/stories.ts`, job `/cron/stories` (every 15 minutes, migration `20261027000003`), tables in migrations `20261027000001` (stories) and `20261027000002` (product updates, seeded). Contract: `docs/BUILD_PLAN.md` (Stories).
+
+### Definitions
+
+- **Period of Client updates and the Business update:** the last 7 days, `(now - 7d, now]`, against the 7 days before. A Monday run therefore reports the week just finished. The story's key is the ISO week it was generated in (`2026-W42`). The month-end Business update compares the calendar month so far with the whole previous month (key `2026-10`); when a Monday is also the last day of the month, the month-end one is built.
+- **Brief:** appointments starting on the business-local day of `now`, not cancelled. Revenue is confirmed plus completed bookings at the service price in integer cents (shown as `R2,450`). The busiest window is the 2-hour block, anchored on the hour of a booking start, with the most bookings (earliest on a tie); it needs 2 or more bookings.
+- **Not returned (lapsed):** last completed visit more than 6 weeks before the instant, and no non-cancelled booking made by then for after it. The count now is compared with the count 30 days ago, evaluated at that instant (only visits and bookings that existed then). Attention when it rose. History is read for 365 days.
+- **Came back:** a completed visit in the period at least 5 weeks after that client's previous completed visit.
+- **Feedback card:** omitted. The hook is `buildFeedbackCard` in `aggregators/clients.ts`.
+- **Story tone:** the highest severity of its cards (concern, attention, neutral, positive), except that when its worst card is only attention and more than half of the cards are positive the story is neutral. A concern card always wins.
+- **Card emotion:** positive is proud or delighted (alternating by position), neutral curious, attention thoughtful, concern sympathetic, product updates presenter.
+
+### Generation
+
+- Brief: created in the 30 minutes before the earliest `business_hours.opens_at` of the local weekday (a closed day has none; special days are not consulted). Client updates: Mondays. Business update: Mondays and the last day of the month.
+- An existing Brief or Client updates story is regenerated when older than 15 minutes, and only written when its tone or cards changed (the story id and everyone's viewed state stay). A story that becomes empty is deleted. A story is never created outside its slot, so a Brief that was empty at opening is not created later in the day.
+- Brief expires at the end of the local day, the others 8 days after the day they were built. `GET /v1/stories` serves the newest unexpired story per kind.
+
+### API behaviour to know
+
+- Product updates are filtered per caller: approved, released, plan, role, platform, setup flags, `minAppVersion` (numeric semver compare; hidden when the app sends no version) and not seen. At most 3, newest first. Setup: `companion` is the plan feature; `act_then_undo` is treated as available with `companion` (the approval policy lives at Nerova and is not read here); `voice` follows `VOICE_CLOUD_STT`. Because seen entries are dropped, `productUpdates.viewed` is false whenever there are cards.
+- Product update cards carry `demo` (the client-side demo id) in addition to the shared card shape.
+- The `Idempotency-Key` rule applies to the three POST routes. Analytics events carry ids, a kind, a card index and an event name only (strict schema), so no personal data can be sent.

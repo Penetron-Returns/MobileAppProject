@@ -21,6 +21,8 @@ import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createNotificationService } from '@booking/app-store/whatsapp/notifications/index.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
 import { createEntitlementService } from '@booking/features/plans/services/entitlements.ts';
+import { createStoriesService } from '@booking/features/stories/index.ts';
+import type { StoriesService } from '@booking/features/stories/ports.ts';
 import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
 import { createSupabaseDeviceTokenRepository } from '@booking/features/voice/repository.ts';
 import type { DeviceTokenService } from '@booking/features/voice/ports.ts';
@@ -51,6 +53,8 @@ export interface Container {
   clerkAdmin: ClerkAdmin;
   /** Scoped long-lived credential for the voice upload and attendance answer while the app is backgrounded */
   voiceTokens: DeviceTokenService;
+  /** Clovie stories (Brief, Client updates, Business update, product updates) and their cron job */
+  stories: StoriesService;
   /** Client messages for businesses whose WhatsApp number is on Nerova (reminders are Nerova's there) */
   nerovaChannel?: NerovaClientChannel;
   /** Injected clock for connector-level "now" (tests pin it) */
@@ -100,8 +104,9 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     clock,
     defer: (task) => runInBackground(task, createLogger({ module: 'voice_tokens' }), 'voice_token_touch_failed'),
   });
+  const stories = createStoriesService({ db, entitlements, clock, voiceEnabled: env.VOICE_CLOUD_STT === 'true' });
   const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
-  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, nerovaChannel, clock };
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, stories, nerovaChannel, clock };
 }
 
 let cached: Container | undefined;
