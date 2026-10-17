@@ -5,6 +5,7 @@ import {
   type AppointmentContext,
   type CompanionSheetHandle,
   type CompanionTransport,
+  type SetupStep,
   useCompanion,
 } from '@nerova/react-native';
 import Constants from 'expo-constants';
@@ -18,6 +19,7 @@ import { companionSdkEnabled, nerovaApi } from '@/lib/env';
 
 import { buildCompanionAppearance } from './companionAppearance';
 import { CompanionLiveBridge } from './CompanionLiveBridge';
+import { reportSetupStep } from './companionSetupStore';
 import { CompanionLiveProvider, type CompanionLive } from './companionLive';
 import {
   CompanionSheetControlProvider,
@@ -37,6 +39,18 @@ export const WHATSAPP_RETURN_URL = `${APP_SCHEME}://companion/whatsapp-return`;
 interface SheetHandle {
   open: (options?: OpenCompanionOptions) => void;
   close: () => void;
+  openSetup: (step: SetupStep) => void;
+}
+
+type GoToSetup = (step: SetupStep) => Promise<void>;
+
+/** Renders nothing: hands the SDK's setup navigation to the shell, which owns the sheet. */
+function SetupBridge({ onReady }: { onReady: (goTo: GoToSetup) => void }) {
+  const { setup } = useCompanion();
+  const goTo = React.useRef(setup.goTo);
+  goTo.current = setup.goTo;
+  React.useEffect(() => onReady((step) => goTo.current(step)), [onReady]);
+  return null;
 }
 
 /** Reports whether the SDK can serve the sheet (`unavailable`: account not ready, outage). */
@@ -79,6 +93,10 @@ const SdkShell = React.forwardRef<
   const insets = React.useMemo(() => ({ top, bottom }), [top, bottom]);
   const sheetRef = React.useRef<CompanionSheetHandle>(null);
   const [context, setContext] = React.useState<AppointmentContext | null>(null);
+  const goToSetup = React.useRef<GoToSetup | null>(null);
+  const registerGoTo = React.useCallback((goTo: GoToSetup) => {
+    goToSetup.current = goTo;
+  }, []);
 
   React.useImperativeHandle(
     ref,
@@ -89,6 +107,10 @@ const SdkShell = React.forwardRef<
         sheetRef.current?.open('half');
       },
       close: () => sheetRef.current?.close(),
+      openSetup: (step) => {
+        void goToSetup.current?.(step);
+        sheetRef.current?.open('half');
+      },
     }),
     [],
   );
@@ -98,12 +120,14 @@ const SdkShell = React.forwardRef<
       sessionProvider={sessionProvider}
       api={nerovaApi}
       whatsAppReturnUrl={WHATSAPP_RETURN_URL}
+      onSetupStep={reportSetupStep}
       appearance={appearance}
       labels={labels}
       transport={transport}
     >
       <StatusBridge onChange={onFailedChange} />
       <CompanionLiveBridge onChange={onLiveChange} />
+      <SetupBridge onReady={registerGoTo} />
       {children}
       <View
         testID="companion-sdk-layer"
@@ -146,6 +170,7 @@ function EnabledHost({
       hasFailed: isEntitled && hasFailed,
       open: (options) => sheetRef.current?.open(options),
       close: () => sheetRef.current?.close(),
+      openSetup: (step) => sheetRef.current?.openSetup(step),
     }),
     [isEntitled, hasFailed],
   );

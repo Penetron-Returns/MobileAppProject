@@ -22,7 +22,13 @@ const open = jest.fn();
 function mountRoute() {
   return mount(
     <CompanionSheetControlProvider
-      value={{ isAvailable: true, hasFailed: false, open, close: jest.fn() }}
+      value={{
+        isAvailable: true,
+        hasFailed: false,
+        open,
+        close: jest.fn(),
+        openSetup: jest.fn(),
+      }}
     >
       <CompanionSdkRoute />
     </CompanionSheetControlProvider>,
