@@ -325,3 +325,50 @@ describe('provisioningStatus', () => {
     expect(provisioningStatus(input)).toBe(expected);
   });
 });
+
+describe('a signed-in user with a business never sees onboarding', () => {
+  const route = (extra: Partial<AppRouteInput>) =>
+    resolveAppRoute({ ...base, ...extra }).kind;
+
+  it.each([
+    ['an owner with a paid plan', {}, 'tabs'],
+    [
+      'an owner whose org is cached but not yet active',
+      { activeOrgId: null, membershipOrgIds: ['org_1'] },
+      'activate-org',
+    ],
+    [
+      'an owner with no plan yet (picks one, answers no questions)',
+      { billing: { ...paidOwner, plan: 'none', hasCompanion: false } },
+      'choose-plan',
+    ],
+    [
+      'staff of a business with no plan',
+      {
+        billing: {
+          ...paidOwner,
+          plan: 'none',
+          hasCompanion: false,
+          role: 'staff',
+        },
+      },
+      'inactive-business',
+    ],
+    ['an owner while /v1/me loads', { me: 'loading', billing: null }, 'splash'],
+  ] as [string, Partial<AppRouteInput>, AppRoute['kind']][])(
+    '%s',
+    (_label, extra, expected) => {
+      expect(route(extra)).toBe(expected);
+    },
+  );
+
+  it('only a user with no organisation at all is sent to onboarding', () => {
+    expect(
+      route({
+        ...noOrg,
+        membershipsStatus: 'ready',
+        invitations: { status: 'ready', count: 0 },
+      }),
+    ).toBe('onboarding');
+  });
+});

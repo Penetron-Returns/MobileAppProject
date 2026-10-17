@@ -1,6 +1,7 @@
 import { useClerk } from '@clerk/expo';
 import * as React from 'react';
 
+import { analytics } from '@/features/analytics';
 import { unregisterPushToken } from '@/features/notifications/pushDevice';
 import { clearDeviceTokenOnSignOut } from '@/features/voice/deviceToken';
 import { queryClient } from '@/lib/query';
@@ -26,5 +27,6 @@ export function useSignOut(): () => Promise<void> {
       return;
     }
     queryClient.clear();
+    analytics.reset();
   }, [signOut]);
 }
