@@ -1,6 +1,5 @@
 import {
   CollapsingBar,
-  Ground,
   INBOX_DOME_CLEARANCE,
   NAV_ROW_HEIGHT,
   SearchField,
@@ -223,7 +222,13 @@ export function PhoneBookList({
   );
 
   return (
-    <Ground className="flex-1">
+    // A flat page, not the Ground gradient: the pinned letter header needs an
+    // opaque fill, and only a flat page lets it match exactly (a gradient shows
+    // as grey bands per section).
+    <View
+      className="flex-1"
+      style={{ backgroundColor: depth.ground.backgroundColor }}
+    >
       <SectionList
         ref={list}
         sections={listSections}
@@ -287,7 +292,7 @@ export function PhoneBookList({
         ]}
       />
       <CollapsingBar title={title} height={barHeight} style={barStyle} />
-    </Ground>
+    </View>
   );
 }
 
@@ -320,7 +325,13 @@ const SectionHeader = React.memo(function SectionHeader({
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: depth.colors.stickyHeader },
+          {
+            // iOS blurs behind a translucent fill; elsewhere the page colour, opaque.
+            backgroundColor:
+              Platform.OS === 'ios'
+                ? depth.colors.stickyHeader
+                : depth.ground.backgroundColor,
+          },
         ]}
       />
       <Text
