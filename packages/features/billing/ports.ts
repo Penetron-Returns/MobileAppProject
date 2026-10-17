@@ -117,11 +117,26 @@ export interface BillingRepository {
   setBusinessPlan(businessId: UUID, plan: PlanKey): Promise<void>;
 }
 
+/** One audit_log entry. Ids, plans and statuses only: never a name, email or card detail. */
+export interface BillingAuditEntry {
+  businessId: UUID;
+  /** The owner's user id, or '' for Stripe (recorded as the system actor) */
+  actorId: string;
+  action: 'insert' | 'update';
+  entity: 'billing_checkout' | 'billing_subscription';
+  entityId: string;
+  diff: Record<string, unknown>;
+}
+
+export interface BillingAudit {
+  record(entry: BillingAuditEntry): Promise<void>;
+}
+
 /** Owner-facing billing use cases and the webhook handler. */
 export interface BillingService {
-  createCheckout(input: { businessId: UUID; plan: PaidPlan; idempotencyKey: string }): Promise<CheckoutSessionDTO>;
+  createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<CheckoutSessionDTO>;
   /** Moves an existing subscription to another paid plan (portal cannot: multi-item metered subscriptions) */
-  changePlan(input: { businessId: UUID; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO>;
+  changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO>;
   createPortal(businessId: UUID): Promise<PortalSessionDTO>;
   /** Applies one verified Stripe event. Throws on a transient failure so Stripe retries. */
   handleEvent(event: StripeEvent): Promise<BillingEventOutcome>;

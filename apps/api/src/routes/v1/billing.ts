@@ -25,6 +25,7 @@ billingRoutes.post('/billing/checkout', requireOwner, async (c) => {
   const { plan } = await parseJson(c, CheckoutSchema);
   const checkout = await c.get('container').billing.createCheckout({
     businessId: c.get('auth').businessId,
+    actorId: c.get('auth').userId,
     plan,
     idempotencyKey: c.req.header('Idempotency-Key') ?? '',
   });
@@ -35,6 +36,7 @@ billingRoutes.post('/billing/plan', requireOwner, async (c) => {
   const { plan } = await parseJson(c, CheckoutSchema);
   const subscription = await c.get('container').billing.changePlan({
     businessId: c.get('auth').businessId,
+    actorId: c.get('auth').userId,
     plan,
     idempotencyKey: c.req.header('Idempotency-Key') ?? '',
   });

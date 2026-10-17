@@ -83,6 +83,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     repo: createSupabaseBillingRepository(db),
     events: nerovaEvents,
     clerk: clerkAdmin,
+    audit: { record: (entry) => getBookingRepository({ db }).recordAudit(entry) },
     defer: (task) => runInBackground(task, createLogger({ module: 'billing' }), 'billing_deferred_task_failed'),
     clock,
   });
