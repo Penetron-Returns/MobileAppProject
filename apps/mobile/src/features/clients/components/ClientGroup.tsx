@@ -20,8 +20,6 @@ export const ROW_HEIGHT = 70;
 const MAX_FONT_SCALE = 1.1;
 /** Board margins: 20pt left, 36pt right (clear of the index strip). Inline styles: the right-side spacing classes were dropped on Android. */
 export const GROUP_MARGIN = { marginLeft: 20, marginRight: 36 } as const;
-/** The Clients cards sit flat: no drop shadow, fill and radius kept. Applied here only, not to the shared raised depth. */
-export const FLAT_CARD = { boxShadow: [] } as const;
 
 interface ClientGroupProps {
   rows: BookRow[];
@@ -39,7 +37,7 @@ export const ClientGroup = React.memo(function ClientGroup({
     <View className="pb-2.5">
       <Surface
         variant="raised"
-        style={[GROUP_MARGIN, FLAT_CARD]}
+        style={GROUP_MARGIN}
         className="overflow-hidden"
       >
         {rows.map((row, index) => (

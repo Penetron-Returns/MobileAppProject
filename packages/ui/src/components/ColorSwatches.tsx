@@ -18,10 +18,7 @@ export interface ColorSwatchesProps {
   labelFor: (key: SystemColorKey) => string;
 }
 
-const SWATCH_SHADOW =
-  'inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.1), 0 1px 2px rgba(16,24,40,0.2)';
-
-/** The eight system colours as lit 34pt domes, the picked one ticked. */
+/** The eight system colours as flat 34pt discs, the picked one ticked. */
 export function ColorSwatches({
   value,
   onChange,
@@ -43,7 +40,6 @@ export function ColorSwatches({
             style={{
               ...depth.dome,
               backgroundColor: SYSTEM_COLORS[key][depth.scheme],
-              boxShadow: SWATCH_SHADOW,
               borderRadius: 17,
             }}
             className="h-[34px] w-[34px] items-center justify-center"

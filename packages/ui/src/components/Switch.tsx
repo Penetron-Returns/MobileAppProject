@@ -17,10 +17,6 @@ const KNOB = 27;
 const KNOB_OFF = 2;
 const KNOB_ON = 22;
 
-const ON_GRADIENT = 'linear-gradient(180deg, #3BD16F 0%, #2DB45B 100%)';
-const ON_SHADOW =
-  'inset 0 1px 2px rgba(0,0,0,0.25), inset 0 0 0 0.5px rgba(0,0,0,0.08)';
-
 export interface SwitchProps {
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
@@ -84,8 +80,6 @@ export function Switch({
             height: TRACK_H,
             borderRadius: 16,
             backgroundColor: depth.colors.success,
-            experimental_backgroundImage: ON_GRADIENT,
-            boxShadow: ON_SHADOW,
           },
           fillStyle,
         ]}

@@ -141,9 +141,9 @@ describe('Button', () => {
       },
     );
 
-    it('draws the pressed inset shadow together with that radius', () => {
+    it('draws the pressed fill together with that radius', () => {
       const style = styleAt({ variant: 'neutral' }, true);
-      expect(String(style.boxShadow)).toContain('inset');
+      expect(style.backgroundColor).toBeDefined();
       expect(style.borderRadius).toBe(BUTTON_RADIUS.default);
     });
   });

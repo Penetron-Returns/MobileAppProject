@@ -114,7 +114,6 @@ export function InAppVoiceDrawer({ state, levels, actions, now }: DrawerProps) {
                 height: 5,
                 borderRadius: 3,
                 backgroundColor: depth.grabber,
-                boxShadow: `inset 0 1px 1px rgba(16,24,40,0.2), 0 1px 0 ${tokens.grabLip}`,
               }}
             />
           </View>

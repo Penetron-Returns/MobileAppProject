@@ -185,8 +185,11 @@ export interface DepthTokens {
   domeTint: SurfaceStyle;
   /** Selected-state wash of a time field. */
   tintWash: string;
-  /** Tactile primary button. */
+  /** Primary button: flat tint fill. */
   primary: SurfaceStyle;
+  /** The tab bar's "+" (navigation keeps depth): the lit tint gradient. */
+  navPrimary: SurfaceStyle;
+  navPrimaryPressed: SurfaceStyle;
   primaryPressed: SurfaceStyle;
   /** Fields and tracks pressed into the surface. */
   inset: SurfaceStyle;
@@ -409,9 +412,20 @@ export function getDepth(
     boxShadow: shadow,
   });
   const light = resolvedTint;
-  // The settings-family boards' tint gradient (Settings, Team, Services, Sign in).
-  const primaryTop = lighten(light, 0.16);
   const primaryBottom = darken(light, 0.1);
+
+  // Depth lives only on navigation (tab bar, its pill and badge, the floating
+  // dome). Everything else is a flat fill with a 0.5pt hairline ring: hierarchy
+  // comes from fill, spacing and weight, not shadow. A spread-only shadow has
+  // no blur, so it costs nothing to draw.
+  const ringColor =
+    scheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(16,24,40,0.08)';
+  const ring = `0 0 0 0.5px ${ringColor}`;
+  const flat = (backgroundColor: string) => ({
+    backgroundColor,
+    boxShadow: ring,
+  });
+  const fill = (backgroundColor: string) => ({ backgroundColor });
 
   const tokens: DepthTokens = {
     scheme,
@@ -421,36 +435,26 @@ export function getDepth(
       backgroundColor: s.ground.top,
       experimental_backgroundImage: vertical(s.ground.top, s.ground.bottom),
     },
-    raised: gradient(s.raised, s.raisedShadow),
-    hero: gradient(s.raised, s.heroShadow),
-    floating: gradient(s.raised, s.floatShadow),
-    button: gradient(s.raised, s.btnShadow),
-    buttonPressed: {
-      backgroundColor: s.raised.bottom,
-      boxShadow: s.pressedShadow,
-    },
-    knob: gradient(s.raised, s.knobShadow),
-    thumb: gradient(s.thumb, s.knobShadow),
-    segment: gradient(s.segment, s.knobShadow),
+    raised: flat(s.raised.top),
+    hero: flat(s.raised.top),
+    floating: flat(s.raised.top),
+    button: flat(s.raised.bottom),
+    buttonPressed: fill(s.inset.bg),
+    knob: flat(s.raised.top),
+    thumb: flat(s.thumb.top),
+    segment: flat(s.segment.top),
     glass: {
       backgroundColor: s.glass.fill,
       borderColor: s.glass.border,
-      boxShadow: s.glass.shadow,
+      boxShadow: [],
     },
     navFade: {
       backgroundColor: s.navFade,
       experimental_backgroundImage: `linear-gradient(180deg, ${s.navFade} 0%, ${s.navFade} 72%, ${s.navFadeClear} 100%)`,
     },
-    rowPressed: {
-      backgroundColor: s.rowPressed.bg,
-      boxShadow: s.rowPressed.shadow,
-    },
-    wheel: { backgroundColor: s.wheel.bg, boxShadow: s.inset.shadow },
-    wheelSelection: {
-      backgroundColor: s.wheelSelection,
-      boxShadow:
-        'inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 0.5px rgba(16,24,40,0.05)',
-    },
+    rowPressed: fill(s.rowPressed.bg),
+    wheel: fill(s.wheel.bg),
+    wheelSelection: fill(s.wheelSelection),
     wheelTop: {
       backgroundColor: 'transparent',
       experimental_backgroundImage: `linear-gradient(${s.wheel.bg}, ${s.wheel.clear})`,
@@ -459,37 +463,31 @@ export function getDepth(
       backgroundColor: 'transparent',
       experimental_backgroundImage: `linear-gradient(${s.wheel.clear}, ${s.wheel.bg})`,
     },
-    sheet: gradient(s.sheet, s.sheetShadow),
+    sheet: flat(s.sheet.top),
     sheetFade: { backgroundColor: s.sheetFade },
     grabber: s.grabber,
     scrim: 'rgba(0,0,0,0.32)',
-    vipCapsule: { backgroundColor: s.ringFill, boxShadow: s.vipInset },
-    domeRing: {
-      backgroundColor: s.ringFill,
-      experimental_backgroundImage: domeLight(s.dome.highlight),
-      boxShadow: '0 1px 2px rgba(16,24,40,0.15)',
-    },
-    domeTint: {
-      backgroundColor: light,
-      experimental_backgroundImage: `${domeLight(s.dome.highlight)}, ${vertical(primaryTop, primaryBottom, light)}`,
-      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.12), 0 1px 2px ${withAlpha(light, 0.35)}, 0 4px 10px -4px ${withAlpha(light, 0.45)}`,
-    },
+    vipCapsule: fill(s.ringFill),
+    domeRing: fill(s.ringFill),
+    domeTint: fill(light),
     tintWash: withAlpha(light, s.tintWashAlpha),
-    primary: {
+    primary: fill(light),
+    navPrimary: {
       backgroundColor: light,
-      experimental_backgroundImage: vertical(primaryTop, primaryBottom, light),
+      experimental_backgroundImage: vertical(
+        lighten(light, 0.16),
+        primaryBottom,
+        light,
+      ),
       boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 0 rgba(0,0,0,0.12), 0 1px 2px ${withAlpha(light, 0.35)}, 0 6px 16px -4px ${withAlpha(light, 0.45)}`,
     },
-    primaryPressed: {
+    navPrimaryPressed: {
       backgroundColor: primaryBottom,
       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.18), 0 1px 1px rgba(0,0,0,0.08)',
     },
-    inset: { backgroundColor: s.inset.bg, boxShadow: s.inset.shadow },
-    dome: {
-      backgroundColor: s.dome.base,
-      experimental_backgroundImage: domeLight(s.dome.highlight),
-      boxShadow: s.dome.shadow,
-    },
+    primaryPressed: fill(primaryBottom),
+    inset: fill(s.inset.bg),
+    dome: fill(s.dome.base),
     domeFloat: {
       backgroundColor: s.dome.base,
       experimental_backgroundImage: domeLight(s.dome.highlight),

@@ -124,7 +124,7 @@ function SheetContent({
   const content = (grabber: React.ReactNode) => (
     <DialogPrimitive.Content
       className={cn(
-        'bg-background border-border w-full gap-4 rounded-t-2xl border-t p-6 shadow-lg shadow-black/10',
+        'bg-background border-border w-full gap-4 rounded-t-2xl border-t p-6',
         detent && 'flex-1',
         className,
       )}

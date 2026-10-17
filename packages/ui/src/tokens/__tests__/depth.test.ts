@@ -20,31 +20,36 @@ describe('colour helpers', () => {
 });
 
 describe('getDepth', () => {
-  it('returns the approved light raised shadow', () => {
-    expect(getDepth('light').raised.boxShadow).toBe(
-      'inset 0 1px 0 rgba(255,255,255,0.9), 0 0 0 0.5px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.06), 0 6px 16px -6px rgba(16,24,40,0.10), 0 18px 36px -18px rgba(16,24,40,0.14)',
-    );
+  it('draws cards flat: a solid fill with only a hairline ring, no drop shadow', () => {
+    const light = getDepth('light').raised;
+    expect(light.backgroundColor).toBe('#FFFFFF');
+    expect(light.experimental_backgroundImage).toBeUndefined();
+    expect(light.boxShadow).toBe('0 0 0 0.5px rgba(16,24,40,0.08)');
+    const dark = getDepth('dark').raised;
+    expect(dark.backgroundColor).toBe('#1C1D23');
+    expect(dark.boxShadow).toBe('0 0 0 0.5px rgba(255,255,255,0.08)');
   });
 
-  it('returns the approved dark raised shadow and gradient', () => {
-    const dark = getDepth('dark');
-    expect(dark.raised.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #1C1D23 0%, #18191E 100%)',
-    );
-    expect(dark.raised.boxShadow).toContain('rgba(0,0,0,0.6)');
+  it('keeps hero and floating as flat as raised', () => {
+    const { hero, raised, floating } = getDepth('light');
+    expect(hero).toEqual(raised);
+    expect(floating).toEqual(raised);
   });
 
-  it('lifts the hero card more than a raised card', () => {
-    const { hero, raised } = getDepth('light');
-    expect(hero.boxShadow).not.toBe(raised.boxShadow);
-  });
-
-  it('builds the tactile primary from the tint', () => {
+  it('builds the primary as a flat tint fill', () => {
     const { primary } = getDepth('light', '#007AFF');
-    expect(primary.experimental_backgroundImage).toBe(
+    expect(primary).toEqual({ backgroundColor: '#007AFF' });
+  });
+
+  it('keeps depth on navigation only: the bar, its plus, the pill and the dome', () => {
+    const d = getDepth('light', '#007AFF');
+    expect(d.bar.boxShadow).toBeTruthy();
+    expect(d.pill.boxShadow).toBeTruthy();
+    expect(d.domeFloat.boxShadow).toBeTruthy();
+    expect(d.navPrimary.boxShadow).toContain('rgba(0,122,255,0.45)');
+    expect(d.navPrimary.experimental_backgroundImage).toBe(
       'linear-gradient(180deg, #298FFF 0%, #007AFF 55%, #006EE6 100%)',
     );
-    expect(primary.boxShadow).toContain('rgba(0,122,255,0.45)');
   });
 
   it('swaps the system blue for its dark variant in dark mode only', () => {
@@ -128,27 +133,21 @@ describe('status and on-fill colours', () => {
 });
 
 describe('board tokens for the settings screens', () => {
-  it('uses the board selected-segment and switch-thumb fills', () => {
-    expect(getDepth('light').segment.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #FFFFFF 0%, #F4F5F8 100%)',
-    );
-    expect(getDepth('dark').segment.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #5A5C66 0%, #484A53 100%)',
-    );
-    expect(getDepth('light').thumb.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #FFFFFF 0%, #F6F6F9 100%)',
-    );
-    expect(getDepth('dark').thumb.experimental_backgroundImage).toBe(
-      'linear-gradient(180deg, #FFFFFF 0%, #F1F1F4 100%)',
-    );
+  it('fills the selected segment and switch thumb flat', () => {
+    expect(getDepth('light').segment.backgroundColor).toBe('#FFFFFF');
+    expect(getDepth('dark').segment.backgroundColor).toBe('#5A5C66');
+    expect(getDepth('light').thumb.backgroundColor).toBe('#FFFFFF');
+    expect(getDepth('dark').thumb.backgroundColor).toBe('#FFFFFF');
+    expect(
+      getDepth('light').segment.experimental_backgroundImage,
+    ).toBeUndefined();
   });
 
   it('frosts the back pill and fades the nav per scheme', () => {
     expect(getDepth('light').glass).toEqual({
       backgroundColor: 'rgba(255,255,255,0.62)',
       borderColor: 'rgba(255,255,255,0.7)',
-      boxShadow:
-        '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)',
+      boxShadow: [],
     });
     expect(getDepth('dark').glass.backgroundColor).toBe('rgba(40,40,42,0.62)');
     expect(getDepth('light').navFade.experimental_backgroundImage).toContain(
@@ -167,10 +166,10 @@ describe('board tokens for the settings screens', () => {
     expect(getDepth('dark').tintWash).toBe('rgba(10,132,255,0.22)');
   });
 
-  it('lights the ring avatar from above with the board shadow', () => {
-    const { domeRing } = getDepth('light');
-    expect(domeRing.experimental_backgroundImage).toContain('radial-gradient');
-    expect(domeRing.boxShadow).toBe('0 1px 2px rgba(16,24,40,0.15)');
+  it('draws the ring avatar as a flat neutral fill', () => {
+    expect(getDepth('light').domeRing).toEqual({
+      backgroundColor: 'rgba(118,118,128,0.12)',
+    });
   });
 });
 

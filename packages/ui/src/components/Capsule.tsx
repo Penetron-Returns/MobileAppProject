@@ -25,7 +25,6 @@ export function Capsule({ label, tone = 'neutral', className }: CapsuleProps) {
     <View
       style={{
         backgroundColor: fill,
-        boxShadow: 'inset 0 1px 1px rgba(0,0,0,0.06)',
       }}
       className={cn('rounded-xl px-2.5 py-[3px]', className)}
     >

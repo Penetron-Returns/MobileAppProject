@@ -54,7 +54,7 @@ export function buildCompanionAppearance(
       maxFontSizeMultiplier: COMPANION_MAX_FONT_SIZE_MULTIPLIER,
     },
     radii: { sheet: RADII.floating, card: RADII.hero, control: RADII.inset },
-    depth: 'raised',
+    depth: 'flat',
     characterPlacement: 'edge',
   };
 }
