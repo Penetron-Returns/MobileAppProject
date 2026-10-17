@@ -75,6 +75,7 @@ export type Database = {
       }
       appointments: {
         Row: {
+          billing_reported_at: string | null
           blocked: unknown
           business_id: string
           cancel_reason: string | null
@@ -102,6 +103,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_reported_at?: string | null
           blocked: unknown
           business_id: string
           cancel_reason?: string | null
@@ -129,6 +131,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_reported_at?: string | null
           blocked?: unknown
           business_id?: string
           cancel_reason?: string | null
@@ -432,6 +435,56 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["business_id", "id"]
+          },
+        ]
+      }
+      billing_subscriptions: {
+        Row: {
+          business_id: string
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          last_event_at: string | null
+          plan: Database["public"]["Enums"]["plan_key"] | null
+          reporting_started_at: string | null
+          status: string | null
+          stripe_customer_id: string
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          last_event_at?: string | null
+          plan?: Database["public"]["Enums"]["plan_key"] | null
+          reporting_started_at?: string | null
+          status?: string | null
+          stripe_customer_id: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          last_event_at?: string | null
+          plan?: Database["public"]["Enums"]["plan_key"] | null
+          reporting_started_at?: string | null
+          status?: string | null
+          stripe_customer_id?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_subscriptions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1830,6 +1883,25 @@ export type Database = {
           starts_at: string
         }[]
       }
+      billing_unreported_bookings: {
+        Args: {
+          p_created_after: string
+          p_limit?: number
+        }
+        Returns: {
+          appointment_id: string
+          business_id: string
+          created_at: string
+          stripe_customer_id: string
+        }[]
+      }
+      mark_bookings_billed: {
+        Args: {
+          p_at: string
+          p_ids: string[]
+        }
+        Returns: number
+      }
       business_features: {
         Args: {
           p_business_id?: string
@@ -2337,7 +2409,7 @@ export type Database = {
       message_direction: "in" | "out"
       message_status: "received" | "queued" | "sent" | "delivered" | "read" | "failed"
       message_type: "text" | "interactive" | "flow" | "template" | "button" | "reaction" | "media" | "unknown"
-      plan_key: "free" | "starter" | "growth" | "pro"
+      plan_key: "none" | "free" | "starter" | "growth" | "pro"
       special_day_kind: "public_holiday" | "closure" | "special_hours"
       template_status: "draft" | "submitted" | "approved" | "rejected" | "paused" | "disabled"
       time_off_reason: "leave" | "sick" | "training" | "other"

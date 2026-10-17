@@ -12,8 +12,13 @@ declare
 begin
   perform tests.eq((select array_agg(e.enumlabel::text order by e.enumsortorder) from pg_enum e
                       join pg_type t on t.oid = e.enumtypid where t.typname = 'plan_key'),
-                   array['free','starter','growth','pro'], 'plan_key lists the four plans');
-  perform tests.eq((select plan::text from public.businesses where id = a), 'free', 'new businesses default to free');
+                   array['none','free','starter','growth','pro'], 'plan_key lists none plus the four plans');
+  perform tests.eq((select plan::text from public.businesses where id = a), 'none', 'new businesses default to none (no free tier, no trial)');
+  perform tests.eq((select count(*) from public.business_features(a))::int, 1, 'a none business resolves to one row');
+  perform tests.ok((select feature is null and plan = 'none' from public.business_features(a)), 'none has no features');
+  perform tests.eq((select count(*) from public.plan_features where plan = 'none')::int, 0, 'none carries no plan_features rows');
+  -- existing free businesses keep working: pin this fixture to free for the rest of the file
+  update public.businesses set plan = 'free' where id = a;
 
   perform tests.eq((select array_agg(feature order by feature) from public.plan_features where plan = 'free'),
                    array['extensions','inbox','whatsapp_menu'], 'free = whatsapp_menu + inbox + extensions');
@@ -22,10 +27,10 @@ begin
   perform tests.ok(not exists (select 1 from public.plan_features where plan = 'free' and feature in ('companion','desktop_app','assistant_bookings')),
                    'free carries no AI / desktop / assistant bookings');
   perform tests.ok((select bool_and(exists (select 1 from public.plan_features p where p.plan = e.plan and p.feature = 'extensions'))
-                      from (select unnest(enum_range(null::public.plan_key)) as plan) e),
+                      from (select unnest(enum_range(null::public.plan_key)) as plan) e where e.plan <> 'none'),
                    'every plan includes extensions');
   perform tests.ok((select bool_and(exists (select 1 from public.plan_features p where p.plan = e.plan and p.feature = 'companion'))
-                      from (select unnest(enum_range(null::public.plan_key)) as plan) e where e.plan <> 'free'),
+                      from (select unnest(enum_range(null::public.plan_key)) as plan) e where e.plan not in ('none', 'free')),
                    'every paid plan includes the companion');
   perform tests.eq((select count(*) from public.plan_features where feature = 'assistant_bookings' and monthly_limit is not null)::int, 0,
                    'assistant booking caps are not invented (null)');
