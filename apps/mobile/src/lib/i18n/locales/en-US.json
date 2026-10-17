@@ -1962,5 +1962,28 @@
       "emailAction": "Email support",
       "privacy": "Privacy policy"
     }
+  },
+  "stories": {
+    "listLabel": "Stories",
+    "ringNew": "{{title}}, new",
+    "ringViewed": "{{title}}, viewed",
+    "close": "Close story",
+    "previous": "Previous card",
+    "next": "Next card",
+    "progress": "Card {{current}} of {{total}}",
+    "badgeNew": "New",
+    "demo": {
+      "undoSay": "“Undo”",
+      "undone": "Undone",
+      "booked": "Booked",
+      "undoClient": "Sipho Dlamini",
+      "undoService": "Skin fade · Mon 08:00",
+      "undoNote": "Works for 30 seconds after Clovie books.",
+      "whichOne": "Which one?",
+      "thandiA": "Thandi Mokoena",
+      "thandiASub": "Silk press · 12 visits",
+      "thandiB": "Thandi Dlamini",
+      "thandiBSub": "Gel manicure · 3 visits"
+    }
   }
 }
