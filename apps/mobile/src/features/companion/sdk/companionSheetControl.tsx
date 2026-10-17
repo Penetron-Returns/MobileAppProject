@@ -1,4 +1,4 @@
-import type { AppointmentContext, SetupStep } from '@nerova/react-native';
+import type { AppointmentContext } from '@nerova/react-native';
 import * as React from 'react';
 
 export interface OpenCompanionOptions {
@@ -15,8 +15,6 @@ export interface CompanionSheetControl {
   hasFailed: boolean;
   open: (options?: OpenCompanionOptions) => void;
   close: () => void;
-  /** Opens the sheet on one step of Nerova's first-run setup (e.g. the test message). */
-  openSetup: (step: SetupStep) => void;
 }
 
 const UNAVAILABLE: CompanionSheetControl = {
@@ -24,7 +22,6 @@ const UNAVAILABLE: CompanionSheetControl = {
   hasFailed: false,
   open: () => {},
   close: () => {},
-  openSetup: () => {},
 };
 
 const CompanionSheetControlContext =

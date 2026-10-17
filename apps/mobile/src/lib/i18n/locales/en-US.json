@@ -1134,8 +1134,7 @@
   "checklist": {
     "title": "Get set up",
     "progress": "{{done}} of {{total}} done",
-    "next": "Next: {{item}}",
-    "seeAll": "See all",
+    "storyLabel": "{{title}}, {{done}} of {{total}} done",
     "allDone": "All set up",
     "done": "done",
     "notDone": "not done",
@@ -1146,8 +1145,7 @@
       "details": "Business details",
       "rules": "Booking rules",
       "voice": "Hey Clovie",
-      "notifications": "Notifications",
-      "testMessage": "Send a test message"
+      "notifications": "Notifications"
     },
     "spoken": {
       "services": "Check your services and prices.",
@@ -1156,8 +1154,7 @@
       "details": "Add your business details.",
       "rules": "Check your booking rules.",
       "voice": "Turn on Hey Clovie, to talk to Clovie hands free.",
-      "notifications": "Turn on notifications.",
-      "testMessage": "Send a test message from Clovie."
+      "notifications": "Turn on notifications."
     }
   },
   "onboarding": {

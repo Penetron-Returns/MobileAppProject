@@ -11,8 +11,7 @@ export type ChecklistItemId =
   | 'details'
   | 'rules'
   | 'voice'
-  | 'notifications'
-  | 'testMessage';
+  | 'notifications';
 
 /** Where each item leads, in the order the list shows them. */
 export const CHECKLIST_ORDER: readonly ChecklistItemId[] = [
@@ -23,14 +22,10 @@ export const CHECKLIST_ORDER: readonly ChecklistItemId[] = [
   'rules',
   'voice',
   'notifications',
-  'testMessage',
 ];
 
-/** Settings routes the data items open; the test message opens Nerova's sheet instead. */
-export const CHECKLIST_ROUTES: Record<
-  Exclude<ChecklistItemId, 'testMessage'>,
-  string
-> = {
+/** The Settings screen each item opens. */
+export const CHECKLIST_ROUTES: Record<ChecklistItemId, string> = {
   services: '/settings/services',
   hours: '/settings/operating-hours',
   team: '/settings/team',
@@ -53,8 +48,6 @@ export interface ChecklistInput {
   isVoiceOn: boolean;
   /** The OS has granted notification permission; null until asked. */
   isPushGranted: boolean | null;
-  /** Nerova's setup reached the test message, or the companion is live. */
-  isTestMessageDone: boolean;
   /** Items the owner has opened and looked at. */
   reviewed: ReadonlySet<ChecklistItemId>;
 }
@@ -65,11 +58,11 @@ export interface ChecklistItem {
 }
 
 export interface Checklist {
-  /** False until every value the list depends on has loaded; the card stays hidden meanwhile. */
+  /** False until every value the list depends on has loaded; the story bubble stays hidden meanwhile. */
   isReady: boolean;
   items: ChecklistItem[];
   doneCount: number;
-  /** All done: the card and the Settings row disappear. */
+  /** All done: the story bubble and the Settings row disappear. */
   isComplete: boolean;
 }
 
@@ -90,7 +83,6 @@ export function deriveChecklist(input: ChecklistInput): Checklist {
     rules: seen('rules'),
     voice: input.isVoiceOn || seen('voice'),
     notifications: input.isPushGranted === true || seen('notifications'),
-    testMessage: input.isTestMessageDone,
   };
   const ids = CHECKLIST_ORDER.filter(
     // Hey Clovie is an Android feature.
@@ -110,11 +102,6 @@ export function deriveChecklist(input: ChecklistInput): Checklist {
     doneCount,
     isComplete: isReady && doneCount === items.length,
   };
-}
-
-/** The next thing to do, or null when everything is done. */
-export function nextItem(checklist: Checklist): ChecklistItemId | null {
-  return checklist.items.find((i) => !i.isDone)?.id ?? null;
 }
 
 // ----- persistence of "reviewed" -----

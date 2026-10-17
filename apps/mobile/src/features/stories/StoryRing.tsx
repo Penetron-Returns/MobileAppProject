@@ -20,11 +20,11 @@ export interface StoryRingProps {
   onPress: (storyId: string, frame: OriginFrame) => void;
 }
 
-const RING = 76;
-const GAP_NEW = 70;
+export const RING = 76;
+export const GAP_NEW = 70;
 const GAP_VIEWED = 74;
 
-const COLORS = {
+export const COLORS = {
   light: {
     gap: '#F6F6F9',
     grey: 'rgba(60,60,67,0.3)',
@@ -127,7 +127,8 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
   );
 }
 
-const styles = StyleSheet.create({
+/** Shared with the other bubble kinds, so every ring and label lines up. */
+export const styles = StyleSheet.create({
   button: { width: 80, alignItems: 'center' },
   ring: {
     width: RING,

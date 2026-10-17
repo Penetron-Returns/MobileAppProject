@@ -4,8 +4,8 @@ import { mount, text } from '@/testing/render';
 
 import { ClovieTabScreen } from '../components/ClovieTabScreen';
 
-jest.mock('@/features/setup-checklist/components/SetupChecklistCard', () => ({
-  SetupChecklistCard: () => null,
+jest.mock('@/features/setup-checklist/useSetupStory', () => ({
+  useSetupStory: () => null,
 }));
 jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { firstName: 'Colin' } }),

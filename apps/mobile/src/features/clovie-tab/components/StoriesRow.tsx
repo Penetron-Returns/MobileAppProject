@@ -1,9 +1,12 @@
 import { useAppColorScheme } from '@booking/ui';
+import { ListChecks } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 
+import { useSetupStory } from '@/features/setup-checklist/useSetupStory';
 import {
+  ProgressStoryRing,
   StoryRing,
   StoryViewer,
   type OriginFrame,
@@ -77,9 +80,28 @@ export function StoriesRow({
   // The viewer keeps the stories it opened with, so a ring flipping to viewed
   // underneath never reshuffles the cards it is showing.
   const opened = React.useRef<Story[]>(stories);
+  const setup = useSetupStory();
 
   if (isLoading) return <SkeletonRings />;
-  if (stories.length === 0) return null;
+  if (stories.length === 0 && !setup) return null;
+  // "Get set up" sits right after Business update, i.e. before Product updates.
+  const productAt = stories.findIndex((s) => s.kind === 'product');
+  const setupAt = productAt === -1 ? stories.length : productAt;
+  const setupRing = setup ? (
+    <ProgressStoryRing
+      key="get-set-up"
+      label={t('checklist.title')}
+      accessibilityLabel={t('checklist.storyLabel', {
+        title: t('checklist.title'),
+        done: setup.done,
+        total: setup.total,
+      })}
+      icon={ListChecks}
+      done={setup.done}
+      total={setup.total}
+      onPress={setup.open}
+    />
+  ) : null;
   return (
     <>
       <ScrollView
@@ -91,15 +113,18 @@ export function StoriesRow({
         contentContainerClassName="gap-2 px-4 pt-4"
       >
         {stories.map((story, index) => (
-          <StoryRing
-            key={story.id}
-            story={story}
-            onPress={(_id, frame) => {
-              opened.current = stories;
-              setOpen({ index, frame });
-            }}
-          />
+          <React.Fragment key={story.id}>
+            {index === setupAt ? setupRing : null}
+            <StoryRing
+              story={story}
+              onPress={(_id, frame) => {
+                opened.current = stories;
+                setOpen({ index, frame });
+              }}
+            />
+          </React.Fragment>
         ))}
+        {setupAt === stories.length ? setupRing : null}
       </ScrollView>
       {open ? (
         <StoryViewer

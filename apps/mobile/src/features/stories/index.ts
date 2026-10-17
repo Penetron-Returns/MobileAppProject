@@ -1,5 +1,6 @@
 export { StoryRing } from './StoryRing';
 export type { StoryRingProps } from './StoryRing';
+export { ProgressStoryRing } from './ProgressStoryRing';
 export { StoryViewer } from './StoryViewer';
 export type { StoryViewerProps } from './StoryViewer';
 export type {
