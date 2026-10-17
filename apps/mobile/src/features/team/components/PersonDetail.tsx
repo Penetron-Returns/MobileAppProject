@@ -13,6 +13,8 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { useCanManage } from '@/features/business/me';
+
 import type { BusinessHoursRule, WorkingDay } from '../schedule';
 import type { TeamPerson } from '../logic';
 import { InviteCard } from './InviteCard';
@@ -52,6 +54,7 @@ export function PersonDetail({
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
+  const canManage = useCanManage();
   const [inviting, setInviting] = React.useState(false);
   const [sentTo, setSentTo] = React.useState<string | null>(null);
   const { staff } = person;
@@ -97,7 +100,7 @@ export function PersonDetail({
         </Group>
       ) : null}
 
-      {staff ? (
+      {staff && canManage ? (
         <TintLink
           icon={Pencil}
           label={t('team.editDetails')}
@@ -106,7 +109,7 @@ export function PersonDetail({
         />
       ) : null}
 
-      {person.access === 'none' && staff ? (
+      {person.access === 'none' && staff && canManage ? (
         <>
           <TintLink
             variant="action"

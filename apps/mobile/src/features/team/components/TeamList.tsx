@@ -13,6 +13,8 @@ import { Plus, UserMinus, UserPlus, Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useCanManage } from '@/features/business/me';
+
 import { canRemoveMember, personSubtitle, type TeamPerson } from '../logic';
 import { InviteCard } from './InviteCard';
 
@@ -34,6 +36,7 @@ export function TeamList({
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
+  const canManage = useCanManage();
   const [inviting, setInviting] = React.useState(false);
   const [sent, setSent] = React.useState(false);
   const bookable = people.filter(
@@ -92,39 +95,43 @@ export function TeamList({
           })}
         </Group>
       )}
-      <TintLink
-        variant="action"
-        icon={Plus}
-        label={t('team.invite.action')}
-        expanded={inviting}
-        onPress={() => {
-          setInviting((open) => !open);
-          setSent(false);
-        }}
-        className="ml-5 mt-2"
-      />
-      {inviting ? (
-        <InviteCard
-          onSent={() => {
-            setInviting(false);
-            setSent(true);
-          }}
-        />
+      {canManage ? (
+        <>
+          <TintLink
+            variant="action"
+            icon={Plus}
+            label={t('team.invite.action')}
+            expanded={inviting}
+            onPress={() => {
+              setInviting((open) => !open);
+              setSent(false);
+            }}
+            className="ml-5 mt-2"
+          />
+          {inviting ? (
+            <InviteCard
+              onSent={() => {
+                setInviting(false);
+                setSent(true);
+              }}
+            />
+          ) : null}
+          {sent ? (
+            <Text
+              accessibilityLiveRegion="polite"
+              className="mx-5 mt-1 text-subtitle text-muted-foreground"
+            >
+              {t('team.invite.sent')}
+            </Text>
+          ) : null}
+          <TintLink
+            icon={UserPlus}
+            label={t('team.addPerson')}
+            onPress={onAddPerson}
+            className="ml-5 mt-1"
+          />
+        </>
       ) : null}
-      {sent ? (
-        <Text
-          accessibilityLiveRegion="polite"
-          className="mx-5 mt-1 text-subtitle text-muted-foreground"
-        >
-          {t('team.invite.sent')}
-        </Text>
-      ) : null}
-      <TintLink
-        icon={UserPlus}
-        label={t('team.addPerson')}
-        onPress={onAddPerson}
-        className="ml-5 mt-1"
-      />
     </>
   );
 }

@@ -3,6 +3,8 @@ import {
   Button,
   Disclosure,
   Divider,
+  Group,
+  GroupRow,
   Surface,
   Text,
   useDepth,
@@ -231,7 +233,7 @@ export function BillingRows({ manageUrl }: { manageUrl: string | null }) {
           </View>
         ))}
       </Surface>
-      {manageUrl ? <ManageRow url={manageUrl} /> : null}
+      <ManageRow url={manageUrl} />
       <Text className="mx-5 mt-2.5 text-meta text-muted-foreground">
         {t('plans.billing.footnote')}
       </Text>
@@ -239,20 +241,27 @@ export function BillingRows({ manageUrl }: { manageUrl: string | null }) {
   );
 }
 
-/** Only rendered once the API hands out a subscription-management URL. */
-function ManageRow({ url }: { url: string }) {
+/**
+ * Always listed. Until the API hands out a subscription-management URL it is
+ * dimmed with its reason, never hidden.
+ */
+function ManageRow({ url }: { url: string | null }) {
   const { t } = useTranslation();
   return (
-    <Button
-      variant="secondary"
-      size="lg"
-      className="mx-5 mt-3"
-      onPress={() => {
-        void import('expo-web-browser').then((m) => m.openBrowserAsync(url));
-      }}
-    >
-      <Text className="text-title">{t('plans.billing.manage')}</Text>
-    </Button>
+    <Group className="mt-3" radius={26}>
+      <GroupRow
+        title={t('plans.billing.manage')}
+        disabled={!url}
+        reason={t('plans.billing.managedOnWebReason')}
+        onPress={() => {
+          if (url) {
+            void import('expo-web-browser').then((m) =>
+              m.openBrowserAsync(url),
+            );
+          }
+        }}
+      />
+    </Group>
   );
 }
 

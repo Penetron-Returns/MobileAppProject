@@ -12,8 +12,10 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
+import { useCanManage } from '@/features/business/me';
+import { OwnerOnlyNote } from '@/features/settings/components/OwnerOnlyNote';
 import { isFailed, loadError } from '@/lib/offline';
-import { describeError } from '@/lib/toast';
+import { describeError, toast } from '@/lib/toast';
 
 import { startCheckout } from '../checkout';
 import { lowestPaidPriceCents, paidPlans } from '../compare';
@@ -84,6 +86,11 @@ function PlanBody({
   const isPaid = Boolean(current?.has_companion);
   const lowest = lowestPaidPriceCents(plans);
   const rate = formatRand(tiers[0]?.extra_job_cents ?? 0);
+  const canManage = useCanManage();
+  // Staff see the plans; choosing one is the owner's call (the API refuses it too).
+  const choose = canManage
+    ? startCheckout
+    : () => toast.blocked(t('settings.ownerOnly'));
 
   return (
     <>
@@ -126,7 +133,7 @@ function PlanBody({
         {t('plans.tiers')}
       </Text>
       {tiers.map((plan) => (
-        <TierCard key={plan.id} plan={plan} onChoose={startCheckout} />
+        <TierCard key={plan.id} plan={plan} onChoose={choose} />
       ))}
       <CheckoutNote />
 
@@ -148,6 +155,7 @@ function PlanBody({
         {t('plans.billing.title')}
       </Text>
       <BillingRows manageUrl={null} />
+      <OwnerOnlyNote />
     </>
   );
 }
