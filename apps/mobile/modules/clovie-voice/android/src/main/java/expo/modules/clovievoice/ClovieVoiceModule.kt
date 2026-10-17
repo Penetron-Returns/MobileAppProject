@@ -79,6 +79,8 @@ class ClovieVoiceModule : Module() {
           "pendingKind" to outcome.pendingKind,
           "pendingTitle" to outcome.pendingTitle,
           "pendingRemaining" to outcome.pendingRemaining,
+          "pendingActionId" to outcome.pendingActionId,
+          "undoUntilMs" to outcome.undoUntilMs.toDouble(),
           "reason" to outcome.reason,
         ),
       )
@@ -121,6 +123,7 @@ class ClovieVoiceModule : Module() {
     Function("answerApproval") { id: String, answer: String ->
       VoiceService.instance?.answerApprovalFromApp(id, answer == "yes") ?: false
     }
+    Function("undoAction") { id: String -> VoiceService.instance?.undoActionFromApp(id) ?: false }
 
     // Foreground services of type microphone need API 29+ behaviour; notification channels need 26.
     Function("isSupported") { Build.VERSION.SDK_INT >= Build.VERSION_CODES.O }

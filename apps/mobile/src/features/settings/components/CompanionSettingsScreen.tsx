@@ -22,6 +22,7 @@ import { formatPhone } from '@/lib/format';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError, toast } from '@/lib/toast';
 
+import { BookingsByClovieSection } from './BookingsByClovieSection';
 import { CompanionGlyph } from './CompanionGlyph';
 
 /**
@@ -120,6 +121,7 @@ export function CompanionSettingsScreen() {
         </Text>
       </View>
       {body}
+      <BookingsByClovieSection />
     </Page>
   );
 }

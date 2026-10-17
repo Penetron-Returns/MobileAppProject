@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import type { InAppVoiceState } from './inAppVoiceState';
 import type { LevelStore } from './levelStore';
 import { ApprovalCard } from './ApprovalCard';
+import { BookedCard } from './BookedCard';
 import { CancelButton, Caption, MicButton, StopButton } from './VoiceControls';
 import { Caret, ClovieWithHalo, Orb } from './VoiceParts';
 import { VoiceWaveform } from './VoiceWaveform';
@@ -14,6 +15,8 @@ export interface VoiceActions {
   cancel: () => void;
   approve: (id: string) => void;
   decline: (id: string) => void;
+  /** Undo the executed action the service is holding (by id). */
+  undo: (id: string) => void;
   mic: () => void;
   showChat: () => void;
 }
@@ -24,6 +27,8 @@ interface BodyProps {
   /** Visible, foreground and Reduce Motion off: the only time anything loops. */
   isLive: boolean;
   bottomInset: number;
+  /** The clock for the undo countdown (tests inject it). */
+  now?: () => number;
 }
 
 const BIG_TYPE = {
@@ -164,13 +169,22 @@ function useReplyText(state: InAppVoiceState): string {
   }
 }
 
-export function AnswerBody({ isLive, bottomInset, actions, state }: BodyProps) {
+export function AnswerBody({
+  isLive,
+  bottomInset,
+  actions,
+  state,
+  now,
+}: BodyProps) {
   const { t } = useTranslation();
   const { colors } = useDepth();
   const reply = useReplyText(state);
-  const { approval } = state;
+  const { approval, action } = state;
   const asksForVoice =
-    approval !== null || state.expectsReply || state.replyKind === 'notHeard';
+    approval !== null ||
+    action !== null ||
+    state.expectsReply ||
+    state.replyKind === 'notHeard';
   return (
     <View style={[column(bottomInset), { alignItems: 'stretch' }]}>
       <View style={{ alignSelf: 'center' }}>
@@ -194,6 +208,14 @@ export function AnswerBody({ isLive, bottomInset, actions, state }: BodyProps) {
           onDecline={() => actions.decline(approval.id)}
         />
       ) : null}
+      {action ? (
+        <BookedCard
+          lines={action.lines}
+          undoUntilMs={action.undoUntilMs}
+          now={now}
+          onUndo={() => actions.undo(action.id)}
+        />
+      ) : null}
       <View style={{ flex: 1, minHeight: 8 }} />
       {asksForVoice ? (
         <View
@@ -208,7 +230,11 @@ export function AnswerBody({ isLive, bottomInset, actions, state }: BodyProps) {
             style={{ fontSize: 15, lineHeight: 20, color: colors.secondary }}
           >
             {t(
-              approval ? 'voice.inApp.orSayYesOrNo' : 'voice.inApp.tapToAnswer',
+              approval
+                ? 'voice.inApp.orSayYesOrNo'
+                : action
+                  ? 'voice.inApp.orSayUndo'
+                  : 'voice.inApp.tapToAnswer',
             )}
           </Text>
           <MicButton

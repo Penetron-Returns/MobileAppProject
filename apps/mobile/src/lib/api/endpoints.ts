@@ -15,6 +15,8 @@ import type {
   VoiceTodayDTO,
   VoiceAskDTO,
   VoiceAskRequest,
+  VoiceActionDTO,
+  CompanionSettingsDTO,
   VoiceApprovalResultDTO,
   CancelAppointmentRequest,
   ClientDTO,
@@ -69,6 +71,11 @@ import type {
 
 import { enc, get, send } from './client';
 
+/** PATCH /v1/companion/settings body: either field. */
+export type CompanionSettingsPatch = Partial<
+  Pick<CompanionSettingsDTO, 'approvalPolicy' | 'undoWindowSeconds'>
+>;
+
 /** GET /v1/availability/conflicts: whole days, or `start_time`..`end_time` on each date. */
 export type ConflictQuery = {
   from: string;
@@ -100,6 +107,13 @@ export const api = {
       '/v1/companion/session',
     )(b, key),
 
+  // owner-only (Clerk): how much Clovie asks first, and how long a booking can be undone
+  companionSettings: () => get<CompanionSettingsDTO>('/v1/companion/settings'),
+  updateCompanionSettings: (b: CompanionSettingsPatch, key: string) =>
+    send<CompanionSettingsPatch, CompanionSettingsDTO>(
+      'PATCH',
+      '/v1/companion/settings',
+    )(b, key),
   companionSetup: () => get<CompanionSetupDTO>('/v1/companion/setup'),
   createCompanionWhatsAppSession: (key: string) =>
     send<undefined, CompanionWhatsAppConnectSessionDTO>(
@@ -331,6 +345,15 @@ export const api = {
       'POST',
       `/v1/voice/approvals/${enc(id)}/${decision}`,
     )(undefined, key),
+
+  // voice: act-then-undo. Undo exactly one executed action by id (device token allowed); list what is still undoable.
+  voiceUndoAction: (id: string, key: string) =>
+    send<undefined, VoiceActionDTO>(
+      'POST',
+      `/v1/voice/actions/${enc(id)}/undo`,
+    )(undefined, key),
+  voiceActions: (status: 'executed' | 'undone' = 'executed') =>
+    get<VoiceActionDTO[]>('/v1/voice/actions', { status }),
 
   // voice: the scoped device token for background voice and attendance answers
   mintVoiceDeviceToken: (b: { device_label: string }, key: string) =>

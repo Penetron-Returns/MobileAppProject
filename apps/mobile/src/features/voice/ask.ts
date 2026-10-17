@@ -5,6 +5,7 @@
  * injected `ask` / `decide` calls, so it is unit tested without a phone. Never logs text, replies or names.
  */
 import type { ClovieVoiceCommandOutcome } from './clovieVoice';
+import { actionOutcome, pickExecutedAction, type ExecutedAction } from './undo';
 
 type Translate = (key: string, values?: Record<string, unknown>) => string;
 
@@ -17,6 +18,8 @@ export interface AskApproval {
 export interface AskResult {
   reply: string;
   approvals: readonly AskApproval[];
+  /** Actions executed this turn (act-then-undo). An executed action does not set `awaitingReply`. */
+  actions?: readonly ExecutedAction[];
   suggestions?: readonly string[];
   /** Nerova `done.awaitingReply` when sent: overrides the heuristic both ways. */
   awaitingReply?: boolean;
@@ -29,6 +32,10 @@ export interface AskDeps {
   speakInterim?: (text: string) => void;
   /** The companion turn number (0, 1, 2, ...), so the filler rotates deterministically. */
   nextTurn?: () => number;
+  /** The clock for the undo window (defaults to the real one). */
+  now?: () => Date;
+  /** Keeps an executed action so the in-app drawer can show its lines. */
+  rememberAction?: (action: ExecutedAction) => void;
   /** Decides exactly `id`. */
   decide: (
     id: string,
@@ -42,6 +49,9 @@ export interface FollowUpContext {
   pendingKind?: string | undefined;
   /** JSON `[{ id, kind, title }]`, as the previous outcome produced it. */
   pendingQueue?: string | undefined;
+  /** The executed action just read aloud and when its undo window closes (epoch ms): "undo" applies to this id only. */
+  pendingActionId?: string | undefined;
+  undoUntilMs?: number | undefined;
 }
 
 // ---- yes / no ----
@@ -301,6 +311,11 @@ export async function askCompanion(
       deps.t,
       intro,
     );
+  }
+  const action = pickExecutedAction(result.actions);
+  if (action) {
+    deps.rememberAction?.(action);
+    return actionOutcome(action, (deps.now?.() ?? new Date()).getTime());
   }
   if (!reply) return { status: 'done', message: deps.t('voice.ask.noReply') };
   return {

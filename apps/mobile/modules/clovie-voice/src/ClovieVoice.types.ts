@@ -54,6 +54,10 @@ export interface ClovieVoiceCommandOutcome {
   pendingQueue?: string;
   /** How many approvals are still queued after the pending one (lets the service allow a few more turns). */
   pendingRemaining?: number;
+  /** The one executed action just read aloud (act-then-undo). "Undo" in the next utterance applies to this id only. */
+  pendingActionId?: string;
+  /** Epoch ms when that action's undo window closes. The service listens once more until then. */
+  undoUntilMs?: number;
 }
 
 /** The owner's audio choices for voice replies. Both default to on. */
@@ -125,6 +129,10 @@ export interface ClovieVoiceOutcomeEvent {
   pendingKind: string;
   pendingTitle: string;
   pendingRemaining: number;
+  /** The executed action the service is holding an undo window for; empty when none. */
+  pendingActionId?: string;
+  /** Epoch ms when its undo window closes; 0 when none. Absent from builds made before act-then-undo. */
+  undoUntilMs?: number;
   reason: string;
 }
 

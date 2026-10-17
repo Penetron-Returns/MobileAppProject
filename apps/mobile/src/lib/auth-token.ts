@@ -43,6 +43,7 @@ const DEVICE_TOKEN_ROUTES: readonly { method: string; path: RegExp }[] = [
     method: 'POST',
     path: /^\/v1\/voice\/approvals\/[^/]+\/(approve|decline)$/,
   },
+  { method: 'POST', path: /^\/v1\/voice\/actions\/[^/]+\/undo$/ },
 ];
 
 export function acceptsDeviceToken(method: string, path: string): boolean {

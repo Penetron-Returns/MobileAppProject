@@ -27,6 +27,10 @@ data class CommandOutcome(
   val pendingRemaining: Int = 0,
   /** Overrides `status` as the overlay dismiss reason when not blank (`network`). */
   val reason: String = "",
+  /** The one executed action just read aloud (act-then-undo); "undo" in the next utterance applies to this id only. */
+  val pendingActionId: String = "",
+  /** Epoch ms when that action's undo window closes; 0 when none. */
+  val undoUntilMs: Long = 0L,
 )
 
 /**

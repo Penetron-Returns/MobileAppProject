@@ -28,6 +28,7 @@ export {
   speakInterim,
   stopListening,
   supportsInAppVoice,
+  undoAction,
   setSoundsEnabled,
   setLauncherIconEnabled,
   setVoiceToken,

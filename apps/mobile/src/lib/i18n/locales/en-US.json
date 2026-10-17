@@ -216,6 +216,14 @@
       "failed": "Could not send your answer to Clovie. Open Clovie to decide."
     }
   },
+  "actions": {
+    "notification": {
+      "undo": "Undo",
+      "undone": "Booking undone",
+      "tooLate": "Too late to undo",
+      "failed": "Could not undo. Open Clovie to check."
+    }
+  },
   "attendance": {
     "notification": {
       "came": "Came",
@@ -617,7 +625,32 @@
       "whatsappConnected": "Connected",
       "whatsappNotConnected": "Not connected. Tap to connect.",
       "connectFailed": "WhatsApp did not finish connecting. Try again.",
-      "openChat": "Open chat"
+      "openChat": "Open chat",
+      "bookings": {
+        "section": "Bookings by Clovie",
+        "askFirst": "Ask me first",
+        "recommended": "Recommended",
+        "policy": {
+          "always": {
+            "title": "Every change",
+            "hint": "Clovie asks before booking, moving or cancelling."
+          },
+          "risky_only": {
+            "title": "Only risky changes",
+            "hint": "Clovie books simple appointments right away and asks before moving, cancelling or anything unclear."
+          },
+          "never": {
+            "title": "Never",
+            "hint": "Clovie acts straight away; you can still undo for a short time."
+          }
+        },
+        "undoWindow": "Time to undo",
+        "undoOff": "Off",
+        "undoSeconds": "{{seconds}}s",
+        "undoHint": "How long you can undo a booking Clovie made.",
+        "unavailable": "Not available yet",
+        "saveFailed": "Could not save. Try again."
+      }
     },
     "whatsapp": {
       "title": "WhatsApp",
@@ -1582,6 +1615,11 @@
       "approve": "Approve",
       "decline": "Decline",
       "orSayYesOrNo": "or just say yes or no",
+      "orSayUndo": "or just say undo",
+      "booked": "Booked",
+      "lineMoved": "{{from}} to {{to}}",
+      "undo": "Undo ({{seconds}}s)",
+      "undoLabel": "Undo this booking, {{seconds}} seconds left",
       "tapToAnswer": "Tap to answer",
       "mic": "Speak to Clovie",
       "notHeard": "I didn't catch that. Tap the mic to try again.",
@@ -1650,6 +1688,11 @@
         "cancelled": "Done. Cancelled.",
         "generic": "Done."
       }
+    },
+    "undo": {
+      "done": "Okay, undone.",
+      "tooLate": "Too late to undo, the booking stands.",
+      "failed": "I couldn't undo that, the booking stands."
     },
     "replies": {
       "section": "Replies",

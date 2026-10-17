@@ -27,6 +27,7 @@ const actions = (): VoiceActions => ({
   cancel: jest.fn(),
   approve: jest.fn(),
   decline: jest.fn(),
+  undo: jest.fn(),
   mic: jest.fn(),
   showChat: jest.fn(),
 });

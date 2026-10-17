@@ -14,4 +14,4 @@ export {
 export type { ClientErrorCode, RequestOptions } from './client';
 export { api } from './endpoints';
 export { publicApi } from './public';
-export type { ConflictQuery } from './endpoints';
+export type { CompanionSettingsPatch, ConflictQuery } from './endpoints';
