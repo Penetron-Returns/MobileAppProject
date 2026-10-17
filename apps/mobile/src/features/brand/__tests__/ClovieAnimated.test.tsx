@@ -129,6 +129,14 @@ describe('ClovieAnimated', () => {
     expect(web(tree).length).toBeGreaterThan(0);
   });
 
+  it('never rests when the caller owns the motion', () => {
+    const tree = mount(<ClovieAnimated size={120} isAlwaysLive />);
+    act(() => {
+      jest.advanceTimersByTime(120000);
+    });
+    expect(web(tree).length).toBeGreaterThan(0);
+  });
+
   it('keeps the live WebView while working', () => {
     const tree = mount(<ClovieAnimated state="working" size={120} />);
     act(() => {

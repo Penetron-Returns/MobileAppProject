@@ -58,6 +58,12 @@ interface ClovieAnimatedProps {
    * For a second Clovie that is hidden or behind a sheet, so only one canvas runs.
    */
   isPaused?: boolean;
+  /**
+   * The caller owns the motion (a story viewer): no idle rest and no native
+   * breathe, so the canvas stays live while mounted and never fights the
+   * caller's own transforms. Unmounting it is what stops the WebView.
+   */
+  isAlwaysLive?: boolean;
 }
 
 /**
@@ -83,6 +89,7 @@ export function ClovieAnimated({
   onLiveChange,
   size,
   isPaused = false,
+  isAlwaysLive = false,
 }: ClovieAnimatedProps) {
   const isMotionActive = useMotionActive();
   const { isDark } = useAppColorScheme();
@@ -97,13 +104,19 @@ export function ClovieAnimated({
     isMotionActive &&
     !failed &&
     !isPaused &&
-    !(isResting && state === 'default');
+    !(isResting && state === 'default' && !isAlwaysLive);
   const showLive = live && ready;
   React.useEffect(() => onLiveChange?.(live), [live, onLiveChange]);
 
   // Idle duty cycle (see LIVE_WINDOW_MS): live for a while, rest, repeat.
   React.useEffect(() => {
-    if (!isMotionActive || isPaused || failed || state !== 'default') {
+    if (
+      !isMotionActive ||
+      isPaused ||
+      failed ||
+      isAlwaysLive ||
+      state !== 'default'
+    ) {
       setIsResting(false);
       return;
     }
@@ -112,7 +125,7 @@ export function ClovieAnimated({
       isResting ? REST_MS : LIVE_WINDOW_MS,
     );
     return () => clearTimeout(id);
-  }, [isMotionActive, isPaused, failed, state, isResting]);
+  }, [isMotionActive, isPaused, failed, isAlwaysLive, state, isResting]);
 
   // A resting, parked or hidden canvas is gone: the next start begins from the still.
   React.useEffect(() => {
@@ -150,7 +163,7 @@ export function ClovieAnimated({
   // Only while the live window runs: a resting Clovie is a still image and
   // costs zero frames (a native breathe repaints the whole window every vsync).
   useIdlePulse(breath, {
-    isActive: live,
+    isActive: live && !isAlwaysLive,
     half: BREATHE,
     restMs: BREATHE_REST_MS,
   });
