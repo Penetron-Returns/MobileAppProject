@@ -97,11 +97,11 @@ describe('MCP handshake', () => {
 });
 
 describe('tools/list', () => {
-  it('publishes the ten required tools first, then the optional client tools, with Nerova\'s schemas and annotations', async () => {
+  it('publishes the ten required tools first, then the optional tools (clients, confirm), with Nerova\'s schemas and annotations', async () => {
     const h = nerovaHarness();
     const { body } = await h.rpc('tools/list');
     const tools = body.result.tools as { name: string; annotations: { readOnlyHint: boolean } }[];
-    expect(tools.map((t) => t.name)).toEqual([...REQUIRED, 'clients_search', 'clients_create']);
+    expect(tools.map((t) => t.name)).toEqual([...REQUIRED, 'clients_search', 'clients_create', 'appointments_confirm']);
     expect(tools).toEqual([...definitions.tools, ...definitions.optionalTools]);
     expect(definitions.tools.map((t) => t.name)).toEqual(REQUIRED);
     const readOnly = tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name);

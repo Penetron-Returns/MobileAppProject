@@ -45,6 +45,7 @@ export const TOOL_BINDINGS: Record<ToolName, ToolBinding> = {
   appointments_create: { schema: argSchemas.appointments_create, handler: (s, a) => s.appointmentsCreate(a) },
   appointments_reschedule: { schema: argSchemas.appointments_reschedule, handler: (s, a) => s.appointmentsReschedule(a) },
   appointments_cancel: { schema: argSchemas.appointments_cancel, handler: (s, a) => s.appointmentsCancel(a) },
+  appointments_confirm: { schema: argSchemas.appointments_confirm, handler: (s, a) => s.confirmAppointment(a) },
   clients_search: { schema: argSchemas.clients_search, handler: (s, a) => s.clientsSearch(a) },
   clients_create: { schema: argSchemas.clients_create, handler: (s, a) => s.clientsCreate(a) },
 };

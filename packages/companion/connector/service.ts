@@ -10,7 +10,7 @@
  */
 import { Buffer } from 'node:buffer';
 
-import type { AppointmentDTO, ClientConfirmationChannel, UUID } from '@booking/types';
+import type { AppointmentDTO, UUID } from '@booking/types';
 import { upsertClient } from '@booking/features/clients/services/clients.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
@@ -42,8 +42,6 @@ export interface NerovaConnectorDeps {
   entitlements: EntitlementService;
   repo: BookingRepository;
   clock: () => Date;
-  /** capability confirm_appointments (NEROVA_CONFIRM_APPOINTMENTS_ENABLED); default off */
-  confirmAppointmentsEnabled?: boolean;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -108,21 +106,10 @@ function readClientNotification(origin: { clientNotification?: ClientNotificatio
   return { voided: true };
 }
 
-/** Internal arguments of confirmAppointment. NOT the MCP schema: the wire contract is still pending from Nerova. */
-export interface ConfirmAppointmentArgs {
-  accountId: string;
-  appointmentId: string;
-  idempotencyKey?: string;
-  confirmedAt?: string;
-  via?: ClientConfirmationChannel;
-  origin?: { conversationId?: string };
-}
-
 export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
   const reads = deps.readBooking ?? booking;
-  const wireOptions = { clientConfirmation: deps.confirmAppointmentsEnabled === true };
-  const wire = (appointment: AppointmentDTO) => toAppointment(appointment, wireOptions);
+  const wire = toAppointment;
 
   /** The business behind an account id, or not_found when it is unknown, malformed or not on a companion plan. */
   async function requireAccount(accountId: string): Promise<UUID> {
@@ -259,7 +246,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     };
     const last = page[page.length - 1];
     return {
-      items: page.map((a) => toAppointmentListItem(a, lookups, wireOptions)),
+      items: page.map((a) => toAppointmentListItem(a, lookups)),
       ...(rows.length > limit && last ? { nextCursor: encodeCursor(last) } : {}),
     };
   }
@@ -426,29 +413,25 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     },
 
     /**
-     * Client tapped "Confirm" on a reminder. Only reachable once the tool is wired (see the TODO below), so it is
-     * inert while NEROVA_CONFIRM_APPOINTMENTS_ENABLED is off. The key is scoped to the account like create's.
-     * Idempotent and a no-op for cancelled/completed appointments: both come back unchanged (BookingService.confirmByClient).
+     * Client tapped "Confirm" on a Nerova reminder (`appointments_confirm`, ConfirmAppointments capability).
+     * The key is the reminder's WhatsApp message id, scoped to the account like create's. Idempotent, and a no-op
+     * (the appointment comes back unchanged, not an error) unless it is still confirmed (Scheduled); both are enforced
+     * by BookingService.confirmByClient and the confirm_appointment_by_client RPC, which also writes the
+     * client_confirmed event. This path never messages the client.
      */
-    async confirmAppointment(args: ConfirmAppointmentArgs) {
+    async confirmAppointment(args: ToolArgs<'appointments_confirm'>) {
       const businessId = await requireAccount(args.accountId);
       if (!isUuid(args.appointmentId)) throw connectorNotFound('Appointment');
       const appointment = await booking.confirmByClient({
         businessId,
         appointmentId: args.appointmentId,
-        confirmedAt: args.confirmedAt ?? deps.clock().toISOString(),
-        via: args.via ?? 'whatsapp',
+        confirmedAt: args.confirmedAt,
+        via: args.channel,
         actor: nerovaActor(args.origin),
-        idempotencyKey: args.idempotencyKey ? `nerova:${businessId}:${args.idempotencyKey}` : null,
+        idempotencyKey: `nerova:${businessId}:${args.idempotencyKey}`,
       });
       return wire(appointment);
     },
-
-    // TODO(nerova-contract): register the `appointments_confirm` MCP tool once Nerova sends the final request and
-    // response field names: add its zod schema to args.ts (argSchemas), its entry to tools.ts and
-    // booking-connector.mcp-tools.json, dispatch it to confirmAppointment above (map the wire fields onto
-    // ConfirmAppointmentArgs), and advertise CONFIRM_APPOINTMENTS_CAPABILITY via advertisedCapabilities() in the
-    // manifest, only when NEROVA_CONFIRM_APPOINTMENTS_ENABLED is on. Nothing is exposed over MCP until then.
 
     async appointmentsCancel(args: ToolArgs<'appointments_cancel'>) {
       const businessId = await requireAccount(args.accountId);
