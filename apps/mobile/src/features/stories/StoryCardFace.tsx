@@ -4,22 +4,31 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Detail, People, Rows, Summary } from './cardVisuals';
 import { NamesDemo, UndoDemo } from './demos';
-import type { CardLayout } from './layout';
-import type { StoryCard } from './model';
+import { layoutForCard } from './layout';
+import type { StoryCard, StoryKind } from './model';
 import { NumberLine } from './NumberLine';
 import { Rise } from './Rise';
 import { TONES } from './tones';
 
 interface StoryCardFaceProps {
   card: StoryCard;
-  layout: CardLayout;
+  kind: StoryKind;
   /** True for the card on screen: demos run only then. */
   isCurrent: boolean;
 }
 
-/** One card: kicker, number, headline, body and the card's visual, each staggered in. */
-export function StoryCardFace({ card, layout, isCurrent }: StoryCardFaceProps) {
+/**
+ * One card: kicker, number, headline, body and the card's visual, each
+ * staggered in. Memoised on (card, kind, isCurrent), so a progress tick or a
+ * transition never re-renders it.
+ */
+export const StoryCardFace = React.memo(function StoryCardFace({
+  card,
+  kind,
+  isCurrent,
+}: StoryCardFaceProps) {
   const { t } = useTranslation();
+  const layout = React.useMemo(() => layoutForCard(card, kind), [card, kind]);
   const accent = TONES[card.tone].accent;
   const lineHeight = Math.round(layout.headlineSize * 1.16);
   const list = card.list ?? [];
@@ -83,7 +92,7 @@ export function StoryCardFace({ card, layout, isCurrent }: StoryCardFaceProps) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   column: { flex: 1 },

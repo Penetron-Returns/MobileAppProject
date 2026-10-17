@@ -73,7 +73,7 @@ interface ViewerCharacterProps {
  * to each card's spot with an 850 ms spring, and hops off the edge and back in
  * across a story change. Reduce Motion: he just appears at the new spot.
  */
-export function ViewerCharacter({
+export const ViewerCharacter = React.memo(function ViewerCharacter({
   emotion,
   target,
   travel,
@@ -150,7 +150,7 @@ export function ViewerCharacter({
       />
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {

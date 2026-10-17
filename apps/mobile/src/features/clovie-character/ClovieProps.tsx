@@ -407,10 +407,9 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 7,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    // A drop shadow would be re-rendered every frame of the wobble: a flat edge instead.
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(10,26,40,0.22)',
   },
   signText: {
     textAlign: 'center',

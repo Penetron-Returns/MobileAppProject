@@ -6,6 +6,9 @@ import Svg, { Path } from 'react-native-svg';
 import type { StoryKind } from './model';
 import { KIND_GLYPHS } from './tones';
 
+/** A 128 px render of the companion (the tile shows him at ~46 pt), not the 360 px logo art. */
+const NEUTRAL_CLOVIE = require('@/assets/images/clovie/neutral-128.png');
+
 interface KindTileProps {
   kind: StoryKind;
   /** Tile diameter in pt. */
@@ -28,12 +31,9 @@ export function KindTile({ kind, size, isDark }: KindTileProps) {
       <LinearGradient colors={palette.tile} style={StyleSheet.absoluteFill} />
       {g.isImage ? (
         <Image
-          source={
-            isDark
-              ? require('@/assets/images/companion-default-dark.png')
-              : require('@/assets/images/companion-default.png')
-          }
+          source={NEUTRAL_CLOVIE}
           resizeMode="contain"
+          resizeMethod="resize"
           fadeDuration={0}
           style={{ width: size * 0.72, height: size * 0.72 }}
         />

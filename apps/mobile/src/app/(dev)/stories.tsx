@@ -29,6 +29,7 @@ export default function StoriesDemoScreen() {
   const [stories, setStories] = React.useState<Story[]>(SAMPLE_STORIES);
   const [open, setOpen] = React.useState<Open | null>(null);
   const [isAnimating, setIsAnimating] = React.useState(false);
+  const [isFpsShown, setIsFpsShown] = React.useState(false);
   const [log, setLog] = React.useState<string[]>([]);
 
   if (!__DEV__) return <Redirect href="/" />;
@@ -83,6 +84,17 @@ export default function StoriesDemoScreen() {
           >
             <Text className="text-primary">Reset viewed state</Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: isFpsShown }}
+            onPress={() => setIsFpsShown((v) => !v)}
+          >
+            <Text className="text-primary">
+              {isFpsShown
+                ? 'Hide FPS meter'
+                : 'Show FPS meter (UI + JS frames)'}
+            </Text>
+          </Pressable>
         </View>
 
         <View className="mx-5 mt-8 gap-3">
@@ -119,6 +131,7 @@ export default function StoriesDemoScreen() {
           stories={stories}
           initialIndex={open.index}
           originFrame={open.frame}
+          isFpsShown={isFpsShown}
           onClose={() => setOpen(null)}
           onViewed={(id) =>
             setStories((all) =>

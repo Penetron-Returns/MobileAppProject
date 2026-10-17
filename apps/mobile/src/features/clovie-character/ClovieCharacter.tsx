@@ -8,9 +8,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
-
 import { ClovieProps } from './ClovieProps';
+import { ClovieSprite } from './ClovieSprite';
 import { sampleFrames } from './keyframes';
 import {
   compiledPose,
@@ -19,7 +18,6 @@ import {
   propsFor,
   type ClovieEmotion,
 } from './poses';
-import { liveStateFor } from './liveState';
 import { useLoop } from './useLoop';
 
 /** The character is drawn on an 84 pt box and scaled to `size`. */
@@ -32,9 +30,9 @@ export interface ClovieCharacterProps {
   /** Pose and prop loops run only while true. At rest nothing animates. */
   isActive?: boolean;
   /**
-   * Draws the real companion (live canvas, its own blinking eyes) instead of
-   * the still PNG, but only while also `isActive` and Reduce Motion is off.
-   * It costs a WebView, so pass it for the ONE Clovie that must look alive.
+   * Draws the blinking companion (pre-rendered frames of the real avatar,
+   * one bitmap and a timer during a blink) instead of the still PNG, but only
+   * while also `isActive` and Reduce Motion is off.
    */
   isLive?: boolean;
   /** Curious only: shows the magnifier. */
@@ -46,7 +44,7 @@ export interface ClovieCharacterProps {
   testID?: string;
 }
 
-export function ClovieCharacter({
+export const ClovieCharacter = React.memo(function ClovieCharacter({
   emotion,
   size = DESIGN,
   isActive = false,
@@ -104,16 +102,17 @@ export function ClovieCharacter({
       style={{ width: size, height: size }}
     >
       <View style={[styles.box, { transform: [{ scale }] }]}>
-        <View style={styles.shadow} />
+        <Image
+          source={require('@/assets/images/clovie/shadow.png')}
+          fadeDuration={0}
+          resizeMethod="resize"
+          style={styles.shadow}
+        />
         <Animated.View style={[styles.poseBox, poseStyle]}>
           <Animated.View style={flipStyle}>
             <View style={pose.isDimmed ? styles.dimmed : undefined}>
               {isShowingLive ? (
-                <ClovieAnimated
-                  size={DESIGN}
-                  state={liveStateFor(emotion)}
-                  isAlwaysLive
-                />
+                <ClovieSprite size={DESIGN} isActive />
               ) : (
                 <Image
                   source={
@@ -122,6 +121,7 @@ export function ClovieCharacter({
                       : require('@/assets/images/companion-default.png')
                   }
                   resizeMode="contain"
+                  resizeMethod="resize"
                   fadeDuration={0}
                   style={styles.image}
                 />
@@ -133,7 +133,7 @@ export function ClovieCharacter({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   box: {
@@ -146,16 +146,8 @@ const styles = StyleSheet.create({
     height: DESIGN,
     transformOrigin: '50% 100%',
   },
-  shadow: {
-    position: 'absolute',
-    left: 14,
-    bottom: -4,
-    width: 56,
-    height: 8,
-    borderRadius: 28,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    filter: [{ blur: 3 }],
-  },
+  /** The 56 x 8 pt blurred pill under him, baked into a 72 x 20 pt image (see render-sprites.mjs). */
+  shadow: { position: 'absolute', left: 6, top: 74, width: 72, height: 20 },
   image: { width: DESIGN, height: DESIGN },
   dimmed: { filter: [{ brightness: 0.74 }, { saturate: 0.75 }] },
 });

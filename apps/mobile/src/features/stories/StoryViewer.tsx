@@ -27,16 +27,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { layoutForCard, placeOnScreen } from './layout';
+import { FpsMeter } from './FpsMeter';
 import { KindTile } from './KindTile';
 import type { OriginFrame, Story, StoryCard, StoryEvent } from './model';
 import { EASE_SPRING } from './motion';
 import { tapAction } from './navigation';
 import { ProgressBars } from './ProgressBars';
 import { Rise } from './Rise';
-import { StoryCardFace } from './StoryCardFace';
+import { StoryFace } from './StoryFace';
 import { ToneGlow } from './ToneGlow';
 import { TONES } from './tones';
-import { TurnFace } from './TurnFace';
 import { useStoryPlayer } from './useStoryPlayer';
 import { ViewerCharacter } from './ViewerCharacter';
 
@@ -49,6 +49,8 @@ export interface StoryViewerProps {
   onViewed: (storyId: string, lastCardIndex: number) => void;
   onEvent?: (event: StoryEvent) => void;
   onAction?: (card: StoryCard) => void;
+  /** Dev only: a UI / JS frame counter over the viewer. */
+  isFpsShown?: boolean;
 }
 
 /** The board's phone is 402 pt wide and its header sits 47 pt below the top. */
@@ -120,9 +122,16 @@ export function StoryViewer(props: StoryViewerProps) {
 
   const story = stories[player.position.story];
   const card = story.cards[player.position.card];
-  const layout = layoutForCard(card, story.kind);
+  const layout = React.useMemo(
+    () => layoutForCard(card, story.kind),
+    [card, story.kind],
+  );
   const accent = TONES[card.tone].accent;
-  const target = placeOnScreen(layout.placement, width, top);
+  // Stable, so the memoised Clovie only re-renders when he is really retargeted.
+  const target = React.useMemo(
+    () => placeOnScreen(layout.placement, width, top),
+    [layout.placement, width, top],
+  );
 
   const handleTap = (x: number) =>
     tapAction(x, width) === 'prev'
@@ -194,32 +203,24 @@ export function StoryViewer(props: StoryViewerProps) {
       <GestureHandlerRootView style={styles.fill}>
         <Animated.View style={[styles.shell, shell]}>
           <LinearGradient colors={['#0F2D42', '#0A1A28']} style={styles.fill} />
-          <ToneGlow tone={card.tone} width={width} height={height} />
+          <ToneGlow tone={card.tone} />
 
-          {faces.map(({ pos, role }) => {
-            const c = stories[pos.story].cards[pos.card];
-            const l = layoutForCard(c, stories[pos.story].kind);
-            return (
-              <TurnFace
-                key={`${pos.story}:${pos.card}`}
-                role={role}
-                kind={player.transition.kind}
-                dir={player.transition.dir}
-                turn={player.turn}
-                turnId={player.turnId}
-                width={width}
-                isReduced={isReduced}
-              >
-                <View style={[styles.content, { top: 166 + top }]}>
-                  <StoryCardFace
-                    card={c}
-                    layout={l}
-                    isCurrent={role === 'in'}
-                  />
-                </View>
-              </TurnFace>
-            );
-          })}
+          {faces.map(({ pos, role }) => (
+            <StoryFace
+              key={`${pos.story}:${pos.card}`}
+              role={role}
+              transitionKind={player.transition.kind}
+              dir={player.transition.dir}
+              turn={player.turn}
+              turnId={player.turnId}
+              width={width}
+              isReduced={isReduced}
+              isTransitioning={player.outgoing !== null}
+              card={stories[pos.story].cards[pos.card]}
+              storyKind={stories[pos.story].kind}
+              top={top}
+            />
+          ))}
 
           <GestureDetector gesture={gesture}>
             <View
@@ -299,6 +300,7 @@ export function StoryViewer(props: StoryViewerProps) {
               </Pressable>
             </Rise>
           ) : null}
+          {props.isFpsShown ? <FpsMeter /> : null}
           <View
             pointerEvents="none"
             style={[
@@ -317,7 +319,6 @@ function noop() {}
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   shell: { flex: 1, overflow: 'hidden', backgroundColor: '#0A1A28' },
-  content: { position: 'absolute', left: 24, right: 24, bottom: 120 },
   touch: { position: 'absolute', left: 0, right: 0 },
   bars: { position: 'absolute', left: 12, right: 12 },
   header: {
