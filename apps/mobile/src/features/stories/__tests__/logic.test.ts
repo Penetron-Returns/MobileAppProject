@@ -11,7 +11,7 @@ import { barScale } from '../motion';
 import type { StoryCard } from '../model';
 import { clampIndex, isLastCard, navigate, tapAction } from '../navigation';
 import { CARD_MS, remainingMs, segmentFill } from '../progress';
-import { glowStops, KIND_GLYPHS, TONES } from '../tones';
+import { glowStops, KIND_GLYPHS, TONES, toneWash } from '../tones';
 
 describe('navigate', () => {
   const counts = [3, 2, 1];
@@ -112,6 +112,13 @@ describe('tone palettes', () => {
     for (const tone of Object.values(TONES)) {
       expect(tone.ring[0]).toBe(tone.ring[4]);
     }
+  });
+
+  it('washes the whole page in the tone: three stops from the tone glow colours', () => {
+    const wash = toneWash('attention');
+    expect(wash).toHaveLength(3);
+    expect(wash[0]).toBe('rgba(255,159,10,0.34)');
+    expect(wash[2]).toContain(TONES.attention.glow2);
   });
 
   it('makes the second glow 60% of the first', () => {
