@@ -92,3 +92,13 @@ export function expiresAtFor(kind: StoryKind, now: Date, timezone: string): Date
   const startOfDay = DateTime.fromMillis(now.getTime(), { zone: timezone }).startOf('day');
   return (kind === 'brief' ? startOfDay.plus({ days: 1 }) : startOfDay.plus({ days: 8 })).toJSDate();
 }
+
+/** Every story kind for the current periods, ignoring slots and existing rows (test/demo force mode). */
+export function planForcedStories(now: Date, timezone: string): StoryTask[] {
+  const local = DateTime.fromMillis(now.getTime(), { zone: timezone });
+  return [
+    { kind: 'brief', periodKey: briefKey(local), reason: 'scheduled' },
+    { kind: 'clients', periodKey: weekKey(local), reason: 'scheduled' },
+    { kind: 'business', periodKey: weekKey(local), span: 'week', reason: 'scheduled' },
+  ];
+}

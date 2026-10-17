@@ -172,6 +172,55 @@ describe('stories cron job', () => {
     });
   });
 
+  describe('force mode', () => {
+    const forced = (repo: MemoryStoriesRepository, local: string, options = { force: true } as { force?: boolean; businessId?: string }) =>
+      runStoriesJob({ repo, logger: quiet }, sastDate(local), options);
+    const SAT = '2026-10-17T15:00';
+
+    it('builds the Brief, Client updates and Business update on a Saturday afternoon, outside every slot', async () => {
+      const repo = world();
+      const sat = sastDate(SAT);
+      repo.clients.set(A, [client('Newbie One', daysAgo(2, sat))]);
+      repo.appointments.set(A, [...repo.appointments.get(A)!, fact({ startsAt: daysAgo(3, sat), priceCents: 40000, status: 'completed' })]);
+      expect(await run(repo, SAT)).toMatchObject({ created: 0 });
+      const counts = await forced(repo, SAT);
+      expect(counts).toMatchObject({ businesses: 2, errors: 0 });
+      const kinds = repo.stories.filter((x) => x.businessId === A).map((x) => x.kind).sort();
+      expect(kinds).toEqual(['brief', 'business', 'clients']);
+      expect(repo.stories.find((x) => x.businessId === A && x.kind === 'brief')).toMatchObject({ periodKey: '2026-10-17' });
+      expect(repo.stories.find((x) => x.businessId === A && x.kind === 'clients')).toMatchObject({ periodKey: '2026-W42' });
+      expect(repo.stories.find((x) => x.businessId === A && x.kind === 'business')).toMatchObject({ periodKey: '2026-W42' });
+    });
+
+    it('limits the run to the given business', async () => {
+      const repo = world();
+      await forced(repo, SAT, { force: true, businessId: B });
+      expect(repo.stories.every((x) => x.businessId === B)).toBe(true);
+      expect(briefOf(repo, B)).toBeDefined();
+    });
+
+    it('is idempotent and writes no empty story', async () => {
+      const repo = world();
+      await forced(repo, SAT);
+      const upserts = repo.upserts;
+      const rows = repo.stories.length;
+      expect(await forced(repo, SAT)).toMatchObject({ created: 0, refreshed: 0 });
+      expect(repo.upserts).toBe(upserts);
+      expect(repo.stories).toHaveLength(rows);
+      const empty = world();
+      empty.appointments.set(A, []);
+      empty.appointments.set(B, []);
+      await forced(empty, SAT);
+      expect(empty.stories).toEqual([]);
+    });
+
+    it('without force the slot rules still apply', async () => {
+      const repo = world();
+      await forced(repo, SAT, { force: false });
+      expect(repo.stories).toEqual([]);
+    });
+  });
+
   it('is reachable through the service as runJob(now)', async () => {
     const repo = world();
     const service = createStoriesServiceFromRepository({ repo, entitlements: fakeEntitlements('growth'), clock: () => sastDate('2026-10-17T08:45'), logger: quiet });
