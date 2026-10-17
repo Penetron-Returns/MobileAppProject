@@ -9,8 +9,8 @@ export const CUBE_LEAD_MS = 420;
 export const TRAVEL_MS = 850;
 /** Inputs are ignored while a transition plays. */
 export const LOCK_MS = {
-  card: SLIDE_MS,
-  story: CUBE_LEAD_MS + CUBE_MS,
+  card: SLIDE_MS + 60,
+  story: CUBE_LEAD_MS + CUBE_MS + 60,
 } as const;
 
 /** Fill of segment `index` while `current` is showing at `progress` (0..1). */

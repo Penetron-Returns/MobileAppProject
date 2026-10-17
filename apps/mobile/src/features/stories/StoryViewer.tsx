@@ -206,6 +206,7 @@ export function StoryViewer(props: StoryViewerProps) {
                 kind={player.transition.kind}
                 dir={player.transition.dir}
                 turn={player.turn}
+                turnId={player.turnId}
                 width={width}
                 isReduced={isReduced}
               >
@@ -234,6 +235,7 @@ export function StoryViewer(props: StoryViewerProps) {
               count={story.cards.length}
               current={player.position.card}
               progress={player.progress}
+              serial={player.cardSerial}
               color={accent}
               label={t('stories.progress', {
                 current: player.position.card + 1,
