@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
-import { SetupChecklistCard } from '@/features/setup-checklist/components/SetupChecklistCard';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { formatDayCaption } from '@/features/today/logic';
 import { useIsKeyboardVisible } from '@/hooks/useIsKeyboardVisible';
@@ -131,7 +130,6 @@ export function ClovieTabScreen() {
             onAction={onStoryAction}
             onClose={events.flush}
           />
-          <SetupChecklistCard />
           {isAvailable || hasFailed ? (
             <CompanionMoment
               testID="clovie-moment"

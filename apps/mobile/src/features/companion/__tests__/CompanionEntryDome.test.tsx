@@ -23,7 +23,6 @@ function pressDome(isAvailable: boolean, hasFailed = false) {
         hasFailed,
         open,
         close: jest.fn(),
-        openSetup: jest.fn(),
       }}
     >
       <CompanionEntryDome />
@@ -63,7 +62,6 @@ describe('CompanionEntryDome', () => {
             hasFailed: false,
             open: jest.fn(),
             close: jest.fn(),
-            openSetup: jest.fn(),
           }}
         >
           <CompanionEntryDome isHidden={isHidden} />

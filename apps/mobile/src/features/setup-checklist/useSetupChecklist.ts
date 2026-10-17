@@ -8,8 +8,6 @@ import {
 } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { useServices, useStaff } from '@/features/catalog/hooks';
-import { useCompanionSetup } from '@/features/companion/hooks';
-import { useSetupProgress } from '@/features/companion/sdk/companionSetupStore';
 import { getPushPermission } from '@/features/notifications/pushDevice';
 import { useHeyClovieOn } from '@/features/voice/hooks';
 
@@ -91,8 +89,6 @@ export function useSetupChecklist(): SetupChecklistView {
   const hours = useBusinessHours();
   const staff = useStaff();
   const details = useBusinessDetails();
-  const setup = useCompanionSetup({ enabled: isOwner });
-  const progress = useSetupProgress();
   const isVoiceOn = useHeyClovieOn();
   const isPushGranted = usePushGranted();
   const { reviewed, markReviewed } = useReviewed(me.data?.business.id);
@@ -113,10 +109,6 @@ export function useSetupChecklist(): SetupChecklistView {
       : null,
     isVoiceOn,
     isPushGranted,
-    isTestMessageDone:
-      Boolean(setup.data?.companion_live) ||
-      progress.completed.includes('test_message') ||
-      progress.step === 'live',
     reviewed,
   });
   return { ...checklist, isOwner, markReviewed };

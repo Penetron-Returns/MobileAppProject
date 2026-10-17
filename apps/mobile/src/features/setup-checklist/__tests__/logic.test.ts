@@ -1,6 +1,5 @@
 import {
   deriveChecklist,
-  nextItem,
   parseReviewed,
   serializeReviewed,
   type ChecklistInput,
@@ -15,7 +14,6 @@ const fresh: ChecklistInput = {
   hasContactDetails: false,
   isVoiceOn: false,
   isPushGranted: false,
-  isTestMessageDone: false,
   reviewed: new Set(),
 };
 
@@ -25,7 +23,7 @@ const done = (input: ChecklistInput) =>
   ) as Record<ChecklistItemId, boolean | undefined>;
 
 describe('deriveChecklist', () => {
-  it('lists the eight items in order on Android', () => {
+  it('lists the seven items in order on Android, with no test message', () => {
     expect(deriveChecklist(fresh).items.map((i) => i.id)).toEqual([
       'services',
       'hours',
@@ -34,7 +32,6 @@ describe('deriveChecklist', () => {
       'rules',
       'voice',
       'notifications',
-      'testMessage',
     ]);
   });
 
@@ -43,7 +40,7 @@ describe('deriveChecklist', () => {
       (i) => i.id,
     );
     expect(ids).not.toContain('voice');
-    expect(ids).toHaveLength(7);
+    expect(ids).toHaveLength(6);
   });
 
   it('starts with nothing done right after onboarding (the template alone is not a review)', () => {
@@ -98,13 +95,6 @@ describe('deriveChecklist', () => {
     });
   });
 
-  it('marks the test message from Nerova, never from a visit', () => {
-    expect(
-      done({ ...fresh, reviewed: new Set(['testMessage']) }).testMessage,
-    ).toBe(false);
-    expect(done({ ...fresh, isTestMessageDone: true }).testMessage).toBe(true);
-  });
-
   it('is complete (and hides) only when every item is done', () => {
     const all: ChecklistInput = {
       ...fresh,
@@ -112,17 +102,17 @@ describe('deriveChecklist', () => {
       hasContactDetails: true,
       isVoiceOn: true,
       isPushGranted: true,
-      isTestMessageDone: true,
       reviewed: new Set(['services', 'hours', 'rules']),
     };
     expect(deriveChecklist(all)).toMatchObject({
       isComplete: true,
       isReady: true,
-      doneCount: 8,
+      doneCount: 7,
     });
-    expect(deriveChecklist({ ...all, platform: 'ios' }).doneCount).toBe(7);
+    expect(deriveChecklist({ ...all, platform: 'ios' }).doneCount).toBe(6);
     expect(
-      deriveChecklist({ ...all, isTestMessageDone: false }).isComplete,
+      deriveChecklist({ ...all, reviewed: new Set(['services', 'hours']) })
+        .isComplete,
     ).toBe(false);
   });
 
@@ -136,25 +126,6 @@ describe('deriveChecklist', () => {
     const result = deriveChecklist({ ...fresh, ...patch });
     expect(result.isReady).toBe(false);
     expect(result.isComplete).toBe(false);
-  });
-});
-
-describe('nextItem', () => {
-  it('is the first item not done, then null', () => {
-    expect(nextItem(deriveChecklist(fresh))).toBe('services');
-    expect(
-      nextItem(deriveChecklist({ ...fresh, reviewed: new Set(['services']) })),
-    ).toBe('hours');
-    const all = deriveChecklist({
-      ...fresh,
-      staffCount: 3,
-      hasContactDetails: true,
-      isVoiceOn: true,
-      isPushGranted: true,
-      isTestMessageDone: true,
-      reviewed: new Set(['services', 'hours', 'rules']),
-    });
-    expect(nextItem(all)).toBeNull();
   });
 });
 

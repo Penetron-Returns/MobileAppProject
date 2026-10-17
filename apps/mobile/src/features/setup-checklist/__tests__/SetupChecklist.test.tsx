@@ -3,16 +3,12 @@ import * as React from 'react';
 import { act, mount, pressableByLabel, text } from '@/testing/render';
 
 import { GetSetUpScreen } from '../components/GetSetUpScreen';
-import { SetupChecklistCard } from '../components/SetupChecklistCard';
 import type { ChecklistInput } from '../logic';
+import { useSetupStory } from '../useSetupStory';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a), back: jest.fn() },
-}));
-const mockOpenSetup = jest.fn();
-jest.mock('@/features/companion/sdk/companionSheetControl', () => ({
-  useCompanionSheet: () => ({ openSetup: mockOpenSetup }),
 }));
 const mockMark = jest.fn();
 let mockOwner = true;
@@ -33,7 +29,6 @@ const baseInput = (): ChecklistInput => ({
   hasContactDetails: false,
   isVoiceOn: false,
   isPushGranted: false,
-  isTestMessageDone: false,
   reviewed: new Set(),
 });
 
@@ -42,61 +37,55 @@ const speakers = (tree: ReturnType<typeof mount>) =>
     (n) => n.props.accessibilityLabel === 'Read aloud' && !!n.props.onPress,
   );
 
+function story() {
+  let value: ReturnType<typeof useSetupStory> = null;
+  function Probe() {
+    value = useSetupStory();
+    return null;
+  }
+  mount(<Probe />);
+  return value as ReturnType<typeof useSetupStory>;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockInput = baseInput();
   mockOwner = true;
 });
 
-describe('SetupChecklistCard (Clovie tab)', () => {
-  it('shows progress and only the next item, with a speaker button', () => {
-    const tree = mount(<SetupChecklistCard />);
-    const out = text(tree);
-    expect(out).toContain('Get set up');
-    expect(out).toContain('0 of 8 done');
-    expect(out).toContain('Check services & prices');
-    expect(out).not.toContain('Check opening hours');
-    expect(speakers(tree).length).toBeGreaterThan(0);
+describe('useSetupStory (the stories row bubble)', () => {
+  it('reports progress out of seven and opens the full checklist', () => {
+    const result = story();
+    expect(result).toMatchObject({ done: 0, total: 7 });
+    result?.open();
+    expect(mockPush).toHaveBeenCalledWith('/settings/get-set-up');
   });
 
-  it('one tap marks the item looked at and opens its settings screen', () => {
-    const tree = mount(<SetupChecklistCard />);
-    act(() =>
-      pressableByLabel(
-        tree,
-        'Check services & prices, not done',
-      ).props.onPress(),
-    );
-    expect(mockMark).toHaveBeenCalledWith('services');
-    expect(mockPush).toHaveBeenCalledWith('/settings/services');
-  });
-
-  it('is hidden for staff', () => {
+  it('is null for staff', () => {
     mockOwner = false;
-    expect(text(mount(<SetupChecklistCard />))).not.toContain('Get set up');
+    expect(story()).toBeNull();
   });
 
-  it('is hidden while something is still loading', () => {
+  it('is null while something is still loading', () => {
     mockInput = { ...baseInput(), servicesCount: null };
-    expect(text(mount(<SetupChecklistCard />))).not.toContain('Get set up');
+    expect(story()).toBeNull();
   });
 
-  it('is hidden when everything is done', () => {
+  it('is null when everything is done', () => {
     mockInput = {
       ...baseInput(),
       platform: 'ios',
       staffCount: 3,
       hasContactDetails: true,
       isPushGranted: true,
-      isTestMessageDone: true,
       reviewed: new Set(['services', 'hours', 'rules']),
     };
-    expect(text(mount(<SetupChecklistCard />))).not.toContain('Get set up');
+    expect(story()).toBeNull();
   });
 });
 
 describe('GetSetUpScreen', () => {
-  it("lists every item, and the test message opens Nerova's sheet on that step", () => {
+  it('lists every item and one tap marks it looked at and opens its screen', () => {
     const tree = mount(<GetSetUpScreen />);
     const out = text(tree);
     for (const item of [
@@ -107,22 +96,23 @@ describe('GetSetUpScreen', () => {
       'Booking rules',
       'Hey Clovie',
       'Notifications',
-      'Send a test message',
     ]) {
       expect(out).toContain(item);
     }
+    expect(out).not.toContain('test message');
     act(() =>
-      pressableByLabel(tree, 'Send a test message, not done').props.onPress(),
+      pressableByLabel(
+        tree,
+        'Check services & prices, not done',
+      ).props.onPress(),
     );
-    expect(mockOpenSetup).toHaveBeenCalledWith('test_message');
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(mockMark).not.toHaveBeenCalled();
+    expect(mockMark).toHaveBeenCalledWith('services');
+    expect(mockPush).toHaveBeenCalledWith('/settings/services');
   });
 
   it('has a speaker button on every row', () => {
-    // Each speaker button appears as a wrapper and its inner node: eight rows, at least eight buttons.
     expect(speakers(mount(<GetSetUpScreen />)).length).toBeGreaterThanOrEqual(
-      8,
+      7,
     );
   });
 });
