@@ -1,7 +1,6 @@
 import { ChevronRight } from 'lucide-react-native';
 import * as React from 'react';
 import {
-  Pressable,
   View,
   type PressableStateCallbackType,
   type ViewProps,
@@ -9,6 +8,7 @@ import {
 
 import { cn } from '../lib/cn';
 import { Divider } from '../primitives/Divider';
+import { Pressable } from '../primitives/Pressable';
 import { Surface } from '../primitives/Surface';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
@@ -185,6 +185,7 @@ export function GroupRow({
   }
   return (
     <Pressable
+      feedback="none"
       onPress={onPress}
       {...rowActions}
       accessibilityRole="button"
