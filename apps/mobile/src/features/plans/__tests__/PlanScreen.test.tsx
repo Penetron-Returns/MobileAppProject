@@ -182,11 +182,21 @@ describe('PlanScreen', () => {
     expect(mockInfo).not.toHaveBeenCalled();
   });
 
-  it('hides Manage subscription until a URL exists', () => {
+  it('always lists Manage subscription, dimmed with its reason until a URL exists', () => {
     mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
-    const out = text(mount(<PlanScreen />));
+    const tree = mount(<PlanScreen />);
+    const out = text(tree);
     expect(out).toContain('Managed on web');
-    expect(out).not.toContain('Manage subscription');
+    expect(out).toContain('Manage subscription');
+    expect(out).toContain('Managed on the web');
+    expect(
+      tree.root.findAll(
+        (n) =>
+          typeof n.props.accessibilityLabel === 'string' &&
+          n.props.accessibilityLabel.startsWith('Manage subscription') &&
+          n.props.accessibilityState?.disabled === true,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it('opens the comparison table from the disclosure', () => {

@@ -24,6 +24,8 @@ import { describeError, toast } from '@/lib/toast';
 import { useAvailabilityRules, useRemoveMember, useTeam } from '../hooks';
 import { buildTeam, type TeamPerson } from '../logic';
 import { resolveWorkingWeek } from '../schedule';
+import { OwnerOnlyNote } from '@/features/settings/components/OwnerOnlyNote';
+
 import { PersonDetail } from './PersonDetail';
 import { StaffForm } from './StaffForm';
 import { TeamList } from './TeamList';
@@ -31,7 +33,7 @@ import { TeamList } from './TeamList';
 /**
  * Team (the Staff board): the business's people with whether each can sign in
  * (member, invited, or calendar-only), the invite card, and a person's page.
- * Owner only: the route is wrapped in `OwnerOnly` and the API enforces it too.
+ * Staff see it read-only (no invite or edit actions); the API enforces the role.
  */
 export function TeamScreen() {
   const { t } = useTranslation();
@@ -130,6 +132,7 @@ export function TeamScreen() {
       >
         <SavedCopyBanner query={staff} />
         {body}
+        <OwnerOnlyNote />
       </GlassPage>
       {editing ? (
         <StaffForm

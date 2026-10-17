@@ -412,7 +412,6 @@ describe('Person page', () => {
 describe('Role change', () => {
   async function openRuan(tree: ReactTestRenderer) {
     await press(tree, 'Ruan van Wyk, Barber, can sign in. Open');
-    await press(tree, 'More');
   }
 
   it('changes a login to owner through the API', async () => {
@@ -471,7 +470,6 @@ describe('Role change', () => {
 describe('Remove from team', () => {
   async function openRuanMore(tree: ReactTestRenderer) {
     await press(tree, 'Ruan van Wyk, Barber, can sign in. Open');
-    await press(tree, 'More');
   }
 
   it('asks first and explains the calendar keeps them', async () => {
@@ -505,11 +503,26 @@ describe('Remove from team', () => {
     expect(api.removeMember).not.toHaveBeenCalled();
   });
 
-  it('never offers to remove yourself', async () => {
+  it('shows Remove from team for yourself, dimmed and with the reason', async () => {
     const tree = await mount();
     await press(tree, 'Thandi Mokoena, Senior stylist, can sign in. Open');
-    await press(tree, 'More');
-    expect(json(tree)).not.toContain('Remove from team');
+    expect(json(tree)).toContain('You cannot remove yourself from the team.');
+    const row = tree.root.findAll(
+      (n) =>
+        n.props.accessibilityLabel === 'Remove from team' &&
+        n.props.accessibilityState?.disabled === true,
+    );
+    expect(row.length).toBeGreaterThan(0);
+  });
+
+  it('lists role, calendar colour and Remove from team on the person page, without a More disclosure', async () => {
+    const tree = await mount();
+    await press(tree, 'Ruan van Wyk, Barber, can sign in. Open');
+    const out = json(tree);
+    expect(out).toContain('Role');
+    expect(out).toContain('Calendar colour');
+    expect(out).toContain('Remove from team');
+    expect(out).not.toContain('"More"');
   });
 });
 
@@ -518,7 +531,6 @@ describe('Pending invite', () => {
     const tree = await mount();
     await press(tree, 'Aisha Patel, Nail technician, invite pending. Open');
     expect(json(tree)).toContain('Invite sent to aisha@x.co as Staff.');
-    await press(tree, 'More');
     await press(tree, 'Revoke invite');
     expect(api.revokeInvitation).toHaveBeenCalledWith(
       'inv-3',
