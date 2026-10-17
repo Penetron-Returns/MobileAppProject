@@ -81,40 +81,42 @@ export function HandsFreeSection() {
         />
       </Group>
 
-      {voice.isOn ? (
-        <>
-          <SectionTitle>{t('voice.hf.conditions')}</SectionTitle>
-          <Group>
-            <GroupRow
-              title={t('voice.hf.hours.title')}
-              subtitle={t('voice.hf.hours.hint')}
-              trailing={
-                <Switch
-                  checked={handsFree.useOpeningHours}
-                  onCheckedChange={(on) =>
-                    voice.setConditions({ useOpeningHours: on })
-                  }
-                  accessibilityLabel={t('voice.hf.hours.title')}
-                />
+      <SectionTitle>{t('voice.hf.conditions')}</SectionTitle>
+      <Group>
+        <GroupRow
+          disabled={!voice.isOn}
+          reason={t('voice.hf.conditionsOff')}
+          title={t('voice.hf.hours.title')}
+          subtitle={t('voice.hf.hours.hint')}
+          trailing={
+            <Switch
+              checked={handsFree.useOpeningHours}
+              disabled={!voice.isOn}
+              onCheckedChange={(on) =>
+                voice.setConditions({ useOpeningHours: on })
               }
+              accessibilityLabel={t('voice.hf.hours.title')}
             />
-            <GroupRow
-              showSeparator
-              title={t('voice.hf.charging.title')}
-              subtitle={t('voice.hf.charging.hint')}
-              trailing={
-                <Switch
-                  checked={handsFree.onlyWhileCharging}
-                  onCheckedChange={(on) =>
-                    voice.setConditions({ onlyWhileCharging: on })
-                  }
-                  accessibilityLabel={t('voice.hf.charging.title')}
-                />
+          }
+        />
+        <GroupRow
+          showSeparator
+          disabled={!voice.isOn}
+          reason={t('voice.hf.conditionsOff')}
+          title={t('voice.hf.charging.title')}
+          subtitle={t('voice.hf.charging.hint')}
+          trailing={
+            <Switch
+              checked={handsFree.onlyWhileCharging}
+              disabled={!voice.isOn}
+              onCheckedChange={(on) =>
+                voice.setConditions({ onlyWhileCharging: on })
               }
+              accessibilityLabel={t('voice.hf.charging.title')}
             />
-          </Group>
-        </>
-      ) : null}
+          }
+        />
+      </Group>
 
       <Group className="mt-5">
         <GroupRow

@@ -140,3 +140,16 @@ export function useHeyClovie() {
     setConditions,
   };
 }
+
+/** Whether Hey Clovie is on, for a Settings row: false where voice is not supported. Follows the native status. */
+export function useHeyClovieOn(): boolean {
+  const [isOn, setIsOn] = React.useState(
+    () => isSupported() && getHandsFree().enabled,
+  );
+  React.useEffect(() => {
+    if (!isSupported()) return;
+    setIsOn(getHandsFree().enabled);
+    return addStatusListener(() => setIsOn(getHandsFree().enabled));
+  }, []);
+  return isOn;
+}

@@ -198,11 +198,17 @@ describe('AttendanceModeScreen', () => {
     expect(mockUpdateBusiness).not.toHaveBeenCalled();
   });
 
-  it('shows staff only the owner-only note and no options', () => {
+  it('shows staff both options read-only, with the owner-only note', () => {
     mockCanManage = false;
     mockMe = me('staff');
-    const out = text(mount(<AttendanceModeScreen />));
+    const tree = mount(<AttendanceModeScreen />);
+    const out = text(tree);
+    expect(out).toContain('The owner confirms everyone');
+    expect(out).toContain('Each staff member for their own clients');
     expect(out).toContain('Only the owner can change this.');
-    expect(out).not.toContain('The owner confirms everyone');
+    expect(() =>
+      pressableByLabel(tree, 'The owner confirms everyone'),
+    ).toThrow();
+    expect(mockUpdateBusiness).not.toHaveBeenCalled();
   });
 });
