@@ -84,12 +84,7 @@ export function toClient(client: Pick<ClientRow, 'id' | 'name' | 'phone_e164' | 
   };
 }
 
-export interface WireOptions {
-  /** capability confirm_appointments is on: also expose clientConfirmedAt (off keeps the certified shape) */
-  clientConfirmation?: boolean;
-}
-
-export function toAppointment(appt: AppointmentDTO, options: WireOptions = {}) {
+export function toAppointment(appt: AppointmentDTO) {
   return {
     externalAppointmentId: appt.id,
     externalServiceId: appt.service_id,
@@ -100,7 +95,6 @@ export function toAppointment(appt: AppointmentDTO, options: WireOptions = {}) {
     endTime: appt.ends_at,
     status: toWireStatus(appt.status),
     ...(appt.notes ? { notes: appt.notes } : {}),
-    ...(options.clientConfirmation && appt.client_confirmed_at ? { clientConfirmedAt: appt.client_confirmed_at } : {}),
   };
 }
 
@@ -110,10 +104,10 @@ export interface AppointmentLookups {
   clients: Map<string, ClientRow>;
 }
 
-export function toAppointmentListItem(appt: AppointmentDTO, lookups: AppointmentLookups, options: WireOptions = {}) {
+export function toAppointmentListItem(appt: AppointmentDTO, lookups: AppointmentLookups) {
   const client = lookups.clients.get(appt.client_id);
   return {
-    ...toAppointment(appt, options),
+    ...toAppointment(appt),
     serviceName: lookups.services.get(appt.service_id) ?? '',
     staffName: lookups.staff.get(appt.staff_id) ?? '',
     ...(client?.name ? { clientName: client.name } : {}),

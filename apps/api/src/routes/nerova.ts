@@ -10,7 +10,6 @@ import { Buffer } from 'node:buffer';
 import { Hono } from 'hono';
 
 import { createBookingServiceFromRepository, getBookingRepository } from '@booking/features/bookings/index.ts';
-import { isConfirmAppointmentsEnabled } from '@booking/companion/connector/capabilities.ts';
 import { extractBearer, isValidConnectorToken } from '@booking/companion/connector/auth.ts';
 import { handleMcpMessage } from '@booking/companion/connector/mcp.ts';
 import { createNerovaConnectorService, type NerovaConnectorService } from '@booking/companion/connector/service.ts';
@@ -88,7 +87,6 @@ function connectorRuntime(container: Container): ConnectorRuntime {
       entitlements,
       repo: reads.repo,
       clock: container.clock,
-      confirmAppointmentsEnabled: isConfirmAppointmentsEnabled(container.env),
     });
     runtime = {
       service,

@@ -30,6 +30,8 @@ const origin = z
 
 const account = { accountId: text };
 
+/** Mirrors the confirm_appointment_by_client RPC; Nerova sends "whatsapp" today. */
+export const CONFIRMATION_CHANNELS = ['whatsapp', 'sms', 'web', 'app'] as const;
 export const STATUS_VALUES = ['Scheduled', 'Completed', 'Cancelled', 'NoShow'] as const;
 
 export const argSchemas = {
@@ -90,6 +92,15 @@ export const argSchemas = {
     email: z.string().max(254).optional(),
     name: z.string().max(200).optional(),
     limit: z.number().int().min(1).max(25).optional(),
+  }),
+  // The wire contract of appointments_confirm: idempotencyKey is the reminder's WhatsApp message id.
+  appointments_confirm: z.object({
+    ...account,
+    appointmentId: text,
+    idempotencyKey: z.string().min(1).max(200),
+    confirmedAt: instant,
+    channel: z.enum(CONFIRMATION_CHANNELS),
+    origin: z.object({ source: z.string().min(1).max(40), channel: z.string().max(40).optional(), conversationId: z.string().max(100).optional() }),
   }),
   clients_create: z.object({
     ...account,

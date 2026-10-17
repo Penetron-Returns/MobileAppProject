@@ -54,6 +54,7 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 | `appointments_cancel` | no | `BookingService.cancelAppointment` | `reason` stored as `cancel_reason` |
 | `clients_search` (optional) | yes | `ClientRepository.findClientByPhone` / `findClientByEmail` / `listClientsByNamePatterns` + `clientSearch.ts` | See "Client tools" |
 | `clients_create` (optional) | no | `upsertClient` (the `appointments_create` upsert) | See "Client tools" |
+| `appointments_confirm` (optional) | no | `BookingService.confirmByClient` | See "Client confirmation" |
 
 ### Writes
 
@@ -116,9 +117,14 @@ Nerova can be told when an account changed instead of waiting for its daily reco
 - Best effort, one attempt, 5 s timeout. Delivery runs in the background (`EdgeRuntime.waitUntil` on Supabase, a caught promise elsewhere), so a slow or failing Nerova never delays or fails the owner's request. Nerova reconciles daily.
 - **Disabled unless** `NEROVA_EVENTS_ENABLED=true` and `NEROVA_EVENTS_URL` (https, or loopback for tests) and `NEROVA_EVENTS_SIGNING_SECRET` (`whsec_...`) are set. Nothing is sent to Production by default.
 
-### Client confirmation (scaffolding built, tool NOT wired, contract pending)
+### Client confirmation (`appointments_confirm`, live)
 
-When a client taps "Confirm" on a Nerova WhatsApp reminder, Nerova will call a new tool `appointments_confirm`, gated by the optional manifest capability `confirm_appointments`. The tool's request and response field names are not final, so no MCP schema exists yet. What is built: the schema (`appointments.client_confirmed_at/_via`, `client_confirmed` event), `BookingService.confirmByClient`, and `confirmAppointment(args)` in `packages/companion/connector/service.ts` (actor `nerova` with the conversation id, Idempotency-Key scoped to the account like `appointments_create`). Behind `NEROVA_CONFIRM_APPOINTMENTS_ENABLED=true` (default off; `capabilities.ts`) wire appointments also carry `clientConfirmedAt` once confirmed; with it off the conformance shape is unchanged. TODO (marked in `service.ts`): add the zod schema, tool entry and dispatch, and advertise `CONFIRM_APPOINTMENTS_CAPABILITY`, once Nerova sends the contract.
+When a client taps "Confirm" on a Nerova WhatsApp reminder, Nerova calls the optional tool `appointments_confirm` (schema: Nerova docs `guides/nerova-booking-mcp-v1` "Optional confirm tool" and `guides/booking-mcp-tool-schemas`, copied into `optionalTools` of `booking-connector.mcp-tools.json`). It is published unconditionally; publishing it declares `ConfirmAppointments` (`declaredToolCapabilities` in `capabilities.ts`). There is no env flag: the capability is declared by the tool, like the client tools, and a tool Nerova never calls costs nothing.
+
+- **Input:** `accountId`, `appointmentId`, `idempotencyKey` (the reminder's WhatsApp message id), `confirmedAt` (ISO 8601 UTC), `channel` (always `whatsapp`; we accept the RPC's `whatsapp|sms|web|app`), `origin` (`source`, `channel` `reminder`, `conversationId`). All required except the inner origin fields.
+- **Output:** the appointment, same shape as `appointments_get` (nothing extra is added).
+- **Behaviour:** `confirmAppointment` in `service.ts` calls `BookingService.confirmByClient`, which calls the `confirm_appointment_by_client` RPC (sets `client_confirmed_at/_via`, writes one `client_confirmed` event with actor `nerova` and the conversation id). The key is scoped to the account (`nerova:<accountId>:<key>`), so a replay returns the same appointment without a second write or event. An appointment that is not Scheduled (cancelled, voided, completed, no_show) or already confirmed comes back unchanged, not as an error. Unknown or other-business ids, and non-companion accounts, are `not_found`. It never messages the client.
+- **Conformance:** `lifecycle.confirm_verify` and `confirm_noop_not_scheduled`.
 
 ### Appointment events (built, OFF, contract unconfirmed)
 
@@ -141,7 +147,6 @@ Until Nerova confirms, appointments are still read live through `appointments_li
 | `NEROVA_EVENTS_URL` | The connection's `events.url` |
 | `NEROVA_EVENTS_SIGNING_SECRET` | The connection's `events.signingSecret` (`whsec_...`) |
 | `NEROVA_APPOINTMENT_EVENTS_ENABLED` | `true` to also send `appointment.*` events (off by default, see above) |
-| `NEROVA_CONFIRM_APPOINTMENTS_ENABLED` | `true` enables the `confirm_appointments` capability scaffolding (off by default, see above) |
 | `NEROVA_NATIVE_SESSIONS` | `true` lets `platform: "native"` companion session requests use Nerova native sessions. Anything else: always web |
 | `NEROVA_APP_ID` | `nativeApps` appId for native sessions (default `si.nerova.booking.dev`) |
 | `VOICE_CLOUD_STT` | `true` enables `POST /v1/voice/transcriptions` (Nerova speech-to-text). Default off: the route answers 503 `TRANSCRIPTION_UNAVAILABLE`. |
