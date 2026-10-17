@@ -94,6 +94,11 @@ export function createSupabaseBillingRepository(db: Db): BillingRepository {
       if (!data) throw notFound('Business');
       return data.plan;
     },
+    async getClerkOrgId(businessId) {
+      const { data, error } = await db.from('businesses').select('clerk_org_id').eq('id', businessId).maybeSingle();
+      if (error) throw mapDbError(error);
+      return data?.clerk_org_id ?? null;
+    },
     async setBusinessPlan(businessId, plan) {
       const { error } = await db.from('businesses').update({ plan }).eq('id', businessId);
       if (error) throw mapDbError(error);

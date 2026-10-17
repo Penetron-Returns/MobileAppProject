@@ -188,6 +188,9 @@ export function createClerkAdmin(opts: ClerkAdminOptions): ClerkAdmin {
     async deleteUser(userId) {
       await call('DELETE', `/users/${encodeURIComponent(userId)}`).catch(ignoreNotFound);
     },
+    async updateOrganizationPublicMetadata(orgId, publicMetadata) {
+      await call('PATCH', `${org(orgId)}/metadata`, { public_metadata: publicMetadata });
+    },
     async deleteOrganization(orgId) {
       await call('DELETE', org(orgId)).catch(ignoreNotFound);
     },

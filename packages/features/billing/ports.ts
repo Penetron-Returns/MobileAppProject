@@ -111,6 +111,8 @@ export interface BillingRepository {
   markBookingsReported(appointmentIds: UUID[], at: Date): Promise<number>;
   getBusinessContact(businessId: UUID): Promise<{ name: string | null; email: string | null }>;
   getBusinessPlan(businessId: UUID): Promise<PlanKey>;
+  /** The Clerk organisation of the business (null when unknown) */
+  getClerkOrgId(businessId: UUID): Promise<string | null>;
   /** Service-role write of `businesses.plan` */
   setBusinessPlan(businessId: UUID, plan: PlanKey): Promise<void>;
 }

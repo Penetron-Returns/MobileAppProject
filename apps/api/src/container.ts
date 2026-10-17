@@ -76,11 +76,13 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   const bookingLogger = createLogger({ module: 'booking' });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
   const clock = () => new Date();
+  const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
   const billing = createBillingService({
     stripe: env.STRIPE_SECRET_KEY ? createStripeHttpClient({ secretKey: env.STRIPE_SECRET_KEY }) : null,
     config: billingConfigFromEnv(env),
     repo: createSupabaseBillingRepository(db),
     events: nerovaEvents,
+    clerk: clerkAdmin,
     defer: (task) => runInBackground(task, createLogger({ module: 'billing' }), 'billing_deferred_task_failed'),
     clock,
   });
@@ -114,7 +116,6 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     plans: planRepo,
     recordAudit: (entry) => getBookingRepository({ db }).recordAudit(entry),
   });
-  const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
   const voiceTokens = createDeviceTokenService({
     repo: createSupabaseDeviceTokenRepository(db),
     clock,
