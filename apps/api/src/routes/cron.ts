@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 
 import { runCleanupJob } from '@booking/features/bookings/services/cleanupJob.ts';
 import type { Container } from '../container.ts';
@@ -12,7 +13,8 @@ import {
 } from '@booking/app-store/whatsapp/jobs.ts';
 import { runHeldClientNotificationsJob } from '@booking/app-store/whatsapp/heldNotifications.ts';
 
-type Job = (container: Container, now?: Date) => Promise<Record<string, number>>;
+/** `query` is the request's query string; only jobs that take options read it. */
+type Job = (container: Container, now?: Date, query?: Record<string, string>) => Promise<Record<string, number>>;
 
 /**
  * Keep-warm ping (every minute, see migration 20261020000001). Does no I/O: reaching this handler already
@@ -24,7 +26,12 @@ const runWarmJob: Job = async () => ({});
 const runAttendanceJob: Job = (container, now) => container.attendance.runJob(now);
 
 /** Stories (every 15 minutes, migration 20261027000003): Brief, Client updates and Business update, see docs/stories.md. */
-const runStoriesJob: Job = (container, now) => container.stories.runJob(now);
+const runStoriesJob: Job = (container, now, query = {}) => {
+  const force = query.force === '1' || query.force === 'true';
+  const businessId = query.businessId;
+  if (businessId !== undefined && !z.uuid().safeParse(businessId).success) throw new AppError('VALIDATION_FAILED', 'businessId must be a UUID');
+  return container.stories.runJob(now, { force, ...(businessId ? { businessId } : {}) });
+};
 
 export const CRON_JOBS: Record<string, Job> = {
   reminders: runRemindersJob,
@@ -47,7 +54,7 @@ cronRoutes.on(['GET', 'POST'], '/:job', async (c) => {
   const job = CRON_JOBS[name];
   if (!job) throw new AppError('NOT_FOUND', `Unknown cron job ${name}`);
   const started = Date.now();
-  const result = await job(c.get('container'));
+  const result = await job(c.get('container'), undefined, c.req.query());
   c.get('logger').info('cron_job', { job: name, duration_ms: Date.now() - started, ...result });
   return c.json({ data: { job: name, result } });
 });

@@ -78,5 +78,5 @@ export interface StoriesService {
   markProductUpdatesViewed(caller: StoriesCaller, ids: string[]): Promise<void>;
   recordEvents(caller: StoriesCaller, events: StoryEventDTO[]): Promise<{ stored: number }>;
   /** The /cron/stories job: counts only */
-  runJob(now?: Date): Promise<Record<string, number>>;
+  runJob(now?: Date, options?: { force?: boolean; businessId?: string }): Promise<Record<string, number>>;
 }

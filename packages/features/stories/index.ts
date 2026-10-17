@@ -23,7 +23,7 @@ export function createStoriesServiceFromRepository(deps: StoriesDeps): StoriesSe
     markViewed: (caller, storyId, lastCardIndex) => markViewed(read, caller, storyId, lastCardIndex),
     markProductUpdatesViewed: (caller, ids) => markProductUpdatesViewed(read, caller, ids),
     recordEvents: (caller, events) => recordEvents(read, caller, events),
-    runJob: (now) => runStoriesJob({ repo: deps.repo, logger }, now ?? deps.clock()),
+    runJob: (now, options) => runStoriesJob({ repo: deps.repo, logger }, now ?? deps.clock(), options),
   };
 }
 
