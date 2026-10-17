@@ -4,6 +4,8 @@ import { signStripePayload } from '@booking/features/billing/lib/stripeSignature
 import type { BillingConfig } from '@booking/features/billing/ports.ts';
 import { createBillingService } from '@booking/features/billing/services/billingService.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
+import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
+import { AppError } from '@booking/features/lib/errors.ts';
 import { createFakeStripe, createMemoryBillingRepository } from '@booking/testing/billing.ts';
 import { createMemoryRepository } from '@booking/testing/bookingMemoryRepository.ts';
 import type { AccountEventType } from '@booking/features/ports.ts';
@@ -36,6 +38,7 @@ interface Options {
 function setup(opts: Options = {}) {
   const stripe = createFakeStripe();
   const repo = createMemoryBillingRepository({ [BIZ]: { plan: opts.plan ?? 'none', name: 'Salon', email: 'owner@example.test' } });
+  const clerk = createFakeClerkAdmin();
   const emitted: { businessId: string; type: AccountEventType }[] = [];
   const pending: Promise<void>[] = [];
   const bookingRepo = createMemoryRepository({ now: () => NOW });
@@ -49,6 +52,7 @@ function setup(opts: Options = {}) {
     stripe: opts.stripe === false ? null : stripe,
     config: 'config' in opts ? (opts.config ?? null) : CONFIG,
     repo,
+    clerk,
     events: { accountChanged: async (businessId, type) => void emitted.push({ businessId, type }) },
     defer: (task) => void pending.push(task()),
     clock: () => NOW,
@@ -66,7 +70,7 @@ function setup(opts: Options = {}) {
     await Promise.all(pending);
     return { status: res.status, body: (await res.json()) as any };
   }
-  return { h, stripe, repo, emitted, webhook, bookingRepo, billing };
+  return { h, stripe, repo, clerk, emitted, webhook, bookingRepo, billing };
 }
 
 const sub = (over: Partial<Record<string, unknown>> & { price?: string; usage?: string | null; status?: string } = {}) => ({
@@ -483,6 +487,63 @@ describe('usage price follows the plan', () => {
     await withCustomer(t);
     await t.webhook('customer.subscription.created', sub({ status: 'incomplete' }));
     expect(t.repo.records.get(BIZ)?.reportingStartedAt).toBeNull();
+  });
+});
+
+describe('Clerk organisation metadata mirror', () => {
+  const orgId = `org_${BIZ}`;
+
+  it('writes plan, status and period end on activation, plan change and cancellation', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    const periodEnd = new Date(1_795_000_000 * 1000).toISOString();
+    expect(t.clerk.orgMetadata.get(orgId)).toEqual({ plan: 'growth', billingStatus: 'active', periodEnd });
+
+    await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { created: nowSec + 10 });
+    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'pro', billingStatus: 'active' });
+
+    await t.webhook('customer.subscription.deleted', sub({ status: 'canceled' }), { created: nowSec + 20 });
+    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'none', billingStatus: 'canceled' });
+  });
+
+  it('mirrors a payment failure as past_due while the plan stays', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    await t.webhook('invoice.payment_failed', { id: 'in_1', subscription: 'sub_1' }, { created: nowSec + 10 });
+    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'growth', billingStatus: 'past_due' });
+  });
+
+  it('does not write anything for an incomplete first payment', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub({ status: 'incomplete' }));
+    expect(t.clerk.orgMetadata.size).toBe(0);
+  });
+
+  it('leaves the webhook successful and the plan flipped when Clerk is down', async () => {
+    const t = setup();
+    await withCustomer(t);
+    t.clerk.failWith = new AppError('INTERNAL', 'Team service unreachable', { upstream: 'clerk' });
+    const res = await t.webhook('customer.subscription.created', sub());
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('processed');
+    expect(t.repo.plans.get(BIZ)).toBe('growth');
+    expect(t.clerk.orgMetadata.size).toBe(0);
+  });
+
+  it('is written by an API plan change too', async () => {
+    const t = setup();
+    await withCustomer(t);
+    await t.webhook('customer.subscription.created', sub());
+    t.stripe.subscriptions.set('sub_1', {
+      id: 'sub_1', customerId: 'cus_1', status: 'active',
+      items: [{ id: 'si_base', priceId: PRICES.growth }, { id: 'si_usage', priceId: USAGE.growth }],
+      currentPeriodEnd: null, cancelAtPeriodEnd: false, businessId: null, metadataPlan: 'growth',
+    });
+    await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'starter' } });
+    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'starter', billingStatus: 'active' });
   });
 });
 

@@ -142,6 +142,19 @@ describe('createClerkAdmin account deletion', () => {
     ]);
   });
 
+  it('merges public metadata into an organisation with PATCH /metadata', async () => {
+    const f = fakeFetch([{ body: {} }]);
+    await client(f).updateOrganizationPublicMetadata('org_1', { plan: 'growth', billingStatus: 'active', periodEnd: null });
+    expect(f.calls).toEqual([
+      {
+        method: 'PATCH',
+        url: 'https://clerk.test/v1/organizations/org_1/metadata',
+        body: { public_metadata: { plan: 'growth', billingStatus: 'active', periodEnd: null } },
+        auth: 'Bearer sk_test_x',
+      },
+    ]);
+  });
+
   it('treats a 404 as already deleted but surfaces other failures', async () => {
     await expect(client(fakeFetch([{ status: 404 }])).deleteUser('user_1')).resolves.toBeUndefined();
     await expect(client(fakeFetch([{ status: 404 }])).deleteOrganization('org_1')).resolves.toBeUndefined();

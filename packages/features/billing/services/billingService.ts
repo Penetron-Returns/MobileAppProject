@@ -3,10 +3,10 @@
  * subscription state into `businesses.plan`. Stripe is reached only through the StripeClient port, and Nerova
  * is told about activations through AccountEventsPort (in the background: the Stripe response never waits for it).
  */
-import type { PlanKey, SubscriptionDTO, UUID } from '@booking/types';
+import type { PlanKey, SubscriptionDTO, SubscriptionStatus, UUID } from '@booking/types';
 import { AppError, ruleViolation } from '../../lib/errors.ts';
 import { createLogger, type Logger } from '../../lib/logger.ts';
-import type { AccountEventsPort } from '../../ports.ts';
+import type { AccountEventsPort, ClerkAdmin } from '../../ports.ts';
 import { REPORT_HORIZON_MS, accessFor, isCompanionPlan, isPaidPlan, isUsagePrice, planForPrice, priceIdFor, usagePriceFor } from '../lib/policy.ts';
 import { asRecord, asString, parseSubscription, refId } from '../lib/stripeObjects.ts';
 import type {
@@ -32,6 +32,8 @@ export interface BillingDeps {
   config: BillingConfig | null;
   repo: BillingRepository;
   events: AccountEventsPort;
+  /** Mirrors the plan to the Clerk organisation (publicMetadata). Omitted = no mirror. */
+  clerk?: Pick<ClerkAdmin, 'updateOrganizationPublicMetadata'>;
   /** Runs a task without blocking the caller (EdgeRuntime.waitUntil in production) */
   defer?: (task: () => Promise<void>) => void;
   logger?: Logger;
@@ -123,6 +125,25 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     defer(() => deps.events.accountChanged(businessId, type));
   }
 
+  /**
+   * Mirrors plan and status to the Clerk organisation's publicMetadata so Clerk-side checks can read them. The database
+   * stays the source of truth: a failure is logged (ids only) and never fails the webhook; the next subscription event
+   * or a reconcile rewrites it.
+   */
+  function mirrorToClerk(businessId: UUID, plan: PlanKey, status: SubscriptionStatus | null, periodEnd: string | null): void {
+    const clerk = deps.clerk;
+    if (!clerk) return;
+    const billingStatus = status === null ? 'none' : status === 'past_due' ? 'past_due' : status === 'active' || status === 'trialing' ? 'active' : 'canceled';
+    defer(async () => {
+      try {
+        const orgId = await repo.getClerkOrgId(businessId);
+        if (orgId) await clerk.updateOrganizationPublicMetadata(orgId, { plan, billingStatus, periodEnd });
+      } catch (error) {
+        logger.warn('billing_clerk_mirror_failed', { business_id: businessId, error });
+      }
+    });
+  }
+
   async function resolveBusiness(sub: StripeSubscription): Promise<UUID | null> {
     if (sub.businessId) return sub.businessId;
     return (await repo.getBySubscription(sub.id))?.businessId ?? (await repo.getByCustomer(sub.customerId))?.businessId ?? null;
@@ -170,6 +191,7 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     const after: PlanKey = access === 'entitled' && tier ? tier : 'none';
     if (before !== after) await repo.setBusinessPlan(businessId, after);
     announce(businessId, before, after);
+    mirrorToClerk(businessId, after, sub.status, sub.currentPeriodEnd);
     return 'processed';
   }
 
@@ -221,6 +243,7 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     if (record.lastEventAt && event.created * 1000 < Date.parse(record.lastEventAt)) return 'ignored';
     // Access stays (see accessFor); the status makes the app warn the owner.
     await repo.updateSubscription(record.businessId, { status: 'past_due', lastEventAt: new Date(event.created * 1000).toISOString() });
+    mirrorToClerk(record.businessId, await repo.getBusinessPlan(record.businessId), 'past_due', record.currentPeriodEnd);
     return 'processed';
   }
 

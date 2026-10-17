@@ -100,6 +100,10 @@ export function createMemoryBillingRepository(
       known(businessId);
       return plans.get(businessId) as PlanKey;
     },
+    async getClerkOrgId(businessId) {
+      known(businessId);
+      return `org_${businessId}`;
+    },
     async setBusinessPlan(businessId, plan) {
       known(businessId);
       plans.set(businessId, plan);
