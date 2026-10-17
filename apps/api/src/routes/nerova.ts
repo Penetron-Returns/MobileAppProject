@@ -87,6 +87,7 @@ function connectorRuntime(container: Container): ConnectorRuntime {
       entitlements,
       repo: reads.repo,
       clock: container.clock,
+      sandboxBusinessIds: new Set(container.env.NEROVA_SANDBOX_BUSINESS_IDS),
     });
     runtime = {
       service,

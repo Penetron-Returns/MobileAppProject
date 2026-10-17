@@ -36,6 +36,12 @@ Rules kept: the connector layer never writes a table (writes go through `Booking
 | `packages/companion/connector/auth.ts` | Hashed bearer token check |
 | `packages/companion/events/events.ts` | Signed account events (Standard Webhooks) behind `AccountEventSender` |
 
+## Sandbox flag (conformance)
+
+Nerova's conformance runner certifies against the account the platform flags `sandbox: true` (optional boolean on `accounts_list` and `accounts_get`, `ProviderAccountWire.Sandbox`); write checks never run on a non-sandbox account. We send an explicit `sandbox` on every account: `true` only for the business ids in `NEROVA_SANDBOX_BUSINESS_IDS` (comma-separated UUIDs, parsed and validated in `apps/api/src/env.ts`, injected as `sandboxBusinessIds` into the connector service), `false` for all others. Empty or unset means no sandbox account. An invalid id fails env parsing rather than being ignored.
+
+**Only the test business Harbour Barbers may be listed. Ashgrove (the live salon) must NEVER be in that variable.** Harbour's seed id is in `packages/database/supabase/seed.sql`; the value lives only in the deployed environment (Doppler / Edge secrets), never in code.
+
 ## Tools to services
 
 An **account** is a business (`accountId` = `businesses.id`; it is also the account's single location id). Only businesses whose plan carries `companion` (starter, growth, pro) exist for Nerova. A Free business, an unknown id and a malformed id are all `not_found`, on every tool, and the check runs live on each call, so a downgrade hides the account immediately.
@@ -43,7 +49,7 @@ An **account** is a business (`accountId` = `businesses.id`; it is also the acco
 | Tool | Read only | Backed by | Notes |
 | --- | --- | --- | --- |
 | `accounts_list` | yes | `EntitlementService.listBusinessIdsWithFeature('companion')` + `BookingService.getBusiness` + hours | Keyset pagination on business id (`limit` default 50, max 100; `cursor` is the last id) |
-| `accounts_get` | yes | same | `displayName` = name, `timeZone`, `currency`, one location, `openingHours` (weekly `HH:mm` ranges from `business_hours`; business-wide `business_special_days` (closed days and special hours, the name sent as `reason`) for the next 180 days as exceptions; a closing time of `24:00` is sent as `23:59`) |
+| `accounts_get` | yes | same | `displayName` = name, `timeZone`, `currency`, one location, `openingHours` (weekly `HH:mm` ranges from `business_hours`; business-wide `business_special_days` (closed days and special hours, the name sent as `reason`) for the next 180 days as exceptions; a closing time of `24:00` is sent as `23:59`), plus `sandbox` (see below) |
 | `services_list` | yes | `BookingService.listServices({ activeOnly })` | `price` = `{ amountCents, currency }`, optional `category` and `description` |
 | `staff_list` | yes | `BookingRepository.listStaff` / `listStaffServices` | Active staff that accept bookings, with the active services each performs |
 | `availability_search` | yes | `BookingService.listAvailableSlots` per business day in the window | One entry per (slot, free staff member), inside `[start, end)`, window at most 31 days, days are computed 4 at a time; unknown service or staff is `not_found`. It is the same engine as the app, so staff breaks, time off and closed special days are never offered |

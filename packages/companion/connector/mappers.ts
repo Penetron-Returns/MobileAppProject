@@ -46,7 +46,7 @@ export function toOpeningHours(locationId: string, hours: BusinessHoursDbRow[], 
   return { weekly: [{ externalLocationId: locationId, days: weekly }], exceptions };
 }
 
-export function toAccount(business: BusinessDTO, openingHours: ReturnType<typeof toOpeningHours>) {
+export function toAccount(business: BusinessDTO, openingHours: ReturnType<typeof toOpeningHours>, sandbox = false) {
   return {
     id: business.id,
     displayName: business.name,
@@ -55,6 +55,8 @@ export function toAccount(business: BusinessDTO, openingHours: ReturnType<typeof
     // Single-location model: the business is its own location.
     locations: [{ id: business.id, name: business.name }],
     openingHours,
+    // Explicit on every account: only `true` unlocks Nerova's conformance write checks.
+    sandbox,
   };
 }
 
