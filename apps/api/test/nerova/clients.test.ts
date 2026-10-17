@@ -284,14 +284,14 @@ describe('client capability declaration', () => {
   const published = [...definitions.tools, ...definitions.optionalTools];
 
   it('declares ReadClients, SearchClientsByName and CreateClients from the published tools', () => {
-    expect(declaredToolCapabilities(published)).toEqual(['ReadClients', 'SearchClientsByName', 'CreateClients', 'ConfirmAppointments', 'HoldClientNotifications']);
+    expect(declaredToolCapabilities(published)).toEqual(['ReadClients', 'SearchClientsByName', 'CreateClients', 'ConfirmAppointments', 'ReadFreeTime', 'HoldClientNotifications']);
   });
 
   it('drops SearchClientsByName when clients_search has no name input, and everything when no client tool is published', () => {
     const noName = published.map((t) =>
       t.name === 'clients_search' ? { ...t, inputSchema: { type: 'object', properties: { phone: {}, email: {} } } } : t,
     );
-    expect(declaredToolCapabilities(noName)).toEqual(['ReadClients', 'CreateClients', 'ConfirmAppointments', 'HoldClientNotifications']);
+    expect(declaredToolCapabilities(noName)).toEqual(['ReadClients', 'CreateClients', 'ConfirmAppointments', 'ReadFreeTime', 'HoldClientNotifications']);
     // The required tools publish no client tool, but create carries origin.clientNotification (act-then-undo).
     expect(declaredToolCapabilities(definitions.tools)).toEqual(['HoldClientNotifications']);
   });

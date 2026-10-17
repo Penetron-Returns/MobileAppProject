@@ -40,6 +40,7 @@ export const TOOL_BINDINGS: Record<ToolName, ToolBinding> = {
   services_list: { schema: argSchemas.services_list, handler: (s, a) => s.servicesList(a) },
   staff_list: { schema: argSchemas.staff_list, handler: (s, a) => s.staffList(a) },
   availability_search: { schema: argSchemas.availability_search, handler: (s, a) => s.availabilitySearch(a) },
+  availability_free_time: { schema: argSchemas.availability_free_time, handler: (s, a) => s.availabilityFreeTime(a) },
   appointments_get: { schema: argSchemas.appointments_get, handler: (s, a) => s.appointmentsGet(a) },
   appointments_list: { schema: argSchemas.appointments_list, handler: (s, a) => s.appointmentsList(a) },
   appointments_create: { schema: argSchemas.appointments_create, handler: (s, a) => s.appointmentsCreate(a) },

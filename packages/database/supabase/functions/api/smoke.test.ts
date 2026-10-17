@@ -100,7 +100,7 @@ Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on
   }
 });
 
-Deno.test('nerova connector rejects a bad token and lists the ten tools under Deno', async () => {
+Deno.test('nerova connector rejects a bad token and lists the published tools under Deno', async () => {
   const rpc = (token: string | null) =>
     server.request('/api/connector/nerova/mcp', {
       method: 'POST',
@@ -112,6 +112,6 @@ Deno.test('nerova connector rejects a bad token and lists the ten tools under De
   const ok = await rpc(connectorToken);
   assertEquals(ok.status, 200, 'status');
   const { result } = await ok.json();
-  assertEquals(result.tools.length, 10, 'tool count');
+  assertEquals(result.tools.length, 14, 'tool count');
   assertEquals(result.tools[0].name, 'accounts_list', 'first tool');
 });

@@ -39,6 +39,23 @@ export interface DaysQuery {
   now?: Date;
 }
 
+export interface FreeTimeQuery {
+  businessId: UUID;
+  /** null/undefined = every active, bookable staff member */
+  staffId?: UUID | null;
+  /** Inclusive ISO instant */
+  start: string;
+  /** Exclusive ISO instant */
+  end: string;
+  /** Windows shorter than this are dropped */
+  minimumMinutes: number;
+}
+
+export interface StaffFreeTimeDTO {
+  staff_id: UUID;
+  windows: { starts_at: string; ends_at: string }[];
+}
+
 export interface CreateAppointmentInput {
   businessId: UUID;
   clientId: UUID;
@@ -126,6 +143,11 @@ export interface BookingService {
    * (same slots as calling listAvailableSlots per date, without repeating the queries for each one).
    */
   listAvailableSlotsForRange(query: DaysQuery): Promise<AvailableSlotsResponse[]>;
+  /**
+   * Maximal free windows per active, bookable staff member in [start, end): working hours minus appointments,
+   * blocks, breaks and time off. The raw schedule that slots are carved from (no service, lead time or grid).
+   */
+  listFreeTime(query: FreeTimeQuery): Promise<StaffFreeTimeDTO[]>;
   /** Validates against live availability, then writes atomically via the create_appointment RPC */
   createAppointment(input: CreateAppointmentInput): Promise<AppointmentDTO>;
   /** Customer actors are held to cancellation_window_minutes (RULE_VIOLATION rule=CANCELLATION_WINDOW) */

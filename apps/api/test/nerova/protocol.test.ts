@@ -97,19 +97,19 @@ describe('MCP handshake', () => {
 });
 
 describe('tools/list', () => {
-  it('publishes the ten required tools first, then the optional tools (clients, confirm), with Nerova\'s schemas and annotations', async () => {
+  it('publishes the ten required tools first, then the optional tools (clients, confirm, free time), with Nerova\'s schemas and annotations', async () => {
     const h = nerovaHarness();
     const { body } = await h.rpc('tools/list');
     const tools = body.result.tools as { name: string; annotations: { readOnlyHint: boolean } }[];
-    expect(tools.map((t) => t.name)).toEqual([...REQUIRED, 'clients_search', 'clients_create', 'appointments_confirm']);
+    expect(tools.map((t) => t.name)).toEqual([...REQUIRED, 'clients_search', 'clients_create', 'appointments_confirm', 'availability_free_time']);
     expect(tools).toEqual([...definitions.tools, ...definitions.optionalTools]);
     expect(definitions.tools.map((t) => t.name)).toEqual(REQUIRED);
     const readOnly = tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name);
-    expect(readOnly).toEqual([...REQUIRED.filter((n) => !/create|reschedule|cancel/.test(n)), 'clients_search']);
+    expect(readOnly).toEqual([...REQUIRED.filter((n) => !/create|reschedule|cancel/.test(n)), 'clients_search', 'availability_free_time']);
   });
 
-  it('is pinned to the 2026-10-17 contract', () => {
-    expect(definitions.contractVersion).toBe('2026-10-17');
+  it('is pinned to the 2026-10-18 contract', () => {
+    expect(definitions.contractVersion).toBe('2026-10-18');
   });
 
   it('requires accountId on every per-account tool', () => {
