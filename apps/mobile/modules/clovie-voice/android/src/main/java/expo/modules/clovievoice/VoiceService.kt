@@ -70,6 +70,10 @@ class VoiceService : Service() {
   @Volatile
   private var pendingApprovalId = ""
 
+  /** The executed action an "undo" now applies to (read from other threads by `undoActionFromApp`). Empty when none. */
+  @Volatile
+  private var pendingActionId = ""
+
   /** Bumped when an interaction starts or is cancelled: a late upload or command result of an older one is dropped. */
   private var epoch = 0
   private val startClipTask = Runnable { startClip() }
@@ -233,6 +237,7 @@ class VoiceService : Service() {
     isInteracting = true
     epoch += 1
     pendingApprovalId = ""
+    pendingActionId = ""
     followUp = FollowUpState.NONE
     followUpsDone = 0
     isFollowUpTurn = false
@@ -299,7 +304,11 @@ class VoiceService : Service() {
   private fun startClip() {
     Log.i(TAG, "stt path=clip")
     VoiceTimings.sttStarted()
-    val noSpeechMs = if (isFollowUpTurn) FollowUp.NO_SPEECH_MS else ClipVad.NO_SPEECH_MS
+    val noSpeechMs = when {
+      !isFollowUpTurn -> ClipVad.NO_SPEECH_MS
+      followUp.hasPendingAction -> UndoWindow.noSpeechMs(System.currentTimeMillis(), followUp.undoUntilMs)
+      else -> FollowUp.NO_SPEECH_MS
+    }
     val capture = ClipCapture(this, noSpeechMs) { surface.pushLevel(it) }
     clip = capture
     capture.start(::onClip)
@@ -367,6 +376,8 @@ class VoiceService : Service() {
           pendingKind = followUp.pendingKind,
           pendingQueue = followUp.pendingQueue,
           pendingRemaining = followUp.pendingRemaining,
+          pendingActionId = followUp.pendingActionId,
+          undoUntilMs = followUp.undoUntilMs,
           reason = "network",
         ),
       )
@@ -476,6 +487,7 @@ class VoiceService : Service() {
     // What JS says is pending (an approval just read aloud) is echoed back with the next turn; cleared otherwise.
     followUp = FollowUpState.after(outcome)
     pendingApprovalId = followUp.pendingApprovalId
+    pendingActionId = followUp.pendingActionId
     val listenAgain = FollowUp.shouldListenAgain(outcome.status, outcome.expectsReply, followUpsDone, outcome.pendingRemaining)
     if (hasSurface) {
       surface.onOutcome(outcome)
@@ -534,6 +546,10 @@ class VoiceService : Service() {
   /** The soft wake cue, then one more clip with the same capture and VAD; 6 s without speech gives up quietly. */
   private fun listenAgain() {
     if (isDestroyed) return
+    // An executed action is listened for only while it can still be undone.
+    if (followUp.hasPendingAction && !UndoWindow.isOpen(System.currentTimeMillis(), followUp.undoUntilMs)) {
+      return endFollowUpQuietly()
+    }
     warmUpConnection() // a follow-up comes ~30 s after the last upload: the pooled socket may be dead by now
     followUpsDone += 1
     isFollowUpTurn = true
@@ -550,6 +566,9 @@ class VoiceService : Service() {
   /** Nothing said (or the microphone failed) in a follow-up: close without a sound or an error. */
   private fun endFollowUpQuietly() {
     if (isHoldingForApproval()) return holdForAnswer()
+    if (isHoldingForAction()) {
+      return holdForAnswer(UndoWindow.holdMs(System.currentTimeMillis(), followUp.undoUntilMs, APP_HOLD_MS))
+    }
     dismissReason = "follow_up_silent"
     dismiss.run()
   }
@@ -559,12 +578,16 @@ class VoiceService : Service() {
   /** In the drawer an approval card is on screen, so it is not dismissed on a timer like the overlay's text. */
   private fun isHoldingForApproval() = surface === appSurface && followUp.hasPending
 
+  /** In the drawer the Undo button stays up for the rest of an open undo window, with the microphone closed. */
+  private fun isHoldingForAction() =
+    surface === appSurface && followUp.hasPendingAction && UndoWindow.isOpen(System.currentTimeMillis(), followUp.undoUntilMs)
+
   /** The microphone is closed and nothing is spoken; the card waits for a tap or a mic tap, bounded so it cannot linger. */
-  private fun holdForAnswer() {
+  private fun holdForAnswer(maxMs: Long = APP_HOLD_MS) {
     if (isDestroyed) return
     dismissReason = "app_hold"
     main.removeCallbacks(dismiss)
-    main.postDelayed(dismiss, APP_HOLD_MS)
+    main.postDelayed(dismiss, maxMs)
     surface.setWaiting()
   }
 
@@ -636,8 +659,27 @@ class VoiceService : Service() {
     return true
   }
 
+  /**
+   * Undo in the drawer, through the same path as a spoken "undo": it applies to the action the service is holding, and
+   * only if `id` is that action. False when it is not (nothing was undone), so the caller must not undo it.
+   */
+  fun undoActionFromApp(id: String): Boolean {
+    if (isDestroyed || !isInteracting || id.isEmpty() || id != pendingActionId) return false
+    main.post {
+      if (isDestroyed || !isInteracting || id != followUp.pendingActionId) return@post
+      abortInFlight()
+      runCommand("undo that")
+    }
+    return true
+  }
+
   /** The conversation state JS sent with the previous outcome, passed back so a yes or no binds to its approval. */
   private fun withFollowUp(intent: Intent): Intent {
+    if (followUp.hasPendingAction) {
+      intent
+        .putExtra(VoiceCommandTaskService.EXTRA_PENDING_ACTION_ID, followUp.pendingActionId)
+        .putExtra(VoiceCommandTaskService.EXTRA_UNDO_UNTIL_MS, followUp.undoUntilMs.toString())
+    }
     if (!followUp.hasPending) return intent
     return intent
       .putExtra(VoiceCommandTaskService.EXTRA_PENDING_APPROVAL_ID, followUp.pendingApprovalId)

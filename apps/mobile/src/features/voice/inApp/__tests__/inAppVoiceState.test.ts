@@ -32,6 +32,8 @@ const outcome = (
   pendingKind: '',
   pendingTitle: '',
   pendingRemaining: 0,
+  pendingActionId: '',
+  undoUntilMs: 0,
   reason: '',
   ...over,
 });

@@ -4,6 +4,7 @@ import { AppState, BackHandler, Platform } from 'react-native';
 
 import { api, newIdempotencyKey } from '@/lib/api';
 
+import { recallAction } from '../actionStore';
 import { answerPendingApproval } from '../ask';
 import {
   addVoiceOutcomeListener,
@@ -18,8 +19,10 @@ import {
   startTalk,
   stopListening,
   supportsInAppVoice,
+  undoAction,
   type ClovieVoiceAnswer,
 } from '../clovieVoice';
+import { undoPendingAction } from '../undo';
 import {
   INITIAL_VOICE_STATE,
   inAppVoiceReducer,
@@ -108,7 +111,19 @@ export function useInAppVoice({
       addVoiceTranscriptListener(({ text }) =>
         dispatch({ type: 'transcript', text }),
       ),
-      addVoiceOutcomeListener((event) => dispatch({ type: 'outcome', event })),
+      addVoiceOutcomeListener((event) => {
+        // The event names the executed action and its window; its lines are what the headless task just kept.
+        const executed = event.pendingActionId
+          ? recallAction(event.pendingActionId)
+          : undefined;
+        dispatch({
+          type: 'outcome',
+          event,
+          ...(executed
+            ? { action: { title: executed.title, lines: executed.lines } }
+            : {}),
+        });
+      }),
     ];
     setVoiceUiAttached(true);
     return () => {
@@ -151,12 +166,30 @@ export function useInAppVoice({
     [t, close],
   );
 
+  // Undo goes through the service like a spoken "undo" (it holds the action id). Only if the service has already
+  // ended is exactly that id undone directly, the same call the voice path makes.
+  const undo = React.useCallback(
+    async (id: string) => {
+      if (undoAction(id)) return;
+      const outcome = await undoPendingAction(id, {
+        t,
+        undo: (actionId) =>
+          api.voiceUndoAction(actionId, `action:${actionId}:undo`),
+      });
+      dispatch({ type: 'outcome', event: outcomeToEvent(outcome) });
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = setTimeout(close, LOCAL_RESULT_MS);
+    },
+    [t, close],
+  );
+
   const actions = React.useMemo<VoiceActions>(
     () => ({
       stop: stopListening,
       cancel,
       approve: (id) => void decide(id, 'yes'),
       decline: (id) => void decide(id, 'no'),
+      undo: (id) => void undo(id),
       mic: () => {
         if (!listenAgain()) void startTalk();
       },
@@ -166,7 +199,7 @@ export function useInAppVoice({
         onShowChat();
       },
     }),
-    [decide, close, onShowChat],
+    [decide, undo, close, onShowChat],
   );
 
   return { state, levels, actions };

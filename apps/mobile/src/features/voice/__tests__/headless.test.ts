@@ -42,6 +42,7 @@ function deps(patch: Partial<HeadlessDeps> = {}): HeadlessDeps {
       approvals: [],
     })),
     decide: jest.fn(async () => ({ kind: null })),
+    undo: jest.fn(async () => ({})),
     ...patch,
   };
 }

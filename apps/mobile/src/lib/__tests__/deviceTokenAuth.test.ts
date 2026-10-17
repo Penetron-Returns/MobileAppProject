@@ -122,6 +122,9 @@ describe('acceptsDeviceToken', () => {
     ['POST', '/v1/voice/approvals/oapr_1/approve', true],
     ['POST', '/v1/voice/approvals/oapr_1/decline', true],
     ['POST', '/v1/voice/approvals/oapr_1/other', false],
+    ['POST', '/v1/voice/actions/oact_1/undo', true],
+    ['GET', '/v1/voice/actions/oact_1/undo', false],
+    ['POST', '/v1/voice/actions/oact_1/other', false],
     ['POST', '/v1/appointments/abc/status', false],
     ['POST', '/v1/appointments/abc/check-in/x', false],
   ])('%s %s is %s', (method, path, expected) => {

@@ -19,6 +19,7 @@ import {
   runVoiceCommandHeadless,
   type HeadlessDeps,
 } from './headless';
+import { rememberAction } from './actionStore';
 import { toCheckInCandidates } from './today';
 import { createPrefetcher } from './todayPrefetch';
 import { isCloudSttEnabled, transcribeClip } from './transcribe';
@@ -39,6 +40,9 @@ interface TaskData {
   pendingApprovalId?: string;
   pendingKind?: string;
   pendingQueue?: string;
+  /** After an executed action: its id and when its undo window closes (epoch ms, as a string). */
+  pendingActionId?: string;
+  undoUntilMs?: string;
 }
 
 /** How long a prefetched list of today's bookings is trusted. The command comes a few seconds after the wake word. */
@@ -111,9 +115,11 @@ export function createHeadlessDeps(): HeadlessDeps {
     loadToday,
     speakInterim,
     nextTurn: () => companionTurns++,
+    rememberAction,
     ask: async (text: string) => api.voiceAsk({ text }, newIdempotencyKey()),
     decide: async (id: string, decision: 'approve' | 'decline') =>
       api.voiceDecideApproval(id, decision, newIdempotencyKey()),
+    undo: async (id: string) => api.voiceUndoAction(id, `action:${id}:undo`),
     checkIn: async (id: string) => {
       await api.checkInAppointment(id, newIdempotencyKey());
       void queryClient.invalidateQueries({ queryKey: qk.appointments });
@@ -147,6 +153,8 @@ export function registerVoiceHeadlessTask(): void {
       pendingApprovalId: data.pendingApprovalId || undefined,
       pendingKind: data.pendingKind || undefined,
       pendingQueue: data.pendingQueue || undefined,
+      pendingActionId: data.pendingActionId || undefined,
+      undoUntilMs: Number(data.undoUntilMs) || undefined,
     };
     const outcome = data.clipPath
       ? await runVoiceClipHeadless(

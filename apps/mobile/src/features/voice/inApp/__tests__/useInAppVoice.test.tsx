@@ -21,6 +21,7 @@ const mockOff = jest.fn();
 const mockNative = {
   supports: true,
   answerApproval: jest.fn<boolean, [string, string]>(),
+  undoAction: jest.fn<boolean, [string]>(),
   listenAgain: jest.fn<boolean, []>(),
   startTalk: jest.fn(),
   stopListening: jest.fn(),
@@ -45,6 +46,7 @@ jest.mock('../../clovieVoice', () => ({
     return mockOff;
   },
   answerApproval: (...a: [string, string]) => mockNative.answerApproval(...a),
+  undoAction: (id: string) => mockNative.undoAction(id),
   listenAgain: () => mockNative.listenAgain(),
   startTalk: (...a: unknown[]) => mockNative.startTalk(...a),
   stopListening: () => mockNative.stopListening(),
@@ -55,8 +57,12 @@ jest.mock('../../clovieVoice', () => ({
 }));
 
 const mockDecide = jest.fn();
+const mockUndo = jest.fn();
 jest.mock('@/lib/api', () => ({
-  api: { voiceDecideApproval: (...a: unknown[]) => mockDecide(...a) },
+  api: {
+    voiceDecideApproval: (...a: unknown[]) => mockDecide(...a),
+    voiceUndoAction: (...a: unknown[]) => mockUndo(...a),
+  },
   newIdempotencyKey: () => 'key-1',
 }));
 
@@ -213,6 +219,74 @@ describe('useInAppVoice', () => {
     });
     expect(mockDecide).toHaveBeenCalledWith('oapr_A', 'decline', 'key-1');
     expect(mockDecide).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends Undo to the service bound to the executed action shown', () => {
+    mockNative.undoAction.mockReturnValue(true);
+    mountProbe();
+    emit(
+      listeners.outcome,
+      outcome({
+        message: 'Done. Booked.',
+        pendingApprovalId: '',
+        pendingActionId: 'oact_1',
+        undoUntilMs: Date.now() + 30_000,
+      }),
+    );
+    expect(voice.state.action?.id).toBe('oact_1');
+    act(() => voice.actions.undo('oact_1'));
+    expect(mockNative.undoAction).toHaveBeenCalledWith('oact_1');
+    expect(mockUndo).not.toHaveBeenCalled();
+  });
+
+  it('undoes that same id through the API when the service has already ended, and shows the result', async () => {
+    jest.useFakeTimers();
+    mockNative.undoAction.mockReturnValue(false);
+    mockUndo.mockResolvedValue({ status: 'undone' });
+    mountProbe();
+    emit(
+      listeners.outcome,
+      outcome({
+        pendingApprovalId: '',
+        pendingActionId: 'oact_1',
+        undoUntilMs: Date.now() + 30_000,
+      }),
+    );
+    await act(async () => {
+      voice.actions.undo('oact_1');
+      await Promise.resolve();
+    });
+    expect(mockUndo).toHaveBeenCalledWith('oact_1', 'action:oact_1:undo');
+    expect(voice.state.action).toBeNull();
+    expect(voice.state.reply).toBe('Okay, undone.');
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(voice.state.phase).toBe('closed');
+    jest.useRealTimers();
+    await flush();
+  });
+
+  it('says it is too late when the API refuses the undo', async () => {
+    mockNative.undoAction.mockReturnValue(false);
+    mockUndo.mockRejectedValue({
+      code: 'RULE_VIOLATION',
+      details: { reason: 'action.undo_window_closed' },
+    });
+    mountProbe();
+    emit(
+      listeners.outcome,
+      outcome({
+        pendingApprovalId: '',
+        pendingActionId: 'oact_1',
+        undoUntilMs: Date.now() + 30_000,
+      }),
+    );
+    await act(async () => {
+      voice.actions.undo('oact_1');
+      await Promise.resolve();
+    });
+    expect(voice.state.reply).toBe('Too late to undo, the booking stands.');
   });
 
   it('listens again with the mic, and starts a fresh talk when no interaction is open', () => {

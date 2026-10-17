@@ -324,6 +324,7 @@ describe('follow-up turns through the headless task', () => {
         timezone: 'Africa/Johannesburg',
       }),
       checkIn: jest.fn(async () => ({})),
+      undo: jest.fn(async () => ({})),
     };
   }
 

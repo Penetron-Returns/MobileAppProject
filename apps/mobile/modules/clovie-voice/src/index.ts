@@ -74,6 +74,7 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   endVoice?(): void;
   listenAgain?(): boolean;
   answerApproval?(id: string, answer: ClovieVoiceAnswer): boolean;
+  undoAction?(id: string): boolean;
 }
 
 // Android only: iOS, web and builds without the native module get null.
@@ -147,8 +148,11 @@ export function completeCommand(
   id: string,
   outcome: ClovieVoiceCommandOutcome,
 ): boolean {
-  const { spoken, expectsReply } = outcome;
-  if (native?.completeCommandWithReply && (spoken || expectsReply)) {
+  const { spoken, expectsReply, pendingActionId } = outcome;
+  if (
+    native?.completeCommandWithReply &&
+    (spoken || expectsReply || pendingActionId)
+  ) {
     // Follow-up fields travel as one JSON string; a build made before they existed uses the plain call below.
     return native.completeCommandWithReply(
       id,
@@ -163,6 +167,8 @@ export function completeCommand(
         pendingTitle: outcome.pendingTitle ?? '',
         pendingQueue: outcome.pendingQueue ?? '',
         pendingRemaining: outcome.pendingRemaining ?? 0,
+        pendingActionId: pendingActionId ?? '',
+        undoUntilMs: outcome.undoUntilMs ?? 0,
       }),
     );
   }
@@ -288,6 +294,14 @@ export function listenAgain(): boolean {
  */
 export function answerApproval(id: string, answer: ClovieVoiceAnswer): boolean {
   return native?.answerApproval?.(id, answer) ?? false;
+}
+
+/**
+ * Undo in the drawer, through the same path as a spoken "undo": the service applies it to the executed action it is
+ * holding, and only if `id` is that action. False when it is not (nothing was undone).
+ */
+export function undoAction(id: string): boolean {
+  return native?.undoAction?.(id) ?? false;
 }
 
 /** One-tap: listens for one command now (no wake word). Call it while the app is on screen. */

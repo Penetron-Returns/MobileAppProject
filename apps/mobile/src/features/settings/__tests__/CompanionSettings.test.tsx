@@ -49,6 +49,12 @@ jest.mock('@/features/companion/hooks', () => ({
 
 jest.mock('@/features/voice/clovieVoice', () => ({ isSupported: () => true }));
 
+// Its own test file covers it; here it only needs to be on the screen.
+jest.mock('../components/BookingsByClovieSection', () => {
+  const { View } = require('react-native');
+  return { BookingsByClovieSection: () => <View testID="bookings-section" /> };
+});
+
 const METRICS = {
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
   frame: { x: 0, y: 0, width: 402, height: 874 },
@@ -85,6 +91,13 @@ const row = (tree: ReactTestRenderer, label: string) =>
   )[0];
 
 beforeEach(() => jest.clearAllMocks());
+
+it('shows the Bookings by Clovie section below the companion settings', () => {
+  const tree = mount();
+  expect(
+    tree.root.findAll((n) => n.props.testID === 'bookings-section'),
+  ).not.toHaveLength(0);
+});
 
 describe('Companion settings screen', () => {
   it('shows the companion, its status and the WhatsApp connection', () => {

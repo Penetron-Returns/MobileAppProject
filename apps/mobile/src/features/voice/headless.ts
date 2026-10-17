@@ -5,6 +5,7 @@ import {
   type CheckInCandidate,
 } from './checkIn';
 import { parseVoiceCommand } from './logic';
+import { isUndoPhrase, undoPendingAction } from './undo';
 import {
   answerPendingApproval,
   askCompanion,
@@ -18,10 +19,12 @@ type Translate = (key: string, values?: Record<string, unknown>) => string;
 /** What running a spoken command with no screen needs; injected so it is testable. */
 export interface HeadlessDeps extends Pick<
   AskDeps,
-  'ask' | 'decide' | 'speakInterim' | 'nextTurn'
+  'ask' | 'decide' | 'speakInterim' | 'nextTurn' | 'rememberAction'
 > {
   now: () => Date;
   t: Translate;
+  /** Undoes exactly this action id (`POST /v1/voice/actions/:id/undo`). */
+  undo: (id: string) => Promise<unknown>;
   /** False when no signed-in session is available (the app UI never started). */
   isSignedIn: () => Promise<boolean>;
   /** Today's bookings and the business timezone (for the times in replies). */
@@ -45,6 +48,12 @@ export async function runVoiceCommandHeadless(
   deps: HeadlessDeps,
   context: FollowUpContext = {},
 ): Promise<ClovieVoiceCommandOutcome> {
+  const actionId = context.pendingActionId;
+  if (actionId && isUndoPhrase(transcript)) {
+    if (!(await deps.isSignedIn())) return { status: 'open_app', message: '' };
+    // Only the action just read aloud, by the id the service carried: never a guess.
+    return undoPendingAction(actionId, deps);
+  }
   const pendingId = context.pendingApprovalId;
   if (pendingId) {
     const verdict = classifyReply(transcript);

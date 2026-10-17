@@ -38,5 +38,9 @@ class VoiceCommandTaskService : HeadlessJsTaskService() {
     const val EXTRA_PENDING_APPROVAL_ID = "pendingApprovalId"
     const val EXTRA_PENDING_KIND = "pendingKind"
     const val EXTRA_PENDING_QUEUE = "pendingQueue"
+
+    /** Follow-up turns after an executed action: its id and when its undo window closes (epoch ms, as a string). */
+    const val EXTRA_PENDING_ACTION_ID = "pendingActionId"
+    const val EXTRA_UNDO_UNTIL_MS = "undoUntilMs"
   }
 }

@@ -21,6 +21,15 @@ export interface VoiceApproval {
   title: string;
 }
 
+/** The executed action the service holds an undo window for (act-then-undo): what to show as the Booked card. */
+export interface VoiceExecutedAction {
+  id: string;
+  title: string;
+  lines: readonly { label: string; from: string | null; to: string }[];
+  /** Epoch ms when the undo window closes. */
+  undoUntilMs: number;
+}
+
 export interface InAppVoiceState {
   phase: VoicePhase;
   /** The words heard (the thinking chip). The cloud path has no partials, so while listening this stays empty. */
@@ -29,6 +38,8 @@ export interface InAppVoiceState {
   replyKind: ReplyKind;
   /** The one approval the service is holding, shown as the card. Null when there is none. */
   approval: VoiceApproval | null;
+  /** The action Clovie just did by itself and the owner may still undo. Null when there is none. */
+  action: VoiceExecutedAction | null;
   /** The reply is being read aloud. */
   isReading: boolean;
   /** The microphone is open for an answer while the reply (or card) stays on screen. */
@@ -43,6 +54,7 @@ export const INITIAL_VOICE_STATE: InAppVoiceState = {
   reply: '',
   replyKind: 'text',
   approval: null,
+  action: null,
   isReading: false,
   isListening: false,
   expectsReply: false,
@@ -51,7 +63,12 @@ export const INITIAL_VOICE_STATE: InAppVoiceState = {
 export type InAppVoiceAction =
   | { type: 'state'; event: ClovieVoiceStateEvent }
   | { type: 'transcript'; text: string }
-  | { type: 'outcome'; event: ClovieVoiceOutcomeEvent }
+  | {
+      type: 'outcome';
+      event: ClovieVoiceOutcomeEvent;
+      /** The executed action's lines, when the event names one (looked up by id; the event carries only the window). */
+      action?: { title: string; lines: VoiceExecutedAction['lines'] };
+    }
   | { type: 'close' };
 
 /** The text the service sends in place of a reply when nothing was heard / speech is missing on the phone. */
@@ -71,6 +88,8 @@ export function outcomeToEvent(
     pendingKind: outcome.pendingKind ?? '',
     pendingTitle: outcome.pendingTitle ?? '',
     pendingRemaining: outcome.pendingRemaining ?? 0,
+    pendingActionId: outcome.pendingActionId ?? '',
+    undoUntilMs: outcome.undoUntilMs ?? 0,
     reason: '',
   };
 }
@@ -143,7 +162,7 @@ export function inAppVoiceReducer(
         ? state
         : { ...state, transcript: action.text };
     case 'outcome': {
-      const { event } = action;
+      const { event, action: details } = action;
       const approval = event.pendingApprovalId
         ? {
             id: event.pendingApprovalId,
@@ -151,11 +170,21 @@ export function inAppVoiceReducer(
             title: event.pendingTitle,
           }
         : null;
+      const executed =
+        !approval && event.pendingActionId && (event.undoUntilMs ?? 0) > 0
+          ? {
+              id: event.pendingActionId,
+              title: details?.title ?? '',
+              lines: details?.lines ?? [],
+              undoUntilMs: event.undoUntilMs ?? 0,
+            }
+          : null;
       return {
         ...state,
         phase: 'answer',
         ...replyFromOutcome(event),
         approval,
+        action: executed,
         expectsReply: event.expectsReply,
         transcript: event.transcript || state.transcript,
       };
@@ -167,7 +196,7 @@ export function inAppVoiceReducer(
 
 /** Whether the drawer is taller: the approval card needs the room (the board's 650 pt against 540 pt). */
 export function drawerHeightFraction(state: InAppVoiceState): number {
-  return state.phase === 'answer' && state.approval
+  return state.phase === 'answer' && (state.approval || state.action)
     ? ANSWER_FRACTION
     : BASE_FRACTION;
 }

@@ -26,6 +26,8 @@ interface DrawerProps {
   state: InAppVoiceState;
   levels: LevelStore;
   actions: VoiceActions;
+  /** The clock for the undo countdown (tests inject it). */
+  now?: () => number;
 }
 
 const glowMode = (phase: InAppVoiceState['phase']): GlowMode =>
@@ -41,7 +43,7 @@ const glowMode = (phase: InAppVoiceState['phase']): GlowMode =>
  * with an approval card is taller. "Show chat" hands over to the normal chat sheet. Mounted only while voice is open,
  * and everything that loops is gated on `useMotionActive`, so a closed, hidden or Reduce Motion drawer draws nothing.
  */
-export function InAppVoiceDrawer({ state, levels, actions }: DrawerProps) {
+export function InAppVoiceDrawer({ state, levels, actions, now }: DrawerProps) {
   const { t } = useTranslation();
   const depth = useDepth();
   const tokens = voiceTokens(depth);
@@ -171,6 +173,7 @@ export function InAppVoiceDrawer({ state, levels, actions }: DrawerProps) {
             <AnswerBody
               state={state}
               actions={actions}
+              now={now}
               isLive={isLive}
               bottomInset={insets.bottom}
             />

@@ -23,6 +23,7 @@ function deps(patch: Partial<ClipDeps> = {}): ClipDeps {
     checkIn: jest.fn(async () => ({})),
     ask: jest.fn(async () => ({ reply: 'Done thinking.', approvals: [] })),
     decide: jest.fn(async () => ({ kind: null })),
+    undo: jest.fn(async () => ({})),
     transcribe: jest.fn(async () => ({ text: 'Sipho has arrived' })),
     ...patch,
   };
