@@ -41,8 +41,8 @@ const FALLBACK_TIMEZONE = 'UTC';
  * around Nerova's `<CompanionMoment>` (the chat UI is theirs; we host it). It
  * shares the app-wide SDK session from `CompanionSdkHost`, so with no companion
  * on the plan (or the flag off) there is no chat area. The attendance questions
- * are its `queueItems`. The screen rides the keyboard and, while it is up, drops
- * the header and stories so the composer and the answer keep the room.
+ * are its `queueItems`. The screen rides the keyboard: the page stays as it is and
+ * only the composer lifts above the keys (the answer area shrinks or scrolls).
  */
 /** Stable: the SDK would otherwise redraw the avatar on every render. */
 const renderAvatar = (props: MomentAvatarProperties) => (
@@ -118,22 +118,18 @@ export function ClovieTabScreen() {
               : tabBarClearance(insets.bottom) + 8,
           }}
         >
-          {isKeyboardUp ? null : (
-            <>
-              <ClovieHeader
-                caption={caption}
-                greeting={t(greeting.key, greeting.values)}
-              />
-              <StoriesRow
-                stories={stories}
-                isLoading={isLoading}
-                onViewed={markViewed}
-                onEvent={events.record}
-                onAction={onStoryAction}
-                onClose={events.flush}
-              />
-            </>
-          )}
+          <ClovieHeader
+            caption={caption}
+            greeting={t(greeting.key, greeting.values)}
+          />
+          <StoriesRow
+            stories={stories}
+            isLoading={isLoading}
+            onViewed={markViewed}
+            onEvent={events.record}
+            onAction={onStoryAction}
+            onClose={events.flush}
+          />
           {isAvailable || hasFailed ? (
             <CompanionMoment
               testID="clovie-moment"
