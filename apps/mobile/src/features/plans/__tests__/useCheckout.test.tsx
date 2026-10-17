@@ -22,10 +22,10 @@ jest.mock('expo-web-browser', () => ({
 }));
 
 type Checkout = ReturnType<typeof useCheckout>;
-function harness() {
+function harness(options?: Parameters<typeof useCheckout>[0]) {
   const ref: { current: Checkout | null } = { current: null };
   function Probe() {
-    ref.current = useCheckout();
+    ref.current = useCheckout(options);
     return null;
   }
   mount(<Probe />);
@@ -76,6 +76,14 @@ describe('useCheckout', () => {
       await done;
     });
     expect(h.current.phase.kind).toBe('active');
+  });
+
+  it('tells the caller how the confirmation ended and which plan was bought', async () => {
+    mockMe.mockResolvedValue(GROWTH);
+    const onReturned = jest.fn();
+    const h = harness({ onReturned });
+    await run(h, 'growth');
+    expect(onReturned).toHaveBeenCalledWith('active', 'growth');
   });
 
   it('says payments are not switched on when the API has no billing configured', async () => {

@@ -2,8 +2,9 @@ import type { OnboardingRequest } from '@booking/types';
 
 /**
  * Pure first-run logic. The owner answers two questions (business type, then
- * name); everything else starts from the type's template and is reviewed later
- * from the "Get set up" checklist. No React, no I/O.
+ * name) before signing in; the business is created from the type's template
+ * once they have, and everything else is reviewed later from the "Get set up"
+ * checklist. No React, no I/O.
  */
 
 export type BusinessTypeId = 'barber' | 'salon' | 'beauty' | 'mix';
@@ -16,10 +17,24 @@ export const BUSINESS_TYPE_IDS: BusinessTypeId[] = [
   'mix',
 ];
 
-/** Questions asked in onboarding itself; the plan and setup screens follow. */
-export type OnboardingStep = 1 | 2;
-/** Type, name, plan, setup: the progress bar spans all four screens. */
-export const STAGE_COUNT = 4;
+/**
+ * Where the draft is: 1 = business type, 2 = name, 3 = name confirmed (the
+ * owner pressed Continue and is on their way to sign in, or is signed in and
+ * the business is being created).
+ */
+export type OnboardingStep = 1 | 2 | 3;
+/** Progress dots on the boards: type, name, plan. */
+export const STAGE_COUNT = 3;
+export type OnboardingStage = 1 | 2 | 3;
+export type DotState = 'done' | 'active' | 'todo';
+
+/** One entry per dot: finished stages, the current one (drawn long), the rest. */
+export function dotStates(stage: OnboardingStage): DotState[] {
+  return Array.from({ length: STAGE_COUNT }, (_, i) => {
+    if (i + 1 < stage) return 'done';
+    return i + 1 === stage ? 'active' : 'todo';
+  });
+}
 
 // ----- templates -----
 
@@ -90,7 +105,7 @@ export function initialDraft(): OnboardingDraft {
   return { step: 1, typeId: null, businessName: '' };
 }
 
-/** One tap on a type card picks it and moves on to the name. */
+/** One tap on a type tile picks it and moves on to the name. */
 export function selectType(
   draft: OnboardingDraft,
   typeId: BusinessTypeId,
@@ -106,16 +121,45 @@ export function setName(
 }
 
 export function goBack(draft: OnboardingDraft): OnboardingDraft {
-  return draft.step === 2 ? { ...draft, step: 1 } : draft;
+  return draft.step === 1 ? draft : { ...draft, step: 1 };
 }
 
-/** Back is shown from the name question only. */
-export const canGoBack = (draft: OnboardingDraft) => draft.step === 2;
-
-/** The name question can be submitted once a type is chosen and the name is not blank. */
+/** The name can be submitted once a type is chosen and the name is not blank. */
 export function canSubmit(draft: OnboardingDraft): boolean {
   return draft.typeId !== null && draft.businessName.trim().length > 0;
 }
+
+/** Continue on the name: the draft is complete and waits for sign-in. */
+export function confirmName(draft: OnboardingDraft): OnboardingDraft {
+  return canSubmit(draft) ? { ...draft, step: 3 } : draft;
+}
+
+export type OnboardingScreen = 'welcome' | 'type' | 'name';
+
+/** Nothing entered yet: a first launch rather than a resume. */
+export const isPristine = (draft: OnboardingDraft) =>
+  draft.typeId === null && draft.businessName === '';
+
+/**
+ * The screen to open on. A signed-out first launch starts at the welcome;
+ * signed in with no business (and no draft) starts at the type. A resumed draft
+ * reopens where it was; a confirmed one reopens on the name, one tap from
+ * signing in.
+ */
+export function startScreen(
+  draft: OnboardingDraft,
+  isSignedIn: boolean,
+): OnboardingScreen {
+  if (isPristine(draft)) return isSignedIn ? 'type' : 'welcome';
+  return draft.step === 1 ? 'type' : 'name';
+}
+
+/**
+ * Signed in with a confirmed draft: create the business without asking again.
+ * An unconfirmed draft waits for the owner's Continue on the name.
+ */
+export const shouldAutoSubmit = (draft: OnboardingDraft, isSignedIn: boolean) =>
+  isSignedIn && draft.step === 3 && canSubmit(draft);
 
 // ----- submit -----
 
@@ -148,6 +192,17 @@ export function serializeDraft(draft: OnboardingDraft): string {
   return JSON.stringify(draft);
 }
 
+/** A step is only trusted when what it needs is there: no name step without a type, no confirmation without a name. */
+function resumeStep(
+  step: unknown,
+  type: BusinessTypeId | null,
+  name: string,
+): OnboardingStep {
+  if (!type) return 1;
+  if (step === 3 && name.trim()) return 3;
+  return step === 1 ? 1 : 2;
+}
+
 /** Reads a stored draft back; anything unrecognised starts over rather than crashing. */
 export function parseDraft(raw: string | null): OnboardingDraft {
   if (!raw) return initialDraft();
@@ -156,12 +211,12 @@ export function parseDraft(raw: string | null): OnboardingDraft {
     if (typeof value !== 'object' || value === null) return initialDraft();
     const { step, typeId, businessName } = value as Record<string, unknown>;
     const type = BUSINESS_TYPE_IDS.find((id) => id === typeId) ?? null;
+    const name =
+      typeof businessName === 'string' ? businessName.slice(0, NAME_MAX) : '';
     return {
-      // A name step without a type would be a dead end.
-      step: step === 2 && type ? 2 : 1,
+      step: resumeStep(step, type, name),
       typeId: type,
-      businessName:
-        typeof businessName === 'string' ? businessName.slice(0, NAME_MAX) : '',
+      businessName: name,
     };
   } catch {
     return initialDraft();

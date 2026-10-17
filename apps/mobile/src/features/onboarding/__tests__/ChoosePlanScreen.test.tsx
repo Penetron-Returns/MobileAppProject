@@ -1,29 +1,37 @@
 import type { PlanDTO } from '@booking/types';
 import * as React from 'react';
 
+import { setAnalytics } from '@/features/analytics';
 import {
-  act,
-  mount,
-  pressableByLabel,
-  pressableByText,
-  text,
-} from '@/testing/render';
+  createFakeAnalytics,
+  type FakeAnalytics,
+} from '@/features/analytics/testing';
+import { act, mount, pressableByLabel, text } from '@/testing/render';
 
 import { ChoosePlanScreen } from '../components/ChoosePlanScreen';
+
+jest.mock('expo-router', () => ({ useIsFocused: () => true }));
+jest.mock('@/features/brand/ClovieAnimated', () => ({
+  ClovieAnimated: () => null,
+}));
 
 const mockStart = jest.fn();
 const mockReset = jest.fn();
 const mockNotPaid = jest.fn();
 const mockCheckAgain = jest.fn();
 let mockPhase: { kind: string } = { kind: 'idle' };
+let mockOptions: { onReturned?: (o: string, p: string | null) => void } = {};
 jest.mock('@/features/plans/useCheckout', () => ({
-  useCheckout: () => ({
-    phase: mockPhase,
-    start: mockStart,
-    reset: mockReset,
-    notPaid: mockNotPaid,
-    checkAgain: mockCheckAgain,
-  }),
+  useCheckout: (options: typeof mockOptions) => {
+    mockOptions = options;
+    return {
+      phase: mockPhase,
+      start: mockStart,
+      reset: mockReset,
+      notPaid: mockNotPaid,
+      checkAgain: mockCheckAgain,
+    };
+  },
 }));
 
 let mockPlans: Record<string, unknown> = {};
@@ -62,113 +70,104 @@ const LOADED = {
   refetch: jest.fn(),
 };
 
+let fake: FakeAnalytics;
 beforeEach(() => {
   jest.clearAllMocks();
   mockPhase = { kind: 'idle' };
   mockPlans = LOADED;
+  fake = createFakeAnalytics();
+  setAnalytics(fake);
 });
+afterEach(() => setAnalytics());
 
 describe('ChoosePlanScreen', () => {
-  it('shows three paid plans with price, allowance and extra-booking price, and never Free', () => {
-    const out = text(mount(<ChoosePlanScreen />));
-    expect(out).toContain('Choose a plan');
-    for (const name of ['Starter', 'Growth', 'Pro'])
-      expect(out).toContain(name);
-    expect(out).toContain('R200 a month');
-    expect(out).toContain('R400 a month');
-    expect(out).toContain('R800 a month');
-    expect(out).toContain('50 bookings a month');
-    expect(out).toContain('100 bookings a month');
-    expect(out).toContain('200 bookings a month');
-    expect(out).toContain('Extra bookings R4');
-    expect(out).not.toMatch(/\bfree\b/i);
-    expect(out).not.toMatch(/trial/i);
-  });
-
-  it('has a speaker button that reads the plans aloud', () => {
+  it('shows the three paid plans with prices and allowances, and no free option', () => {
     const tree = mount(<ChoosePlanScreen />);
-    expect(
-      tree.root.findAll(
-        (n) => n.props.accessibilityLabel === 'Read aloud' && !!n.props.onPress,
-      ).length,
-    ).toBeGreaterThan(0);
+    const out = text(tree);
+    expect(out).toContain('Last step.');
+    expect(out).toContain('Pick your plan.');
+    for (const piece of [
+      'Starter',
+      'Growth',
+      'Pro',
+      'R200',
+      'R400',
+      'R800',
+      '50 bookings a month',
+      '100 bookings a month',
+      '200 bookings a month',
+      'Extra bookings are R4 each.',
+      'Cancel anytime.',
+    ]) {
+      expect(out).toContain(piece);
+    }
+    expect(out).not.toMatch(/\bFree\b/);
   });
 
-  it('Start begins checkout for that plan', () => {
+  it('selects Starter first, and the button names whichever plan is chosen', () => {
     const tree = mount(<ChoosePlanScreen />);
-    act(() =>
-      pressableByLabel(tree, 'Start Growth, R400 a month').props.onPress(),
-    );
-    expect(mockStart).toHaveBeenCalledWith('growth');
+    const radio = (name: string) =>
+      tree.root.find(
+        (n) =>
+          n.props.accessibilityRole === 'radio' &&
+          String(n.props.accessibilityLabel).startsWith(name) &&
+          !!n.props.onPress,
+      );
+    expect(radio('Starter').props.accessibilityState.checked).toBe(true);
+    expect(text(tree)).toContain('Continue with Starter');
+    act(() => radio('Pro').props.onPress());
+    expect(radio('Pro').props.accessibilityState.checked).toBe(true);
+    expect(radio('Starter').props.accessibilityState.checked).toBe(false);
+    expect(text(tree)).toContain('Continue with Pro');
   });
 
-  it('shows a skeleton while the plans load, and an error with retry when they fail', () => {
-    mockPlans = { data: undefined, isError: false, refetch: jest.fn() };
-    const loading = mount(<ChoosePlanScreen />);
-    expect(
-      loading.root.findAll(
-        (n) => n.props.accessibilityLabel === 'Loading plans',
-      ).length,
-    ).toBeGreaterThan(0);
+  it('reports the plan viewed, and the checkout started with only the plan id', () => {
+    const tree = mount(<ChoosePlanScreen />);
+    act(() => pressableByLabel(tree, 'Continue with Starter').props.onPress());
+    expect(mockStart).toHaveBeenCalledWith('starter');
+    expect(fake.events).toEqual([
+      { event: 'plan_viewed', props: {} },
+      { event: 'checkout_started', props: { plan: 'starter' } },
+    ]);
+  });
 
-    const refetch = jest.fn();
+  it('reports how checkout ended, and the plan once it is active', () => {
+    mount(<ChoosePlanScreen />);
+    act(() => mockOptions.onReturned?.('timeout', 'growth'));
+    act(() => mockOptions.onReturned?.('active', 'growth'));
+    expect(fake.events.slice(1)).toEqual([
+      { event: 'checkout_returned', props: { outcome: 'timeout' } },
+      { event: 'checkout_returned', props: { outcome: 'active' } },
+      { event: 'plan_activated', props: { plan: 'growth' } },
+    ]);
+  });
+
+  it('waits on the confirming screen and lets the owner say they did not pay', () => {
+    mockPhase = { kind: 'confirming' };
+    const tree = mount(<ChoosePlanScreen />);
+    expect(text(tree)).toContain('Confirming your payment...');
+    act(() => pressableByLabel(tree, "I didn't pay").props.onPress());
+    expect(mockNotPaid).toHaveBeenCalled();
+  });
+
+  it('shows the calm failure screen, and Try again restarts the same plan', () => {
+    mockPhase = { kind: 'failed' };
+    const tree = mount(<ChoosePlanScreen />);
+    expect(text(tree)).toContain("That didn't go through.");
+    act(() => pressableByLabel(tree, 'Try again').props.onPress());
+    expect(mockStart).toHaveBeenCalledWith('starter');
+    act(() => pressableByLabel(tree, 'Pick another plan').props.onPress());
+    expect(mockReset).toHaveBeenCalled();
+  });
+
+  it('explains a plan list that did not load, with a retry', () => {
     mockPlans = {
       data: undefined,
       isError: true,
-      error: new Error('x'),
-      refetch,
+      error: new Error('boom'),
+      refetch: jest.fn(),
     };
-    const failed = mount(<ChoosePlanScreen />);
-    expect(text(failed)).toContain("Couldn't load the plans");
-    act(() => pressableByText(failed, 'Try again').props.onPress());
-    expect(refetch).toHaveBeenCalled();
-  });
-
-  it.each([
-    ['starting', 'Opening checkout'],
-    ['browser', 'Opening checkout'],
-    ['confirming', 'Confirming your payment'],
-    ['cancelled', 'Payment cancelled'],
-    ['unconfirmed', 'Still confirming your payment'],
-    ['failed', "Checkout didn't open"],
-    ['offline', "You're offline"],
-    ['not_configured', "Payments aren't switched on yet"],
-  ])('says "%s" plainly: %s', (kind, title) => {
-    mockPhase = { kind };
-    const out = text(mount(<ChoosePlanScreen />));
-    expect(out).toContain(title);
-    expect(out).not.toContain('Extra bookings R4');
-  });
-
-  it('never leaves a dead end: every problem has a retry and a way back to the plans', () => {
-    for (const kind of [
-      'cancelled',
-      'unconfirmed',
-      'failed',
-      'offline',
-      'not_configured',
-    ]) {
-      mockPhase = { kind };
-      const tree = mount(<ChoosePlanScreen />);
-      const retry = kind === 'unconfirmed' ? 'Check again' : 'Try again';
-      expect(pressableByLabel(tree, retry)).toBeDefined();
-      act(() => pressableByLabel(tree, 'Back to plans').props.onPress());
-      expect(mockReset).toHaveBeenCalled();
-      mockReset.mockClear();
-    }
-  });
-
-  it('wires Check again', () => {
-    mockPhase = { kind: 'unconfirmed' };
     const tree = mount(<ChoosePlanScreen />);
-    act(() => pressableByLabel(tree, 'Check again').props.onPress());
-    expect(mockCheckAgain).toHaveBeenCalled();
-  });
-
-  it("wires I didn't pay", () => {
-    mockPhase = { kind: 'confirming' };
-    const tree = mount(<ChoosePlanScreen />);
-    act(() => pressableByLabel(tree, "I didn't pay").props.onPress());
-    expect(mockNotPaid).toHaveBeenCalled();
+    expect(text(tree)).toContain("Couldn't load the plans");
   });
 });

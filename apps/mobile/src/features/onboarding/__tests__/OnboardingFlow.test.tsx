@@ -1,24 +1,35 @@
 import * as React from 'react';
+import { TextInput } from 'react-native';
 
+import { setAnalytics } from '@/features/analytics';
+import {
+  createFakeAnalytics,
+  type FakeAnalytics,
+} from '@/features/analytics/testing';
 import { act, flush, mount, pressableByLabel, text } from '@/testing/render';
 
-import { initialDraft, type OnboardingDraft } from '../logic';
 import { OnboardingFlow } from '../components/OnboardingFlow';
+import { initialDraft, type OnboardingDraft } from '../logic';
 
 jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { fullName: 'Zoe Dlamini', firstName: 'Zoe' } }),
+}));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  router: { push: (...a: unknown[]) => mockPush(...a) },
+  useIsFocused: () => true,
+}));
+jest.mock('@/features/brand/ClovieAnimated', () => ({
+  ClovieAnimated: () => null,
 }));
 jest.mock('@/features/brand/ClovieLoading', () => ({
   ClovieLoading: () => null,
 }));
 
-const mockMutate = jest.fn();
-let mockError: unknown = null;
+const mockCreate = jest.fn();
 jest.mock('../hooks', () => ({
   useCompleteOnboarding: () => ({
-    mutateAsync: (...a: unknown[]) => mockMutate(...a),
-    isPending: false,
-    error: mockError,
+    mutateAsync: (...a: unknown[]) => mockCreate(...a),
   }),
 }));
 
@@ -31,106 +42,197 @@ jest.mock('../storage', () => ({
   clearDraft: () => mockClear(),
 }));
 
+let fake: FakeAnalytics;
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.useFakeTimers();
   mockStored = initialDraft();
-  mockError = null;
-  mockMutate.mockResolvedValue({});
+  mockCreate.mockResolvedValue({ business: { id: 'biz_1' } });
+  fake = createFakeAnalytics();
+  setAnalytics(fake);
+});
+afterEach(() => {
+  jest.useRealTimers();
+  setAnalytics();
 });
 
-async function open(onDone = jest.fn()) {
-  const tree = mount(<OnboardingFlow onDone={onDone} />);
+async function open(props: { isSignedIn: boolean; onDone?: () => void }) {
+  const tree = mount(<OnboardingFlow {...props} />);
   await flush();
-  return { tree, onDone };
+  return tree;
 }
+const advance = (ms: number) => act(() => void jest.advanceTimersByTime(ms));
+const lastSaved = () => mockSave.mock.calls.at(-1)?.[0];
 
-describe('OnboardingFlow', () => {
-  it('asks one question at a time: first the business type, in four big cards', async () => {
-    const { tree } = await open();
+describe('signed out: welcome, type, name, then sign-in', () => {
+  it('starts on the welcome and reports it once', async () => {
+    const tree = await open({ isSignedIn: false });
     const out = text(tree);
-    expect(out).toContain('What kind of business?');
-    for (const type of ['Barber', 'Salon', 'Beauty parlour', 'Mix']) {
-      expect(out).toContain(type);
+    expect(out).toContain("Hi, I'm Clovie.");
+    expect(out).toContain("Let's set up your business.");
+    expect(out).toContain('About 1 minute');
+    expect(fake.names()).toEqual(['onboarding_started']);
+  });
+
+  it('"I already have an account" goes straight to sign-in without saving a draft', async () => {
+    const tree = await open({ isSignedIn: false });
+    act(() =>
+      pressableByLabel(tree, 'I already have an account').props.onPress(),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/sign-in');
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it('runs the screens in order and ends on the sign-in screen', async () => {
+    const tree = await open({ isSignedIn: false });
+    act(() => pressableByLabel(tree, 'Start').props.onPress());
+    expect(text(tree)).toContain('What kind of business?');
+    for (const label of ['Barbershop', 'Salon', 'Beauty parlour', 'A mix']) {
+      expect(text(tree)).toContain(label);
     }
-    expect(out).not.toContain("What's your business called?");
-  });
 
-  it('one tap on a type moves to the name and saves the draft', async () => {
-    const { tree } = await open();
-    act(() => pressableByLabel(tree, 'Barber').props.onPress());
-    expect(text(tree)).toContain("What's your business called?");
-    expect(mockSave).toHaveBeenLastCalledWith({
-      step: 2,
-      typeId: 'barber',
-      businessName: '',
-    });
-  });
-
-  it('every question has a speaker button that reads it aloud', async () => {
-    const { tree } = await open();
-    const speak = () =>
-      tree.root.findAll(
-        (n) => n.props.accessibilityLabel === 'Read aloud' && !!n.props.onPress,
-      );
-    expect(speak().length).toBeGreaterThan(0);
-    act(() => pressableByLabel(tree, 'Barber').props.onPress());
-    expect(speak().length).toBeGreaterThan(0);
-  });
-
-  it('keeps Continue off until there is a name, then submits the template defaults at once', async () => {
-    const { tree, onDone } = await open();
+    // One tap on a tile advances (after the 400ms confirmation).
     act(() => pressableByLabel(tree, 'Salon').props.onPress());
-    const input = tree.root.find(
-      (n) => typeof n.props.onChangeText === 'function' && n.props.placeholder,
-    );
-    const continueButton = () => pressableByLabel(tree, 'Continue');
-    expect(continueButton().props.disabled).toBe(true);
+    expect(text(tree)).toContain('What kind of business?');
+    advance(400);
+    expect(text(tree)).toContain('Salon. Lovely!');
+    expect(lastSaved()).toEqual({ step: 2, typeId: 'salon', businessName: '' });
 
-    act(() => input.props.onChangeText('Ashgrove Hair'));
-    expect(continueButton().props.disabled).toBe(false);
-    await act(async () => continueButton().props.onPress());
+    const input = () => tree.root.findByType(TextInput);
+    act(() => input().props.onChangeText("Thandi's Hair Studio"));
+    expect(lastSaved().businessName).toBe("Thandi's Hair Studio");
+    act(() => pressableByLabel(tree, 'Continue').props.onPress());
 
-    expect(mockMutate).toHaveBeenCalledTimes(1);
-    const request = mockMutate.mock.calls[0][0];
-    expect(request.business).toEqual({ name: 'Ashgrove Hair' });
-    expect(request.owner_name).toBe('Zoe Dlamini');
-    expect(request.team).toEqual([]);
-    expect(request.hours).toHaveLength(6);
-    expect(request.services.length).toBeGreaterThan(0);
-    expect(mockClear).toHaveBeenCalled();
-    expect(onDone).toHaveBeenCalledTimes(1);
+    expect(lastSaved()).toEqual({
+      step: 3,
+      typeId: 'salon',
+      businessName: "Thandi's Hair Studio",
+    });
+    expect(mockPush).toHaveBeenCalledWith('/sign-in');
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('resumes a killed app on the name question with what was typed', async () => {
-    mockStored = { step: 2, typeId: 'beauty', businessName: 'Glow' };
-    const { tree } = await open();
-    expect(text(tree)).toContain("What's your business called?");
-    const input = tree.root.find(
-      (n) => typeof n.props.onChangeText === 'function' && n.props.placeholder,
-    );
-    expect(input.props.value).toBe('Glow');
+  it('keeps Continue off until there is a name', async () => {
+    mockStored = { step: 2, typeId: 'barber', businessName: '' };
+    const tree = await open({ isSignedIn: false });
+    const cont = () => pressableByLabel(tree, 'Continue');
+    expect(cont().props.accessibilityState.disabled).toBe(true);
+    act(() => tree.root.findByType(TextInput).props.onChangeText('  '));
+    expect(cont().props.accessibilityState.disabled).toBe(true);
+    act(() => tree.root.findByType(TextInput).props.onChangeText('Cuts'));
+    expect(cont().props.accessibilityState.disabled).toBe(false);
   });
 
-  it('goes back to the type question without losing the name', async () => {
-    mockStored = { step: 2, typeId: 'beauty', businessName: 'Glow' };
-    const { tree } = await open();
+  it('Back from the type returns to the welcome; from the name to the type', async () => {
+    const tree = await open({ isSignedIn: false });
+    act(() => pressableByLabel(tree, 'Start').props.onPress());
+    act(() => pressableByLabel(tree, 'Back').props.onPress());
+    expect(text(tree)).toContain("Hi, I'm Clovie.");
+    act(() => pressableByLabel(tree, 'Start').props.onPress());
+    act(() => pressableByLabel(tree, 'A mix').props.onPress());
+    advance(400);
     act(() => pressableByLabel(tree, 'Back').props.onPress());
     expect(text(tree)).toContain('What kind of business?');
-    expect(mockSave).toHaveBeenLastCalledWith({
-      step: 1,
-      typeId: 'beauty',
-      businessName: 'Glow',
-    });
   });
 
-  it('stays put and offers a retry when creating the business fails', async () => {
-    mockStored = { step: 2, typeId: 'mix', businessName: 'Both' };
-    mockMutate.mockRejectedValue(new Error('boom'));
-    mockError = new Error('boom');
-    const { tree, onDone } = await open();
-    await act(async () => pressableByLabel(tree, 'Continue').props.onPress());
-    expect(onDone).not.toHaveBeenCalled();
-    expect(mockClear).not.toHaveBeenCalled();
-    expect(text(tree)).toContain("What's your business called?");
+  it('resumes a killed app on the name with what was typed', async () => {
+    mockStored = { step: 2, typeId: 'beauty', businessName: 'Glow' };
+    const tree = await open({ isSignedIn: false });
+    expect(text(tree)).toContain('Beauty parlour. Lovely!');
+    expect(tree.root.findByType(TextInput).props.value).toBe('Glow');
+    expect(fake.names()).not.toContain('onboarding_started');
+  });
+
+  it('reopens a confirmed draft on the name, one tap from sign-in', async () => {
+    mockStored = { step: 3, typeId: 'salon', businessName: 'Ashgrove' };
+    const tree = await open({ isSignedIn: false });
+    expect(tree.root.findByType(TextInput).props.value).toBe('Ashgrove');
+    act(() => pressableByLabel(tree, 'Continue').props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/sign-in');
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('after sign-in', () => {
+  it('creates the business from a confirmed draft once, then clears it', async () => {
+    mockStored = { step: 3, typeId: 'barber', businessName: 'Cuts & Co' };
+    const onDone = jest.fn();
+    await open({ isSignedIn: true, onDone });
+    await flush();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const request = mockCreate.mock.calls[0][0];
+    expect(request.business).toEqual({ name: 'Cuts & Co' });
+    expect(request.owner_name).toBe('Zoe Dlamini');
+    expect(request.services.length).toBeGreaterThan(0);
+    expect(mockClear).toHaveBeenCalledTimes(1);
+    expect(onDone).toHaveBeenCalledTimes(1);
+
+    // Later renders and timers never submit a second time.
+    advance(5000);
+    await flush();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+
+    expect(fake.names()).toEqual(['business_created']);
+    expect(fake.groups).toEqual([{ type: 'business', id: 'biz_1' }]);
+  });
+
+  it('with no draft starts on the business type, with no back and no welcome', async () => {
+    const tree = await open({ isSignedIn: true });
+    expect(text(tree)).toContain('What kind of business?');
+    expect(() => pressableByLabel(tree, 'Back')).toThrow();
+    expect(fake.names()).toEqual([]);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('an unconfirmed draft waits for Continue on the name, then creates the business', async () => {
+    mockStored = { step: 2, typeId: 'mix', businessName: 'Studio 9' };
+    const tree = await open({ isSignedIn: true });
+    expect(mockCreate).not.toHaveBeenCalled();
+    act(() => pressableByLabel(tree, 'Continue').props.onPress());
+    await flush();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(fake.names()).toEqual([
+      'onboarding_name_entered',
+      'business_created',
+    ]);
+  });
+
+  it('a failed create shows a calm retry, and retrying sends it again', async () => {
+    mockStored = { step: 3, typeId: 'salon', businessName: 'Ashgrove' };
+    mockCreate.mockRejectedValueOnce(new Error('offline'));
+    const tree = await open({ isSignedIn: true });
+    await flush();
+    expect(text(tree)).toContain("Couldn't create your business");
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    act(() => pressableByLabel(tree, 'Try again').props.onPress());
+    await flush();
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(mockClear).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('analytics privacy', () => {
+  it('never carries the business name, email or phone in any event', async () => {
+    const tree = await open({ isSignedIn: false });
+    act(() => pressableByLabel(tree, 'Start').props.onPress());
+    act(() => pressableByLabel(tree, 'Salon').props.onPress());
+    advance(400);
+    act(() =>
+      tree.root
+        .findByType(TextInput)
+        .props.onChangeText("Thandi's Hair Studio"),
+    );
+    act(() => pressableByLabel(tree, 'Continue').props.onPress());
+
+    expect(fake.names()).toEqual([
+      'onboarding_started',
+      'onboarding_type_selected',
+      'onboarding_name_entered',
+    ]);
+    expect(fake.events[1].props).toEqual({ type: 'salon' });
+    expect(fake.events[2].props).toEqual({});
+    expect(JSON.stringify(fake.events)).not.toMatch(/Thandi|Hair|Studio/);
+    expect(fake.identified).toEqual([]);
   });
 });
