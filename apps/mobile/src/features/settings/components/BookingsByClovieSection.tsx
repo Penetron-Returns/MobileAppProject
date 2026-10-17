@@ -28,19 +28,23 @@ import {
 const ROOT = 'settings.companionSettings.bookings';
 
 /**
- * Settings > Companion > "Bookings by Clovie" (owner only): how much Clovie asks before it books, moves or cancels, and
+ * Settings > Clovie > "Bookings by Clovie" (owner changes it; staff see it dimmed): how much Clovie asks before it books, moves or cancels, and
  * how long a booking can be undone. A choice saves at once and rolls back with a toast if the save fails. When the
  * settings API cannot be reached (Nerova's is not live yet) the section stays, disabled, saying "Not available yet".
  */
 export function BookingsByClovieSection() {
   const { t } = useTranslation();
-  const isOwner = useMe().data?.role === 'owner';
+  const role = useMe().data?.role;
+  const isOwner = role === 'owner';
   const settings = useCompanionSettings(isOwner);
-  if (!isOwner) return null;
 
   let body: React.ReactNode;
-  if (settings.isError) {
-    body = <Unavailable />;
+  if (!role) {
+    body = <ListSkeleton rows={2} />;
+  } else if (!isOwner) {
+    body = <Unavailable reason={t('settings.clovie.ownerOnly')} />;
+  } else if (settings.isError) {
+    body = <Unavailable reason={t(`${ROOT}.unavailable`)} />;
   } else if (settings.isPending) {
     body = <ListSkeleton rows={2} />;
   } else {
@@ -61,19 +65,17 @@ export function BookingsByClovieSection() {
   );
 }
 
-/** Both rows, shown dimmed and not pressable. */
-function Unavailable() {
+/** Both rows, shown dimmed and not pressable, each with the reason (not the owner, or the API is not live). */
+function Unavailable({ reason }: { reason: string }) {
   const { t } = useTranslation();
   return (
-    <Group testID="bookings-unavailable" radius={26} style={{ opacity: 0.55 }}>
+    <Group testID="bookings-unavailable" radius={26}>
+      <GroupRow disabled reason={reason} title={t(`${ROOT}.askFirst`)} />
       <GroupRow
-        title={t(`${ROOT}.askFirst`)}
-        detail={t(`${ROOT}.unavailable`)}
-      />
-      <GroupRow
+        disabled
         showSeparator
+        reason={reason}
         title={t(`${ROOT}.undoWindow`)}
-        detail={t(`${ROOT}.unavailable`)}
       />
     </Group>
   );

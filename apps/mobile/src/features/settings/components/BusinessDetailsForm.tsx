@@ -27,6 +27,7 @@ import {
   toUpdateBusinessRequest,
   type BusinessDetailsValues,
 } from '../schemas';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 
 const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'BWP', 'NAD', 'KES', 'NGN'];
 const API_FIELDS = {
@@ -138,8 +139,10 @@ export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
           showSeparator
           title={t('settings.details.timezone')}
           detail={initial.timezone}
+          subtitle={t('settings.details.timezoneFixed')}
         />
       </Group>
+      <OwnerOnlyNote />
       <OptionSheet
         open={currencyOpen}
         onOpenChange={setCurrencyOpen}

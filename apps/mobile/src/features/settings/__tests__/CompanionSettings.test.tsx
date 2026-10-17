@@ -26,7 +26,6 @@ jest.mock('@/features/companion/sdk/useOpenCompanion', () => ({
   useOpenCompanion: () => mockOpenChat,
 }));
 
-const mockStart = jest.fn();
 const mockSetup = {
   isPending: false,
   isError: false,
@@ -44,10 +43,24 @@ const mockSetup = {
 };
 jest.mock('@/features/companion/hooks', () => ({
   useCompanionSetup: () => mockSetup,
-  useConnectWhatsApp: () => ({ start: mockStart, isStarting: false }),
 }));
 
-jest.mock('@/features/voice/clovieVoice', () => ({ isSupported: () => true }));
+let mockRole: 'owner' | 'staff' = 'owner';
+jest.mock('@/features/business/me', () => ({
+  useMe: () => ({
+    data: { role: mockRole, business: { attendance_mode: 'staff' } },
+  }),
+  useCanManage: () => mockRole !== 'staff',
+}));
+
+let mockVoiceSupported = true;
+jest.mock('@/features/voice/clovieVoice', () => ({
+  isSupported: () => mockVoiceSupported,
+}));
+let mockVoiceOn = false;
+jest.mock('@/features/voice/hooks', () => ({
+  useHeyClovieOn: () => mockVoiceOn,
+}));
 
 // Its own test file covers it; here it only needs to be on the screen.
 jest.mock('../components/BookingsByClovieSection', () => {
@@ -90,7 +103,12 @@ const row = (tree: ReactTestRenderer, label: string) =>
       !!n.props.onPress,
   )[0];
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockRole = 'owner';
+  mockVoiceSupported = true;
+  mockVoiceOn = false;
+});
 
 it('shows the Bookings by Clovie section below the companion settings', () => {
   const tree = mount();
@@ -99,22 +117,55 @@ it('shows the Bookings by Clovie section below the companion settings', () => {
   ).not.toHaveLength(0);
 });
 
-describe('Companion settings screen', () => {
-  it('shows the companion, its status and the WhatsApp connection', () => {
+describe('Clovie screen', () => {
+  it('shows the status and every Clovie setting on one screen', () => {
     const out = text(mount());
-    expect(out).toContain('Clovie');
+    expect(out).toContain('Status');
     expect(out).toContain('Live');
-    expect(out).toContain('Connected');
+    expect(out).toContain('Who confirms attendance');
+    expect(out).toContain('Staff');
+    expect(out).toContain('Clovie voice');
+    expect(out).toContain('Off');
+    expect(out).toContain('Open chat');
+    // Ask first and time to undo come from the Bookings by Clovie section.
+    expect(
+      mount().root.findAll((n) => n.props.testID === 'bookings-section'),
+    ).not.toHaveLength(0);
   });
 
-  it('links to voice and attendance settings and opens the chat from its own row', () => {
+  it('opens the attendance picker and the voice screen from rows with values', () => {
     const tree = mount();
     act(() => row(tree, 'Clovie voice')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/voice');
     act(() => row(tree, 'Who confirms attendance')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/attendance');
-    expect(mockOpenChat).not.toHaveBeenCalled();
+  });
+
+  it('opens the chat from an action button, not a navigation row', () => {
+    const tree = mount();
     act(() => row(tree, 'Open chat')?.props.onPress());
     expect(mockOpenChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the voice row, dimmed with its reason, where voice is not supported', () => {
+    mockVoiceSupported = false;
+    const tree = mount();
+    expect(text(tree)).toContain('Clovie voice');
+    expect(text(tree)).toContain('Available on Android');
+    expect(row(tree, 'Clovie voice')).toBeUndefined();
+  });
+
+  it('shows staff every row read-only, with the owner-only note', () => {
+    mockRole = 'staff';
+    const out = text(mount());
+    for (const title of [
+      'Status',
+      'Who confirms attendance',
+      'Clovie voice',
+      'Open chat',
+    ]) {
+      expect(out).toContain(title);
+    }
+    expect(out).toContain('Only the owner can change this.');
   });
 });

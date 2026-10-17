@@ -129,18 +129,23 @@ describe('Bookings by Clovie: who sees it', () => {
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
-  it('is hidden from staff, who never ask for the settings', async () => {
+  it('shows staff the same rows dimmed with the reason, and never asks for the settings', async () => {
     mockRole = 'staff';
     const tree = await show();
-    expect(byId(tree, 'bookings-by-clovie')).toHaveLength(0);
-    expect(text(tree)).not.toContain('Bookings by Clovie');
+    expect(byId(tree, 'bookings-by-clovie')).toHaveLength(1);
+    expect(byId(tree, 'bookings-unavailable')).toHaveLength(1);
+    const copy = text(tree);
+    expect(copy).toContain('Ask me first');
+    expect(copy).toContain('Time to undo');
+    expect(copy).toContain('Owner only');
     expect(mockGet).not.toHaveBeenCalled();
   });
 
-  it('is hidden until the role is known', async () => {
+  it('waits for the role before saying anything about it', async () => {
     mockRole = undefined;
     const tree = await show();
-    expect(byId(tree, 'bookings-by-clovie')).toHaveLength(0);
+    expect(byId(tree, 'bookings-unavailable')).toHaveLength(0);
+    expect(text(tree)).not.toContain('Owner only');
     expect(mockGet).not.toHaveBeenCalled();
   });
 });

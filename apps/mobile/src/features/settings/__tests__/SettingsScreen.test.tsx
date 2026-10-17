@@ -8,9 +8,8 @@ import renderer, {
 } from 'react-test-renderer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { OwnerOnly } from '@/features/business/components/OwnerOnly';
-
 import { SettingsScreen } from '../components/SettingsScreen';
+import { settingsGroups } from '../navigation';
 
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
@@ -18,13 +17,9 @@ jest.mock('lucide-react-native', () => {
 });
 
 const mockPush = jest.fn();
-const mockRedirect = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...args: unknown[]) => mockPush(...args) },
-  Redirect: (props: { href: string }) => {
-    mockRedirect(props.href);
-    return null;
-  },
+  Redirect: () => null,
 }));
 
 jest.mock('expo-constants', () => ({
@@ -43,12 +38,13 @@ jest.mock('@clerk/expo', () => ({
   useOrganization: () => ({ organization: { name: 'Ashgrove Hair & Beauty' } }),
 }));
 
-const mockMe: {
+type Role = 'owner' | 'staff';
+interface MockMe {
   data:
-    | { role: string; plan?: string; features?: { feature: string }[] }
-    | undefined;
+    { role: Role; plan?: string; features?: { feature: string }[] } | undefined;
   isPending: boolean;
-} = {
+}
+const mockMe: MockMe = {
   data: { role: 'owner', plan: 'free', features: [] },
   isPending: false,
 };
@@ -59,6 +55,10 @@ jest.mock('@/features/business/me', () => ({
 
 jest.mock('@/features/business/hooks', () => ({
   useWhatsAppAccount: () => ({ data: { status: 'live' } }),
+  useBusinessDetails: () => ({ data: { name: 'Ashgrove Hair & Beauty' } }),
+  useBusinessHours: () => ({
+    data: [1, 2, 3, 4, 5, 6].map((weekday) => ({ weekday })),
+  }),
 }));
 
 jest.mock('@/features/catalog/hooks', () => ({
@@ -66,8 +66,18 @@ jest.mock('@/features/catalog/hooks', () => ({
   useStaff: () => ({ data: new Array(4).fill({}) }),
 }));
 
-jest.mock('@/features/plans/components/Gate', () => ({
-  Gate: ({ children }: { children: React.ReactNode }) => children,
+jest.mock('../hooks', () => ({
+  useBookingRules: () => ({ data: { lead_time_minutes: 60 } }),
+}));
+
+const mockSetup = {
+  data: {
+    companion_live: true,
+    whatsapp: { connected: false, display_phone_number: null },
+  },
+};
+jest.mock('@/features/companion/hooks', () => ({
+  useCompanionSetup: () => mockSetup,
 }));
 
 jest.mock('@/features/auth/useSignOut', () => ({
@@ -79,11 +89,13 @@ const METRICS = {
   frame: { x: 0, y: 0, width: 402, height: 874 },
 };
 
-function mount(element: React.ReactElement): ReactTestRenderer {
+function mount(): ReactTestRenderer {
   let tree!: ReactTestRenderer;
   act(() => {
     tree = renderer.create(
-      <SafeAreaProvider initialMetrics={METRICS}>{element}</SafeAreaProvider>,
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <SettingsScreen />
+      </SafeAreaProvider>,
     );
   });
   return tree;
@@ -99,83 +111,117 @@ function text(tree: ReactTestRenderer): string {
   return parts.join(' | ');
 }
 
-const labelled = (tree: ReactTestRenderer, label: string) =>
+const pressable = (tree: ReactTestRenderer, label: string) =>
   tree.root.findAll(
     (n) => n.props.accessibilityLabel === label && !!n.props.onPress,
   )[0];
 
+const hasSwitch = (tree: ReactTestRenderer, label: string) =>
+  tree.root.findAll(
+    (n) =>
+      n.props.accessibilityLabel === label &&
+      typeof n.props.onCheckedChange === 'function',
+  ).length > 0;
+
+const ALL_ROWS = [
+  'Business details',
+  'Opening hours',
+  'Services',
+  'Booking rules',
+  'Team',
+  'Clovie',
+  'WhatsApp',
+  'Notifications',
+  'Plan',
+  'Appearance',
+  'Delete account',
+];
+const HEADINGS = [
+  'Your business',
+  'Team',
+  'Clovie and WhatsApp',
+  'Notifications',
+  'Plan & billing',
+  'Account',
+];
+
+const asOwner = (plan: string, features: string[] = []) => {
+  mockMe.data = {
+    role: 'owner',
+    plan,
+    features: features.map((feature) => ({ feature })),
+  };
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockMe.data = { role: 'owner', plan: 'free', features: [] };
-  mockMe.isPending = false;
+  asOwner('free', ['whatsapp_menu']);
+  mockSetup.data.whatsapp.connected = false;
 });
 
-describe('Settings as owner', () => {
-  it('lists the board groups with counts and the WhatsApp status', () => {
-    const out = text(mount(<SettingsScreen />));
-    expect(out).toContain('Settings');
+describe('Settings as owner on Free', () => {
+  it('lists every group and row with its value', () => {
+    const out = text(mount());
     expect(out).toContain('Ashgrove Hair & Beauty');
     expect(out).toContain('Owner');
-    for (const heading of ['Your business', 'Customize', 'Account']) {
-      expect(out).toContain(heading);
-    }
-    for (const row of [
-      'Business details',
-      'Hours',
-      'Services',
-      'Team',
-      'Booking rules',
-      'WhatsApp',
-      'Notifications',
-    ]) {
-      expect(out).toContain(row);
-    }
-    // Counts beside Services (14) and Team (4); WhatsApp reads Connected.
+    for (const heading of HEADINGS) expect(out).toContain(heading);
+    for (const row of ALL_ROWS) expect(out).toContain(row);
+    expect(out).toContain('Opening hours | Mon–Sat');
     expect(out).toContain('Services | 14');
+    expect(out).toContain('Booking rules | 1 hour notice');
     expect(out).toContain('Team | 4');
-    expect(out).toContain('Connected');
+    expect(out).toContain('WhatsApp | Connected');
+    expect(out).toContain('Plan | Free');
     expect(out).toContain('Sign out');
     expect(out).toContain('Clovie 1.0.0 (24)');
   });
 
-  it('opens Team on its own route', () => {
-    const tree = mount(<SettingsScreen />);
-    act(() => labelled(tree, 'Team, 4')?.props.onPress());
+  it('keeps Clovie in the list, dimmed with the reason, because Free has no companion', () => {
+    const tree = mount();
+    expect(text(tree)).toContain('Part of the paid plans');
+    expect(pressable(tree, 'Clovie, Part of the paid plans')).toBeUndefined();
+  });
+
+  it('opens each row on its own route', () => {
+    const tree = mount();
+    act(() => pressable(tree, 'Team, 4')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/team');
+    act(() => pressable(tree, 'Plan, Free')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/settings/plan');
+    act(() => pressable(tree, 'Delete account')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/settings/delete-account');
   });
 
   it('opens the business details from the profile row', () => {
-    const tree = mount(<SettingsScreen />);
-    act(() => labelled(tree, 'Ashgrove Hair & Beauty, Owner')?.props.onPress());
+    const tree = mount();
+    act(() =>
+      pressable(tree, 'Ashgrove Hair & Beauty, Owner')?.props.onPress(),
+    );
     expect(mockPush).toHaveBeenCalledWith('/settings/business-details');
+  });
+
+  it('toggles the appearance with a switch', () => {
+    expect(hasSwitch(mount(), 'Appearance')).toBe(true);
   });
 });
 
-describe('Settings by plan', () => {
-  it('Free keeps the WhatsApp row and shows the plan as Free', () => {
-    const out = text(mount(<SettingsScreen />));
-    expect(out).toContain('WhatsApp');
-    expect(out).not.toContain('Companion');
-    expect(out).toContain('Plan | Free');
-  });
+describe('Settings as owner on a paid plan', () => {
+  beforeEach(() => asOwner('growth', ['companion', 'reports']));
 
-  it('paid swaps WhatsApp for the Companion row and shows the plan name', () => {
-    mockMe.data = {
-      role: 'owner',
-      plan: 'growth',
-      features: [{ feature: 'companion' }, { feature: 'reports' }],
-    };
-    const tree = mount(<SettingsScreen />);
+  it('shows Clovie as Live and WhatsApp from the companion setup', () => {
+    const tree = mount();
     const out = text(tree);
-    expect(out).toContain('Companion');
-    expect(out).not.toContain('WhatsApp');
+    expect(out).toContain('Clovie | Live');
+    expect(out).toContain('WhatsApp | Not connected');
     expect(out).toContain('Plan | Growth');
-    act(() => labelled(tree, 'Companion')?.props.onPress());
-    // The settings screen, never the chat itself.
+    act(() => pressable(tree, 'Clovie, Live')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/companion');
     expect(mockPush).not.toHaveBeenCalledWith('/companion');
-    act(() => labelled(tree, 'Plan, Growth')?.props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/settings/plan');
+  });
+
+  it('reads Connected once the number is connected', () => {
+    mockSetup.data.whatsapp.connected = true;
+    expect(text(mount())).toContain('WhatsApp | Connected');
   });
 });
 
@@ -184,69 +230,64 @@ describe('Settings as staff', () => {
     mockMe.data = { role: 'staff' };
   });
 
-  it('shows only the person, Notifications and Sign out', () => {
-    const out = text(mount(<SettingsScreen />));
-    expect(out).toContain('Thandi Mokoena');
+  it('lists exactly the rows and groups the owner sees', () => {
+    const out = text(mount());
     expect(out).toContain('Staff');
-    expect(out).toContain('Notifications');
-    expect(out).toContain('Sign out');
-    for (const hidden of [
-      'Your business',
-      'Customize',
-      'Business details',
-      'Hours',
-      'Services',
-      'Team',
-      'Booking rules',
-      'WhatsApp',
-      'Account',
-    ]) {
-      expect(out).not.toContain(hidden);
-    }
+    for (const heading of HEADINGS) expect(out).toContain(heading);
+    for (const row of ALL_ROWS) expect(out).toContain(row);
   });
 
-  it('does not open business details from the profile row', () => {
-    const tree = mount(<SettingsScreen />);
-    expect(labelled(tree, 'Thandi Mokoena, Staff')).toBeUndefined();
+  it('opens the owner-only screens (read-only) instead of dropping them', () => {
+    const tree = mount();
+    act(() => pressable(tree, 'Booking rules, 1 hour notice')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/settings/booking-rules');
+    act(() => pressable(tree, 'Team, 4')?.props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/settings/team');
+  });
+
+  it('opens the business details from the profile row, read-only there', () => {
+    const tree = mount();
+    act(() =>
+      pressable(tree, 'Ashgrove Hair & Beauty, Staff')?.props.onPress(),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/settings/business-details');
+  });
+
+  it('has the appearance switch too', () => {
+    expect(hasSwitch(mount(), 'Appearance')).toBe(true);
   });
 });
 
-describe('OwnerOnly', () => {
-  it('renders an owner-only screen for the owner', () => {
-    const out = text(
-      mount(
-        <OwnerOnly>
-          <SettingsScreen />
-        </OwnerOnly>,
-      ),
-    );
-    expect(out).toContain('Business details');
-    expect(mockRedirect).not.toHaveBeenCalled();
+describe('No row ever disappears', () => {
+  const rowsFor = (setup: () => void) => {
+    setup();
+    const out = text(mount());
+    return ALL_ROWS.filter((row) => out.includes(row));
+  };
+
+  it.each([
+    ['owner on Free', () => asOwner('free', ['whatsapp_menu'])],
+    ['Free without the booking menu', () => asOwner('free')],
+    ['owner on a paid plan', () => asOwner('growth', ['companion'])],
+    [
+      'staff',
+      () => {
+        mockMe.data = { role: 'staff' };
+      },
+    ],
+    [
+      'a role that has not loaded',
+      () => {
+        mockMe.data = undefined;
+      },
+    ],
+  ])('keeps all rows for %s', (_name, setup) => {
+    expect(rowsFor(setup)).toEqual(ALL_ROWS);
   });
 
-  it('sends staff back to Settings and renders nothing of the screen', () => {
-    mockMe.data = { role: 'staff' };
-    const out = text(
-      mount(
-        <OwnerOnly>
-          <SettingsScreen />
-        </OwnerOnly>,
-      ),
+  it('is one list whatever the role, platform or plan', () => {
+    expect(settingsGroups().flatMap((g) => g.items)).toHaveLength(
+      ALL_ROWS.length,
     );
-    expect(mockRedirect).toHaveBeenCalledWith('/settings');
-    expect(out).not.toContain('Sign out');
-  });
-
-  it('waits for the role before showing anything', () => {
-    mockMe.data = undefined;
-    mockMe.isPending = true;
-    const out = text(
-      mount(
-        <OwnerOnly>
-          <SettingsScreen />
-        </OwnerOnly>,
-      ),
-    );
-    expect(out).not.toContain('Business details');
   });
 });

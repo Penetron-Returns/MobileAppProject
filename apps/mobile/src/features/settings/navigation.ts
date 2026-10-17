@@ -1,76 +1,57 @@
-import type { AppMode } from '@/features/plans/logic';
-
 export type SettingsItem =
   | 'businessDetails'
   | 'hours'
   | 'services'
-  | 'team'
   | 'rules'
-  | 'attendance'
+  | 'team'
+  | 'clovie'
   | 'whatsapp'
-  | 'companion'
-  | 'voice'
-  | 'plan'
   | 'notifications'
+  | 'plan'
+  | 'appearance'
   | 'deleteAccount';
 
 export interface SettingsGroup {
-  id: 'business' | 'customize' | 'account';
+  id: 'business' | 'team' | 'assistant' | 'notifications' | 'plan' | 'account';
   items: SettingsItem[];
-  /** Staff see one untitled group, as on the board's staff variant. */
-  titled: boolean;
 }
 
 /**
- * What Settings lists, per the board (Settings.dc.html). Owners get "Your
- * business", "Customize" and "Account"; staff only an untitled group with
- * Notifications and Delete account (the API refuses the rest anyway; every role may delete their own account). Customize holds WhatsApp
- * on Free and the Companion on paid plans (`mode`); Account leads with Plan.
- * Hey Clovie (`options.hasVoice`, Android only) follows that row.
- * Extensions, connected apps and Help are not in v1 (docs/v1-scope.md).
+ * What Settings lists. One list for everyone: the role (and platform, plan)
+ * decides whether a row can be changed, never whether it is shown, so
+ * nothing is ever hidden. Rows an owner alone may change open read-only
+ * for staff; the API enforces the role. Attendance and Clovie voice live on the
+ * Clovie screen, client reminders on the WhatsApp screen (two levels at most).
  */
-export function settingsGroups(
-  isOwner: boolean,
-  mode: AppMode = 'free',
-  options: { hasVoice?: boolean } = {},
-): SettingsGroup[] {
-  if (!isOwner) {
-    return [
-      {
-        id: 'account',
-        items: ['notifications', 'deleteAccount'],
-        titled: false,
-      },
-    ];
-  }
+export function settingsGroups(): SettingsGroup[] {
   return [
     {
       id: 'business',
-      items: [
-        'businessDetails',
-        'hours',
-        'services',
-        'team',
-        'rules',
-        'attendance',
-      ],
-      titled: true,
+      items: ['businessDetails', 'hours', 'services', 'rules'],
     },
-    {
-      id: 'customize',
-      items: [
-        mode === 'ai' ? 'companion' : 'whatsapp',
-        ...(options.hasVoice ? (['voice'] as const) : []),
-      ],
-      titled: true,
-    },
-    {
-      id: 'account',
-      items: ['plan', 'notifications', 'deleteAccount'],
-      titled: true,
-    },
+    { id: 'team', items: ['team'] },
+    { id: 'assistant', items: ['clovie', 'whatsapp'] },
+    { id: 'notifications', items: ['notifications'] },
+    { id: 'plan', items: ['plan'] },
+    { id: 'account', items: ['appearance', 'deleteAccount'] },
   ];
 }
+
+export const SETTINGS_ROUTES: Record<
+  Exclude<SettingsItem, 'appearance'>,
+  string
+> = {
+  businessDetails: '/settings/business-details',
+  hours: '/settings/operating-hours',
+  services: '/settings/services',
+  rules: '/settings/booking-rules',
+  team: '/settings/team',
+  clovie: '/settings/companion',
+  whatsapp: '/settings/whatsapp',
+  notifications: '/settings/notifications',
+  plan: '/settings/plan',
+  deleteAccount: '/settings/delete-account',
+};
 
 /** "Booking 1.0.0 (24)": app name, version and the native build when there is one. */
 export function appVersionLabel(

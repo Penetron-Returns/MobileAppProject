@@ -3,113 +3,81 @@ import {
   GLYPHS,
   Group,
   GroupRow,
-  ListSkeleton,
   Page,
+  SectionTitle,
   Text,
+  TintLink,
 } from '@booking/ui';
 import { router } from 'expo-router';
+import { MessageCircle } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import {
-  useCompanionSetup,
-  useConnectWhatsApp,
-} from '@/features/companion/hooks';
+import { useMe } from '@/features/business/me';
+import { useCompanionSetup } from '@/features/companion/hooks';
 import { useOpenCompanion } from '@/features/companion/sdk/useOpenCompanion';
 import { isSupported as isVoiceSupported } from '@/features/voice/clovieVoice';
-import { formatPhone } from '@/lib/format';
+import { useHeyClovieOn } from '@/features/voice/hooks';
 import { isFailed, loadError } from '@/lib/offline';
-import { describeError, toast } from '@/lib/toast';
+import { describeError } from '@/lib/toast';
 
 import { BookingsByClovieSection } from './BookingsByClovieSection';
 import { CompanionGlyph } from './CompanionGlyph';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 
 /**
- * Settings > Companion: who the companion is, whether it is live, the WhatsApp
- * connection, the voice and attendance settings, and a way into the chat. The
- * chat itself lives behind the "Open chat" row (and the dome), not here.
+ * Settings > Clovie: everything about how Clovie behaves, on one screen. Status,
+ * a way into the chat, how much Clovie asks before booking, time to undo, who
+ * confirms attendance and the voice. Every row is always here: the voice shows
+ * dimmed with its reason off Android, and everything the owner alone can
+ * change is dimmed for staff.
  */
 export function CompanionSettingsScreen() {
   const { t } = useTranslation();
   const openChat = useOpenCompanion();
-  const setup = useCompanionSetup({ enabled: true });
-  const connect = useConnectWhatsApp({
-    onOpened: () => undefined,
-    onClosed: () => void setup.refetch(),
-    onAlreadyConnected: () => void setup.refetch(),
-    onFailed: (error) =>
-      toast.failed(t('settings.companionSettings.connectFailed'), error),
-  });
+  const me = useMe();
+  const isOwner = me.data?.role === 'owner';
+  const setup = useCompanionSetup({ enabled: isOwner });
+  const attendance = me.data?.business.attendance_mode;
+  const isVoiceOn = useHeyClovieOn();
+  const isVoiceAvailable = isVoiceSupported();
 
-  let body: React.ReactNode;
-  if (isFailed(setup)) {
-    body = (
+  let status: React.ReactNode;
+  if (!isOwner) {
+    status = (
+      <GroupRow
+        disabled
+        title={t('settings.companionSettings.status')}
+        reason={t('settings.clovie.ownerOnly')}
+      />
+    );
+  } else if (isFailed(setup)) {
+    status = (
       <ErrorState
         variant="banner"
         {...describeError(loadError(setup))}
         onRetry={() => void setup.refetch()}
       />
     );
-  } else if (setup.isPending) {
-    body = <ListSkeleton rows={3} />;
   } else {
-    const { whatsapp, companion_live: isLive } = setup.data;
-    body = (
-      <Group className="mt-5" radius={26}>
-        <GroupRow
-          title={t('settings.companionSettings.status')}
-          detail={t(
-            isLive
-              ? 'settings.companionSettings.live'
-              : 'settings.companionSettings.paused',
-          )}
-          detailTone={isLive ? 'success' : 'secondary'}
-        />
-        <GroupRow
-          showSeparator
-          icon={GLYPHS.chat}
-          title={t('settings.companionSettings.whatsapp')}
-          subtitle={
-            whatsapp.connected
-              ? formatPhone(whatsapp.display_phone_number) || undefined
-              : t('settings.companionSettings.whatsappNotConnected')
-          }
-          detail={
-            whatsapp.connected
-              ? t('settings.companionSettings.whatsappConnected')
-              : undefined
-          }
-          detailTone={whatsapp.connected ? 'success' : 'secondary'}
-          onPress={whatsapp.connected ? undefined : () => void connect.start()}
-        />
-        {isVoiceSupported() ? (
-          <GroupRow
-            showSeparator
-            icon={GLYPHS.chat}
-            title={t('settings.items.voice')}
-            onPress={() => router.push('/settings/voice' as never)}
-          />
-        ) : null}
-        <GroupRow
-          showSeparator
-          icon={GLYPHS.team}
-          title={t('settings.items.attendance')}
-          onPress={() => router.push('/settings/attendance' as never)}
-        />
-        <GroupRow
-          showSeparator
-          icon={CompanionGlyph}
-          title={t('settings.companionSettings.openChat')}
-          onPress={openChat}
-        />
-      </Group>
+    const isLive = setup.data?.companion_live;
+    status = (
+      <GroupRow
+        title={t('settings.companionSettings.status')}
+        detail={
+          isLive === undefined
+            ? undefined
+            : t(isLive ? 'settings.clovie.live' : 'settings.clovie.paused')
+        }
+        detailTone={isLive ? 'success' : 'secondary'}
+      />
     );
   }
 
   return (
     <Page
-      title={t('settings.companionSettings.title')}
+      title={t('settings.items.clovie')}
       backLabel={t('tabs.settings')}
       backFallback="/settings"
       onRefresh={() => setup.refetch()}
@@ -120,8 +88,42 @@ export function CompanionSettingsScreen() {
           {t('auth.appName')}
         </Text>
       </View>
-      {body}
+      <Group className="mt-5" radius={26}>
+        {status}
+      </Group>
+      <TintLink
+        variant="action"
+        icon={MessageCircle}
+        label={t('settings.companionSettings.openChat')}
+        onPress={openChat}
+        className="ml-5 mt-1"
+      />
+
       <BookingsByClovieSection />
+
+      <SectionTitle>{t('settings.clovie.moreTitle')}</SectionTitle>
+      <Group radius={26}>
+        <GroupRow
+          icon={GLYPHS.team}
+          title={t('settings.items.attendance')}
+          detail={
+            attendance
+              ? t(`settings.clovie.attendance.${attendance}`)
+              : undefined
+          }
+          onPress={() => router.push('/settings/attendance' as never)}
+        />
+        <GroupRow
+          showSeparator
+          icon={GLYPHS.chat}
+          title={t('settings.items.voice')}
+          detail={t(isVoiceOn ? 'settings.clovie.on' : 'settings.clovie.off')}
+          disabled={!isVoiceAvailable}
+          reason={t('settings.clovie.voiceAndroidOnly')}
+          onPress={() => router.push('/settings/voice' as never)}
+        />
+      </Group>
+      <OwnerOnlyNote />
     </Page>
   );
 }

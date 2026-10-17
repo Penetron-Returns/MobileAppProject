@@ -1,13 +1,13 @@
 import type { SpecialDayDTO } from '@booking/types';
 import {
   ConfirmDialog,
-  Disclosure,
   ErrorState,
   Group,
   GroupBlock,
   GroupRow,
   ListSkeleton,
   Pressable,
+  SectionTitle,
   SwipeableRow,
   Text,
   useDepth,
@@ -55,7 +55,6 @@ export function SpecialDaysSection({
     window?.to ?? '',
     window !== null,
   );
-  const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Editing>(null);
   const [deleting, setDeleting] = React.useState<SpecialDayDTO | null>(null);
   const remove = useDeleteSpecialDay({
@@ -70,93 +69,79 @@ export function SpecialDaysSection({
 
   return (
     <>
-      <Disclosure
-        variant="row"
-        label={t('hours.special.title')}
-        expanded={open}
-        onPress={() => setOpen((o) => !o)}
-        className="mx-5 mt-5"
-      />
-      {open ? (
-        <>
-          {isFailed(config) && !config.data ? (
-            <ErrorState
-              variant="banner"
-              {...describeError(loadError(config))}
-              onRetry={() => void config.refetch()}
-            />
-          ) : !config.data ? (
-            <ListSkeleton rows={2} />
-          ) : (
-            <Group radius={26} className="mx-4 mt-1">
-              {days.map((day, i) => {
-                const date = formatWeekdayDayMonth(day.date);
-                const value = specialDayValue(day, t('hours.closed'));
-                return (
-                  <SwipeableRow
-                    key={day.id}
-                    enabled={canManage}
-                    trailing={[
-                      {
-                        key: 'delete',
-                        label: t('common.delete'),
-                        role: 'destructive',
-                        icon: Trash2,
-                        onPress: () => setDeleting(day),
-                      },
-                    ]}
-                  >
-                    <GroupRow
-                      showSeparator={i > 0}
-                      title={day.name}
-                      subtitle={date}
-                      detail={value}
-                      accessibilityLabel={t('hours.special.rowLabel', {
-                        name: day.name,
-                        date,
-                        value,
-                      })}
-                      onPress={canManage ? () => setEditing(day) : undefined}
-                    />
-                  </SwipeableRow>
-                );
-              })}
-              {canManage ? (
-                <GroupBlock showSeparator={days.length > 0}>
-                  <Pressable
-                    onPress={() => setEditing('new')}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('hours.special.add')}
-                    className="min-h-14 flex-row items-center gap-3 px-4 py-2"
-                  >
-                    <Plus
-                      size={20}
-                      strokeWidth={2.4}
-                      color={depth.colors.tint}
-                    />
-                    <Text
-                      style={{ color: depth.colors.tint }}
-                      className="text-title"
-                    >
-                      {t('hours.special.add')}
-                    </Text>
-                  </Pressable>
-                </GroupBlock>
-              ) : null}
-              {days.length === 0 && !canManage ? (
-                <View className="min-h-14 justify-center px-4">
-                  <Text className="text-title text-muted-foreground">
-                    {t('hours.special.none')}
-                  </Text>
-                </View>
-              ) : null}
-            </Group>
-          )}
-          <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
-            {t('hours.special.note')}
-          </Text>
-        </>
-      ) : null}
+      <SectionTitle>{t('hours.special.title')}</SectionTitle>
+      {isFailed(config) && !config.data ? (
+        <ErrorState
+          variant="banner"
+          {...describeError(loadError(config))}
+          onRetry={() => void config.refetch()}
+        />
+      ) : !config.data ? (
+        <ListSkeleton rows={2} />
+      ) : (
+        <Group radius={26} className="mx-4 mt-1">
+          {days.map((day, i) => {
+            const date = formatWeekdayDayMonth(day.date);
+            const value = specialDayValue(day, t('hours.closed'));
+            return (
+              <SwipeableRow
+                key={day.id}
+                enabled={canManage}
+                trailing={[
+                  {
+                    key: 'delete',
+                    label: t('common.delete'),
+                    role: 'destructive',
+                    icon: Trash2,
+                    onPress: () => setDeleting(day),
+                  },
+                ]}
+              >
+                <GroupRow
+                  showSeparator={i > 0}
+                  title={day.name}
+                  subtitle={date}
+                  detail={value}
+                  accessibilityLabel={t('hours.special.rowLabel', {
+                    name: day.name,
+                    date,
+                    value,
+                  })}
+                  onPress={canManage ? () => setEditing(day) : undefined}
+                />
+              </SwipeableRow>
+            );
+          })}
+          {canManage ? (
+            <GroupBlock showSeparator={days.length > 0}>
+              <Pressable
+                onPress={() => setEditing('new')}
+                accessibilityRole="button"
+                accessibilityLabel={t('hours.special.add')}
+                className="min-h-14 flex-row items-center gap-3 px-4 py-2"
+              >
+                <Plus size={20} strokeWidth={2.4} color={depth.colors.tint} />
+                <Text
+                  style={{ color: depth.colors.tint }}
+                  className="text-title"
+                >
+                  {t('hours.special.add')}
+                </Text>
+              </Pressable>
+            </GroupBlock>
+          ) : null}
+          {days.length === 0 && !canManage ? (
+            <View className="min-h-14 justify-center px-4">
+              <Text className="text-title text-muted-foreground">
+                {t('hours.special.none')}
+              </Text>
+            </View>
+          ) : null}
+        </Group>
+      )}
+      <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
+        {t('hours.special.note')}
+      </Text>
       {editing && window ? (
         <SpecialDaySheet
           day={editing === 'new' ? null : editing}

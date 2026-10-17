@@ -700,7 +700,7 @@ describe('Settings', () => {
     const json = render(<SettingsRoute />);
     expect(json).toContain('Ashgrove Hair & Beauty');
     expect(json).toContain('Owner');
-    expect(json).toContain('Hours');
+    expect(json).toContain('Opening hours');
     expect(json).toContain('Team');
     expect(json).toContain('Booking rules');
     expect(json).toContain('Connected');
@@ -726,11 +726,13 @@ describe('Settings', () => {
 
   it('links to breaks and time off in Team', () => {
     const tree = renderScreen(<OperatingHoursRoute />);
-    expect(toJson(tree)).toContain('Set per person in Team');
+    expect(toJson(tree)).toContain(
+      'Breaks and time off are set per person in Team.',
+    );
     act(() =>
       tree.root
         .findByProps({
-          accessibilityLabel: 'Breaks and time off. Set per person in Team',
+          accessibilityLabel: 'Open Team',
         })
         .props.onPress(),
     );

@@ -30,6 +30,7 @@ import { isFailed, loadError } from '@/lib/offline';
 import { WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { SpecialDaysSection } from './SpecialDaysSection';
 
 export function OperatingHoursScreen() {
@@ -138,16 +139,18 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
         </Text>
         <Group radius={26} className="mx-4 mt-5">
           <GroupRow
-            title={t('hours.breaks.title')}
-            subtitle={t('hours.breaks.subtitle')}
-            accessibilityLabel={`${t('hours.breaks.title')}. ${t('hours.breaks.subtitle')}`}
+            title={t('hours.breaks.open')}
             onPress={() => router.push('/settings/team')}
           />
         </Group>
+        <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
+          {t('hours.breaks.hint')}
+        </Text>
         <SpecialDaysSection
           canManage={canManage}
           onPresentChange={setPresenting}
         />
+        <OwnerOnlyNote />
       </GlassPage>
     </Presenter>
   );
