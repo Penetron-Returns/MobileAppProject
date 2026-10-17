@@ -1,15 +1,15 @@
-import { Button, Surface, Text, useDepth } from '@booking/ui';
+import { Button, Text, useDepth } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { useNow } from '@/hooks/useNow';
 
 import { AuthError } from './AuthError';
+import { CodeBoxes } from './CodeBoxes';
 import { StepFrame } from './StepFrame';
 import type { AuthErrorKey } from '../errors';
 import {
-  codeCells,
   isCodeComplete,
   resendSecondsLeft,
   sanitizeCode,
@@ -44,7 +44,6 @@ export function CodeStep({
 }: CodeStepProps) {
   const { t } = useTranslation();
   const depth = useDepth();
-  const inputRef = React.useRef<TextInput>(null);
   const [code, setCode] = React.useState('');
   const now = useNow(1000).getTime();
   const secondsLeft = resendSecondsLeft(resendAt, now);
@@ -69,57 +68,18 @@ export function CodeStep({
     verify(next);
   };
 
-  const cells = codeCells(code);
-  const active = Math.min(code.length, cells.length - 1);
-
   return (
     <StepFrame
       title={t(`auth.code.title.${strategy}`)}
       subtitle={t(`auth.code.subtitle.${strategy}`, { identifier })}
       onBack={onChangeIdentifier}
     >
-      <Pressable
-        onPress={() => inputRef.current?.focus()}
-        accessible={false}
-        className="relative"
-      >
-        <View className="flex-row justify-between gap-2">
-          {cells.map((digit, i) => (
-            <Surface
-              key={i}
-              variant="inset"
-              radius={14}
-              className="h-14 flex-1 items-center justify-center"
-              style={
-                i === active && !isBusy
-                  ? { borderWidth: 1.5, borderColor: depth.colors.tint }
-                  : undefined
-              }
-            >
-              <Text className="text-section font-semibold">{digit}</Text>
-            </Surface>
-          ))}
-        </View>
-        <TextInput
-          ref={inputRef}
-          value={code}
-          onChangeText={handleChange}
-          editable={!isBusy}
-          autoFocus
-          keyboardType="number-pad"
-          autoComplete="one-time-code"
-          textContentType="oneTimeCode"
-          maxLength={12}
-          accessibilityLabel={t('auth.code.label')}
-          caretHidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0.02,
-            color: 'transparent',
-          }}
-        />
-      </Pressable>
+      <CodeBoxes
+        value={code}
+        onChangeText={handleChange}
+        editable={!isBusy}
+        label={t('auth.code.label')}
+      />
       <AuthError errorKey={errorKey} />
       {didResend && !errorKey ? (
         <Text
