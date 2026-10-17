@@ -5,6 +5,20 @@ const optional = z
   .optional()
   .transform((v) => (v === '' ? undefined : v));
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Comma-separated business UUIDs; blank = none. Invalid entries fail loud so a typo can never silently drop the flag. */
+const uuidList = z
+  .string()
+  .optional()
+  .transform((v) =>
+    (v ?? '')
+      .split(',')
+      .map((id) => id.trim().toLowerCase())
+      .filter(Boolean),
+  )
+  .refine((ids) => ids.every((id) => UUID_RE.test(id)), { message: 'must be comma-separated UUIDs' });
+
 const EnvSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
@@ -32,6 +46,11 @@ const EnvSchema = z.object({
 
   /** Nerova Booking connector: comma-separated SHA-256 hex hashes of accepted bearer tokens (empty = connector off) */
   NEROVA_CONNECTOR_TOKEN_HASHES: optional,
+  /**
+   * Nerova conformance: business ids the connector flags `sandbox: true` on accounts_list/accounts_get. Write checks
+   * only ever run on these. Test business only (Harbour); NEVER a live salon (Ashgrove). Empty = no sandbox accounts.
+   */
+  NEROVA_SANDBOX_BUSINESS_IDS: uuidList,
   /** Connector read-cache TTL in ms for catalogue/staff/hours (default 30000; the plan gate uses twice that; 0 = no caching) */
   NEROVA_CONNECTOR_CACHE_TTL_MS: optional,
   /** "true" turns on signed account events to Nerova (off by default) */

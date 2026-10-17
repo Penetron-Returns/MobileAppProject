@@ -1,9 +1,42 @@
 import { describe, expect, it } from 'vitest';
 
+import { getEnv } from '../../src/env.ts';
 import { sast, WED } from '../booking/fixtures.ts';
 import { nerovaHarness } from './harness.ts';
 
 const code = (r: { structuredContent: { code?: string } }) => r.structuredContent.code;
+
+describe('accounts sandbox flag', () => {
+  const OTHER = '20000000-0000-4000-8000-000000000009';
+  const withOther = (h: ReturnType<typeof nerovaHarness>) => {
+    h.repo.tables.businesses.push({ ...h.business, id: OTHER, clerk_org_id: 'org_o', slug: 'o', name: 'Other' });
+    h.plans.set(OTHER, 'pro');
+  };
+
+  it('flags only configured businesses on list and get', async () => {
+    const h = nerovaHarness({ env: { NEROVA_SANDBOX_BUSINESS_IDS: [OTHER] } });
+    withOther(h);
+    const { data } = await h.ok('accounts_list', {});
+    const flags = Object.fromEntries(data.map((a: { id: string; sandbox: boolean }) => [a.id, a.sandbox]));
+    expect(flags).toEqual({ [h.business.id]: false, [OTHER]: true });
+    expect((await h.ok('accounts_get', { accountId: OTHER })).sandbox).toBe(true);
+    expect((await h.ok('accounts_get', { accountId: h.business.id })).sandbox).toBe(false);
+  });
+
+  it('flags nothing when the config is empty', async () => {
+    const h = nerovaHarness({ env: { NEROVA_SANDBOX_BUSINESS_IDS: [] } });
+    withOther(h);
+    const { data } = await h.ok('accounts_list', {});
+    expect(data.every((a: { sandbox: boolean }) => a.sandbox === false)).toBe(true);
+  });
+
+  it('parses the env value: trims, lower-cases, drops blanks, rejects non-UUIDs', () => {
+    const base = { SUPABASE_URL: 'http://x.test', SUPABASE_SERVICE_ROLE_KEY: 'k' };
+    expect(getEnv({ ...base }).NEROVA_SANDBOX_BUSINESS_IDS).toEqual([]);
+    expect(getEnv({ ...base, NEROVA_SANDBOX_BUSINESS_IDS: ' ' + OTHER.toUpperCase() + ' ,, ' }).NEROVA_SANDBOX_BUSINESS_IDS).toEqual([OTHER]);
+    expect(() => getEnv({ ...base, NEROVA_SANDBOX_BUSINESS_IDS: 'nope' })).toThrow(/NEROVA_SANDBOX_BUSINESS_IDS/);
+  });
+});
 
 describe('accounts', () => {
   it('lists only businesses entitled to the companion and hides Free ones', async () => {

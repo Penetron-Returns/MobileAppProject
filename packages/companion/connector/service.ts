@@ -43,6 +43,8 @@ export interface NerovaConnectorDeps {
   entitlements: EntitlementService;
   repo: BookingRepository;
   clock: () => Date;
+  /** Lower-case business ids Nerova's conformance runner may write to (`sandbox: true`). Default: none. */
+  sandboxBusinessIds?: ReadonlySet<string>;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,6 +114,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
   const { booking, entitlements, repo } = deps;
   const reads = deps.readBooking ?? booking;
   const wire = toAppointment;
+  const sandboxIds = deps.sandboxBusinessIds ?? new Set<string>();
 
   /** The business behind an account id, or not_found when it is unknown, malformed or not on a companion plan. */
   async function requireAccount(accountId: string): Promise<UUID> {
@@ -145,7 +148,8 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       repo.listBusinessHours(businessId),
       repo.listSpecialDays(businessId, today, addDays(today, EXCEPTION_HORIZON_DAYS)),
     ]);
-    return toAccount(business, toOpeningHours(business.id, hours, specialDays));
+    const isSandbox = sandboxIds.has(business.id.toLowerCase());
+    return toAccount(business, toOpeningHours(business.id, hours, specialDays), isSandbox);
   }
 
   async function freeTime(businessId: UUID, args: ToolArgs<'availability_free_time'>) {
