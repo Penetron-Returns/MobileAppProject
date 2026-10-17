@@ -35,3 +35,12 @@ describe('buildCompanionAppearance', () => {
     expect(appearance.font?.family).toEqual(['Inter', 'System']);
   });
 });
+
+describe('buildCompanionAppearance owner bubble', () => {
+  it('tints the owner bubble with white text', () => {
+    const depth = getDepth('light');
+    const { colors } = buildCompanionAppearance(depth, false);
+    expect(colors?.userBubble).toBe(depth.colors.tint);
+    expect(colors?.userBubbleText).toBe('#FFFFFF');
+  });
+});

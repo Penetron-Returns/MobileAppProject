@@ -27,7 +27,7 @@ describe('SDK labels', () => {
 
   // The avatar button hints ("Opens the chat") deliberately drop {name}: the
   // button's own label already says who it is.
-  const HINTS = ['openSheet', 'closeSheet'];
+  const HINTS = ['openSheet', 'closeSheet', 'microphone'];
 
   it('keeps the SDK placeholders of every label', () => {
     const labels = readLabels();
