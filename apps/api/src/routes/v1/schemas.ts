@@ -244,6 +244,14 @@ export const connectWhatsAppSessionSchema = z.object({ return_url: z.url().max(2
 
 export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']), platform: z.enum(['web', 'native']).default('web') });
 
+/** PATCH /v1/companion/settings: partial, camelCase like Nerova's body; at least one field. */
+export const companionSettingsPatchSchema = z
+  .object({
+    approvalPolicy: z.enum(['always', 'risky_only', 'never']).optional(),
+    undoWindowSeconds: z.number().int().min(0).max(120).optional(),
+  })
+  .refine((v) => v.approvalPolicy !== undefined || v.undoWindowSeconds !== undefined, 'Send approvalPolicy and/or undoWindowSeconds');
+
 // ---------- attendance check ----------
 
 export const answerAttendanceSchema = z.object({ outcome: z.enum(['came', 'no_show']) });

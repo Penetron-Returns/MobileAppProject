@@ -54,6 +54,11 @@ export interface CreateAppointmentInput {
   allowOutsideHours?: boolean;
   /** Send the customer a WhatsApp confirmation */
   notifyCustomer?: boolean;
+  /**
+   * Act-then-undo: with `notifyCustomer`, the confirmation is NOT sent now but held until this instant (stored as
+   * `client_notify_after`); the hold job sends it then if the appointment is still confirmed. Reminders wait too.
+   */
+  holdClientNotificationUntil?: ISODateTime;
   now?: Date;
 }
 
@@ -77,6 +82,11 @@ export interface CancelAppointmentInput {
   actor: Actor;
   reason?: string | null;
   notifyCustomer?: boolean;
+  /**
+   * Act-then-undo VOID: cancel with no client message, no fee or late-cancel penalty, excluded from stats and the
+   * client-visible cancellation history (`voided_at`, event `voided`). Only confirmed appointments.
+   */
+  voided?: boolean;
   /** Hold a non-customer actor (Nerova acting for a customer) to the cancellation window too */
   enforceCancellationWindow?: boolean;
   now?: Date;
@@ -149,6 +159,8 @@ export interface AppointmentChangedEvent {
   actor: Actor;
   /** Send the customer a WhatsApp message (session message in-window, template otherwise) */
   notifyCustomer: boolean;
+  /** Skip the staff push (the hold job re-sends the customer message of a change staff already heard about) */
+  skipStaffPush?: boolean;
 }
 
 export interface NotificationService {

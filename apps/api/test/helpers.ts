@@ -8,6 +8,7 @@ import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.t
 import { createMemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
 import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
+import { createCompanionSettingsService } from '@booking/companion/nerova/settings.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createFakeNerovaClient } from '@booking/testing/nerova.ts';
 import { createMemoryPlanRepository } from '@booking/testing/plans.ts';
@@ -55,6 +56,7 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
   });
   // Plan usage and the companion over empty fakes; plan tests build their own with seeded data.
   const planRepo = createMemoryPlanRepository();
+  const nerova = createFakeNerovaClient();
   return {
     env: TEST_ENV,
     db: unimplemented as Db,
@@ -65,7 +67,8 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     entitlements: fakeEntitlements('free'),
     nerovaEvents: { accountChanged: async () => {} },
     usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
-    companion: createCompanionService({ nerova: createFakeNerovaClient(), plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
+    companion: createCompanionService({ nerova, plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
+    companionSettings: createCompanionSettingsService({ nerova, plans: planRepo, recordAudit: async () => {} }),
     voiceAsk: unimplemented as Container['voiceAsk'],
     clerkAdmin: createFakeClerkAdmin(),
     voiceTokens: createDeviceTokenService({ repo: createMemoryDeviceTokenRepository() }),

@@ -202,3 +202,8 @@ When the companion needs the owner's OK to move or cancel an appointment, Nerova
 - **Push:** to the business owners (there is no per-staff approval permission): title "Clovie needs your OK", body the approval title, category `clovie_approval` (Approve / Decline buttons), data `{ type: "approval", approvalId, businessId }`.
 - **App:** `apps/mobile/src/features/approvals/`. Approve and Decline call `POST /v1/voice/approvals/:id/approve|decline` without opening the app; tapping the body opens the Clovie sheet.
 - **Register once:** `node scripts/nerova/register-approval-webhook.mjs <api-key-file> <secret-out-file>` (never run by CI). It creates the endpoint with `eventFilters: ["approval.requested"]` and writes the returned `whsec_` secret to the second file; put it in `NEROVA_WEBHOOK_SECRET`. Sandbox accounts deliver to test-mode endpoints and live accounts to live ones, so register once per mode.
+
+
+## Act-then-undo (hold and void)
+
+`origin.clientNotification` (optional, same contract version 2026-10-17, capability `HoldClientNotifications` declared by the published create schema): `{ mode: "hold", until }` on create books at once and sends the client nothing before `until`; `{ mode: "suppress" }` on cancel is a void (no fee, no penalty, excluded from stats). Held messages are sent by `/cron/client-notifications`. Numbers on Nerova (companion plan) are messaged through Nerova's notifications API and their reminders are Nerova's. Nerova must itself not remind a held booking before `until`. Webhook events to register: `approval.requested`, `action.executed`, `action.undone` (`scripts/nerova/update-webhook-events.mjs`, run by the owner). Details: `docs/BUILD_PLAN.md` section 6.

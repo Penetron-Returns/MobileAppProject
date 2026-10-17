@@ -55,6 +55,8 @@ export async function runReminders(deps: WaDeps) {
 
 async function sendReminder(deps: WaDeps, claim: ReminderClaim): Promise<{ state: 'sent' | 'failed' | 'skipped'; extra: Record<string, unknown> }> {
   const skipped = (reason: string) => ({ state: 'skipped' as const, extra: { reason } });
+  // Nerova's own reminder sweep sends the 24h/2h reminders for numbers on Nerova: sending ours too would double them.
+  if (await deps.nerovaChannel?.ownsNumber(claim.business_id)) return skipped('nerova_sends_reminders');
   const appt = await deps.repo.getAppointmentBrief(claim.business_id, claim.appointment_id);
   if (!appt || appt.status !== 'confirmed') return skipped('not_confirmed');
   if (Date.parse(appt.starts_at) !== Date.parse(claim.starts_at)) return skipped('moved');

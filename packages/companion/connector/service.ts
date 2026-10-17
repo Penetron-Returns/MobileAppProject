@@ -52,6 +52,8 @@ const MAX_WINDOW_DAYS = 31;
 const DEFAULT_PAGE = 50;
 const EXCEPTION_HORIZON_DAYS = 180;
 const DEFAULT_CLIENT_LIMIT = 10;
+/** A hold is the undo window plus a few seconds; anything further out is a malformed request. */
+const MAX_HOLD_MS = DAY_MS;
 
 const isUuid = (value: string | undefined): value is UUID => !!value && UUID_RE.test(value);
 
@@ -90,6 +92,21 @@ const WINDOW_EXEMPT_CHANNELS: ReadonlySet<string> = new Set(['owner', 'owner_cha
  * exclusion constraint.
  */
 const holdToWindow = (origin?: { channel?: string }) => !(origin?.channel && WINDOW_EXEMPT_CHANNELS.has(origin.channel));
+
+type ClientNotification = NonNullable<NonNullable<ToolArgs<'appointments_create'>['origin']>['clientNotification']>;
+
+/** `hold` is only valid on create and `suppress` only on cancel; `until` must be near. Returns the validated hold or void request. */
+function readClientNotification(origin: { clientNotification?: ClientNotification } | undefined, tool: 'create' | 'cancel', now: Date) {
+  const request = origin?.clientNotification;
+  if (!request) return {};
+  if (request.mode === 'hold') {
+    if (tool !== 'create') throw invalidRequest('origin.clientNotification.mode "hold" is only valid on appointments_create');
+    if (Date.parse(request.until) - now.getTime() > MAX_HOLD_MS) throw invalidRequest('origin.clientNotification.until is too far in the future');
+    return { holdUntil: request.until };
+  }
+  if (tool !== 'cancel') throw invalidRequest('origin.clientNotification.mode "suppress" is only valid on appointments_cancel');
+  return { voided: true };
+}
 
 /** Internal arguments of confirmAppointment. NOT the MCP schema: the wire contract is still pending from Nerova. */
 export interface ConfirmAppointmentArgs {
@@ -348,6 +365,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       const replay = await repo.findAppointmentByIdempotencyKey(businessId, idempotencyKey);
       if (replay) return wire(await appointmentOf(businessId, replay.id));
 
+      const { holdUntil } = readClientNotification(args.origin, 'create', deps.clock());
       if (!isUuid(args.externalServiceId)) throw connectorNotFound('Service');
       if (!isUuid(args.externalStaffId)) throw connectorNotFound('Staff');
       const clientId = await resolveClient(businessId, args.client);
@@ -363,8 +381,10 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
           idempotencyKey,
           actor: nerovaActor(args.origin),
           notes,
-          // Pip talks to the customer itself; our WhatsApp menu is not part of paid plans.
-          notifyCustomer: false,
+          // Without a hold Pip talks to the customer itself. With `hold` WE are the only sender: the created
+          // message goes out at `until` (hold job) if the booking is still confirmed, never before.
+          notifyCustomer: !!holdUntil,
+          ...(holdUntil ? { holdClientNotificationUntil: holdUntil } : {}),
           now: deps.clock(),
         });
         return wire(appointment);
@@ -432,13 +452,15 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     async appointmentsCancel(args: ToolArgs<'appointments_cancel'>) {
       const businessId = await requireAccount(args.accountId);
+      const { voided } = readClientNotification(args.origin, 'cancel', deps.clock());
       if (!isUuid(args.appointmentId)) throw connectorNotFound('Appointment');
       const appointment = await booking.cancelAppointment({
         businessId,
         appointmentId: args.appointmentId,
         actor: nerovaActor(args.origin),
-        reason: args.reason ?? null,
+        reason: voided ? null : (args.reason ?? null),
         notifyCustomer: false,
+        ...(voided ? { voided } : {}),
         enforceCancellationWindow: holdToWindow(args.origin),
         now: deps.clock(),
       });

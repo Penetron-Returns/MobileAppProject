@@ -17,6 +17,20 @@ export interface ChatApproval {
   expiresAt: string | null;
 }
 
+/** An action the companion executed under act-then-undo (SSE `action`); `undone` re-emits the same id. */
+export interface ChatAction {
+  id: string;
+  kind: string;
+  status: 'executed' | 'undone';
+  title: string;
+  readBack: string;
+  lines: ChatApprovalLine[];
+  executedAt: string | null;
+  undoUntil: string | null;
+  undoable: boolean;
+  undoneAt?: string;
+}
+
 export interface ChatStreamError {
   code: string;
   message: string;
@@ -27,6 +41,8 @@ export interface ChatTurn {
   /** The `text-delta` pieces joined and trimmed */
   reply: string;
   approvals: ChatApproval[];
+  /** One entry per action id, in first-seen order; a later event for the same id replaces it (executed, then undone) */
+  actions: ChatAction[];
   suggestions: string[];
   /** `done.awaitingReply` when Nerova sends it: whether the companion is waiting for the owner to answer */
   awaitingReply?: boolean;
@@ -56,6 +72,27 @@ function parseApproval(data: Json): ChatApproval | null {
   return { id, kind, title, lines, expiresAt: str(data.expiresAt) };
 }
 
+export function parseAction(data: Json): ChatAction | null {
+  const id = str(data.id);
+  const kind = str(data.kind);
+  const status = data.status === 'executed' || data.status === 'undone' ? data.status : null;
+  if (!id || !kind || !status) return null;
+  const lines = Array.isArray(data.lines) ? data.lines.map(parseLine).filter((l): l is ChatApprovalLine => l !== null) : [];
+  const undoneAt = str(data.undoneAt);
+  return {
+    id,
+    kind,
+    status,
+    title: str(data.title) ?? '',
+    readBack: str(data.readBack) ?? '',
+    lines,
+    executedAt: str(data.executedAt),
+    undoUntil: str(data.undoUntil),
+    undoable: data.undoable === true && status === 'executed',
+    ...(undoneAt ? { undoneAt } : {}),
+  };
+}
+
 /** Splits the body into `{ event, data }` frames; a frame is lines up to a blank line. */
 function frames(body: string): { event: string; data: string }[] {
   const out: { event: string; data: string }[] = [];
@@ -73,7 +110,7 @@ function frames(body: string): { event: string; data: string }[] {
 }
 
 export function parseChatStream(body: string): ChatTurn {
-  const turn: ChatTurn = { reply: '', approvals: [], suggestions: [], error: null, isDone: false };
+  const turn: ChatTurn = { reply: '', approvals: [], actions: [], suggestions: [], error: null, isDone: false };
   let reply = '';
   for (const frame of frames(body)) {
     let data: Json;
@@ -91,6 +128,14 @@ export function parseChatStream(body: string): ChatTurn {
       case 'approval': {
         const approval = parseApproval(data);
         if (approval) turn.approvals.push(approval);
+        break;
+      }
+      case 'action': {
+        const action = parseAction(data);
+        if (!action) break;
+        const at = turn.actions.findIndex((a) => a.id === action.id);
+        if (at >= 0) turn.actions[at] = action;
+        else turn.actions.push(action);
         break;
       }
       case 'done':

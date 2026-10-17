@@ -915,10 +915,42 @@ export interface VoiceApprovalDTO {
   lines: { label: string; from: string | null; to: string }[];
 }
 
+/**
+ * An action the companion already EXECUTED under act-then-undo (a low-risk booking). The owner hears `readBack`
+ * and may undo until `undoUntil`; an undone action is re-sent with status `undone`.
+ */
+export interface VoiceActionDTO {
+  /** `oact_...` */
+  id: string;
+  /** e.g. `create_appointment` */
+  kind: string;
+  status: 'executed' | 'undone';
+  title: string;
+  /** What to say aloud, e.g. "Done. Gel overlay for Thandi on Fri 16 Oct, 20:30. Say undo if that's wrong." */
+  readBack: string;
+  lines: { label: string; from: string | null; to: string }[];
+  /** ISO-8601 UTC */
+  executedAt: string | null;
+  undoUntil: string | null;
+  undoable: boolean;
+  /** Present when status is `undone` */
+  undoneAt?: string;
+}
+
+/** GET/PATCH /v1/companion/settings response data (Nerova companion settings) */
+export interface CompanionSettingsDTO {
+  approvalPolicy: 'always' | 'risky_only' | 'never';
+  /** 0 (no undo window) to 120 seconds */
+  undoWindowSeconds: number;
+  updatedAt: string | null;
+}
+
 /** POST /v1/voice/ask response data: the companion's whole reply, ready to speak */
 export interface VoiceAskDTO {
   reply: string;
   approvals: VoiceApprovalDTO[];
+  /** Actions executed in this turn (act-then-undo); an executed action does not set `awaitingReply`. Always sent by the API. */
+  actions?: VoiceActionDTO[];
   suggestions: string[];
   /** Nerova `done.awaitingReply` when present; overrides the app's question heuristic both ways */
   awaitingReply?: boolean;

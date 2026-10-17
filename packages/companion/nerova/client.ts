@@ -5,7 +5,7 @@
  * (`UPSTREAM_COMPANION_ERROR`, or `COMPANION_NOT_READY` when the client is not configured) and never put the
  * API key in a message or detail.
  */
-import type { CompanionColorMode, CompanionOutcomesDTO } from '@booking/types';
+import type { CompanionColorMode, CompanionOutcomesDTO, CompanionSettingsDTO } from '@booking/types';
 
 export interface NerovaAccount {
   /** Nerova's `acct_` id */
@@ -94,6 +94,9 @@ export interface NerovaTranscription {
   timing?: { providerMs: number | null; totalMs: number | null };
 }
 
+/** Partial update of the companion settings (at least one field) */
+export type CompanionSettingsPatch = Partial<Pick<CompanionSettingsDTO, 'approvalPolicy' | 'undoWindowSeconds'>>;
+
 export interface NerovaClient {
   /** The account for an `acct_` id or our externalReference (the business id); null when Nerova has none (404). */
   getAccount(idOrReference: string): Promise<NerovaAccount | null>;
@@ -112,6 +115,10 @@ export interface NerovaClient {
    * Never logs the audio or the transcript.
    */
   transcribe(accountId: string, file: TranscribeFile, opts?: TranscribeOptions): Promise<NerovaTranscription>;
+  /** `GET /v1/accounts/{id}/companion/settings`. Null when the account is unknown (404). */
+  getCompanionSettings(idOrReference: string): Promise<CompanionSettingsDTO | null>;
+  /** `PATCH` (partial), the Idempotency-Key forwarded. 400 `settings.invalid` is VALIDATION_FAILED with `details.nerova_code`. */
+  updateCompanionSettings(idOrReference: string, patch: CompanionSettingsPatch, idempotencyKey: string): Promise<CompanionSettingsDTO>;
   /** Outcome counts for one UTC calendar month (`month` 1-12) */
   getOutcomeSummary(idOrReference: string, period: { year: number; month: number }): Promise<CompanionOutcomesDTO>;
 }

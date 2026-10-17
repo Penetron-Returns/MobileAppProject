@@ -9,8 +9,12 @@ import { createLogger } from '@booking/features/lib/logger.ts';
 import { createAccountEvents, eventSenderFromEnv } from '@booking/companion/events/events.ts';
 import { appointmentEventsFromEnv } from '@booking/companion/events/appointmentEvents.ts';
 import { createCompanionService, type CompanionService } from '@booking/companion/nerova/companionService.ts';
+import { createNerovaClientChannelFromEnv } from '@booking/companion/nerova/clientChannel.ts';
+import type { NerovaClientChannel } from '@booking/app-store/whatsapp/notifications/nerovaChannel.ts';
 import { createNerovaClientFromEnv } from '@booking/companion/nerova/httpClient.ts';
 import { createHttpCompanionChatClient } from '@booking/companion/nerova/httpChatClient.ts';
+import { createCompanionSettingsService, type CompanionSettingsService } from '@booking/companion/nerova/settings.ts';
+import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { createVoiceAskService, type VoiceAskService } from '@booking/companion/nerova/voiceAsk.ts';
 import { createPlanRepository } from '@booking/features/plans/services/planRepository.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
@@ -39,20 +43,26 @@ export interface Container {
   usage: UsageService;
   /** Nerova AI companion: owner chat sessions and outcome counts */
   companion: CompanionService;
+  /** Owner-only proxy to Nerova's companion settings (approval policy, undo window) */
+  companionSettings: CompanionSettingsService;
   /** Spoken requests to the companion and their approvals (Hey Clovie, app closed) */
   voiceAsk: VoiceAskService;
   /** Clerk Backend API (organisation members and invitations) */
   clerkAdmin: ClerkAdmin;
   /** Scoped long-lived credential for the voice upload and attendance answer while the app is backgrounded */
   voiceTokens: DeviceTokenService;
+  /** Client messages for businesses whose WhatsApp number is on Nerova (reminders are Nerova's there) */
+  nerovaChannel?: NerovaClientChannel;
   /** Injected clock for connector-level "now" (tests pin it) */
   clock: () => Date;
 }
 
 export function createContainer(env: Env, db: Db = getDb(env)): Container {
-  const notifications = createNotificationService({ env, db });
-  const bookingLogger = createLogger({ module: 'booking' });
   const entitlements = createEntitlementService({ db });
+  const planRepo = createPlanRepository({ db });
+  const nerovaChannel = createNerovaClientChannelFromEnv(env, { entitlements, plans: planRepo });
+  const notifications = createNotificationService({ env, db, overrides: { nerovaChannel } });
+  const bookingLogger = createLogger({ module: 'booking' });
   const booking = createBookingService({
     db,
     notifications,
@@ -72,13 +82,17 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
   });
   const nerovaEvents = createAccountEvents({ sender: eventSenderFromEnv(env), entitlements });
   const clock = () => new Date();
-  const planRepo = createPlanRepository({ db });
   const usage = createUsageService({ repo: planRepo, clock });
   const companion = createCompanionService({ nerova: createNerovaClientFromEnv(env), plans: planRepo, embedOrigin: env.NEROVA_EMBED_ORIGIN,
     nativeSessions: env.NEROVA_NATIVE_SESSIONS === 'true',
     nativeAppId: env.NEROVA_APP_ID,
     forwardReturnUrl: env.NEROVA_WHATSAPP_RETURN_URL === 'true',
     clock,
+  });
+  const companionSettings = createCompanionSettingsService({
+    nerova: createNerovaClientFromEnv(env),
+    plans: planRepo,
+    recordAudit: (entry) => getBookingRepository({ db }).recordAudit(entry),
   });
   const clerkAdmin = createClerkAdmin({ secretKey: env.CLERK_SECRET_KEY });
   const voiceTokens = createDeviceTokenService({
@@ -87,7 +101,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     defer: (task) => runInBackground(task, createLogger({ module: 'voice_tokens' }), 'voice_token_touch_failed'),
   });
   const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
-  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, voiceAsk, clerkAdmin, voiceTokens, clock };
+  return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, nerovaChannel, clock };
 }
 
 let cached: Container | undefined;

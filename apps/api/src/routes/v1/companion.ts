@@ -8,7 +8,7 @@ import { parseJson } from '../../lib/validation.ts';
 import { requireOwner } from '../../middleware/auth.ts';
 import { requireFeature } from '../../middleware/feature.ts';
 import type { AppEnv } from '../../types.ts';
-import { connectWhatsAppSessionSchema, createCompanionSessionSchema } from './schemas.ts';
+import { companionSettingsPatchSchema, connectWhatsAppSessionSchema, createCompanionSessionSchema } from './schemas.ts';
 
 export const companionRoutes = new Hono<AppEnv>();
 
@@ -32,4 +32,18 @@ companionRoutes.post('/companion/whatsapp/connect-session', requireOwner, requir
   const { return_url } = hasBody ? await parseJson(c, connectWhatsAppSessionSchema) : {};
   const session = await c.get('container').companion.createWhatsAppConnectSession(c.get('auth').businessId, { returnUrl: return_url });
   return c.json({ data: session }, 201);
+});
+
+// Nerova companion settings (approval policy, undo window): owner only, Clerk session only (never a device token).
+companionRoutes.get('/companion/settings', requireOwner, requireFeature('companion'), async (c) => {
+  return c.json({ data: await c.get('container').companionSettings.get(c.get('auth').businessId) });
+});
+
+companionRoutes.patch('/companion/settings', requireOwner, requireFeature('companion'), async (c) => {
+  const patch = await parseJson(c, companionSettingsPatchSchema);
+  const { businessId, userId } = c.get('auth');
+  // The idempotency middleware has already required the header; it is forwarded to Nerova.
+  const key = c.req.header('idempotency-key') ?? '';
+  const data = await c.get('container').companionSettings.update({ businessId, userId, requestId: c.get('requestId') }, patch, key);
+  return c.json({ data });
 });

@@ -2,7 +2,8 @@
  * Nerova webhook, mounted at /webhooks/nerova. Standard Webhooks signature (NEROVA_WEBHOOK_SECRET) is checked on
  * the raw body before parsing; a bad signature is 401, an unset secret is 503. Deliveries are deduplicated in
  * webhook_events (source 'nerova', event_key = webhook-id). It answers 200 at once and pushes in the background:
- * Nerova retries a non-2xx for ~21 hours, so a failed push is logged, not retried. Only `approval.requested` acts.
+ * Nerova retries a non-2xx for ~21 hours, so a failed push is logged, not retried. `approval.requested` and
+ * `action.executed` (act-then-undo) push the owners; `action.undone` is only logged. Everything else is ignored.
  */
 import { Hono } from 'hono';
 
@@ -10,6 +11,8 @@ import { createSupabaseAttendanceRepository } from '@booking/features/attendance
 import { getBookingRepository } from '@booking/features/bookings/index.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger } from '@booking/features/lib/logger.ts';
+import { notifyActionExecuted, type ActionExecutedObject, type ActionPushDeps } from '@booking/companion/approvals/actionPush.ts';
+import { createActionsClientFromEnv } from '@booking/companion/nerova/actions.ts';
 import { notifyApprovalRequested, type ApprovalPushDeps, type ApprovalRequestedObject } from '@booking/companion/approvals/approvalPush.ts';
 import { createApprovalsClientFromEnv } from '@booking/companion/nerova/approvals.ts';
 import { verifyStandardWebhook } from '@booking/companion/webhooks/verifyStandardWebhook.ts';
@@ -19,7 +22,7 @@ import { runInBackground } from '../lib/background.ts';
 import type { AppEnv } from '../types.ts';
 
 /** Tests inject `approvalPush` on the container; production builds it from the environment per request. */
-type ApprovalContainer = Container & { approvalPush?: ApprovalPushDeps };
+type ApprovalContainer = Container & { approvalPush?: ApprovalPushDeps; actionPush?: ActionPushDeps };
 
 function approvalPushDeps(container: ApprovalContainer): ApprovalPushDeps {
   if (container.approvalPush) return container.approvalPush;
@@ -35,6 +38,12 @@ function approvalPushDeps(container: ApprovalContainer): ApprovalPushDeps {
     }),
     logger,
   };
+}
+
+function actionPushDeps(container: ApprovalContainer): ActionPushDeps {
+  if (container.actionPush) return container.actionPush;
+  const { repo, push, logger } = approvalPushDeps(container);
+  return { actions: createActionsClientFromEnv(container.env), repo, push, logger, clock: container.clock };
 }
 
 interface Envelope {
@@ -66,6 +75,13 @@ function toApprovalRequested(object: Record<string, unknown>): ApprovalRequested
   return { accountId, approvalId, kind: str(object.kind) ?? '', expiresAt: str(object.expiresAt), externalReference: str(object.externalReference) };
 }
 
+function toActionExecuted(object: Record<string, unknown>): ActionExecutedObject | null {
+  const actionId = str(object.actionId);
+  const accountId = str(object.accountId);
+  if (!actionId || !accountId) return null;
+  return { accountId, actionId, kind: str(object.kind) ?? '', executedAt: str(object.executedAt), undoUntil: str(object.undoUntil), externalReference: str(object.externalReference) };
+}
+
 export const nerovaWebhookRoutes = new Hono<AppEnv>();
 
 nerovaWebhookRoutes.post('/', async (c) => {
@@ -93,11 +109,17 @@ nerovaWebhookRoutes.post('/', async (c) => {
   const { row, duplicate } = await repo.recordWebhookEvent('nerova', webhookId, {
     type: envelope.type,
     approval_id: str(envelope.object.approvalId),
+    action_id: str(envelope.object.actionId),
   });
   if (duplicate && row.processed_at) return c.json({ data: { status: 'duplicate' } });
 
   const approval = envelope.type === 'approval.requested' ? toApprovalRequested(envelope.object) : null;
-  if (!approval) {
+  const executed = envelope.type === 'action.executed' ? toActionExecuted(envelope.object) : null;
+  if (envelope.type === 'action.undone') {
+    // No push: the owner just undid it (or Nerova did). Only the id and kind are logged.
+    logger.info('nerova_action_undone', { action_id: str(envelope.object.actionId), kind: str(envelope.object.kind) });
+  }
+  if (!approval && !executed) {
     await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });
     return c.json({ data: { status: 'ignored' } });
   }
@@ -105,8 +127,10 @@ nerovaWebhookRoutes.post('/', async (c) => {
   runInBackground(
     async () => {
       try {
-        const outcome = await notifyApprovalRequested(approvalPushDeps(container), approval);
-        logger.info('nerova_approval_webhook', { outcome });
+        const outcome = approval
+          ? await notifyApprovalRequested(approvalPushDeps(container), approval)
+          : await notifyActionExecuted(actionPushDeps(container), executed as ActionExecutedObject);
+        logger.info(approval ? 'nerova_approval_webhook' : 'nerova_action_webhook', { outcome });
         await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });
       } catch (error) {
         await repo.finishWebhookEvent(row.id, { processedAt: null, error: 'PUSH_FAILED', attempts: row.attempts + 1 }).catch(() => undefined);
