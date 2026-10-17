@@ -1,27 +1,23 @@
-import {
-  RowContextMenu,
-  Text,
-  useDepth,
-  useRowActionProps,
-  withAlpha,
-} from '@booking/ui';
+import { RowContextMenu, Text, useDepth, useRowActionProps } from '@booking/ui';
 import { router } from 'expo-router';
+import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import type { AppointmentListItem } from '@/features/appointments/hooks';
 import { bookingMenuActions } from '@/features/appointments/menuActions';
-import { ClientConfirmedBadge } from '@/features/appointments/components/ClientConfirmedBadge';
 import { formatTime } from '@/lib/time';
 
-import { blockTone, type BlockTone } from '../logic';
+import { BLOCK_RADIUS, BLOCK_TEXT, blockFill } from '../grid';
+import { blockTone } from '../logic';
 
 /** Tall enough to show the time line under the service. */
 const TIME_LINE_MIN_HEIGHT = 64;
 
 /**
- * One booking in a staff column. Tap opens the booking; a long press lifts it
+ * One booking in a staff column: a solid, opaque block that stretches from its
+ * start line to its end line. Tap opens the booking; a long press lifts it
  * into a menu (Open, Reschedule, Message, Cancel). There is no dragging in v1.
  * Only existing blocks have a menu: long-pressing an empty slot is the column's
  * own manual-booking fallback.
@@ -34,7 +30,7 @@ export function AppointmentBlock(props: BlockProps) {
     [appointment, t],
   );
   return (
-    <RowContextMenu actions={actions} previewRadius={12}>
+    <RowContextMenu actions={actions} previewRadius={BLOCK_RADIUS}>
       <BlockBody {...props} />
     </RowContextMenu>
   );
@@ -51,13 +47,14 @@ function BlockBody({ appointment, timezone, height }: BlockProps) {
   const depth = useDepth();
   const rowActions = useRowActionProps();
   const tone = blockTone(appointment);
-  const { accent, fill } = toneColors(tone, depth);
+  const fill = blockFill(tone, depth.scheme);
   const client = appointment.client.name ?? t('calendar.unknownClient');
   const time = t('calendar.timeRange', {
     start: formatTime(appointment.starts_at, timezone),
     end: formatTime(appointment.ends_at, timezone),
   });
   const service = appointment.service.name;
+  const onFill = { color: BLOCK_TEXT };
 
   return (
     <Pressable
@@ -70,33 +67,35 @@ function BlockBody({ appointment, timezone, height }: BlockProps) {
         time,
         status: t(`calendar.tone.${tone}`),
       })}
-      style={{ height, backgroundColor: fill }}
-      className="overflow-hidden rounded-xl active:opacity-70"
+      style={{ height, backgroundColor: fill, borderRadius: BLOCK_RADIUS }}
+      className="overflow-hidden active:opacity-80"
     >
-      <View
-        style={{ backgroundColor: accent }}
-        className="absolute bottom-0 left-0 top-0 w-1"
-      />
       {appointment.client_confirmed_at ? (
-        <View className="absolute right-1.5 top-1.5">
-          <ClientConfirmedBadge
-            confirmedAt={appointment.client_confirmed_at}
-            variant="glyph"
-          />
+        <View
+          accessible
+          accessibilityLabel={t('clientConfirmed.label')}
+          style={{ backgroundColor: BLOCK_TEXT }}
+          className="absolute right-1.5 top-1.5 h-[18px] w-[18px] items-center justify-center rounded-full"
+        >
+          <Check size={11} strokeWidth={3} color={fill} />
         </View>
       ) : null}
-      <View className="min-w-0 flex-1 py-1.5 pl-3 pr-2">
-        <Text numberOfLines={1} className="text-subtitle font-semibold">
+      <View className="min-w-0 flex-1 px-2 py-1">
+        <Text
+          numberOfLines={1}
+          style={onFill}
+          className="text-subtitle font-semibold"
+        >
           {client}
         </Text>
-        <Text numberOfLines={1} className="text-meta text-muted-foreground">
+        <Text numberOfLines={1} style={onFill} className="text-meta">
           {service}
         </Text>
         {height >= TIME_LINE_MIN_HEIGHT ? (
           <Text
             numberOfLines={1}
-            style={{ fontVariant: ['tabular-nums'] }}
-            className="text-meta text-muted-foreground"
+            style={[onFill, { fontVariant: ['tabular-nums'] }]}
+            className="text-meta"
           >
             {time}
           </Text>
@@ -104,21 +103,4 @@ function BlockBody({ appointment, timezone, height }: BlockProps) {
       </View>
     </Pressable>
   );
-}
-
-function toneColors(tone: BlockTone, depth: ReturnType<typeof useDepth>) {
-  const { colors } = depth;
-  switch (tone) {
-    case 'arrived':
-      return { accent: colors.green, fill: withAlpha(colors.green, 0.14) };
-    case 'noShow':
-      return { accent: colors.amber, fill: colors.amberFill };
-    case 'done':
-      return {
-        accent: colors.inactive,
-        fill: withAlpha(colors.label, 0.06),
-      };
-    default:
-      return { accent: colors.tint, fill: withAlpha(colors.tint, 0.14) };
-  }
 }

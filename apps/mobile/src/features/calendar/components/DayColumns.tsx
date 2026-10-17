@@ -10,11 +10,16 @@ import {
   type BlockedSpan,
   type MinuteSpan,
 } from '../logic';
+import {
+  BLOCK_RADIUS,
+  BLOCK_RIGHT_MARGIN_PX,
+  blockFrame,
+  type BlockFrame,
+} from '../grid';
 import { AppointmentBlock } from './AppointmentBlock';
 import { Hatch } from './Hatch';
 import type { CalendarDayView } from '../hooks';
 
-export const MIN_BLOCK = 36;
 export type Ready = Extract<CalendarDayView, { status: 'ready' }>;
 
 export function HourLines({
@@ -33,7 +38,7 @@ export function HourLines({
           pointerEvents="none"
           style={{
             top: minutesToPx(m - window.startMin),
-            backgroundColor: withAlpha(depth.colors.label, 0.07),
+            backgroundColor: depth.colors.hairline,
           }}
           className="absolute left-0 right-0 h-px"
         />
@@ -78,7 +83,7 @@ export function Column({
         width,
         height,
         borderLeftWidth: hasDivider ? 1 : 0,
-        borderLeftColor: withAlpha(depth.colors.label, 0.07),
+        borderLeftColor: depth.colors.hairline,
       }}
     >
       {onLongPressEmpty ? (
@@ -116,9 +121,8 @@ export function Column({
         <UnavailableBlock
           key={`${block.kind}-${block.startMin}-${block.label}`}
           block={block}
-          top={top(block.startMin) + 1}
-          width={width - 6}
-          height={minutesToPx(block.endMin - block.startMin) - 2}
+          frame={blockFrame(block, window)}
+          width={width - BLOCK_RIGHT_MARGIN_PX}
         />
       ))}
       {working.length === 0 && !closed ? (
@@ -130,24 +134,21 @@ export function Column({
         </Text>
       ) : null}
       {appointments.map((a) => {
-        const span = appointmentSpan(a, timezone);
+        const frame = blockFrame(appointmentSpan(a, timezone), window);
         return (
           <View
             key={a.id}
             style={{
               position: 'absolute',
-              left: 4,
-              right: 4,
-              top: top(span.startMin),
+              left: 0,
+              right: BLOCK_RIGHT_MARGIN_PX,
+              top: frame.top,
             }}
           >
             <AppointmentBlock
               appointment={a}
               timezone={timezone}
-              height={Math.max(
-                minutesToPx(span.endMin - span.startMin) - 2,
-                MIN_BLOCK,
-              )}
+              height={frame.height}
             />
           </View>
         );
@@ -162,15 +163,14 @@ export function Column({
  */
 function UnavailableBlock({
   block,
-  top,
+  frame,
   width,
-  height,
 }: {
   block: BlockedSpan;
-  top: number;
+  frame: BlockFrame;
   width: number;
-  height: number;
 }) {
+  const { top, height } = frame;
   const { t } = useTranslation();
   const depth = useDepth();
   const label =
@@ -187,11 +187,11 @@ function UnavailableBlock({
       })}
       style={{
         position: 'absolute',
-        left: 3,
+        left: 0,
         top,
         width,
         height,
-        borderRadius: 12,
+        borderRadius: BLOCK_RADIUS,
         borderWidth: 1,
         borderStyle: 'dashed',
         borderColor: withAlpha(depth.colors.label, 0.3),
