@@ -207,7 +207,8 @@ export function DayView({
             </View>
 
             <View style={{ height }} className="flex-row">
-              {columns.map((c, index) => (
+              <HourLines hours={hours} window={window} />
+              {columns.map((c) => (
                 <Column
                   key={c.staff.id}
                   width={colWidth}
@@ -218,7 +219,7 @@ export function DayView({
                   closed={closedDay !== null}
                   appointments={c.appointments}
                   timezone={timezone}
-                  hasDivider={index > 0}
+                  hasDivider
                   onLongPressEmpty={
                     onCreateAt
                       ? (minutes) => {
@@ -233,7 +234,6 @@ export function DayView({
                   }
                 />
               ))}
-              <HourLines hours={hours} window={window} />
               {closedDay ? (
                 <View
                   pointerEvents="none"
@@ -255,14 +255,24 @@ export function DayView({
                 </View>
               ) : null}
               {nowMin !== null ? (
-                <View
-                  pointerEvents="none"
-                  style={{
-                    top: top(nowMin),
-                    backgroundColor: depth.colors.red,
-                  }}
-                  className="absolute left-0 right-0 h-0.5"
-                />
+                <>
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      top: top(nowMin),
+                      backgroundColor: depth.colors.red,
+                    }}
+                    className="absolute left-0 right-0 h-0.5"
+                  />
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      top: top(nowMin) - 4,
+                      backgroundColor: depth.colors.red,
+                    }}
+                    className="absolute left-px h-2.5 w-2.5 rounded-full"
+                  />
+                </>
               ) : null}
             </View>
           </Animated.ScrollView>
