@@ -44,14 +44,15 @@ export function createPlanRepository(deps: { db: Db }): PlanRepository {
       const { error } = await db.from('businesses').update({ nerova_account_id: accountId }).eq('id', businessId);
       if (error) throw mapDbError(error);
     },
-    async countCompletedJobs(businessId, month, now) {
-      const { data, error } = await db.rpc('completed_jobs_in_month', {
-        p_business_id: businessId,
-        p_month: monthStart(month),
-        p_now: now.toISOString(),
-      });
+    async countBookingsCreated(businessId, from, to) {
+      const { count, error } = await db
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('business_id', businessId)
+        .gte('created_at', from.toISOString())
+        .lt('created_at', to.toISOString());
       if (error) throw mapDbError(error);
-      return num(data);
+      return count ?? 0;
     },
     async getMonthStats(businessId, month, now) {
       const { data, error } = await db.rpc('month_report', {

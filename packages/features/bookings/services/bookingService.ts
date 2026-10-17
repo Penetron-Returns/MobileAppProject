@@ -11,6 +11,7 @@ import type {
   Actor,
   AppointmentChangeKind,
   AppointmentEventsPort,
+  BookingMeter,
   BookingService,
   CancelAppointmentInput,
   CreateAppointmentInput,
@@ -40,6 +41,11 @@ export interface BookingServiceOptions {
   /** Outbound lifecycle events (Nerova), published after commit through `defer`. Omitted or disabled = nothing sent. */
   appointmentEvents?: AppointmentEventsPort;
   /**
+   * Billing meter: every created booking is one usage event, sent after the booking committed (through `defer`).
+   * It never throws, so a Stripe outage cannot affect a booking; a cron sweep re-sends what failed.
+   */
+  meter?: BookingMeter;
+  /**
    * Runs a Nerova-originated change notification, and every outbound appointment event, after the response
    * instead of before it (edge: waitUntil). Other actors' notifications stay inline. Omitted = inline (tests, scripts).
    */
@@ -66,6 +72,15 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
     logger,
     defer: options.defer,
   });
+
+  /** A reschedule updates the same row, so only creation is metered. A replayed create returns earlier and is not re-metered. */
+  async function meterBooking(row: AppointmentRow): Promise<void> {
+    const meter = options.meter;
+    if (!meter) return;
+    const send = () => meter.bookingCreated({ appointmentId: row.id, businessId: row.business_id, createdAt: row.created_at });
+    if (options.defer) options.defer(send);
+    else await send();
+  }
 
   async function requireBusiness(businessId: UUID): Promise<BusinessRow> {
     const business = await repo.getBusiness(businessId);
@@ -313,6 +328,7 @@ export function createBookingServiceFromRepository(options: BookingServiceOption
       if (held) await repo.holdClientNotification(input.businessId, row.id, parseInstant(input.holdClientNotificationUntil ?? '', 'holdClientNotificationUntil'));
       await notify(input.businessId, row, 'created', input.actor, held ? false : input.notifyCustomer);
       await publishEvent(row, 'created', input.actor);
+      await meterBooking(row);
       return toAppointmentDTO(row);
     },
 

@@ -45,8 +45,8 @@ export interface PlanRepository {
   /** NOT_FOUND for an unknown business */
   getProfile(businessId: UUID): Promise<BusinessPlanProfile>;
   setNerovaAccountId(businessId: UUID, accountId: string): Promise<void>;
-  /** Completed jobs of the month: ended by `now`, not cancelled, not no_show */
-  countCompletedJobs(businessId: UUID, month: MonthKey, now: Date): Promise<number>;
+  /** Bookings created in [from, to), whatever their source or status (cancelled and no_show included): what the plan meters */
+  countBookingsCreated(businessId: UUID, from: Date, to: Date): Promise<number>;
   getMonthStats(businessId: UUID, month: MonthKey, now: Date): Promise<MonthStats>;
 }
 

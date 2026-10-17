@@ -26,9 +26,11 @@ describe('plan catalogue', () => {
       (seeded[m[1]!] ??= []).push(m[2]!);
       expect(m[3], `${m[1]}/${m[2]} caps are undecided`).toBe('null');
     }
-    expect(Object.keys(seeded).sort()).toEqual(Object.keys(PLAN_FEATURES).sort());
+    // 'none' has no plan_features rows on purpose: it is entitled to nothing
+    expect(Object.keys(seeded).sort()).toEqual(Object.keys(PLAN_FEATURES).filter((plan) => PLAN_FEATURES[plan as PlanKey].length > 0).sort());
+    expect(PLAN_FEATURES.none).toEqual([]);
     for (const plan of Object.keys(PLAN_FEATURES) as PlanKey[]) {
-      expect(seeded[plan]!.sort(), plan).toEqual([...PLAN_FEATURES[plan]].sort());
+      expect((seeded[plan] ?? []).sort(), plan).toEqual([...PLAN_FEATURES[plan]].sort());
     }
   });
 

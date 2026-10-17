@@ -59,9 +59,24 @@ const EnvSchema = z.object({
   /** "true" enables POST /v1/voice/transcriptions (proxy to Nerova speech-to-text). Off = 503 TRANSCRIPTION_UNAVAILABLE. */
   VOICE_CLOUD_STT: optional,
 
-  /** Stripe, server-side only. No code uses these yet (subscriptions are planned). */
+  /** Stripe billing, server-side only. Empty secret key = billing off (owner routes answer BILLING_NOT_CONFIGURED) */
   STRIPE_SECRET_KEY: optional,
+  /** whsec_... of the webhook endpoint POST /webhooks/stripe. Empty = the route answers 503 */
   STRIPE_WEBHOOK_SECRET: optional,
+  /** Recurring monthly base price ids (price_...) per plan */
+  STRIPE_PRICE_STARTER: optional,
+  STRIPE_PRICE_GROWTH: optional,
+  STRIPE_PRICE_PRO: optional,
+  /** Optional USD price ids, for a future USD checkout (not used yet) */
+  STRIPE_PRICE_STARTER_USD: optional,
+  STRIPE_PRICE_GROWTH_USD: optional,
+  STRIPE_PRICE_PRO_USD: optional,
+  /** One-time per-unit price (R4) for extra completed bookings, added to renewal invoices. Empty = overage is not billed */
+  STRIPE_PRICE_OVERAGE: optional,
+  /** Where Checkout returns after paying / cancelling, and where the billing portal returns */
+  BILLING_SUCCESS_URL: optional,
+  BILLING_CANCEL_URL: optional,
+  BILLING_RETURN_URL: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

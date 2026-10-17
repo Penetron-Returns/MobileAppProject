@@ -24,7 +24,8 @@ export type ActorType = 'customer' | 'staff' | 'system' | 'nerova';
 
 // ---------- plans / entitlements ----------
 /** Internal plan ids (display names and prices are not part of the contract). */
-export type PlanKey = 'free' | 'starter' | 'growth' | 'pro';
+/** 'none' = no active plan yet (new businesses; entitled to nothing, the app shows only the plan chooser). 'free' survives for existing rows only. */
+export type PlanKey = 'none' | 'free' | 'starter' | 'growth' | 'pro';
 /** Entitlement keys. Code gates on these, never on a plan name. */
 export type FeatureKey =
   | 'whatsapp_menu'
@@ -80,6 +81,8 @@ export type ApiErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'UNSUPPORTED_MEDIA_TYPE'
   | 'TRANSCRIPTION_UNAVAILABLE'
+  | 'BILLING_NOT_CONFIGURED'
+  | 'UPSTREAM_BILLING_ERROR'
   | 'INTERNAL';
 
 /** POST /v1/voice/transcriptions response data (multipart request: field `audio`, optional `language`) */
@@ -730,8 +733,13 @@ export type UsageState = 'normal' | 'near' | 'over';
 export interface BillingUsageDTO {
   plan: PlanKey;
   month: MonthKey;
-  /** Appointments that ended in the month (business timezone) and are neither cancelled nor no-show */
+  /** Deprecated alias of `bookings` (kept so older app builds keep working) */
   completed_jobs: number;
+  /** Every booking CREATED in the period, whatever its source or outcome (completed, no-show, cancelled). Each one is metered. Additive. */
+  bookings?: number;
+  /** The metering period, ISO-8601 UTC: the Stripe billing period when a subscription is known, else the calendar month. Additive. */
+  period_start?: string;
+  period_end?: string;
   included_jobs: number | null;
   /** Whole percent of the allowance used (floored), null without an allowance */
   usage_percent: number | null;
@@ -754,14 +762,57 @@ export interface PlanDTO {
   extra_job_cents: number | null;
   has_companion: boolean;
   is_current: boolean;
-  /** Purchase stays on the web for now: always null */
+  /** Always null: Stripe Checkout sessions expire and need the owner, so they are created on demand by POST /v1/billing/checkout */
   checkout_url: string | null;
+  /** True when POST /v1/billing/checkout can start this plan (billing configured, paid plan, not the current one). Additive. */
+  checkout_enabled?: boolean;
 }
 
 /** GET /v1/plans (member) */
 export interface PlansDTO {
   current_plan: PlanKey;
   plans: PlanDTO[];
+  /** The Stripe subscription behind the plan; null when there is none. Additive. */
+  subscription?: SubscriptionDTO | null;
+}
+
+/** Stripe subscription status, passed through */
+export type SubscriptionStatus =
+  | 'incomplete'
+  | 'incomplete_expired'
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'canceled'
+  | 'unpaid'
+  | 'paused';
+
+/** What the app may show about billing. No Stripe ids. */
+export interface SubscriptionDTO {
+  status: SubscriptionStatus | null;
+  /** The paid tier the subscription is on */
+  plan: PlanKey | null;
+  /** ISO-8601 UTC end of the paid period (the next renewal) */
+  current_period_end: string | null;
+  /** True when the owner cancelled and access ends at current_period_end */
+  cancel_at_period_end: boolean;
+  /** Payment failed: access is kept while Stripe retries, the app should warn the owner */
+  is_past_due: boolean;
+}
+
+/** POST /v1/billing/checkout (owner only, Idempotency-Key) */
+export interface CreateCheckoutRequest {
+  plan: 'starter' | 'growth' | 'pro';
+}
+/** POST /v1/billing/plan (owner only, Idempotency-Key): switch an existing subscription to another paid plan; answers a SubscriptionDTO */
+export type ChangePlanRequest = CreateCheckoutRequest;
+/** Open it in the browser; the plan flips when Stripe's webhook arrives, so refetch /v1/plans after returning */
+export interface CheckoutSessionDTO {
+  checkout_url: string;
+}
+/** POST /v1/billing/portal (owner only, Idempotency-Key): manage, change or cancel the subscription */
+export interface PortalSessionDTO {
+  portal_url: string;
 }
 
 export type CompanionColorMode = 'light' | 'dark';

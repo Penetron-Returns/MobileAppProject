@@ -23,7 +23,7 @@ Each phase ends with its checks green (`.claude/CLAUDE.md` §5) and an emulator 
 | 6.1 | Implement Nerova's **Booking connector** (MCP v1, contract 2026-10-12, the recommended transport) on our backend: the 10 required tools, with auth, idempotency and tests. Built: `/connector/nerova/mcp`, see [nerova-connector.md](nerova-connector.md) | Nerova's `connections_verify` certifies it against a test account (needs deploy + connection in Nerova Test) |
 | 6.2 | Connection + provisioning in Nerova's **Test** environment for a paid-plan business | `get_companion_setup` reports `nextStep: none` |
 | 6.3 | Pip in the app: server-side widget session endpoint + the owner chat surface per the AI designs (Companion sheet, approvals, report, goals) | The owner chats with Pip on the emulator and an approval moves a real booking |
-| 6.4 | Stripe subscriptions for Starter / Growth / Pro (web checkout), webhook → `businesses.plan` | A test checkout switches a business to the AI tier |
+| 6.4 | Stripe subscriptions for Starter / Growth / Pro (web checkout), webhook → `businesses.plan`. **Backend built** (not deployed, never run against Stripe): `POST /v1/billing/checkout`, `POST /v1/billing/portal`, `POST /webhooks/stripe`, usage metering to a Stripe Billing Meter (every booking made counts), `account.created` on first activation. No free tier and no trial: new businesses start on plan `none`. See BUILD_PLAN "Billing (Stripe)". Still to do: Dashboard setup, env, app side (plan chooser, Manage subscription, past_due warning) | A test checkout switches a business to the AI tier |
 | 6.5 | AI-tier gating: no Inbox, no deterministic WhatsApp engine, Pip everywhere it's designed | A paid business sees the AI app, a Free business the demo |
 
 ## Phase 1: make every v1 screen correct on a real device
@@ -55,8 +55,8 @@ Each phase ends with its checks green (`.claude/CLAUDE.md` §5) and an emulator 
 ## Phase 4: plans and billing (paid tiers)
 | # | Task | Done when |
 | - | ---- | --------- |
-| 4.1 | Stripe products/prices for Starter/Growth/Pro (test mode) + webhook → `businesses.plan` | Test checkout flips the plan; entitlements update |
-| 4.2 | Where people pay: a hosted Stripe Checkout/Portal link opened from Plan & billing (see decision D2) | Upgrade/downgrade/cancel work in test mode |
+| 4.1 | Stripe products/prices for Starter/Growth/Pro (test mode) + webhook → `businesses.plan`. **Code done and unit-tested with fakes;** the sandbox products, prices and meter exist (ids in `docs/environments.md` §3). Open: webhook endpoint registration + a real test checkout once deployed | Test checkout flips the plan; entitlements update |
+| 4.2 | Where people pay: a hosted Stripe Checkout/Portal link opened from Plan & billing (see decision D2). **Backend done** (D2 followed: web checkout, the app opens `checkout_url` / `portal_url` in the browser). Open: the app screens, the portal configuration in the Dashboard | Upgrade/downgrade/cancel work in test mode |
 
 ## Phase 5: showcase and quality
 | # | Task | Done when |

@@ -240,12 +240,16 @@ describe('GET /v1/reports/summary', () => {
         { week_start: '2026-10-26', completed_jobs: 0 },
       ],
       companion: outcomes,
+      // Usage counts every booking made in the period (7), cancelled and no-show included; completed_jobs above stays the report figure.
       usage: {
         plan: 'growth',
         month: '2026-10',
-        completed_jobs: 4,
+        completed_jobs: 7,
+        bookings: 7,
+        period_start: '2026-09-30T22:00:00.000Z',
+        period_end: '2026-10-31T22:00:00.000Z',
         included_jobs: 100,
-        usage_percent: 4,
+        usage_percent: 7,
         usage_state: 'normal',
         extra_jobs: 0,
         extra_cost_cents: 0,
@@ -288,16 +292,19 @@ describe('GET /v1/reports/summary', () => {
 });
 
 describe('GET /v1/billing/usage and GET /v1/plans', () => {
-  it('returns the usage envelope for the current month by default', async () => {
+  it('counts every booking made this month, cancelled included', async () => {
     const h = plansHarness({ plan: 'starter', appointments: [appt('2026-10-05T09:00'), appt('2026-10-06T09:00', { status: 'cancelled' })] });
     const r = await h.call('GET', '/v1/billing/usage');
     expect(r.status).toBe(200);
     expect(r.body.data).toEqual({
       plan: 'starter',
       month: '2026-10',
-      completed_jobs: 1,
+      completed_jobs: 2,
+      bookings: 2,
+      period_start: '2026-09-30T22:00:00.000Z',
+      period_end: '2026-10-31T22:00:00.000Z',
       included_jobs: 50,
-      usage_percent: 2,
+      usage_percent: 4,
       usage_state: 'normal',
       extra_jobs: 0,
       extra_cost_cents: 0,
@@ -308,7 +315,7 @@ describe('GET /v1/billing/usage and GET /v1/plans', () => {
   it('is available on Free (no allowance) and for a given month', async () => {
     const r = await plansHarness({ plan: 'free', appointments: [appt('2026-09-10T09:00')] }).call('GET', '/v1/billing/usage?month=2026-09');
     expect(r.status).toBe(200);
-    expect(r.body.data).toMatchObject({ plan: 'free', month: '2026-09', completed_jobs: 1, included_jobs: null, usage_percent: null, usage_state: 'normal', resets_on: '2026-10-01' });
+    expect(r.body.data).toMatchObject({ plan: 'free', month: '2026-09', bookings: 1, included_jobs: null, usage_percent: null, usage_state: 'normal', resets_on: '2026-10-01' });
   });
 
   it('reads the default month in the business timezone', async () => {

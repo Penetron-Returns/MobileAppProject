@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlanKey } from '@booking/types';
 import { PLAN_CATALOG, PLAN_ORDER } from '@booking/features/plans/lib/planCatalog.ts';
-import { computeUsage, currentMonth, isMonthKey, nextMonthStart } from '@booking/features/plans/lib/usage.ts';
+import { calendarPeriod, computeUsage, currentMonth, isMonthKey, nextMonthStart } from '@booking/features/plans/lib/usage.ts';
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { parseMonthStats } from '@booking/features/plans/services/planRepository.ts';
 import { createMemoryPlanRepository } from '@booking/testing/plans.ts';
@@ -89,64 +89,63 @@ describe('month helpers', () => {
   });
 });
 
-describe('completed jobs (in-memory repository, mirrors the SQL)', () => {
-  const now = new Date('2026-10-20T10:00:00.000Z');
+describe('bookings created (in-memory repository, mirrors the SQL count)', () => {
   const repo = (appointments = [] as ReturnType<typeof appt>[]) => createMemoryPlanRepository({ [BIZ]: { plan: 'growth' } }, appointments);
+  const created = (iso: string, over: Partial<ReturnType<typeof appt>> = {}) => ({ ...appt('2026-12-01T09:00'), createdAt: iso, ...over });
+  const count = (r: ReturnType<typeof repo>, from: string, to: string) => r.countBookingsCreated(BIZ, new Date(from), new Date(to));
 
-  it('counts an appointment once its end has passed, including one ending exactly now', async () => {
-    const r = repo([appt('2026-10-20T11:00'), appt('2026-10-20T11:01')]); // ends 12:00 SAST = now; ends 12:01
-    expect(await r.countCompletedJobs(BIZ, '2026-10', now)).toBe(1);
-  });
-
-  it('never counts cancelled or no-show appointments, but counts confirmed and completed ones', async () => {
+  it('counts every booking by creation time, whatever its status or source', async () => {
     const r = repo([
-      appt('2026-10-02T09:00', { status: 'confirmed' }),
-      appt('2026-10-03T09:00', { status: 'completed' }),
-      appt('2026-10-04T09:00', { status: 'cancelled' }),
-      appt('2026-10-05T09:00', { status: 'no_show' }),
+      created('2026-10-02T09:00:00Z', { status: 'confirmed' }),
+      created('2026-10-03T09:00:00Z', { status: 'completed' }),
+      created('2026-10-04T09:00:00Z', { status: 'cancelled' }),
+      created('2026-10-05T09:00:00Z', { status: 'no_show' }),
+      created('2026-10-06T09:00:00Z', { source: 'whatsapp' }),
+      created('2026-10-07T09:00:00Z', { source: 'nerova' }),
+      created('2026-10-08T09:00:00Z', { source: 'web' }),
     ]);
-    expect(await r.countCompletedJobs(BIZ, '2026-10', now)).toBe(2);
+    expect(await count(r, '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z')).toBe(7);
   });
 
-  it('assigns a job to the month it ENDS in, in the business timezone', async () => {
-    // Starts 23:30 on 31 Oct SAST (21:30Z), ends 00:30 on 1 Nov SAST: November's job, still 31 Oct in UTC.
-    const lateNight = appt('2026-10-31T23:30');
-    const r = repo([lateNight]);
-    const later = new Date('2026-11-30T10:00:00.000Z');
-    expect(await r.countCompletedJobs(BIZ, '2026-10', later)).toBe(0);
-    expect(await r.countCompletedJobs(BIZ, '2026-11', later)).toBe(1);
+  it('does not depend on when the appointment takes place, only on when it was made', async () => {
+    const r = repo([created('2026-09-30T10:00:00Z', { startsAt: '2026-10-15T08:00:00.000Z', endsAt: '2026-10-15T09:00:00.000Z' })]);
+    expect(await count(r, '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z')).toBe(0);
+    expect(await count(r, '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z')).toBe(1);
   });
 
-  it('draws the first-of-month edge at local midnight (22:00Z the evening before)', async () => {
-    const r = repo([appt('2026-11-01T00:00', { minutes: 30 }), appt('2026-10-31T22:30', { minutes: 30 })]);
-    const later = new Date('2026-11-30T10:00:00.000Z');
-    expect(await r.countCompletedJobs(BIZ, '2026-10', later)).toBe(1); // ends 23:00 on 31 Oct
-    expect(await r.countCompletedJobs(BIZ, '2026-11', later)).toBe(1); // ends 00:30 on 1 Nov
+  it('is inclusive at the period start and exclusive at its end', async () => {
+    const r = repo([created('2026-10-01T00:00:00Z'), created('2026-11-01T00:00:00Z')]);
+    expect(await count(r, '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z')).toBe(1);
   });
 
-  it('respects a business timezone west of UTC at the month edge', async () => {
-    const r = createMemoryPlanRepository({ [BIZ]: { plan: 'growth', timezone: 'America/New_York' } }, [
-      // 2026-11-01T03:30Z is 23:30 on 31 Oct in New York (EDT, UTC-4): October there, November in UTC.
-      { ...appt('2026-11-01T05:00'), startsAt: '2026-11-01T02:30:00.000Z', endsAt: '2026-11-01T03:30:00.000Z' },
-    ]);
-    const later = new Date('2026-12-01T00:00:00.000Z');
-    expect(await r.countCompletedJobs(BIZ, '2026-10', later)).toBe(1);
-    expect(await r.countCompletedJobs(BIZ, '2026-11', later)).toBe(0);
+  it('only counts the business\'s own bookings', async () => {
+    const r = repo([created('2026-10-02T09:00:00Z'), created('2026-10-02T09:00:00Z', { businessId: '00000000-0000-4000-8000-0000000000bb' })]);
+    expect(await count(r, '2026-10-01T00:00:00Z', '2026-11-01T00:00:00Z')).toBe(1);
   });
 });
 
 describe('UsageService', () => {
-  function service(plan: PlanKey, appointments: ReturnType<typeof appt>[], timezone = 'Africa/Johannesburg', now = NOW) {
+  type Appt = ReturnType<typeof appt>;
+  const made = (iso: string, over: Partial<Appt> = {}): Appt => ({ ...appt('2026-12-01T09:00'), createdAt: iso, ...over });
+  function service(plan: PlanKey, appointments: Appt[], timezone = 'Africa/Johannesburg', now = NOW, periodEnd: string | null = null) {
     const repo = createMemoryPlanRepository({ [BIZ]: { plan, timezone } }, appointments);
-    return createUsageService({ repo, clock: () => now });
+    const billing = {
+      isCheckoutAvailable: () => false,
+      getSubscription: async () =>
+        periodEnd ? { status: 'active' as const, plan: 'growth' as const, current_period_end: periodEnd, cancel_at_period_end: false, is_past_due: false } : null,
+    };
+    return createUsageService({ repo, clock: () => now, billing });
   }
 
-  it('defaults to the current month and reports the reset date', async () => {
-    const usage = await service('growth', [appt('2026-10-05T09:00')]).getUsage(BIZ);
+  it('defaults to the current calendar month without a subscription and reports the reset date', async () => {
+    const usage = await service('growth', [made('2026-10-05T07:00:00Z')]).getUsage(BIZ);
     expect(usage).toEqual({
       plan: 'growth',
       month: '2026-10',
       completed_jobs: 1,
+      bookings: 1,
+      period_start: '2026-09-30T22:00:00.000Z',
+      period_end: '2026-10-31T22:00:00.000Z',
       included_jobs: 100,
       usage_percent: 1,
       usage_state: 'normal',
@@ -156,10 +155,65 @@ describe('UsageService', () => {
     });
   });
 
-  it('prices jobs over the allowance at R4 each and never refuses them', async () => {
-    const many = Array.from({ length: 52 }, (_, i) => appt(`2026-10-${String(1 + (i % 12)).padStart(2, '0')}T${String(6 + Math.floor(i / 12) * 2).padStart(2, '0')}:00`, { minutes: 30 }));
+  it('counts cancelled and no-show bookings against the allowance', async () => {
+    const usage = await service('starter', [
+      made('2026-10-02T07:00:00Z'),
+      made('2026-10-03T07:00:00Z', { status: 'cancelled' }),
+      made('2026-10-04T07:00:00Z', { status: 'no_show' }),
+      made('2026-10-05T07:00:00Z', { status: 'completed' }),
+    ]).getUsage(BIZ);
+    expect(usage).toMatchObject({ bookings: 4, usage_percent: 8 });
+  });
+
+  it('prices bookings over the allowance at R4 each and never refuses them', async () => {
+    const many = Array.from({ length: 52 }, (_, i) => made(`2026-10-${String(1 + (i % 12)).padStart(2, '0')}T${String(6 + Math.floor(i / 12)).padStart(2, '0')}:00:00Z`));
     const usage = await service('starter', many, undefined, new Date('2026-10-13T20:00:00.000Z')).getUsage(BIZ, '2026-10');
-    expect(usage).toMatchObject({ completed_jobs: 52, usage_state: 'over', extra_jobs: 2, extra_cost_cents: 800 });
+    expect(usage).toMatchObject({ bookings: 52, usage_state: 'over', extra_jobs: 2, extra_cost_cents: 800 });
+  });
+
+  it('starts warning at 80% of the allowance', async () => {
+    const jobs = (n: number) => Array.from({ length: n }, (_, i) => made(`2026-10-02T0${i % 9}:00:00Z`));
+    expect((await service('starter', jobs(39)).getUsage(BIZ)).usage_state).toBe('normal');
+    expect((await service('starter', jobs(40)).getUsage(BIZ)).usage_state).toBe('near');
+  });
+
+  it('uses the Stripe billing period when a subscription is known, so the app matches the invoice', async () => {
+    // Renews on the 20th: the period is 20 Sep 12:00 SAST to 20 Oct 12:00 SAST. NOW is 13 Oct.
+    const end = '2026-10-20T10:00:00.000Z';
+    const usage = await service(
+      'growth',
+      [
+        made('2026-09-20T09:59:59Z'), // one second before the period: last period's
+        made('2026-09-20T10:00:00Z'), // first instant of the period
+        made('2026-10-13T08:00:00Z'),
+        made('2026-10-20T10:00:00Z'), // first instant of the next period
+      ],
+      undefined,
+      NOW,
+      end,
+    ).getUsage(BIZ);
+    expect(usage).toMatchObject({ bookings: 2, period_start: '2026-09-20T10:00:00.000Z', period_end: end, resets_on: '2026-10-20', month: '2026-09' });
+  });
+
+  it('falls back to the calendar month when the stored period already ended (a missed webhook)', async () => {
+    const usage = await service('growth', [made('2026-10-05T07:00:00Z')], undefined, NOW, '2026-10-01T10:00:00.000Z').getUsage(BIZ);
+    expect(usage).toMatchObject({ bookings: 1, month: '2026-10', resets_on: '2026-11-01' });
+  });
+
+  it('draws the calendar month edge at local midnight in the business timezone', async () => {
+    // 22:00Z on 31 Oct is midnight on 1 Nov in Johannesburg (UTC+2)
+    const rows = [made('2026-10-31T21:59:59Z'), made('2026-10-31T22:00:00Z')];
+    expect(await service('growth', rows, 'Africa/Johannesburg', NOW).getUsage(BIZ, '2026-10')).toMatchObject({ bookings: 1 });
+    expect(await service('growth', rows, 'Africa/Johannesburg', NOW).getUsage(BIZ, '2026-11')).toMatchObject({ bookings: 1 });
+    // West of UTC: 04:00Z on 1 Nov is midnight on 1 Nov in New York in November (UTC-5 after the DST change on 1 Nov 06:00Z), 04:00Z in October (EDT UTC-4)
+    const ny = [made('2026-11-01T03:59:59Z'), made('2026-11-01T04:00:00Z')];
+    expect(await service('growth', ny, 'America/New_York', NOW).getUsage(BIZ, '2026-10')).toMatchObject({ bookings: 1 });
+  });
+
+  it('adds a calendar month, not 30 days, across a DST change', async () => {
+    const period = calendarPeriod('2026-03', 'America/New_York');
+    expect(period.start.toISOString()).toBe('2026-03-01T05:00:00.000Z');
+    expect(period.end.toISOString()).toBe('2026-04-01T04:00:00.000Z');
   });
 
   it('rejects a malformed month and an unknown business', async () => {
@@ -174,6 +228,12 @@ describe('UsageService', () => {
     expect(plans.every((p) => p.checkout_url === null && p.currency === 'ZAR')).toBe(true);
     expect(plans.find((p) => p.id === 'free')).toMatchObject({ has_companion: false, included_jobs: null, extra_job_cents: null, price_cents: 0 });
     expect(plans.find((p) => p.id === 'pro')).toMatchObject({ has_companion: true, included_jobs: 200, extra_job_cents: 400, price_cents: 80000 });
+  });
+
+  it('a business with no plan yet has no allowance and is not listed as a plan', async () => {
+    const usage = await service('none', [made('2026-10-05T07:00:00Z')]).getUsage(BIZ);
+    expect(usage).toMatchObject({ plan: 'none', included_jobs: null, usage_state: 'normal', extra_cost_cents: 0 });
+    expect((await service('none', []).listPlans(BIZ)).plans.map((p) => p.id)).not.toContain('none');
   });
 });
 

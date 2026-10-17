@@ -1,0 +1,310 @@
+/**
+ * Billing use cases: Stripe Checkout and Portal sessions for the owner, and the webhook handler that turns
+ * subscription state into `businesses.plan`. Stripe is reached only through the StripeClient port, and Nerova
+ * is told about activations through AccountEventsPort (in the background: the Stripe response never waits for it).
+ */
+import type { PlanKey, SubscriptionDTO, UUID } from '@booking/types';
+import { AppError, ruleViolation } from '../../lib/errors.ts';
+import { createLogger, type Logger } from '../../lib/logger.ts';
+import type { AccountEventsPort } from '../../ports.ts';
+import { REPORT_HORIZON_MS, accessFor, isCompanionPlan, isPaidPlan, isUsagePrice, planForPrice, priceIdFor, usagePriceFor } from '../lib/policy.ts';
+import { asRecord, asString, parseSubscription, refId } from '../lib/stripeObjects.ts';
+import type {
+  BillingConfig,
+  BillingEventOutcome,
+  BookingMeter,
+  BillingRecord,
+  BillingRepository,
+  BillingService,
+  BillingSummary,
+  PaidPlan,
+  ReportOutcome,
+  UnreportedBooking,
+  StripeClient,
+  StripeEvent,
+  StripeSubscription,
+} from '../ports.ts';
+
+export interface BillingDeps {
+  /** Null when STRIPE_SECRET_KEY is not set: owner routes answer BILLING_NOT_CONFIGURED */
+  stripe: StripeClient | null;
+  /** Null when prices or return URLs are missing */
+  config: BillingConfig | null;
+  repo: BillingRepository;
+  events: AccountEventsPort;
+  /** Runs a task without blocking the caller (EdgeRuntime.waitUntil in production) */
+  defer?: (task: () => Promise<void>) => void;
+  logger?: Logger;
+  clock?: () => Date;
+}
+
+const notConfigured = (what: string, details?: Record<string, unknown>) =>
+  new AppError('BILLING_NOT_CONFIGURED', `Billing is not configured: ${what}`, details);
+
+export function createBillingService(deps: BillingDeps): BillingService & BillingSummary & BookingMeter {
+  const { repo } = deps;
+  const logger = deps.logger ?? createLogger({ module: 'billing' });
+  const clock = deps.clock ?? (() => new Date());
+  const defer = deps.defer ?? ((task) => void task().catch(() => undefined));
+
+  function requireStripe(): { stripe: StripeClient; config: BillingConfig } {
+    if (!deps.stripe || !deps.config) throw notConfigured('Stripe keys, prices or return URLs are missing');
+    return { stripe: deps.stripe, config: deps.config };
+  }
+
+  async function customerFor(stripe: StripeClient, businessId: UUID, record: BillingRecord | null): Promise<string> {
+    if (record) return record.stripeCustomerId;
+    const contact = await repo.getBusinessContact(businessId);
+    const created = await stripe.createCustomer({ businessId, ...contact, idempotencyKey: `customer:${businessId}` });
+    return (await repo.saveCustomer(businessId, created.id)).stripeCustomerId;
+  }
+
+  async function createCheckout(input: { businessId: UUID; plan: 'starter' | 'growth' | 'pro'; idempotencyKey: string }) {
+    const { stripe, config } = requireStripe();
+    const priceId = priceIdFor(config, input.plan, 'ZAR');
+    const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
+    if (!priceId || !usagePriceId) throw notConfigured(`no base or usage price for ${input.plan}`, { plan: input.plan });
+    const record = await repo.getByBusiness(input.businessId);
+    if (record?.stripeSubscriptionId && record.status && accessFor(record.status) === 'entitled') {
+      throw ruleViolation('ALREADY_SUBSCRIBED', 'This business already has a subscription: change or cancel it in the billing portal');
+    }
+    const customerId = await customerFor(stripe, input.businessId, record);
+    const session = await stripe.createCheckoutSession({
+      customerId,
+      priceId,
+      usagePriceId,
+      businessId: input.businessId,
+      plan: input.plan,
+      successUrl: config.successUrl,
+      cancelUrl: config.cancelUrl,
+      idempotencyKey: `checkout:${input.businessId}:${input.idempotencyKey}`,
+    });
+    return { checkout_url: session.url };
+  }
+
+  async function changePlan(input: { businessId: UUID; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO> {
+    const { stripe, config } = requireStripe();
+    const priceId = priceIdFor(config, input.plan, 'ZAR');
+    const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
+    if (!priceId || !usagePriceId) throw notConfigured(`no base or usage price for ${input.plan}`, { plan: input.plan });
+    const record = await repo.getByBusiness(input.businessId);
+    if (!record?.stripeSubscriptionId || !record.status || accessFor(record.status) !== 'entitled') {
+      throw ruleViolation('NO_SUBSCRIPTION', 'There is no active subscription to change: start one with checkout');
+    }
+    if (record.plan === input.plan) throw ruleViolation('SAME_PLAN', 'The subscription is already on this plan');
+    const current = await stripe.retrieveSubscription(record.stripeSubscriptionId);
+    const baseItem = current.items.find((item) => planForPrice(config, item.priceId) !== null);
+    if (!baseItem) throw new AppError('UPSTREAM_BILLING_ERROR', 'The subscription has no recognised plan line');
+    const usageItem = current.items.find((item) => isUsagePrice(config, item.priceId));
+    const updated = await stripe.changeSubscriptionPlan({
+      subscriptionId: current.id,
+      items: [{ id: baseItem.id, price: priceId }, { id: usageItem?.id ?? null, price: usagePriceId }],
+      idempotencyKey: `plan:${input.businessId}:${input.idempotencyKey}`,
+    });
+    // Apply Stripe's answer now so the app sees the new plan at once; the webhook that follows finds nothing to change.
+    await applySubscription({ ...updated, businessId: input.businessId }, Math.floor(clock().getTime() / 1000));
+    return (await getSubscription(input.businessId)) as SubscriptionDTO;
+  }
+
+  async function createPortal(businessId: UUID) {
+    const { stripe, config } = requireStripe();
+    const record = await repo.getByBusiness(businessId);
+    if (!record) throw ruleViolation('NO_SUBSCRIPTION', 'There is no subscription to manage yet');
+    const session = await stripe.createPortalSession({ customerId: record.stripeCustomerId, returnUrl: config.returnUrl });
+    return { portal_url: session.url };
+  }
+
+  // ----- webhook handling -----
+
+  /** Tells Nerova about a plan transition after the writes. Failures are the port's problem (best effort, reconciled daily). */
+  function announce(businessId: UUID, before: PlanKey, after: PlanKey): void {
+    if (before === after) return;
+    const type = !isCompanionPlan(before) && isCompanionPlan(after) ? 'account.created' : isCompanionPlan(before) && !isCompanionPlan(after) ? 'account.removed' : 'account.updated';
+    defer(() => deps.events.accountChanged(businessId, type));
+  }
+
+  async function resolveBusiness(sub: StripeSubscription): Promise<UUID | null> {
+    if (sub.businessId) return sub.businessId;
+    return (await repo.getBySubscription(sub.id))?.businessId ?? (await repo.getByCustomer(sub.customerId))?.businessId ?? null;
+  }
+
+  function tierOf(sub: StripeSubscription, record: BillingRecord | null) {
+    const config = deps.config;
+    const priced = config ? (sub.items.map((item) => planForPrice(config, item.priceId)).find((plan) => plan !== null) ?? null) : null;
+    // The price wins: the portal can switch plans without touching the metadata we set at checkout.
+    return priced ?? (isPaidPlan(sub.metadataPlan) ? sub.metadataPlan : null) ?? record?.plan ?? null;
+  }
+
+  async function applySubscription(sub: StripeSubscription, eventCreated: number): Promise<BillingEventOutcome> {
+    const businessId = await resolveBusiness(sub);
+    if (!businessId) {
+      logger.warn('billing_subscription_unlinked', { subscription_id: sub.id });
+      return 'ignored';
+    }
+    const record = await repo.getByBusiness(businessId);
+    const access = accessFor(sub.status);
+    if (record?.lastEventAt && eventCreated * 1000 < Date.parse(record.lastEventAt)) return 'ignored';
+    // A late event for a replaced subscription must not undo the current one.
+    if (record?.stripeSubscriptionId && record.stripeSubscriptionId !== sub.id && access !== 'entitled') return 'ignored';
+
+    const tier = tierOf(sub, record);
+    if (access === 'entitled' && !tier) {
+      logger.warn('billing_unknown_price', { subscription_id: sub.id, price_ids: sub.items.map((item) => item.priceId) });
+      return 'ignored';
+    }
+    await repo.saveCustomer(businessId, sub.customerId);
+    await repo.updateSubscription(businessId, {
+      stripeSubscriptionId: sub.id,
+      status: sub.status,
+      plan: tier,
+      currentPeriodEnd: sub.currentPeriodEnd,
+      cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+      lastEventAt: new Date(Math.max(eventCreated * 1000, record?.lastEventAt ? Date.parse(record.lastEventAt) : 0)).toISOString(),
+      // Bookings made before the first activation are never metered (no history bill on day one).
+      ...(access === 'entitled' && !record?.reportingStartedAt && { reportingStartedAt: new Date(eventCreated * 1000).toISOString() }),
+    });
+    if (access === 'unchanged') return 'processed';
+    if (access === 'entitled' && tier) await syncUsagePrice(sub, tier);
+
+    const before = await repo.getBusinessPlan(businessId);
+    const after: PlanKey = access === 'entitled' && tier ? tier : 'none';
+    if (before !== after) await repo.setBusinessPlan(businessId, after);
+    announce(businessId, before, after);
+    return 'processed';
+  }
+
+  /**
+   * The plan is decided by the base price, so a portal plan change must swap the metered usage price too, or the
+   * allowance (R0 tier) would stay the old plan's. A failure is logged for follow-up, not retried: it must not hold
+   * back the entitlement change, and the next subscription event re-runs this.
+   */
+  async function syncUsagePrice(sub: StripeSubscription, tier: PaidPlan): Promise<void> {
+    const { stripe, config } = deps;
+    const expected = config ? usagePriceFor(config, tier, 'ZAR') : null;
+    if (!stripe || !config || !expected) return;
+    const current = sub.items.find((item) => isUsagePrice(config, item.priceId));
+    if (current?.priceId === expected) return;
+    try {
+      await stripe.setSubscriptionUsagePrice({
+        subscriptionId: sub.id,
+        itemId: current?.id ?? null,
+        priceId: expected,
+        idempotencyKey: `usage-sync:${sub.id}:${tier}:${current?.id ?? 'none'}`,
+      });
+    } catch (error) {
+      logger.error('billing_usage_price_sync_failed', { subscription_id: sub.id, plan: tier, error });
+    }
+  }
+
+  async function onCheckoutCompleted(event: StripeEvent): Promise<BillingEventOutcome> {
+    const session = event.object;
+    const subscriptionId = refId(session.subscription);
+    const businessId = asString(session.client_reference_id);
+    if (session.mode !== 'subscription' || !subscriptionId || !businessId || !deps.stripe) return 'ignored';
+    const sub = await deps.stripe.retrieveSubscription(subscriptionId);
+    return applySubscription({ ...sub, businessId: businessId as UUID }, event.created);
+  }
+
+  async function onSubscriptionEvent(event: StripeEvent): Promise<BillingEventOutcome> {
+    const sub = parseSubscription(event.object);
+    if (!sub) return 'ignored';
+    // customer.subscription.deleted carries status canceled already; force it in case an old API version does not.
+    return applySubscription(event.type === 'customer.subscription.deleted' ? { ...sub, status: 'canceled' } : sub, event.created);
+  }
+
+  async function onPaymentFailed(event: StripeEvent): Promise<BillingEventOutcome> {
+    const invoice = event.object;
+    const parent = asRecord(asRecord(invoice.parent).subscription_details);
+    const subscriptionId = refId(invoice.subscription) ?? refId(parent.subscription);
+    const record = subscriptionId ? await repo.getBySubscription(subscriptionId) : null;
+    if (!record?.status || accessFor(record.status) !== 'entitled') return 'ignored';
+    if (record.lastEventAt && event.created * 1000 < Date.parse(record.lastEventAt)) return 'ignored';
+    // Access stays (see accessFor); the status makes the app warn the owner.
+    await repo.updateSubscription(record.businessId, { status: 'past_due', lastEventAt: new Date(event.created * 1000).toISOString() });
+    return 'processed';
+  }
+
+  async function handleEvent(event: StripeEvent): Promise<BillingEventOutcome> {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        return onCheckoutCompleted(event);
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+        return onSubscriptionEvent(event);
+      case 'invoice.payment_failed':
+        return onPaymentFailed(event);
+      default:
+        return 'ignored';
+    }
+  }
+
+  // ----- usage metering: every booking made is one meter event -----
+
+  const meterEvent = (booking: UnreportedBooking) =>
+    deps.stripe?.createMeterEvent({
+      eventName: deps.config?.meterEventName ?? 'booking_made',
+      identifier: `booking:${booking.appointmentId}`,
+      customerId: booking.stripeCustomerId,
+      timestamp: new Date(booking.createdAt),
+      value: 1,
+    });
+
+  /** Inline path right after a booking commits. Skips unless the business is subscribed and metering has started. */
+  async function bookingCreated(booking: { appointmentId: UUID; businessId: UUID; createdAt: string }): Promise<void> {
+    try {
+      if (!deps.stripe) return;
+      const record = await repo.getByBusiness(booking.businessId);
+      const meterable = record?.status && accessFor(record.status) === 'entitled' && record.reportingStartedAt;
+      if (!record || !meterable || booking.createdAt < (record.reportingStartedAt ?? '')) return;
+      await meterEvent({ ...booking, stripeCustomerId: record.stripeCustomerId });
+      await repo.markBookingsReported([booking.appointmentId], new Date());
+    } catch (error) {
+      // Never affects the booking: the sweep re-sends it (Stripe dedupes on the identifier).
+      logger.warn('billing_meter_event_failed', { appointment_id: booking.appointmentId, business_id: booking.businessId, error });
+    }
+  }
+
+  const SWEEP_CHUNK = 10;
+
+  async function sweepUnreportedBookings(now: Date, opts: { limit?: number } = {}): Promise<ReportOutcome> {
+    if (!deps.stripe || !deps.config) return { reported: 0, failed: 0, notConfigured: 1 };
+    const pending = await repo.listUnreportedBookings({ createdAfter: new Date(now.getTime() - REPORT_HORIZON_MS), limit: opts.limit ?? 1000 });
+    let reported = 0;
+    let failed = 0;
+    for (let i = 0; i < pending.length; i += SWEEP_CHUNK) {
+      const chunk = pending.slice(i, i + SWEEP_CHUNK);
+      const results = await Promise.allSettled(chunk.map((booking) => meterEvent(booking)));
+      const sent: UUID[] = [];
+      results.forEach((result, index) => {
+        const booking = chunk[index] as UnreportedBooking;
+        if (result.status === 'fulfilled') sent.push(booking.appointmentId);
+        else {
+          failed += 1;
+          logger.warn('billing_meter_event_failed', { appointment_id: booking.appointmentId, business_id: booking.businessId, error: result.reason });
+        }
+      });
+      if (sent.length > 0) await repo.markBookingsReported(sent, now);
+      reported += sent.length;
+    }
+    return { reported, failed, notConfigured: 0 };
+  }
+
+  async function getSubscription(businessId: UUID): Promise<SubscriptionDTO | null> {
+    const record = await repo.getByBusiness(businessId);
+    if (!record?.stripeSubscriptionId) return null;
+    return {
+      status: record.status,
+      plan: record.plan,
+      current_period_end: record.currentPeriodEnd,
+      cancel_at_period_end: record.cancelAtPeriodEnd,
+      is_past_due: record.status === 'past_due',
+    };
+  }
+
+  function isCheckoutAvailable(plan: PlanKey): boolean {
+    return deps.stripe !== null && deps.config !== null && isPaidPlan(plan) && priceIdFor(deps.config, plan, 'ZAR') !== null && usagePriceFor(deps.config, plan, 'ZAR') !== null;
+  }
+
+  return { createCheckout, changePlan, createPortal, handleEvent, sweepUnreportedBookings, bookingCreated, getSubscription, isCheckoutAvailable };
+}

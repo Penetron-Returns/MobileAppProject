@@ -1,5 +1,6 @@
 /** Pure usage maths and month helpers (no I/O, no clock). */
 import type { BillingUsageDTO, ISODate, MonthKey, PlanKey, UsageState } from '@booking/types';
+import { DateTime } from 'luxon';
 import { dateInZone } from '../../lib/time.ts';
 import { NEAR_LIMIT_PERCENT, PLAN_CATALOG } from './planCatalog.ts';
 
@@ -45,4 +46,35 @@ export const monthStart = (month: MonthKey): ISODate => `${month}-01`;
 export function nextMonthStart(month: MonthKey): ISODate {
   const [year, mon] = month.split('-').map(Number) as [number, number];
   return mon === 12 ? `${year + 1}-01-01` : `${year}-${String(mon + 1).padStart(2, '0')}-01`;
+}
+
+/** The window usage is counted in: bookings CREATED in [start, end). */
+export interface UsagePeriod {
+  start: Date;
+  end: Date;
+  /** Calendar month of `start` in the business timezone */
+  month: MonthKey;
+  /** Local date `end` falls on: when the count resets */
+  resetsOn: ISODate;
+}
+
+function periodOf(start: Date, end: Date, timeZone: string): UsagePeriod {
+  return { start, end, month: dateInZone(start, timeZone).slice(0, 7), resetsOn: dateInZone(end, timeZone) };
+}
+
+/** A calendar month in the business timezone (DST-safe: months are added in the zone, not as 30 days). */
+export function calendarPeriod(month: MonthKey, timeZone: string): UsagePeriod {
+  const start = DateTime.fromISO(`${monthStart(month)}T00:00:00`, { zone: timeZone });
+  return periodOf(start.toJSDate(), start.plus({ months: 1 }).toJSDate(), timeZone);
+}
+
+/**
+ * The Stripe billing period that ends at `periodEndIso` (monthly: it started one month earlier, in the business
+ * timezone). Null when the end is missing or already past (a missed webhook): callers fall back to the calendar month.
+ */
+export function subscriptionPeriod(periodEndIso: string | null, timeZone: string, now: Date): UsagePeriod | null {
+  if (!periodEndIso) return null;
+  const end = DateTime.fromISO(periodEndIso, { zone: timeZone });
+  if (!end.isValid || end.toMillis() <= now.getTime()) return null;
+  return periodOf(end.minus({ months: 1 }).toJSDate(), end.toJSDate(), timeZone);
 }

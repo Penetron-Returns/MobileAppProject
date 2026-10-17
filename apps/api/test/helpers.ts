@@ -12,6 +12,8 @@ import { createCompanionSettingsService } from '@booking/companion/nerova/settin
 import { createUsageService } from '@booking/features/plans/services/usage.ts';
 import { createFakeNerovaClient } from '@booking/testing/nerova.ts';
 import { createMemoryPlanRepository } from '@booking/testing/plans.ts';
+import { createBillingService } from '@booking/features/billing/services/billingService.ts';
+import { createMemoryBillingRepository } from '@booking/testing/billing.ts';
 import { fakeEntitlements } from '@booking/testing/entitlements.ts';
 
 export const TEST_ENV: Env = {
@@ -67,6 +69,8 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
     entitlements: fakeEntitlements('free'),
     nerovaEvents: { accountChanged: async () => {} },
     usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
+    // Billing unconfigured (no Stripe client): billing tests build their own
+    billing: createBillingService({ stripe: null, config: null, repo: createMemoryBillingRepository(), events: { accountChanged: async () => {} }, }),
     companion: createCompanionService({ nerova, plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
     companionSettings: createCompanionSettingsService({ nerova, plans: planRepo, recordAudit: async () => {} }),
     voiceAsk: unimplemented as Container['voiceAsk'],
