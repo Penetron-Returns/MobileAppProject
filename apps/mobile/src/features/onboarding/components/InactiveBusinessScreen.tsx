@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SpeakButton } from '@/components/SpeakButton';
 import { useSignOut } from '@/features/auth/useSignOut';
+
+import { ReplayVoiceButton } from './ReplayVoiceButton';
 
 /**
  * What a team member sees while the business has no active plan: only the
@@ -20,6 +21,11 @@ export function InactiveBusinessScreen() {
   const hint = t('onboarding.inactive.hint');
   return (
     <Ground className="flex-1">
+      <View
+        style={{ position: 'absolute', top: insets.top, right: 8, zIndex: 1 }}
+      >
+        <ReplayVoiceButton text={`${title}. ${hint}`} />
+      </View>
       <View
         className="flex-1 items-center justify-center gap-4 px-8"
         style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
@@ -35,7 +41,6 @@ export function InactiveBusinessScreen() {
         <Text className="text-center text-title text-muted-foreground">
           {hint}
         </Text>
-        <SpeakButton text={`${title}. ${hint}`} />
         <Button
           size="xl"
           variant="secondary"

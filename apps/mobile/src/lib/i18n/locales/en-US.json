@@ -1158,32 +1158,48 @@
     }
   },
   "onboarding": {
-    "progress": "Setup progress",
+    "step": "Step {{step}} of {{max}}",
     "continue": "Continue",
+    "back": "Back",
+    "replayVoice": "Replay Clovie's voice",
     "orgFailed": "Could not create the organisation.",
+    "welcome": {
+      "title": "Hi, I'm Clovie. Let's set up your business.",
+      "line1": "Hi, I'm Clovie.",
+      "line2": "Let's set up your business.",
+      "about": "About 1 minute",
+      "start": "Start",
+      "haveAccount": "I already have an account"
+    },
     "typeLabel": "Business type",
     "type": {
       "title": "What kind of business?"
     },
     "types": {
-      "barber": "Barber",
+      "barber": "Barbershop",
       "salon": "Salon",
       "beauty": "Beauty parlour",
-      "mix": "Mix"
+      "mix": "A mix"
     },
     "name": {
-      "title": "What's your business called?",
+      "lovely": "{{type}}. Lovely!",
+      "title": "What's it called?",
       "label": "Business name",
-      "placeholder": "Business name",
-      "micTip": "Tip: tap the mic on your keyboard."
+      "placeholder": "Business name"
+    },
+    "create": {
+      "failed": "Couldn't create your business",
+      "retry": "Try again"
     },
     "plan": {
-      "title": "Choose a plan",
-      "perMonth": "{{price}} a month",
+      "line1": "Last step.",
+      "line2": "Pick your plan.",
+      "label": "Plan",
+      "perMonth": "a month",
       "bookings": "{{count}} bookings a month",
-      "extra": "Extra bookings {{price}}",
-      "start": "Start",
-      "startNamed": "Start {{name}}, {{price}} a month",
+      "extra": "Extra bookings are {{price}} each.",
+      "continueWith": "Continue with {{name}}",
+      "cancelAnytime": "Cancel anytime.",
       "spokenPlan": "{{name}}: {{price}} a month, {{count}} bookings.",
       "loading": "Loading plans",
       "loadFailed": "Couldn't load the plans",
@@ -1220,15 +1236,31 @@
       "retry": "Try again",
       "back": "Back to plans"
     },
+    "paying": {
+      "title": "Confirming your payment...",
+      "paid": "Paid",
+      "hint": "This takes a few seconds."
+    },
+    "payFailed": {
+      "title": "That didn't go through.",
+      "hint": "You haven't been charged.",
+      "tryAgain": "Try again",
+      "another": "Pick another plan"
+    },
     "setup": {
-      "title": "Clovie is being set up",
-      "hint": "This takes a few seconds.",
+      "title": "Getting me ready...",
+      "hint": "Just a few seconds.",
+      "progress": "Progress",
+      "steps": {
+        "hours": "Your hours",
+        "services": "Your services",
+        "calendar": "Your calendar"
+      },
       "slow": {
         "title": "Taking longer than usual",
         "hint": "You can wait or try again."
       },
-      "retry": "Try again",
-      "opening": "Clovie is ready"
+      "retry": "Try again"
     },
     "inactive": {
       "title": "Your business isn't active yet",

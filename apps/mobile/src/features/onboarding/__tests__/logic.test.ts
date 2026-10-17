@@ -1,6 +1,9 @@
 import {
   buildOnboardingRequest,
-  canGoBack,
+  confirmName,
+  dotStates,
+  shouldAutoSubmit,
+  startScreen,
   canSubmit,
   goBack,
   initialDraft,
@@ -27,10 +30,8 @@ describe('two-question flow', () => {
     });
   });
 
-  it('shows Back only on the name question, and Back keeps what was typed', () => {
+  it('Back returns to the type and keeps what was typed', () => {
     const draft = named('salon', 'Ashgrove');
-    expect(canGoBack(initialDraft())).toBe(false);
-    expect(canGoBack(draft)).toBe(true);
     expect(goBack(draft)).toMatchObject({ step: 1, businessName: 'Ashgrove' });
     expect(goBack(initialDraft()).step).toBe(1);
   });
@@ -125,5 +126,72 @@ describe('draft persistence', () => {
         JSON.stringify({ step: 2, typeId: 'florist', businessName: 'x' }),
       ),
     ).toEqual({ step: 1, typeId: null, businessName: 'x' });
+  });
+});
+
+describe('progress dots', () => {
+  it.each([
+    [1, ['active', 'todo', 'todo']],
+    [2, ['done', 'active', 'todo']],
+    [3, ['done', 'done', 'active']],
+  ] as const)('stage %s', (stage, expected) => {
+    expect(dotStates(stage)).toEqual(expected);
+  });
+});
+
+describe('confirming the name', () => {
+  it('moves a complete draft to step 3', () => {
+    expect(confirmName(named('salon', 'Ashgrove')).step).toBe(3);
+  });
+
+  it('does nothing for a blank name', () => {
+    expect(confirmName(named('salon', ' ')).step).toBe(2);
+  });
+
+  it('survives a stored round trip, and is not trusted without a name or type', () => {
+    const confirmed = confirmName(named('salon', 'Ashgrove'));
+    expect(parseDraft(serializeDraft(confirmed))).toEqual(confirmed);
+    expect(
+      parseDraft(
+        JSON.stringify({ step: 3, typeId: 'salon', businessName: ' ' }),
+      ).step,
+    ).toBe(2);
+    expect(
+      parseDraft(JSON.stringify({ step: 3, typeId: null, businessName: 'A' }))
+        .step,
+    ).toBe(1);
+  });
+});
+
+describe('where onboarding opens', () => {
+  const half = selectType(initialDraft(), 'barber');
+  it.each([
+    ['signed out, first launch', initialDraft(), false, 'welcome'],
+    ['signed in, no draft', initialDraft(), true, 'type'],
+    ['signed out, resumed on the name', half, false, 'name'],
+    ['signed out, resumed on the type', goBack(half), false, 'type'],
+    [
+      'signed out, name confirmed',
+      confirmName(named('salon', 'A')),
+      false,
+      'name',
+    ],
+    ['signed in, resumed on the name', half, true, 'name'],
+  ] as const)('%s opens on %s', (_label, draft, signedIn, expected) => {
+    expect(startScreen(draft, signedIn)).toBe(expected);
+  });
+});
+
+describe('auto-submit after sign-in', () => {
+  const confirmed = confirmName(named('salon', 'A'));
+  it('creates the business once signed in with a confirmed draft', () => {
+    expect(shouldAutoSubmit(confirmed, true)).toBe(true);
+  });
+  it.each([
+    ['signed out', confirmed, false],
+    ['an unconfirmed draft', named('salon', 'A'), true],
+    ['no draft', initialDraft(), true],
+  ])('does not with %s', (_label, draft, signedIn) => {
+    expect(shouldAutoSubmit(draft, signedIn)).toBe(false);
   });
 });

@@ -14,7 +14,6 @@ export interface AnalyticsEnv {
 export function createAnalytics(config: AnalyticsEnv): Analytics {
   if (!config.key) return noopAnalytics;
   // Loaded only when a key exists, so a build without one never touches the SDK.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { createPostHogAnalytics } =
     require('./posthogAnalytics') as typeof import('./posthogAnalytics');
   return createPostHogAnalytics(config);

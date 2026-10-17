@@ -5,6 +5,8 @@ import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { analytics } from '@/features/analytics';
+import { useAnalyticsIdentity } from '@/features/analytics/useAnalyticsIdentity';
 import { ApprovalNotifications } from '@/features/approvals/ApprovalNotifications';
 import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
@@ -23,6 +25,7 @@ import { ChoosePlanScreen } from '@/features/onboarding/components/ChoosePlanScr
 import { CompanionSetupScreen } from '@/features/onboarding/components/CompanionSetupScreen';
 import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import { nextFunnelState } from '@/features/onboarding/funnel';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import {
   isBusinessActive,
@@ -156,6 +159,7 @@ export default function AppLayout() {
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
   const billing = useBilling(me.data);
+  useAnalyticsIdentity(isSignedIn ? user?.id : null, me.data?.business.id);
   useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
   useVoiceScheduleSync(hasOrg);
 
@@ -179,6 +183,14 @@ export default function AppLayout() {
     joinDeclined,
     inOnboarding,
   });
+
+  // First run is done when the tabs appear after the onboarding, plan or setup screens.
+  const sawFirstRun = React.useRef(false);
+  React.useEffect(() => {
+    const next = nextFunnelState(sawFirstRun.current, route.kind);
+    sawFirstRun.current = next.hasSeenFirstRun;
+    if (next.isCompleted) analytics.track('onboarding_completed');
+  }, [route.kind]);
 
   // Taps on attendance pushes navigate, so wait until the tabs are on screen.
   useAttendanceNotifications(route.kind === 'tabs');
@@ -206,7 +218,8 @@ export default function AppLayout() {
     case 'activate-org':
       return <ClovieLoading />;
     case 'signed-out':
-      return <Redirect href="/sign-in" />;
+      // Signed out: first-run onboarding, which hands over to sign-in after the name.
+      return <Redirect href="/onboarding" />;
     case 'join':
       return (
         <JoinScreen
@@ -215,7 +228,9 @@ export default function AppLayout() {
         />
       );
     case 'onboarding':
-      return <OnboardingFlow onDone={() => setInOnboarding(false)} />;
+      return (
+        <OnboardingFlow isSignedIn onDone={() => setInOnboarding(false)} />
+      );
     case 'choose-plan':
       return <ChoosePlanScreen />;
     case 'inactive-business':
