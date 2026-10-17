@@ -1,26 +1,56 @@
+import { PixelRatio } from 'react-native';
 import type { DepthScheme } from '@booking/ui';
 
 import { minutesToPx } from './logic';
 import type { BlockTone } from './logic';
 import type { MinuteSpan } from './spans';
 
-/** Space left under a block so back-to-back bookings stay apart (Google leaves about 1-2px). */
-export const BLOCK_GAP_PX = 2;
-/** Space left on the right of a column so an empty spot stays tappable. */
-export const BLOCK_RIGHT_MARGIN_PX = 6;
+/**
+ * Inset on every side of a cell and of a block, so neighbours sit 2px apart.
+ * The gap shows the page ground and is the grid: no lines are drawn. Rounded
+ * to a physical pixel so the edges stay crisp.
+ */
+export const BLOCK_INSET_PX = PixelRatio.roundToNearestPixel(1);
 /** Very short bookings keep a tappable height instead of collapsing. */
 export const MIN_BLOCK_PX = 16;
-/** Corner radius of a booking or unavailable block: small, like Google's. */
-export const BLOCK_RADIUS = 6;
+/** Corner radius of an empty cell, a booking, a break or time off. */
+export const BLOCK_RADIUS = 4;
+
+/** Fill of an empty hour cell: a step off the page ground. */
+export const GRID_CELL: Record<DepthScheme, string> = {
+  light: '#EDEDF2',
+  dark: '#1C1C1E',
+};
 
 export interface BlockFrame {
   top: number;
   height: number;
 }
 
+/** One empty cell per hour of the window (the last may be shorter), inset on all sides. */
+export function cellFrames(window: MinuteSpan): BlockFrame[] {
+  const frames: BlockFrame[] = [];
+  for (let m = window.startMin; m < window.endMin; m += 60) {
+    const end = Math.min(m + 60, window.endMin);
+    frames.push({
+      top: minutesToPx(m - window.startMin) + BLOCK_INSET_PX,
+      height: minutesToPx(end - m) - 2 * BLOCK_INSET_PX,
+    });
+  }
+  return frames;
+}
+
+/** Horizontal placement inside a column: inset from both column edges. */
+export function blockHorizontal(columnWidth: number): {
+  left: number;
+  width: number;
+} {
+  return { left: BLOCK_INSET_PX, width: columnWidth - 2 * BLOCK_INSET_PX };
+}
+
 /**
- * Where a span sits in a column: its top on its start minute's pixel row and
- * its bottom on its end minute's, less the gap, so it stretches line to line.
+ * Where a span sits in a column: its top at its start minute and its bottom
+ * at its end minute, each inset, so it covers its cells exactly.
  */
 export function blockFrame(
   span: MinuteSpan,
@@ -28,9 +58,9 @@ export function blockFrame(
   minHeight: number = MIN_BLOCK_PX,
 ): BlockFrame {
   return {
-    top: minutesToPx(span.startMin - window.startMin),
+    top: minutesToPx(span.startMin - window.startMin) + BLOCK_INSET_PX,
     height: Math.max(
-      minutesToPx(span.endMin - span.startMin) - BLOCK_GAP_PX,
+      minutesToPx(span.endMin - span.startMin) - 2 * BLOCK_INSET_PX,
       minHeight,
     ),
   };
