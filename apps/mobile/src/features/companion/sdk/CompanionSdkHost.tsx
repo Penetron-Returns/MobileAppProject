@@ -8,6 +8,7 @@ import {
   useCompanion,
 } from '@nerova/react-native';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import {
   type CompanionSheetControl,
   type OpenCompanionOptions,
 } from './companionSheetControl';
+import { getCompanionSetup } from './inlineSetup';
 import { SdkClovie } from './SdkClovie';
 import { useSdkLabels } from './useSdkLabels';
 import { useSdkSessionProvider } from './useSdkSessionProvider';
@@ -146,6 +148,10 @@ function EnabledHost({
       hasFailed: isEntitled && hasFailed,
       open: (options) => sheetRef.current?.open(options),
       close: () => sheetRef.current?.close(),
+      openSetup: () => {
+        if (getCompanionSetup()) router.navigate('/' as never);
+        else sheetRef.current?.open();
+      },
     }),
     [isEntitled, hasFailed],
   );

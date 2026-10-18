@@ -45,6 +45,7 @@ describe('CompanionSwitch', () => {
             hasFailed: true,
             open: jest.fn(),
             close: jest.fn(),
+            openSetup: jest.fn(),
           }}
         >
           <CompanionSwitch />

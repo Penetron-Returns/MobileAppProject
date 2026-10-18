@@ -76,7 +76,11 @@ jest.mock('../hooks', () => ({
 const mockSetup = {
   data: {
     companion_live: true,
-    whatsapp: { connected: false, display_phone_number: null },
+    whatsapp: {
+      connected: false,
+      state: 'not_connected',
+      display_phone_number: null,
+    },
   },
 };
 jest.mock('@/features/companion/hooks', () => ({

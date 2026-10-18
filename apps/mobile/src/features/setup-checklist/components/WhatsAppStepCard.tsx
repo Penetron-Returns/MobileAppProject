@@ -4,10 +4,8 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, View } from 'react-native';
 
-import {
-  useCompanionSetup,
-  useConnectWhatsApp,
-} from '@/features/companion/hooks';
+import { useCompanionSetup } from '@/features/companion/hooks';
+import { useWhatsAppSetupEntry } from '@/features/companion/useWhatsAppSetupEntry';
 import {
   WHATSAPP_POLL_MS,
   WHATSAPP_POLL_WINDOW_MS,
@@ -28,7 +26,7 @@ export function WhatsAppStepCard() {
     enabled: true,
     pollMs: isWaiting ? WHATSAPP_POLL_MS : false,
   });
-  const connect = useConnectWhatsApp({
+  const connect = useWhatsAppSetupEntry({
     onOpened: () => setIsWaiting(true),
     onClosed: () => void setup.refetch(),
     onAlreadyConnected: () => void setup.refetch(),

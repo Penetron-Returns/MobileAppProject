@@ -723,6 +723,29 @@
       "remindersFooter": "WhatsApp reminders go to clients before their booking.",
       "customersSeeLine": "Clients can choose: {{menu}}.",
       "connect": "Connect WhatsApp",
+      "reconnect": "Reconnect WhatsApp",
+      "pill": {
+        "connected": "Connected",
+        "pending": "Pending",
+        "not_connected": "Not connected"
+      },
+      "verification": {
+        "title": "Business verification",
+        "verified": "Verified",
+        "pending": "Pending",
+        "not_verified": "Not verified"
+      },
+      "toGoLive": "To go live",
+      "live": "Clovie is live on WhatsApp",
+      "step": {
+        "connect": "Connect WhatsApp",
+        "connectHint": "Link your business number in Clovie",
+        "goLive": "Go live",
+        "goLiveHint": "Let Clovie reply, book and reschedule for clients"
+      },
+      "rowSteps_one": "{{count}} step to go live",
+      "rowSteps_other": "{{count}} steps to go live",
+      "rowConnected": "Connected · {{phone}}",
       "notInPlan": "WhatsApp booking is not part of your plan.",
       "detailsNeedsNumber": "Connect a number first"
     },
