@@ -14,9 +14,14 @@ import {
   resolveSystemColor,
 } from '@booking/ui';
 import * as React from 'react';
-import type { UseFormReturn } from 'react-hook-form';
+import {
+  useController,
+  useWatch,
+  type Control,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { View, type TextInput } from 'react-native';
 
 import type { StaffRow } from '@/features/catalog/hooks';
 import { currencySymbol } from '@/lib/format';
@@ -56,44 +61,52 @@ export function ServiceFormBody({
   const { t } = useTranslation();
   const depth = useDepth();
   const [moreOpen, setMoreOpen] = React.useState(false);
-  const values = form.watch();
+  const priceInput = React.useRef<TextInput>(null);
+  // Typing is owned by the name and price fields below, so a key press
+  // re-renders one input, not this body. Only the taps that change these do.
+  const { control } = form;
+  const duration = useWatch({ control, name: 'duration_minutes' });
+  const staffIds = useWatch({ control, name: 'staff_ids' }) ?? [];
+  const isActive = useWatch({ control, name: 'is_active' });
+  // Validate on submit; once a submit has failed, re-check as the value changes.
+  const { isSubmitted, errors } = form.formState;
   const set = <K extends keyof ServiceValues>(
     key: K,
     value: ServiceValues[K],
   ) =>
     form.setValue(key, value as never, {
       shouldDirty: true,
-      shouldValidate: true,
+      shouldValidate: isSubmitted,
     });
-  const errors = form.formState.errors;
-  const staffIds = values.staff_ids ?? [];
 
   return (
     <>
       <Group radius={26} className="mx-0">
         <View className="min-h-14 flex-row items-center gap-3 px-4">
           <Text className="text-title">{t('services.name')}</Text>
-          <InlineInsetInput
+          <FormTextInput
+            control={control}
+            name="name"
             label={t('services.name')}
-            value={values.name}
-            onChangeText={(v) => set('name', v)}
             containerClassName="flex-1"
+            returnKeyType="next"
+            onSubmitEditing={() => priceInput.current?.focus()}
           />
         </View>
         <GroupBlock showSeparator>
           <View className="min-h-14 flex-row items-center gap-3 px-4">
             <Text className="flex-1 text-title">{t('services.duration')}</Text>
             <Stepper
-              valueText={durationLabel(values.duration_minutes, t)}
+              valueText={durationLabel(duration, t)}
               decrementLabel={t('services.shorter')}
               incrementLabel={t('services.longer')}
-              disableDecrement={values.duration_minutes <= SERVICE_DURATION_MIN}
-              disableIncrement={values.duration_minutes >= SERVICE_DURATION_MAX}
+              disableDecrement={duration <= SERVICE_DURATION_MIN}
+              disableIncrement={duration >= SERVICE_DURATION_MAX}
               onDecrement={() =>
                 set(
                   'duration_minutes',
                   stepValue(
-                    values.duration_minutes,
+                    duration,
                     -1,
                     SERVICE_DURATION_STEP,
                     SERVICE_DURATION_MIN,
@@ -105,7 +118,7 @@ export function ServiceFormBody({
                 set(
                   'duration_minutes',
                   stepValue(
-                    values.duration_minutes,
+                    duration,
                     1,
                     SERVICE_DURATION_STEP,
                     SERVICE_DURATION_MIN,
@@ -125,13 +138,15 @@ export function ServiceFormBody({
             >
               {currencySymbol(currency)}
             </Text>
-            <InlineInsetInput
+            <FormTextInput
+              ref={priceInput}
+              control={control}
+              name="price"
               label={t('services.price')}
-              value={values.price}
-              onChangeText={(v) => set('price', v)}
               keyboardType="decimal-pad"
               placeholder="0.00"
               containerClassName="w-[88px]"
+              returnKeyType="done"
             />
           </View>
         </GroupBlock>
@@ -186,43 +201,13 @@ export function ServiceFormBody({
       {moreOpen ? (
         <Group radius={26} className="mx-0">
           <View className="px-4 py-3.5">
-            <Text className="mb-2 text-subtitle text-muted-foreground">
-              {t('services.category')}
-            </Text>
-            {categories.length > 0 && categories.length <= MAX_SEGMENTS ? (
-              <SegmentedControl
-                variant="choice"
-                label={t('services.category')}
-                value={values.category.trim()}
-                options={categories.map((c) => ({ value: c, label: c }))}
-                onChange={(c) => set('category', c)}
-              />
-            ) : (
-              <View className="flex-row flex-wrap gap-2">
-                {categories.map((c) => (
-                  <Chip
-                    key={c}
-                    variant="choice"
-                    label={c}
-                    selected={values.category.trim() === c}
-                    onPress={() => set('category', c)}
-                  />
-                ))}
-              </View>
-            )}
-            <InlineInsetInput
-              label={t('services.newCategory')}
-              placeholder={t('services.newCategory')}
-              value={values.category}
-              onChangeText={(v) => set('category', v)}
-              containerClassName="mt-2"
-            />
+            <CategoryFields control={control} categories={categories} />
           </View>
           <GroupBlock showSeparator>
             <View className="min-h-14 flex-row items-center gap-3 px-4 py-2">
               <Text className="flex-1 text-title">{t('services.active')}</Text>
               <Switch
-                checked={values.is_active}
+                checked={isActive}
                 onCheckedChange={(v) => set('is_active', v)}
                 accessibilityLabel={t('services.active')}
               />
@@ -247,6 +232,78 @@ export function ServiceFormBody({
           ) : null}
         </Group>
       ) : null}
+    </>
+  );
+}
+
+type TextFieldName = 'name' | 'price' | 'category';
+
+/** A form input that owns its own value, so typing re-renders only this field. */
+const FormTextInput = React.forwardRef<
+  TextInput,
+  Omit<React.ComponentProps<typeof InlineInsetInput>, 'value'> & {
+    control: Control<ServiceValues>;
+    name: TextFieldName;
+  }
+>(function FormTextInput({ control, name, ...props }, ref) {
+  const { field } = useController({ control, name });
+  return (
+    <InlineInsetInput
+      ref={ref}
+      {...props}
+      value={field.value}
+      onChangeText={(v) => void field.onChange(v)}
+      onBlur={field.onBlur}
+    />
+  );
+});
+
+/** Category: pick an existing one or type a new one; both write the same field. */
+function CategoryFields({
+  control,
+  categories,
+}: {
+  control: Control<ServiceValues>;
+  categories: string[];
+}) {
+  const { t } = useTranslation();
+  const { field } = useController({ control, name: 'category' });
+  const current = field.value.trim();
+  return (
+    <>
+      <Text className="mb-2 text-subtitle text-muted-foreground">
+        {t('services.category')}
+      </Text>
+      {categories.length > 0 && categories.length <= MAX_SEGMENTS ? (
+        <SegmentedControl
+          variant="choice"
+          label={t('services.category')}
+          value={current}
+          options={categories.map((c) => ({ value: c, label: c }))}
+          onChange={(c) => void field.onChange(c)}
+        />
+      ) : (
+        <View className="flex-row flex-wrap gap-2">
+          {categories.map((c) => (
+            <Chip
+              key={c}
+              variant="choice"
+              label={c}
+              selected={current === c}
+              onPress={() => void field.onChange(c)}
+            />
+          ))}
+        </View>
+      )}
+      <InlineInsetInput
+        label={t('services.newCategory')}
+        placeholder={t('services.newCategory')}
+        value={field.value}
+        onChangeText={(v) => void field.onChange(v)}
+        onBlur={field.onBlur}
+        returnKeyType="done"
+        containerClassName="mt-2"
+      />
     </>
   );
 }
