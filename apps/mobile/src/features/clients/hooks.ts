@@ -2,10 +2,11 @@ import type {
   CreateClientNoteRequest,
   UpdateClientRequest,
 } from '@booking/types';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
 
 import { api } from '@/lib/api';
-import { qk, useApiMutation } from '@/lib/query';
+import { patchQueries, qk, useApiMutation } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
 import { clientSearchFilter } from './logic';
@@ -143,10 +144,73 @@ export function useClientAppointments(id: string) {
   });
 }
 
-export function useAddClientNote(clientId: string) {
+/**
+ * What the phone book already knows about a client (name, phone, VIP), so the
+ * profile can title itself and draw its header before the profile loads.
+ */
+export function useClientPreview(id: string) {
+  const qc = useQueryClient();
+  return React.useMemo(() => {
+    const book = qc.getQueryData<ClientBookItem[]>(qk.clientBook);
+    const found = book?.find((c) => c.id === id);
+    return found
+      ? { name: found.name, phone_e164: found.phone_e164, tags: found.tags }
+      : null;
+  }, [qc, id]);
+}
+
+/** Warms a client's profile, history and notes so the screen opens with content. */
+export function usePrefetchClient() {
+  const qc = useQueryClient();
+  return React.useCallback(
+    (id: string) => {
+      void qc.prefetchQuery({
+        queryKey: qk.client(id),
+        queryFn: () => fetchClient(id),
+      });
+      void qc.prefetchQuery({
+        queryKey: qk.clientAppointments(id),
+        queryFn: () => fetchClientAppointments(id),
+      });
+      void qc.prefetchQuery({
+        queryKey: qk.clientNotes(id),
+        queryFn: () => fetchClientNotes(id),
+      });
+    },
+    [qc],
+  );
+}
+
+let pendingNoteCount = 0;
+
+/**
+ * Adds a note: it shows in the list at once and leaves again if the server
+ * refuses. `onRejected` gets the text back so the draft can be restored.
+ */
+export function useAddClientNote(
+  clientId: string,
+  onRejected?: (body: string) => void,
+) {
   return useApiMutation<CreateClientNoteRequest>({
     mutationFn: (body, key) => api.addClientNote(clientId, body, key),
     invalidate: [qk.clientNotes(clientId)],
+    optimistic: (body, qc) =>
+      patchQueries<ClientNoteRow[]>(
+        qc,
+        { queryKey: qk.clientNotes(clientId), exact: true },
+        (notes) => [
+          {
+            id: `pending-${(pendingNoteCount += 1)}`,
+            body: body.body,
+            kind: body.kind ?? 'general',
+            created_at: new Date().toISOString(),
+          },
+          ...notes,
+        ],
+      ),
+    onError: (_error, body) => {
+      onRejected?.(body.body);
+    },
   });
 }
 
@@ -154,13 +218,37 @@ export function useDeleteClientNote(clientId: string) {
   return useApiMutation<string>({
     mutationFn: (noteId, key) => api.deleteClientNote(clientId, noteId, key),
     invalidate: [qk.clientNotes(clientId)],
+    optimistic: (noteId, qc) =>
+      patchQueries<ClientNoteRow[]>(
+        qc,
+        { queryKey: qk.clientNotes(clientId), exact: true },
+        (notes) => notes.filter((n) => n.id !== noteId),
+      ),
   });
 }
 
-/** Opt a client in or out of WhatsApp messages. */
+/**
+ * Opt a client in or out of WhatsApp messages. The switch flips at once; only
+ * this client's profile is refetched (the phone book shows none of it).
+ */
 export function useUpdateClient(clientId: string) {
   return useApiMutation<UpdateClientRequest>({
     mutationFn: (body, key) => api.updateClient(clientId, body, key),
-    invalidate: [qk.client(clientId), qk.clients],
+    invalidate: [qk.client(clientId)],
+    optimistic: (body, qc) =>
+      patchQueries<ClientProfile | null>(
+        qc,
+        { queryKey: qk.client(clientId), exact: true },
+        (client) =>
+          client && {
+            ...client,
+            ...(body.whatsapp_opt_in === undefined
+              ? {}
+              : { whatsapp_opt_in: body.whatsapp_opt_in }),
+            ...(body.is_blocked === undefined
+              ? {}
+              : { is_blocked: body.is_blocked }),
+          },
+      ),
   });
 }

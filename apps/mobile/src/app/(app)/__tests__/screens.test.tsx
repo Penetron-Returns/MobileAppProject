@@ -141,6 +141,8 @@ jest.mock('@/features/clients/hooks', () => ({
   useAddClientNote: mockMutation,
   useDeleteClientNote: mockMutation,
   useUpdateClient: mockMutation,
+  useClientPreview: () => null,
+  usePrefetchClient: () => () => undefined,
 }));
 jest.mock('@/features/inbox/hooks', () => ({
   useInboxThreads: mockHook('useInboxThreads'),

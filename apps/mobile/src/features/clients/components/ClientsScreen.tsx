@@ -22,7 +22,7 @@ import { useIsOnline } from '@/lib/online';
 import { todayISO } from '@/lib/time';
 import { describeError } from '@/lib/toast';
 
-import { useClientBook } from '../hooks';
+import { useClientBook, usePrefetchClient } from '../hooks';
 import { buildBookIndex, sectionsFromIndex, selectRecent } from '../phoneBook';
 import { PhoneBookList } from './PhoneBookList';
 
@@ -69,9 +69,14 @@ export function ClientsScreen() {
         : [],
     [clients, inbox.data, now, timezone],
   );
+  const prefetchClient = usePrefetchClient();
   const openClient = React.useCallback(
-    (id: string) => router.push(`/clients/${id}` as never),
-    [],
+    (id: string) => {
+      // Start the profile, history and notes requests as the screen opens.
+      prefetchClient(id);
+      router.push(`/clients/${id}` as never);
+    },
+    [prefetchClient],
   );
   const refresh = React.useCallback(
     () => queryClient.refetchQueries({ type: 'active' }),
