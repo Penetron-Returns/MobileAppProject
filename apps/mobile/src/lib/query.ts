@@ -12,6 +12,7 @@ import { useCallback, useRef } from 'react';
 import { isApiError } from './api';
 import { IdempotencyTracker } from './idempotency';
 import { offlineError } from './offline';
+import { noteMutationSettled, noteMutationStart } from './ownMutations';
 import { applyPersistedGcTimes } from './queryPersist';
 import { toast } from './toast';
 
@@ -156,6 +157,7 @@ export function useApiMutation<TVars, TData = unknown>(
     retry: (count, err) => count < 2 && isApiError(err) && err.isRetryable,
     retryDelay: (attempt) => 600 * (attempt + 1),
     onMutate: ({ vars }) => {
+      noteMutationStart();
       const rollback = optsRef.current.optimistic?.(vars, qc);
       return { rollback: rollback ?? null };
     },
@@ -173,6 +175,7 @@ export function useApiMutation<TVars, TData = unknown>(
     },
     // Fire-and-forget: the UI never waits on the refetch round trip.
     onSettled: (_data, error, _vars, ctx) => {
+      noteMutationSettled();
       if (error && !ctx?.rollback) return;
       for (const queryKey of optsRef.current.invalidate ?? []) {
         void qc.invalidateQueries({ queryKey });

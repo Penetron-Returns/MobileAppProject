@@ -1,4 +1,9 @@
-import { keysToInvalidate, realtimeTables, shouldListen } from '../tables';
+import {
+  isEchoCandidate,
+  keysToInvalidate,
+  realtimeTables,
+  shouldListen,
+} from '../tables';
 
 describe('realtime tables', () => {
   it('always listens to bookings and attendance', () => {
@@ -20,10 +25,15 @@ describe('realtime tables', () => {
 
   it('refreshes appointment-derived queries when an appointment changes', () => {
     expect(keysToInvalidate('appointments')).toEqual([
-      ['appointments'],
-      ['dashboard'],
-      ['clients'],
+      { key: ['appointments'], refetchType: 'active' },
+      { key: ['dashboard'], refetchType: 'active' },
+      { key: ['clients', 'book'], refetchType: 'none' },
     ]);
+  });
+
+  it('only ignores echoes of tables this device writes to', () => {
+    expect(isEchoCandidate('appointments')).toBe(true);
+    expect(isEchoCandidate('messages')).toBe(false);
   });
 
   it.each([
