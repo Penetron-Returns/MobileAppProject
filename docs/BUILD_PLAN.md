@@ -126,7 +126,7 @@ Default `booking_rules`:
 - `private.current_org_id()` = `coalesce(auth.jwt()->>'org_id', auth.jwt()->'o'->>'id')` (Clerk v1 and v2 session tokens).
 - `private.current_business_id()` = business whose `clerk_org_id` = current org (security definer, stable).
 - Every table has RLS enabled. `authenticated` gets a **SELECT** policy `business_id = private.current_business_id()` (for `businesses`, `id = …`). There are no insert/update/delete policies for `authenticated`. `webhook_events` and `idempotency_keys` have no policies (service role only).
-- Realtime publication: `appointments`, `conversations`, `messages`, `escalations`, `clients`.
+- Realtime publication: `appointments`, `conversations`, `messages`, `escalations`, `clients`, `attendance_checks`, plus the schedule-config tables `business_hours`, `business_special_days`, `availability_rules`, `availability_overrides`, `staff_breaks`, `staff_time_off` (migration `20261029000002`; the app invalidates the calendar hours on change; RLS `members_select` applies per subscriber).
 
 ### RPCs (WS-A writes, WS-B/C call via service role)
 All raise with SQLSTATE-coded errors that the API maps:
