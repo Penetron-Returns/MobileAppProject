@@ -55,6 +55,12 @@ describe('StoryRing', () => {
   });
 });
 
+/** The viewer mounts its cards one frame after the shell. */
+const settle = () =>
+  act(() => {
+    jest.advanceTimersByTime(20);
+  });
+
 describe('StoryViewer', () => {
   const setup = () => {
     const props = {
@@ -65,6 +71,7 @@ describe('StoryViewer', () => {
       onAction: jest.fn(),
     };
     const tree = mount(<StoryViewer {...props} />);
+    settle();
     return { tree, ...props };
   };
 
@@ -107,6 +114,54 @@ describe('StoryViewer', () => {
     act(() => tree.unmount());
   });
 
+  it('mounts the shell first and the cards and Clovie one frame later', () => {
+    const props = {
+      stories: SAMPLE_STORIES,
+      onClose: jest.fn(),
+      onViewed: jest.fn(),
+    };
+    const tree = mount(<StoryViewer {...props} />);
+    expect(tree.root.findAllByProps({ testID: 'story-clovie' })).toHaveLength(
+      0,
+    );
+    settle();
+    expect(
+      tree.root.findAllByProps({ testID: 'story-clovie' }).length,
+    ).toBeGreaterThan(0);
+    act(() => tree.unmount());
+  });
+
+  it('has labelled Previous, Pause and Next buttons for people who cannot tap or hold', () => {
+    const { tree } = setup();
+    for (const label of ['Previous card', 'Pause story', 'Next card']) {
+      expect(
+        tree.root.findAllByProps({ accessibilityLabel: label }).length,
+      ).toBeGreaterThan(0);
+    }
+    act(() => {
+      tree.root
+        .findAllByProps({ accessibilityLabel: 'Pause story' })[0]
+        .props.onPress();
+    });
+    expect(
+      tree.root.findAllByProps({ accessibilityLabel: 'Resume story' }).length,
+    ).toBeGreaterThan(0);
+    act(() => tree.unmount());
+  });
+
+  it('moves to the next card from the Next button', () => {
+    const { tree, onEvent } = setup();
+    act(() => {
+      tree.root
+        .findAllByProps({ accessibilityLabel: 'Next card' })[0]
+        .props.onPress();
+    });
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'card_view', cardIndex: 1 }),
+    );
+    act(() => tree.unmount());
+  });
+
   it('shows the final count at once with Reduce Motion on', () => {
     mockReduce = true;
     const { tree } = setup();
@@ -145,6 +200,7 @@ describe('StoryViewer', () => {
         onAction={onAction}
       />,
     );
+    settle();
     const button = tree.root.find(
       (n) =>
         typeof n.props.onPress === 'function' &&

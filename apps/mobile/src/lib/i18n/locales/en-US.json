@@ -2153,6 +2153,10 @@
     "close": "Close story",
     "previous": "Previous card",
     "next": "Next card",
+    "pause": "Pause story",
+    "resume": "Resume story",
+    "loadError": "Can’t load updates.",
+    "retry": "Retry",
     "progress": "Card {{current}} of {{total}}",
     "badgeNew": "New",
     "demo": {

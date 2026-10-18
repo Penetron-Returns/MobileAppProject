@@ -9,6 +9,11 @@ jest.mock('@/features/setup-checklist/useSetupStory', () => ({
   useSetupStory: () => mockSetup,
 }));
 
+let mockSettled = true;
+jest.mock('../useAfterInteractions', () => ({
+  useAfterInteractions: () => mockSettled,
+}));
+
 function row() {
   return mount(
     <StoriesRow
@@ -31,6 +36,7 @@ const labels = (tree: ReturnType<typeof row>) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockSetup = null;
+  mockSettled = true;
 });
 
 describe('StoriesRow', () => {
@@ -75,5 +81,58 @@ describe('StoriesRow', () => {
       />,
     );
     expect(labels(tree)).toEqual(['Get set up, 0 of 7 done']);
+  });
+
+  it('mounts the checklist bubble (and so its queries) only after the first screen settles', () => {
+    mockSettled = false;
+    mockSetup = { done: 4, total: 7, open: mockOpen };
+    expect(labels(row()).some((l) => l.startsWith('Get set up'))).toBe(false);
+  });
+
+  it('reserves the same fixed height while loading and once loaded', () => {
+    const heightOf = (tree: ReturnType<typeof row>, id: string) => {
+      const node = tree.root.findByProps({ testID: id });
+      let parent = node.parent;
+      while (parent && !(parent.props.style && parent.props.style.height)) {
+        parent = parent.parent;
+      }
+      return parent?.props.style.height;
+    };
+    const loading = mount(
+      <StoriesRow
+        stories={[]}
+        isLoading
+        onViewed={jest.fn()}
+        onEvent={jest.fn()}
+        onAction={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    mockSetup = null;
+    const loaded = row();
+    expect(heightOf(loading, 'stories-skeleton')).toBe(
+      heightOf(loaded, 'stories-row'),
+    );
+  });
+
+  it('shows an inline retry row, not a blank, when the load failed', () => {
+    const onRetry = jest.fn();
+    const tree = mount(
+      <StoriesRow
+        stories={[]}
+        isLoading={false}
+        isError
+        onRetry={onRetry}
+        onViewed={jest.fn()}
+        onEvent={jest.fn()}
+        onAction={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-error' }).length,
+    ).toBeGreaterThan(0);
+    act(() => pressableByLabel(tree, 'Retry').props.onPress());
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
