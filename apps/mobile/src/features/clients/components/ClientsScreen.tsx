@@ -23,7 +23,7 @@ import { todayISO } from '@/lib/time';
 import { describeError } from '@/lib/toast';
 
 import { useClientBook } from '../hooks';
-import { buildSections, selectRecent } from '../phoneBook';
+import { buildBookIndex, sectionsFromIndex, selectRecent } from '../phoneBook';
 import { PhoneBookList } from './PhoneBookList';
 
 const ADD_CLIENT = { pathname: '/new-booking', params: { mode: 'new' } };
@@ -50,13 +50,17 @@ export function ClientsScreen() {
     [dataUpdatedAt],
   );
   const clients = book.data;
-  const query = search.trim();
-  const sections = React.useMemo(
+  // Sorting and normalising the book is paid when the clients change; a
+  // keystroke only filters it, and a deferred query keeps typing responsive.
+  const index = React.useMemo(
     () =>
-      clients && timezone
-        ? buildSections(clients, { query, now, timezone })
-        : [],
-    [clients, query, now, timezone],
+      clients && timezone ? buildBookIndex(clients, { now, timezone }) : [],
+    [clients, now, timezone],
+  );
+  const query = React.useDeferredValue(search.trim());
+  const sections = React.useMemo(
+    () => sectionsFromIndex(index, query),
+    [index, query],
   );
   const recent = React.useMemo(
     () =>

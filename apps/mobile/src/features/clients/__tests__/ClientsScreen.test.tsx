@@ -2,7 +2,7 @@ import '@/lib/i18n';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as React from 'react';
-import { SectionList } from 'react-native';
+import { FlatList } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import renderer, { act } from 'react-test-renderer';
 
@@ -192,12 +192,12 @@ describe('Clients phone book', () => {
 
   it('scrolls to the section when a letter is tapped', () => {
     const scrollTo = jest
-      .spyOn(SectionList.prototype, 'scrollToLocation')
+      .spyOn(FlatList.prototype, 'scrollToIndex')
       .mockImplementation(() => {});
     const tree = renderScreen();
     act(() => labelled(tree, 'Jump to J')[0].props.onPress());
     expect(scrollTo).toHaveBeenCalledWith(
-      expect.objectContaining({ sectionIndex: 2, itemIndex: 0 }),
+      expect.objectContaining({ index: 4 }),
     );
     scrollTo.mockRestore();
   });

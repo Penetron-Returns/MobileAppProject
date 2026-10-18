@@ -1,5 +1,6 @@
 import {
   Avatar,
+  RADII,
   RowContextMenu,
   Surface,
   Text,
@@ -10,46 +11,60 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { clientMenuActions } from '../menuActions';
-import { visitSubtitle, type BookRow } from '../phoneBook';
 import type { ISODate } from '@/lib/time';
 
-/** Fixed row height: the phone book's `getItemLayout` relies on it. */
+import { clientMenuActions } from '../menuActions';
+import { visitSubtitle, type BookRow } from '../phoneBook';
+
+/** Resting row height: the phone book's `getItemLayout` relies on it at the default text size. */
 export const ROW_HEIGHT = 70;
-/** Row text stops growing here so two lines always fit the fixed height. */
-const MAX_FONT_SCALE = 1.1;
+/** Clear space under the last row of a group, before the next letter. */
+export const GROUP_GAP = 12;
 /** Board margins: 20pt left, 36pt right (clear of the index strip). Inline styles: the right-side spacing classes were dropped on Android. */
 export const GROUP_MARGIN = { marginLeft: 20, marginRight: 36 } as const;
 
-interface ClientGroupProps {
-  rows: BookRow[];
+interface ClientListRowProps {
+  row: BookRow;
   today: ISODate;
   onOpen: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
 }
 
-/** One letter's clients: a raised group of rows (36pt clear on the right for the index). */
-export const ClientGroup = React.memo(function ClientGroup({
-  rows,
+/**
+ * One client, as one item of the flat list. Neighbouring rows join into the
+ * raised group of the board: the first rounds its top, the last its bottom.
+ * Rows grow with the text size rather than clip.
+ */
+export const ClientListRow = React.memo(function ClientListRow({
+  row,
   today,
   onOpen,
-}: ClientGroupProps) {
+  isFirst,
+  isLast,
+}: ClientListRowProps) {
+  const depth = useDepth();
+  const edge = {
+    borderColor: depth.colors.hairline,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: isFirst ? StyleSheet.hairlineWidth : 0,
+    borderBottomWidth: isLast ? StyleSheet.hairlineWidth : 0,
+    borderTopLeftRadius: isFirst ? RADII.raised : 0,
+    borderTopRightRadius: isFirst ? RADII.raised : 0,
+    borderBottomLeftRadius: isLast ? RADII.raised : 0,
+    borderBottomRightRadius: isLast ? RADII.raised : 0,
+  } as const;
   return (
-    <View className="pb-2.5">
-      <Surface
-        variant="raised"
-        style={GROUP_MARGIN}
-        className="overflow-hidden"
-      >
-        {rows.map((row, index) => (
-          <ClientBookRow
-            key={row.id}
-            row={row}
-            today={today}
-            onOpen={onOpen}
-            showSeparator={index > 0}
-          />
-        ))}
-      </Surface>
+    <View style={{ paddingBottom: isLast ? GROUP_GAP : 0 }}>
+      <View style={[GROUP_MARGIN, edge, { overflow: 'hidden' }]}>
+        <ClientBookRow
+          row={row}
+          today={today}
+          onOpen={onOpen}
+          showSeparator={!isFirst}
+        />
+      </View>
     </View>
   );
 });
@@ -82,11 +97,10 @@ interface ClientBookRowProps {
   showSeparator: boolean;
 }
 
-const ClientBookRow = React.memo(function ClientBookRow(
-  props: ClientBookRowProps,
-) {
+function ClientBookRow(props: ClientBookRowProps) {
   const { t } = useTranslation();
   const { row } = props;
+  // Built only for rows that are mounted, i.e. on screen (the list is virtualised).
   const actions = React.useMemo(
     () =>
       clientMenuActions(
@@ -101,7 +115,7 @@ const ClientBookRow = React.memo(function ClientBookRow(
       <ClientRowBody {...props} />
     </RowContextMenu>
   );
-});
+}
 
 function ClientRowBody({
   row,
@@ -132,11 +146,12 @@ function ClientRowBody({
       {({ pressed }) => (
         <View
           style={{
-            height: ROW_HEIGHT,
+            minHeight: ROW_HEIGHT,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
             paddingHorizontal: 16,
+            paddingVertical: 12,
             backgroundColor: depth.colors.groupRow,
             opacity: pressed ? 0.6 : 1,
           }}
@@ -144,16 +159,11 @@ function ClientRowBody({
           {showSeparator ? <Hairline color={depth.engraveLine} /> : null}
           <Avatar name={row.name} />
           <View className="min-w-0 flex-1">
-            <Text
-              numberOfLines={1}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
-              className="text-title"
-            >
+            <Text numberOfLines={1} className="text-title">
               {row.name}
             </Text>
             <Text
               numberOfLines={1}
-              maxFontSizeMultiplier={MAX_FONT_SCALE}
               style={{ marginTop: 3 }}
               className="text-subtitle text-muted-foreground"
             >
