@@ -56,6 +56,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "80bb7524-14b3-4992-b112-10b8abdb2f1f"
+      }
+    },
+    "owner": "nerova-ai"
   }
 }
