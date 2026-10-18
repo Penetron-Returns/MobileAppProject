@@ -281,3 +281,14 @@ export function newBookingHref(prefill: NewBookingPrefill) {
   if (prefill.time) params.time = prefill.time;
   return { pathname: '/new-booking', params } as const;
 }
+
+/** The bookings that start on `date` in the business timezone (a week's rows narrowed to one day). */
+export function appointmentsOnDate<A extends { starts_at: string }>(
+  appointments: A[],
+  date: ISODate,
+  timezone: string,
+): A[] {
+  return appointments.filter(
+    (a) => businessDate(a.starts_at, timezone) === date,
+  );
+}

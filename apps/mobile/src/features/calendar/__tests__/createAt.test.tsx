@@ -56,7 +56,9 @@ const READY = {
   ],
   window: { startMin: 8 * 60, endMin: 18 * 60 },
   timezone: 'Africa/Johannesburg',
-  now: new Date('2026-10-14T08:00:00Z'),
+  date: '2026-10-14',
+  today: '2026-10-14',
+  isRefreshing: false,
   closedDay: null,
   isOffline: false,
   refresh: jest.fn(),
@@ -71,12 +73,7 @@ describe('DayView long-press', () => {
   it('opens a booking for that staff and time on an empty slot', () => {
     const onCreateAt = jest.fn<void, [NewBookingPrefill]>();
     const tree = mount(
-      <DayView
-        view={READY}
-        date="2026-10-14"
-        bottomInset={0}
-        onCreateAt={onCreateAt}
-      />,
+      <DayView view={READY} bottomInset={0} onCreateAt={onCreateAt} />,
     );
     const layer = longPressLayers(tree)[0];
     act(() =>
@@ -90,9 +87,7 @@ describe('DayView long-press', () => {
   });
 
   it('does nothing on Free, where the plus is in the tab bar', () => {
-    const tree = mount(
-      <DayView view={READY} date="2026-10-14" bottomInset={0} />,
-    );
+    const tree = mount(<DayView view={READY} bottomInset={0} />);
     expect(longPressLayers(tree)).toHaveLength(0);
   });
 });
@@ -134,24 +129,22 @@ describe('DayView horizontal scrolling', () => {
     mount(
       <DayView
         view={{ ...READY, columns: staff(n) } as typeof READY}
-        date="2026-10-14"
         bottomInset={0}
       />,
     );
   const scroller = (tree: ReturnType<typeof mount>) =>
-    tree.root.find(
-      (node) => node.props.horizontal === true && 'scrollEnabled' in node.props,
-    );
+    tree.root.findAll((node) => node.props.horizontal === true);
 
   it('scrolls sideways from the first column with three or more staff', () => {
-    const props = scroller(grid(3)).props;
-    expect(props.scrollEnabled).toBe(true);
-    expect(props.contentOffset).toEqual({ x: 0, y: 0 });
-    expect(props.bounces).toBe(false);
+    const [first] = scroller(grid(3));
+    expect(first.props.contentOffset).toEqual({ x: 0, y: 0 });
+    expect(first.props.bounces).toBe(false);
+    expect(first.props.directionalLockEnabled).toBe(true);
+    expect(first.props.overScrollMode).toBe('never');
   });
 
-  it('keeps one or two staff fixed, filling the width next to the gutter', () => {
-    expect(scroller(grid(2)).props.scrollEnabled).toBe(false);
-    expect(scroller(grid(1)).props.scrollEnabled).toBe(false);
+  it('keeps one or two staff fixed, with no sideways scroller at all', () => {
+    expect(scroller(grid(2))).toHaveLength(0);
+    expect(scroller(grid(1))).toHaveLength(0);
   });
 });
