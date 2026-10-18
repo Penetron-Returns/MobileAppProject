@@ -38,6 +38,9 @@ import {
   INBOX_DOME_SIZE,
   DEFAULT_TABS,
   TAB_BAR_HEIGHT,
+  TAB_ROW_PADDING_X,
+  TAB_ROW_PADDING_Y,
+  pillTranslateX,
   tabBarHeight,
   type TabRouteName,
 } from './layout';
@@ -70,9 +73,6 @@ interface TabFrame {
   x: number;
   width: number;
 }
-
-/** Inset of the tabs inside the capsule (p-1): the pill sits within it. */
-const BAR_PAD = 4;
 
 /** Quick settle (~250ms) for the pill and the icon dip; instant under Reduce Motion. */
 const PILL_SPRING = {
@@ -148,7 +148,7 @@ export function FloatingTabBar({
   const moveTo = React.useCallback(
     (frame: TabFrame, animate: boolean) => {
       const base = baseRef.current;
-      const x = frame.x + frame.width / 2 - base / 2;
+      const x = pillTranslateX(frame, base);
       const scale = frame.width / base;
       if (animate) {
         pillX.value = withSpring(x, PILL_SPRING);
@@ -268,8 +268,12 @@ export function FloatingTabBar({
       >
         <View
           accessibilityRole="tablist"
-          style={{ height: TAB_BAR_HEIGHT }}
-          className="flex-row items-stretch p-1"
+          style={{
+            height: TAB_BAR_HEIGHT,
+            paddingHorizontal: TAB_ROW_PADDING_X,
+            paddingVertical: TAB_ROW_PADDING_Y,
+          }}
+          className="flex-row items-stretch"
         >
           <Animated.View
             pointerEvents="none"
@@ -277,8 +281,8 @@ export function FloatingTabBar({
               depth.pill,
               {
                 position: 'absolute',
-                top: BAR_PAD,
-                bottom: BAR_PAD,
+                top: TAB_ROW_PADDING_Y,
+                bottom: TAB_ROW_PADDING_Y,
                 left: 0,
                 width: baseW,
                 borderRadius: 28,

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Dimensions } from 'react-native';
 
 import { act, byLabel, pressable, render } from '../../../testing/render';
+import { LAYOUT } from '../../../tokens/spacing';
 import { FloatingTabBar } from '../FloatingTabBar';
 import { CompanionDome } from '../CompanionDome';
 import { InboxDome } from '../InboxDome';
@@ -246,7 +247,11 @@ describe('FloatingTabBar', () => {
     const row = tree.root.findAll(
       (n) => n.props.accessibilityRole === 'tablist',
     )[0];
-    expect(row.props.style).toEqual({ height: 64 });
+    expect(row.props.style).toEqual({
+      height: 64,
+      paddingHorizontal: LAYOUT.screenPadding,
+      paddingVertical: 4,
+    });
     const flat = tree.root.findAll((n) => {
       const style = ([] as unknown[]).concat(n.props.style ?? []).flat();
       return style.some(
