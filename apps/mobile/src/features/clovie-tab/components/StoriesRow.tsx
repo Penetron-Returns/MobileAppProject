@@ -22,6 +22,13 @@ import {
   storyRingHeight,
 } from '@/features/stories/ringLayout';
 
+import { markGuideViewed, useGuideViewed } from '../guideStore';
+import {
+  buildGuideStory,
+  GUIDE_STORY_ID,
+  withEmptyKinds,
+} from '../localStories';
+import { isLocalStoryId } from '../storiesModel';
 import { useAfterInteractions } from '../useAfterInteractions';
 
 interface OpenState {
@@ -74,76 +81,6 @@ function SkeletonRings({ fontScale }: { fontScale: number }) {
   );
 }
 
-/**
- * Calm placeholder for "no updates yet": dimmed rings at the real ring size
- * (so the row's height never changes) and, when nothing else sits in the row,
- * a short line saying where updates will appear.
- */
-function EmptyPlaceholders({
-  fontScale,
-  hasCaption,
-}: {
-  fontScale: number;
-  hasCaption: boolean;
-}) {
-  const { t } = useTranslation();
-  const { isDark } = useAppColorScheme();
-  const fill = isDark ? 'rgba(235,235,245,0.12)' : 'rgba(60,60,67,0.1)';
-  return (
-    <View
-      testID="stories-empty"
-      accessible
-      accessibilityLabel={t('stories.empty')}
-      className="flex-row gap-2"
-    >
-      {[1, 0.6].map((opacity) => (
-        <View
-          key={opacity}
-          style={{ width: 80, opacity }}
-          className="items-center"
-        >
-          <View
-            style={{
-              width: RING_SIZE,
-              height: RING_SIZE,
-              borderRadius: RING_SIZE / 2,
-              backgroundColor: fill,
-            }}
-          />
-          <View
-            style={{
-              width: 80,
-              height: storyLabelHeight(fontScale),
-              marginTop: LABEL_MARGIN_TOP,
-              alignItems: 'center',
-            }}
-          >
-            <View
-              style={{
-                width: 48,
-                height: 10,
-                borderRadius: 5,
-                marginTop: 4,
-                backgroundColor: fill,
-              }}
-            />
-          </View>
-        </View>
-      ))}
-      {hasCaption ? (
-        <View
-          style={{ height: RING_SIZE, width: 160 }}
-          className="justify-center pl-2"
-        >
-          <Text className="text-subtitle text-muted-foreground">
-            {t('stories.empty')}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 /** The failure stays visible and recoverable ("Can't load updates. Retry"), never a blank row. */
 function LoadErrorRow({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
@@ -173,13 +110,11 @@ function LoadErrorRow({ onRetry }: { onRetry: () => void }) {
 /**
  * The "Get set up" bubble. Mounted only after the first screen has settled, so
  * the checklist's queries never compete with it. Reports whether it shows
- * anything, so the placeholder knows whether to add its caption.
+ * anything (kept for the row's bookkeeping).
  */
-function SetupRing({ onPresence }: { onPresence: (isShown: boolean) => void }) {
+function SetupRing() {
   const { t } = useTranslation();
   const setup = useSetupStory();
-  const isShown = setup !== null;
-  React.useEffect(() => onPresence(isShown), [isShown, onPresence]);
   if (!setup) return null;
   return (
     <ProgressStoryRing
@@ -213,7 +148,9 @@ interface StoriesRowProps {
  * The stories row: skeleton rings while loading, an inline retry on failure,
  * otherwise a ring per story. It reserves one fixed height from the first
  * frame, so nothing below it shifts when the stories arrive; it never collapses:
- * with nothing to show it keeps dimmed placeholder rings. A press
+ * a kind with nothing to show keeps a quiet placeholder story saying so. The Guide story
+ * always closes the row. Client-side stories (`local:` ids) never reach the
+ * backend callbacks. A press
  * opens the viewer at once from the frame measured as the finger landed.
  */
 export const StoriesRow = React.memo(function StoriesRow({
@@ -229,13 +166,40 @@ export const StoriesRow = React.memo(function StoriesRow({
   const { t } = useTranslation();
   const { fontScale } = useWindowDimensions();
   const [open, setOpen] = React.useState<OpenState | null>(null);
-  const [hasSetup, setHasSetup] = React.useState(false);
   const isSettled = useAfterInteractions();
   // The viewer keeps the stories it opened with, so a ring flipping to viewed
   // underneath never reshuffles the cards it is showing.
-  const opened = React.useRef<Story[]>(stories);
-  const latest = React.useRef(stories);
-  latest.current = stories;
+  const guide = useGuideViewed();
+  const guideStory = React.useMemo(
+    () => buildGuideStory(t, new Date(), guide.isViewed),
+    [t, guide.isViewed],
+  );
+  // All four kinds (placeholders fill the gaps), then the Guide. The Guide
+  // waits for its stored "viewed" flag so its ring never flashes the wrong state.
+  const base = React.useMemo(
+    () => withEmptyKinds(stories, t, new Date()),
+    [stories, t],
+  );
+  const shown = guide.isLoaded ? [...base, guideStory] : base;
+  const opened = React.useRef<Story[]>(shown);
+  const latest = React.useRef(shown);
+  latest.current = shown;
+
+  const handleViewed = React.useCallback(
+    (storyId: string, lastCardIndex: number) => {
+      if (storyId === GUIDE_STORY_ID) markGuideViewed();
+      if (isLocalStoryId(storyId)) return;
+      onViewed(storyId, lastCardIndex);
+    },
+    [onViewed],
+  );
+  const handleEvent = React.useCallback(
+    (event: StoryEvent) => {
+      if (isLocalStoryId(event.storyId)) return;
+      onEvent(event);
+    },
+    [onEvent],
+  );
 
   const onOpen = React.useCallback((storyId: string, frame: OriginFrame) => {
     const index = latest.current.findIndex((s) => s.id === storyId);
@@ -258,11 +222,9 @@ export const StoriesRow = React.memo(function StoriesRow({
     body = <LoadErrorRow onRetry={onRetry ?? noop} />;
   } else {
     // "Get set up" sits right after Business update, i.e. before Product updates.
-    const productAt = stories.findIndex((s) => s.kind === 'product');
-    const setupAt = productAt === -1 ? stories.length : productAt;
-    const setupRing = isSettled ? (
-      <SetupRing key="get-set-up" onPresence={setHasSetup} />
-    ) : null;
+    const productAt = base.findIndex((s) => s.kind === 'product');
+    const setupAt = productAt === -1 ? base.length : productAt;
+    const setupRing = isSettled ? <SetupRing key="get-set-up" /> : null;
     body = (
       <ScrollView
         horizontal
@@ -272,15 +234,15 @@ export const StoriesRow = React.memo(function StoriesRow({
         accessibilityLabel={t('stories.listLabel')}
         contentContainerClassName="gap-2 px-4"
       >
-        {stories.map((story, index) => (
+        {base.map((story, index) => (
           <React.Fragment key={story.id}>
             {index === setupAt ? setupRing : null}
             <StoryRing story={story} onPress={onOpen} />
           </React.Fragment>
         ))}
-        {setupAt === stories.length ? setupRing : null}
-        {stories.length === 0 ? (
-          <EmptyPlaceholders fontScale={fontScale} hasCaption={!hasSetup} />
+        {setupAt === base.length ? setupRing : null}
+        {guide.isLoaded ? (
+          <StoryRing key={GUIDE_STORY_ID} story={guideStory} onPress={onOpen} />
         ) : null}
       </ScrollView>
     );
@@ -297,8 +259,8 @@ export const StoriesRow = React.memo(function StoriesRow({
           initialIndex={open.index}
           originFrame={open.frame}
           onClose={onViewerClose}
-          onViewed={onViewed}
-          onEvent={onEvent}
+          onViewed={handleViewed}
+          onEvent={handleEvent}
           onAction={onAction}
         />
       ) : null}

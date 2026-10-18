@@ -6,7 +6,8 @@
  */
 import type { ClovieEmotion } from '@/features/clovie-character';
 
-export type StoryKind = 'brief' | 'clients' | 'business' | 'product';
+/** `guide` is app-side only: the backend never sends it. */
+export type StoryKind = 'brief' | 'clients' | 'business' | 'product' | 'guide';
 export type StoryTone = 'positive' | 'neutral' | 'attention' | 'concern';
 export type CountFormat = 'count' | 'money' | 'percent';
 

@@ -16,11 +16,16 @@ import type {
 /** The product-updates card set is one synthetic story; it has no id on the server. */
 export const PRODUCT_STORY_ID = 'product-updates';
 
+/** Client-only stories carry this prefix and never reach the backend. */
+export const LOCAL_STORY_PREFIX = 'local:';
+export const isLocalStoryId = (id: string) => id.startsWith(LOCAL_STORY_PREFIX);
+
 const KIND_ORDER: Record<StoryKind, number> = {
   brief: 0,
   clients: 1,
   business: 2,
   product: 3,
+  guide: 4,
 };
 
 const DEMOS = ['undo', 'names'] as const;
@@ -72,7 +77,8 @@ export function toEventDTO(
   at: Date,
 ): StoryEventDTO | null {
   const story = stories.find((s) => s.id === event.storyId);
-  if (!story) return null;
+  // Client-side stories (Updates placeholder, Guide) have no server row.
+  if (!story || story.kind === 'guide' || isLocalStoryId(story.id)) return null;
   const found = story.cards.findIndex((c) => c.id === event.cardId);
   return {
     storyKind: story.kind,

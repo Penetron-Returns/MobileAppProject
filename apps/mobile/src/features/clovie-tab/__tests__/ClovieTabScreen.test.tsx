@@ -109,25 +109,21 @@ describe('ClovieTabScreen', () => {
     ).toHaveLength(0);
   });
 
-  it('always shows the stories row with placeholders and the companion moment, even while setup is needed', () => {
+  it('always shows the stories row with placeholder rings and the companion moment, even while setup is needed', () => {
     mockSetup = { done: 1, total: 7, open: jest.fn() };
     const tree = mount(<ClovieTabScreen />);
     expect(
       tree.root.findAllByProps({ testID: 'stories-row' }).length,
     ).toBeGreaterThan(0);
-    expect(
-      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
-    ).toBeGreaterThan(0);
+    expect(text(tree)).toContain('Client updates');
     expect(text(tree)).toContain('Get set up');
     expect(mockMomentProps.testID).toBe('clovie-moment');
   });
 
-  it('keeps the placeholder row (with its caption) when there are no stories and nothing to set up', () => {
+  it('keeps the quiet placeholder rings (no caption) when there are no stories and nothing to set up', () => {
     const tree = mount(<ClovieTabScreen />);
-    expect(
-      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
-    ).toBeGreaterThan(0);
-    expect(text(tree)).toContain('Updates will show here.');
+    expect(text(tree)).toContain('Client updates');
+    expect(text(tree)).not.toContain('Updates will show here.');
     expect(mockMomentProps.testID).toBe('clovie-moment');
   });
 
