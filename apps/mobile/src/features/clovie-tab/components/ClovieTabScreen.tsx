@@ -1,15 +1,18 @@
 import { Ground, haptics, tabBarClearance } from '@booking/ui';
 import {
   CompanionMoment,
+  CompanionSetupCard,
   type MomentAvatarProperties,
 } from '@nerova/react-native';
 import * as React from 'react';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
+import { useMe } from '@/features/business/me';
 import { useOpenSetupOnce } from '@/features/companion/useOpenSetupOnce';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { useKeyboardHeight } from '@/features/onboarding/useKeyboardHeight';
@@ -43,6 +46,7 @@ export function ClovieTabScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const business = useBusiness();
+  const isOwner = useMe().data?.role === 'owner';
   const timezone = business.data?.timezone ?? FALLBACK_TIMEZONE;
   const { isAvailable, hasFailed } = useCompanionSheet();
   useOpenSetupOnce();
@@ -112,6 +116,13 @@ export function ClovieTabScreen() {
           onAction={onStoryAction}
           onClose={events.flush}
         />
+        {isOwner && isAvailable ? (
+          // One row; renders nothing unless setup is needed. It appears once
+          // the SDK has loaded setup state (a one-time shift, not animated).
+          <View className="px-4 pt-2">
+            <CompanionSetupCard testID="clovie-setup-card" />
+          </View>
+        ) : null}
         {isAvailable || hasFailed ? (
           <CompanionMoment
             testID="clovie-moment"

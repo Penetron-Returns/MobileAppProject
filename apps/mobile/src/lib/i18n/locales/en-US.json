@@ -1767,7 +1767,10 @@
       "errorUndoClosed": "The undo window has closed.",
       "errorUndoNotUndoable": "That cannot be undone.",
       "errorUndoFailed": "Could not undo that. Try again.",
-      "errorUndoConnector": "The booking system can't be reached right now. Try again in a moment."
+      "errorUndoConnector": "The booking system can't be reached right now. Try again in a moment.",
+      "setupCard": "Finish setting up WhatsApp · {count} steps",
+      "setupCardOne": "Finish setting up WhatsApp · 1 step",
+      "setupCardReconnect": "Reconnect WhatsApp"
     }
   },
   "voice": {

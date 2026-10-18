@@ -1,4 +1,4 @@
-import { RADII, TYPE_SCALE, type DepthTokens } from '@booking/ui';
+import { LAYOUT, RADII, TYPE_SCALE, type DepthTokens } from '@booking/ui';
 import type { Appearance } from '@nerova/react-native';
 import { Platform } from 'react-native';
 
@@ -54,6 +54,12 @@ export function buildCompanionAppearance(
       maxFontSizeMultiplier: COMPANION_MAX_FONT_SIZE_MULTIPLIER,
     },
     radii: { sheet: RADII.floating, card: RADII.hero, control: RADII.inset },
+    spacing: {
+      screenPadding: LAYOUT.screenPadding,
+      tapTarget: LAYOUT.tapTarget,
+    },
+    // Clovie's primary buttons are 56pt pills; the setup panels and card follow.
+    button: { shape: 'pill' },
     depth: 'flat',
     characterPlacement: 'edge',
   };
