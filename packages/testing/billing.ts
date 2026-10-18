@@ -1,6 +1,6 @@
 /** In-memory BillingRepository and a recording fake StripeClient. They honour the real contracts (see ports.ts). */
 import type { PlanKey, UUID } from '@booking/types';
-import type { BillingRecord, BillingRepository, StripeCheckoutSession, StripeClient, StripeSubscription, UnreportedBooking } from '@booking/features/billing/ports.ts';
+import type { BillingRecord, BillingRepository, PlanChangeItem, StripeCheckoutSession, StripeClient, StripeSubscription, UnreportedBooking, UpgradePayment, UpgradeResult } from '@booking/features/billing/ports.ts';
 import { notFound } from '@booking/features/lib/errors.ts';
 
 export interface MemoryBooking {
@@ -60,6 +60,8 @@ export function createMemoryBillingRepository(
         cancelAtPeriodEnd: false,
         lastEventAt: null,
         reportingStartedAt: null,
+        scheduledPlan: null,
+        scheduledAt: null,
       };
       records.set(businessId, created);
       return created;
@@ -120,7 +122,18 @@ export interface FakeStripe extends StripeClient {
   /** Ids passed to expireCheckoutSession, in order */
   expired: string[];
   portals: { customerId: string; returnUrl: string }[];
-  planChanges: { subscriptionId: string; items: { id: string | null; price: string }[] }[];
+  /** Every real (non-replayed) upgradeSubscriptionPlan call */
+  upgrades: { subscriptionId: string; items: PlanChangeItem[]; prorationDate: number; idempotencyKey: string }[];
+  /** How the next upgrade's proration invoice ends: paid (default), needs 3DS, or declined. Sticky until changed. */
+  upgradePayment: UpgradePayment;
+  /** Every previewUpgrade call, and the amount it answers (cents) */
+  previews: { subscriptionId: string; items: PlanChangeItem[]; prorationDate: number }[];
+  previewAmountCents: number;
+  /** Invoices passed to voidInvoice */
+  voidedInvoices: string[];
+  /** Subscription Schedules Stripe holds (id -> what they will switch to); released ones are removed */
+  schedules: Map<string, { subscriptionId: string; items: { price: string; quantity?: number }[]; idempotencyKey: string }>;
+  releasedSchedules: string[];
   usageSwaps: { subscriptionId: string; itemId: string | null; priceId: string }[];
   /** Meter events Stripe holds, one per identifier (a repeat is deduplicated, like Stripe) */
   meterEvents: Map<string, { eventName: string; customerId: string; timestamp: string; value: number }>;
@@ -138,7 +151,9 @@ export function createFakeStripe(): FakeStripe {
   const sessions: FakeStripe['sessions'] = [];
   const portals: FakeStripe['portals'] = [];
   const usageSwaps: FakeStripe['usageSwaps'] = [];
-  const planChanges: FakeStripe['planChanges'] = [];
+  const upgrades: FakeStripe['upgrades'] = [];
+  const schedules: FakeStripe['schedules'] = new Map();
+  const upgradeResults = new Map<string, UpgradeResult>();
   const subscriptions = new Map<string, StripeSubscription>();
   const checkoutSessions: FakeStripe['checkoutSessions'] = new Map();
   const expired: string[] = [];
@@ -147,7 +162,13 @@ export function createFakeStripe(): FakeStripe {
     sessions,
     portals,
     usageSwaps,
-    planChanges,
+    upgrades,
+    upgradePayment: 'paid',
+    previews: [],
+    previewAmountCents: 60_000,
+    voidedInvoices: [],
+    schedules,
+    releasedSchedules: [],
     meterEvents: new Map(),
     meterCalls: 0,
     failMeterEvents: 0,
@@ -197,13 +218,49 @@ export function createFakeStripe(): FakeStripe {
       if (!sub) throw notFound('Subscription');
       return sub;
     },
-    async changeSubscriptionPlan({ subscriptionId, items }) {
+    async previewUpgrade(input) {
+      if (!subscriptions.has(input.subscriptionId)) throw notFound('Subscription');
+      fake.previews.push(input);
+      return { amountDueCents: fake.previewAmountCents, currency: 'ZAR' };
+    },
+    /** Like Stripe with pending_if_incomplete: the new prices apply only when the proration invoice is paid; a repeated key replays the first answer */
+    async upgradeSubscriptionPlan({ subscriptionId, items, prorationDate, idempotencyKey }) {
+      const replay = upgradeResults.get(idempotencyKey);
+      if (replay) return replay;
       const existing = subscriptions.get(subscriptionId);
       if (!existing) throw notFound('Subscription');
-      planChanges.push({ subscriptionId, items });
-      const updated: StripeSubscription = { ...existing, items: items.map((item, i) => ({ id: item.id ?? `si_new_${i}`, priceId: item.price })) };
-      subscriptions.set(subscriptionId, updated);
-      return updated;
+      upgrades.push({ subscriptionId, items, prorationDate, idempotencyKey });
+      const payment = fake.upgradePayment;
+      const invoiceId = `in_upgrade_${upgrades.length}`;
+      let subscription = existing;
+      if (payment === 'paid') {
+        subscription = { ...existing, items: items.map((item, i) => ({ id: item.id ?? `si_new_${i}`, priceId: item.price })) };
+        subscriptions.set(subscriptionId, subscription);
+      }
+      const result: UpgradeResult = { subscription, payment, invoiceId, hostedInvoiceUrl: payment === 'paid' ? null : `https://invoice.test/${invoiceId}` };
+      upgradeResults.set(idempotencyKey, result);
+      return result;
+    },
+    async voidInvoice(invoiceId) {
+      fake.voidedInvoices.push(invoiceId);
+    },
+    async scheduleDowngrade({ subscriptionId, items, idempotencyKey }) {
+      const existing = subscriptions.get(subscriptionId);
+      if (!existing) throw notFound('Subscription');
+      const replay = [...schedules].find(([, schedule]) => schedule.idempotencyKey === idempotencyKey);
+      if (replay) return { scheduleId: replay[0] };
+      const scheduleId = `sub_sched_${schedules.size + fake.releasedSchedules.length + 1}`;
+      schedules.set(scheduleId, { subscriptionId, items, idempotencyKey });
+      subscriptions.set(subscriptionId, { ...existing, scheduleId });
+      return { scheduleId };
+    },
+    async releaseSchedule(scheduleId) {
+      const schedule = schedules.get(scheduleId);
+      if (!schedule) return;
+      schedules.delete(scheduleId);
+      fake.releasedSchedules.push(scheduleId);
+      const existing = subscriptions.get(schedule.subscriptionId);
+      if (existing) subscriptions.set(schedule.subscriptionId, { ...existing, scheduleId: null });
     },
     async setSubscriptionUsagePrice({ subscriptionId, itemId, priceId }) {
       usageSwaps.push({ subscriptionId, itemId, priceId });

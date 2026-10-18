@@ -63,3 +63,14 @@ export function previousMonth(month: string): string {
   const [year = 0, mon = 1] = month.split('-').map(Number);
   return mon === 1 ? `${year - 1}-12` : `${year}-${String(mon - 1).padStart(2, '0')}`;
 }
+
+const TIER: Readonly<Record<PaidPlan, number>> = { starter: 0, growth: 1, pro: 2 };
+
+/** Direction of a plan change by tier order starter < growth < pro */
+export function changeDirection(from: PaidPlan, to: PaidPlan): 'upgrade' | 'downgrade' | 'same' {
+  const delta = TIER[to] - TIER[from];
+  return delta === 0 ? 'same' : delta > 0 ? 'upgrade' : 'downgrade';
+}
+
+/** A preview's proration date may be reused for this long; after that the owner must look at a fresh amount */
+export const PRORATION_DATE_MAX_AGE_SECONDS = 15 * 60;

@@ -620,12 +620,14 @@ describe('Clerk organisation metadata mirror', () => {
       items: [{ id: 'si_base', priceId: PRICES.growth }, { id: 'si_usage', priceId: USAGE.growth }],
       currentPeriodEnd: null, cancelAtPeriodEnd: false, businessId: null, metadataPlan: 'growth',
     });
-    await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'starter' } });
-    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'starter', billingStatus: 'active' });
+    await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'pro' } });
+    expect(t.clerk.orgMetadata.get(orgId)).toMatchObject({ plan: 'pro', billingStatus: 'active' });
   });
 });
 
-describe('POST /v1/billing/plan', () => {
+describe('POST /v1/billing/plan and its preview', () => {
+  const PERIOD_END = new Date(1_795_000_000 * 1000).toISOString();
+
   async function subscribed(over: Parameters<typeof setup>[0] = {}) {
     const t = setup(over);
     await withCustomer(t);
@@ -633,50 +635,266 @@ describe('POST /v1/billing/plan', () => {
     t.stripe.subscriptions.set('sub_1', {
       id: 'sub_1', customerId: 'cus_1', status: 'active',
       items: [{ id: 'si_base', priceId: PRICES.growth }, { id: 'si_usage', priceId: USAGE.growth }],
-      currentPeriodEnd: null, cancelAtPeriodEnd: false, businessId: null, metadataPlan: 'growth',
+      currentPeriodEnd: PERIOD_END, cancelAtPeriodEnd: false, businessId: null, metadataPlan: 'growth', scheduleId: null,
     });
     return t;
   }
+  type Subscribed = Awaited<ReturnType<typeof subscribed>>;
+  let keySeq = 0;
+  /** A fresh Idempotency-Key per call unless one is given (a reused key with another body is a 422) */
+  const change = (t: Subscribed, body: Record<string, unknown>, key = `plan-key-${String((keySeq += 1)).padStart(4, '0')}`) => t.h.call('POST', '/v1/billing/plan', { body, key });
+  const preview = (t: { h: Subscribed['h'] }, plan: string, token?: 'owner' | 'staff') =>
+    t.h.call('GET', `/v1/billing/plan/preview?plan=${plan}`, token ? { token } : {});
 
-  it('swaps both the base and the usage item with proration and flips the plan at once', async () => {
-    const t = await subscribed();
-    const res = await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'pro' } });
-    expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ status: 'active', plan: 'pro', is_past_due: false });
-    expect(t.stripe.planChanges).toEqual([
-      { subscriptionId: 'sub_1', items: [{ id: 'si_base', price: PRICES.pro }, { id: 'si_usage', price: USAGE.pro }] },
-    ]);
-    expect(t.repo.plans.get(BIZ)).toBe('pro');
-    expect(t.emitted.map((e) => e.type)).toEqual(['account.created', 'account.updated']);
-    // the webhook Stripe sends afterwards finds nothing left to do
-    const after = await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { created: nowSec + 5 });
-    expect(after.status).toBe(200);
-    expect(t.repo.plans.get(BIZ)).toBe('pro');
-    expect(t.stripe.usageSwaps).toEqual([]);
+  describe('preview', () => {
+    it('quotes an upgrade from the Stripe invoice preview at a pinned proration date', async () => {
+      const t = await subscribed();
+      t.stripe.previewAmountCents = 59_950;
+      const res = await preview(t, 'pro');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({
+        direction: 'upgrade',
+        plan: 'pro',
+        current_plan: 'growth',
+        amount_due_now_cents: 59_950,
+        currency: 'ZAR',
+        next_amount_cents: 80_000,
+        effective_at: NOW.toISOString(),
+        next_billing_at: PERIOD_END,
+        proration_date: nowSec,
+      });
+      expect(t.stripe.previews).toEqual([
+        { subscriptionId: 'sub_1', prorationDate: nowSec, items: [{ id: 'si_base', price: PRICES.pro, quantity: 1 }, { id: 'si_usage', price: USAGE.pro }] },
+      ]);
+      expect(t.stripe.upgrades).toEqual([]);
+    });
+
+    it('quotes a downgrade as free now and effective at the period end, without asking Stripe', async () => {
+      const t = await subscribed();
+      const res = await preview(t, 'starter');
+      expect(res.body.data).toEqual({
+        direction: 'downgrade',
+        plan: 'starter',
+        current_plan: 'growth',
+        amount_due_now_cents: 0,
+        currency: 'ZAR',
+        next_amount_cents: 20_000,
+        effective_at: PERIOD_END,
+        next_billing_at: PERIOD_END,
+        proration_date: null,
+      });
+      expect(t.stripe.previews).toEqual([]);
+    });
+
+    it('answers same for the current plan', async () => {
+      const t = await subscribed();
+      const res = await preview(t, 'growth');
+      expect(res.body.data).toMatchObject({ direction: 'same', amount_due_now_cents: 0, next_amount_cents: 40_000, proration_date: null });
+    });
+
+    it('is owner only, validates the plan and needs a subscription', async () => {
+      const t = await subscribed();
+      expect((await preview(t, 'pro', 'staff')).status).toBe(403);
+      expect((await preview(t, 'free')).status).toBe(400);
+      const none = await preview(setup(), 'pro');
+      expect(none.status).toBe(422);
+      expect(none.body.error.details).toMatchObject({ rule: 'NO_SUBSCRIPTION' });
+    });
   });
 
-  it('adds the usage line when the subscription has none', async () => {
-    const t = await subscribed();
-    t.stripe.subscriptions.set('sub_1', { ...t.stripe.subscriptions.get('sub_1')!, items: [{ id: 'si_base', priceId: PRICES.growth }] });
-    await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'starter' } });
-    expect(t.stripe.planChanges[0]?.items).toEqual([{ id: 'si_base', price: PRICES.starter }, { id: null, price: USAGE.starter }]);
+  describe('upgrade', () => {
+    it('invoices the proration now, swaps both items and activates the plan once paid', async () => {
+      const t = await subscribed();
+      const res = await change(t, { plan: 'pro', proration_date: nowSec - 60 }, 'plan-key-0001');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ status: 'active', plan: 'pro' });
+      expect(t.stripe.upgrades).toEqual([
+        {
+          subscriptionId: 'sub_1',
+          prorationDate: nowSec - 60,
+          items: [{ id: 'si_base', price: PRICES.pro, quantity: 1 }, { id: 'si_usage', price: USAGE.pro }],
+          idempotencyKey: `plan:${BIZ}:plan-key-0001`,
+        },
+      ]);
+      expect(t.repo.plans.get(BIZ)).toBe('pro');
+      expect(t.emitted.map((e) => e.type)).toEqual(['account.created', 'account.updated']);
+      expect(t.audits.at(-1)).toMatchObject({ actorId: 'user_owner_clerk_id', diff: { source: 'owner_api', ref: 'plan-key-0001', plan_from: 'growth', plan_to: 'pro' } });
+      // the webhook Stripe sends afterwards finds nothing left to do
+      const after = await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { created: nowSec + 5 });
+      expect(after.status).toBe(200);
+      expect(t.repo.plans.get(BIZ)).toBe('pro');
+      expect(t.stripe.usageSwaps).toEqual([]);
+    });
+
+    it('uses now as the proration date when the request has none, and adds a missing usage line', async () => {
+      const t = await subscribed();
+      t.stripe.subscriptions.set('sub_1', { ...t.stripe.subscriptions.get('sub_1')!, items: [{ id: 'si_base', priceId: PRICES.growth }] });
+      await change(t, { plan: 'pro' });
+      expect(t.stripe.upgrades[0]).toMatchObject({ prorationDate: nowSec, items: [{ id: 'si_base', price: PRICES.pro, quantity: 1 }, { id: null, price: USAGE.pro }] });
+    });
+
+    it('rejects a proration date older than 15 minutes or in the future', async () => {
+      const t = await subscribed();
+      for (const date of [nowSec - 16 * 60, nowSec + 120]) {
+        const res = await change(t, { plan: 'pro', proration_date: date });
+        expect(res.status).toBe(422);
+        expect(res.body.error.details).toMatchObject({ rule: 'PRORATION_DATE_STALE' });
+      }
+      expect((await change(t, { plan: 'pro', proration_date: nowSec - 14 * 60 })).status).toBe(200);
+      expect(t.stripe.upgrades).toHaveLength(1);
+    });
+
+    it('returns the hosted invoice to authenticate and leaves the plan alone until Stripe confirms', async () => {
+      const t = await subscribed();
+      t.stripe.upgradePayment = 'requires_action';
+      const res = await change(t, { plan: 'pro' });
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ status: 'requires_action', plan: 'pro', hosted_invoice_url: 'https://invoice.test/in_upgrade_1' });
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      expect(t.stripe.voidedInvoices).toEqual([]);
+      expect(t.audits.at(-1)?.diff).toMatchObject({ outcome: 'requires_action', plan_from: 'growth', plan_to: 'growth', requested_plan: 'pro' });
+      // an update with a pending change (old prices still on the items) does not move the plan either
+      await t.webhook('customer.subscription.updated', { ...sub(), pending_update: { expires_at: nowSec + 86_400 } }, { created: nowSec + 5 });
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      // once the owner pays on the hosted page Stripe applies the prices and the webhook flips the plan
+      await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { created: nowSec + 60 });
+      expect(t.repo.plans.get(BIZ)).toBe('pro');
+    });
+
+    it('answers 402 PAYMENT_FAILED for a declined card, voids the invoice and changes nothing', async () => {
+      const t = await subscribed();
+      t.stripe.upgradePayment = 'failed';
+      const res = await change(t, { plan: 'pro' });
+      expect(res.status).toBe(402);
+      expect(res.body.error.code).toBe('PAYMENT_FAILED');
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      expect(t.repo.records.get(BIZ)?.status).toBe('active');
+      expect(t.stripe.voidedInvoices).toEqual(['in_upgrade_1']);
+      expect(t.emitted.map((e) => e.type)).toEqual(['account.created']);
+      expect(t.audits.at(-1)?.diff).toMatchObject({ outcome: 'payment_failed', plan_to: 'growth' });
+    });
+
+    it('does not treat a failed proration invoice as a past-due subscription', async () => {
+      const t = await subscribed();
+      const failed = await t.webhook(
+        'invoice.payment_failed',
+        { id: 'in_upgrade_1', subscription: 'sub_1', billing_reason: 'subscription_update' },
+        { created: nowSec + 10 },
+      );
+      expect(failed.body.data.status).toBe('ignored');
+      expect(t.repo.records.get(BIZ)?.status).toBe('active');
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      // a renewal invoice that fails still does
+      await t.webhook('invoice.payment_failed', { id: 'in_renewal', subscription: 'sub_1', billing_reason: 'subscription_cycle' }, { created: nowSec + 20 });
+      expect(t.repo.records.get(BIZ)?.status).toBe('past_due');
+    });
+
+    it('replays the same Idempotency-Key as one charge', async () => {
+      const t = await subscribed();
+      const first = await change(t, { plan: 'pro' }, 'same-key-00001');
+      const again = await change(t, { plan: 'pro' }, 'same-key-00001');
+      expect(first.status).toBe(200);
+      expect(again.body).toEqual(first.body);
+      expect(t.stripe.upgrades).toHaveLength(1);
+    });
   });
 
-  it('is owner only, validates the plan and needs an Idempotency-Key', async () => {
-    const t = await subscribed();
-    expect((await t.h.call('POST', '/v1/billing/plan', { token: 'staff', body: { plan: 'pro' } })).status).toBe(403);
-    expect((await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'free' } })).status).toBe(400);
-    expect(t.stripe.planChanges).toEqual([]);
+  describe('downgrade', () => {
+    it('schedules it for the period end and keeps the plan until the renewal webhook', async () => {
+      const t = await subscribed();
+      const res = await change(t, { plan: 'starter' }, 'plan-key-0001');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ status: 'scheduled', plan: 'starter', effective_at: PERIOD_END });
+      expect([...t.stripe.schedules.values()]).toEqual([
+        { subscriptionId: 'sub_1', idempotencyKey: `plan:${BIZ}:plan-key-0001`, items: [{ price: PRICES.starter, quantity: 1 }, { price: USAGE.starter }] },
+      ]);
+      expect(t.stripe.upgrades).toEqual([]);
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      expect(t.audits.at(-1)).toMatchObject({ actorId: 'user_owner_clerk_id', diff: { outcome: 'downgrade_scheduled', plan_from: 'growth', plan_to: 'growth', requested_plan: 'starter' } });
+
+      // the app sees what is scheduled
+      const plans = await t.h.call('GET', '/v1/plans');
+      expect(plans.body.data.subscription).toMatchObject({ plan: 'growth', scheduled_plan: 'starter', scheduled_at: PERIOD_END });
+
+      // the update Stripe sends for the schedule itself changes nothing
+      await t.webhook('customer.subscription.updated', sub({ schedule: 'sub_sched_1' }), { created: nowSec + 5 });
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+      expect(t.repo.records.get(BIZ)).toMatchObject({ scheduledPlan: 'starter', scheduledAt: PERIOD_END });
+
+      // renewal: Stripe moves the subscription to the lower prices; the webhook flips the plan and clears the schedule
+      await t.webhook('customer.subscription.updated', sub({ price: PRICES.starter, usage: USAGE.starter, schedule: 'sub_sched_1' }), { created: nowSec + 1000 });
+      expect(t.repo.plans.get(BIZ)).toBe('starter');
+      expect(t.repo.records.get(BIZ)).toMatchObject({ plan: 'starter', scheduledPlan: null, scheduledAt: null });
+      expect(t.stripe.usageSwaps).toEqual([]);
+    });
+
+    it('is a no-op to ask for the same scheduled downgrade again', async () => {
+      const t = await subscribed();
+      await change(t, { plan: 'starter' }, 'first-key-0001');
+      const again = await change(t, { plan: 'starter' }, 'second-key-0002');
+      expect(again.body.data).toEqual({ status: 'scheduled', plan: 'starter', effective_at: PERIOD_END });
+      expect(t.stripe.schedules.size).toBe(1);
+      expect(t.stripe.releasedSchedules).toEqual([]);
+    });
+
+    it('replaces a scheduled downgrade with a different one', async () => {
+      const t = await subscribed();
+      await t.webhook('customer.subscription.updated', sub({ price: PRICES.pro, usage: USAGE.pro }), { created: nowSec + 1 });
+      t.stripe.subscriptions.set('sub_1', { ...t.stripe.subscriptions.get('sub_1')!, items: [{ id: 'si_base', priceId: PRICES.pro }, { id: 'si_usage', priceId: USAGE.pro }] });
+      await change(t, { plan: 'starter' }, 'first-key-0001');
+      const res = await change(t, { plan: 'growth' }, 'second-key-0002');
+      expect(res.body.data).toEqual({ status: 'scheduled', plan: 'growth', effective_at: PERIOD_END });
+      expect(t.stripe.releasedSchedules).toEqual(['sub_sched_1']);
+      expect([...t.stripe.schedules.values()].map((s) => s.items[0]?.price)).toEqual([PRICES.growth]);
+      expect(t.repo.records.get(BIZ)?.scheduledPlan).toBe('growth');
+    });
+
+    it('is cancelled by upgrading again before it happens', async () => {
+      const t = await subscribed();
+      await change(t, { plan: 'starter' }, 'first-key-0001');
+      const res = await change(t, { plan: 'pro' }, 'second-key-0002');
+      expect(res.body.data).toEqual({ status: 'active', plan: 'pro' });
+      expect(t.stripe.releasedSchedules).toEqual(['sub_sched_1']);
+      expect(t.stripe.schedules.size).toBe(0);
+      expect(t.repo.records.get(BIZ)).toMatchObject({ plan: 'pro', scheduledPlan: null, scheduledAt: null });
+      expect(t.audits.some((a) => (a.diff as { outcome?: string }).outcome === 'schedule_cancelled')).toBe(true);
+    });
+
+    it('is cancelled by choosing the current plan ("keep my plan")', async () => {
+      const t = await subscribed();
+      await change(t, { plan: 'starter' }, 'first-key-0001');
+      const res = await change(t, { plan: 'growth' }, 'second-key-0002');
+      expect(res.body.data).toEqual({ status: 'active', plan: 'growth' });
+      expect(t.stripe.releasedSchedules).toEqual(['sub_sched_1']);
+      expect(t.repo.records.get(BIZ)).toMatchObject({ plan: 'growth', scheduledPlan: null });
+      expect(t.repo.plans.get(BIZ)).toBe('growth');
+    });
+
+    it('clears the schedule when Stripe says it is gone (released or cancelled outside our API)', async () => {
+      const t = await subscribed();
+      await change(t, { plan: 'starter' });
+      await t.webhook('customer.subscription.updated', sub(), { created: nowSec + 30 });
+      expect(t.repo.records.get(BIZ)).toMatchObject({ plan: 'growth', scheduledPlan: null, scheduledAt: null });
+    });
   });
 
-  it('refuses the current plan, and a business without an active subscription', async () => {
+  it('refuses the current plan without a scheduled change, and a business without an active subscription', async () => {
     const t = await subscribed();
-    const same = await t.h.call('POST', '/v1/billing/plan', { body: { plan: 'growth' } });
+    const same = await change(t, { plan: 'growth' });
     expect(same.status).toBe(422);
     expect(same.body.error.details).toMatchObject({ rule: 'SAME_PLAN' });
     const none = await setup().h.call('POST', '/v1/billing/plan', { body: { plan: 'pro' } });
     expect(none.status).toBe(422);
     expect(none.body.error.details).toMatchObject({ rule: 'NO_SUBSCRIPTION' });
+  });
+
+  it('is owner only and validates the body', async () => {
+    const t = await subscribed();
+    expect((await t.h.call('POST', '/v1/billing/plan', { token: 'staff', body: { plan: 'pro' } })).status).toBe(403);
+    expect((await change(t, { plan: 'free' })).status).toBe(400);
+    expect((await change(t, { plan: 'pro', proration_date: 'now' })).status).toBe(400);
+    expect(t.stripe.upgrades).toEqual([]);
+    expect(t.stripe.schedules.size).toBe(0);
   });
 
   it('answers 503 BILLING_NOT_CONFIGURED without Stripe', async () => {

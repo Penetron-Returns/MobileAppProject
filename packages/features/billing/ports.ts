@@ -1,5 +1,5 @@
 /** Billing ports: what the API and the usage service need from Stripe billing, and what the Stripe client and the repository must offer. */
-import type { CheckoutSessionDTO, PlanKey, PortalSessionDTO, SubscriptionDTO, SubscriptionStatus, UUID } from '@booking/types';
+import type { ChangePlanResultDTO, CheckoutSessionDTO, PlanChangePreviewDTO, PlanKey, PortalSessionDTO, SubscriptionDTO, SubscriptionStatus, UUID } from '@booking/types';
 
 /** Plans that can be bought */
 export type PaidPlan = 'starter' | 'growth' | 'pro';
@@ -39,6 +39,28 @@ export interface StripeSubscription {
   businessId: UUID | null;
   /** `metadata.plan` we set at checkout; the price wins because the portal can change it */
   metadataPlan: string | null;
+  /** The Subscription Schedule attached to it (a scheduled downgrade); null / absent when there is none */
+  scheduleId?: string | null;
+}
+
+/** One line of a plan change: an existing item to re-price, or a new one (id null). Licensed lines carry quantity 1, metered lines none. */
+export interface PlanChangeItem {
+  id: string | null;
+  price: string;
+  quantity?: number;
+}
+
+/** How the proration invoice of an upgrade ended */
+export type UpgradePayment = 'paid' | 'requires_action' | 'failed';
+
+export interface UpgradeResult {
+  /** The subscription as Stripe holds it after the call (new prices only when the invoice was paid) */
+  subscription: StripeSubscription;
+  payment: UpgradePayment;
+  /** The proration invoice; null when Stripe created none (nothing to charge) */
+  invoiceId: string | null;
+  /** Where the customer pays or authenticates; set for requires_action */
+  hostedInvoiceUrl: string | null;
 }
 
 /** The slice of a Checkout Session the confirm route reads (no customer details) */
@@ -79,8 +101,26 @@ export interface StripeClient {
   listSubscriptions(customerId: string): Promise<StripeSubscription[]>;
   /** Null when Stripe does not know the session */
   retrieveCheckoutSession(sessionId: string): Promise<StripeCheckoutSession | null>;
-  /** Updates the subscription's lines in one call (both the base and the usage price) with proration; returns the result. */
-  changeSubscriptionPlan(input: { subscriptionId: string; items: { id: string | null; price: string }[]; idempotencyKey: string }): Promise<StripeSubscription>;
+  /**
+   * The proration delta an upgrade would charge now (`POST /v1/invoices/create_preview`, always_invoice, at `prorationDate`).
+   * Creates nothing at Stripe. `currency` is upper case.
+   */
+  previewUpgrade(input: { subscriptionId: string; items: PlanChangeItem[]; prorationDate: number }): Promise<{ amountDueCents: number; currency: string }>;
+  /**
+   * Switches the lines of the subscription now (base and usage price together) and invoices the proration at once with
+   * `payment_behavior: pending_if_incomplete`: Stripe applies the new prices only when that invoice is paid. The outcome tells
+   * which of paid, needs-authentication and declined happened. `prorationDate` (unix seconds) pins the amount to the preview.
+   */
+  upgradeSubscriptionPlan(input: { subscriptionId: string; items: PlanChangeItem[]; prorationDate: number; idempotencyKey: string }): Promise<UpgradeResult>;
+  /** Voids an open invoice (which also discards the pending update behind it). An invoice that is no longer open is not an error. */
+  voidInvoice(invoiceId: string): Promise<void>;
+  /**
+   * Schedules `items` (new base price qty 1 and usage price) to replace the current prices when the current period ends, via a
+   * Subscription Schedule, with no proration and nothing changing now. Returns the schedule id.
+   */
+  scheduleDowngrade(input: { subscriptionId: string; items: { price: string; quantity?: number }[]; idempotencyKey: string }): Promise<{ scheduleId: string }>;
+  /** Releases a Subscription Schedule: the subscription keeps its current prices and the future phases are dropped. Already released is not an error. */
+  releaseSchedule(scheduleId: string): Promise<void>;
   createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
   retrieveSubscription(subscriptionId: string): Promise<StripeSubscription>;
   /** Points the subscription's usage line at `priceId`: swaps item `itemId`, or adds a line when it is null. No proration. */
@@ -114,6 +154,10 @@ export interface BillingRecord {
   lastEventAt: string | null;
   /** Set when the business first became entitled: bookings that ended before it are never reported to the meter */
   reportingStartedAt: string | null;
+  /** A downgrade scheduled for the end of the paid period (the plan above stays until then); null when none */
+  scheduledPlan: PaidPlan | null;
+  /** ISO-8601 UTC: the period end `scheduledPlan` was scheduled for */
+  scheduledAt: string | null;
 }
 
 /** A booking (any status) waiting to be sent to the meter */
@@ -167,8 +211,14 @@ export interface BillingService {
    * `checkout.session.completed` webhook (idempotent either way round). Throws NOT_FOUND for an unknown or foreign session.
    */
   confirmCheckout(sessionId: string): Promise<CheckoutConfirmation>;
-  /** Moves an existing subscription to another paid plan (portal cannot: multi-item metered subscriptions) */
-  changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO>;
+  /**
+   * Moves an existing subscription to another paid plan (the portal cannot: multi-item metered subscriptions). An upgrade is
+   * invoiced now and only applied when paid; a downgrade is scheduled for the period end; the current plan cancels a
+   * scheduled downgrade. A declined card throws PAYMENT_FAILED and changes nothing.
+   */
+  changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string; prorationDate?: number }): Promise<ChangePlanResultDTO>;
+  /** What `changePlan` to `plan` would charge and when it takes effect. Read-only. */
+  previewPlanChange(input: { businessId: UUID; plan: PaidPlan }): Promise<PlanChangePreviewDTO>;
   createPortal(businessId: UUID): Promise<PortalSessionDTO>;
   /** Applies one verified Stripe event. Throws on a transient failure so Stripe retries. */
   handleEvent(event: StripeEvent): Promise<BillingEventOutcome>;

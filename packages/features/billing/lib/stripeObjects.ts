@@ -38,5 +38,6 @@ export function parseSubscription(raw: unknown): StripeSubscription | null {
     cancelAtPeriodEnd: sub.cancel_at_period_end === true,
     businessId: businessId && UUID_RE.test(businessId) ? (businessId as UUID) : null,
     metadataPlan: asString(metadata.plan),
+    scheduleId: refId(sub.schedule),
   };
 }

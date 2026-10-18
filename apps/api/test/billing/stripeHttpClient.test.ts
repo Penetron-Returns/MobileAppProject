@@ -121,6 +121,103 @@ describe('StripeClient over fetch', () => {
     expect(first.get('proration_behavior')).toBe('none');
     expect(new URLSearchParams(calls[1]!.body).has('items[0][id]')).toBe(false);
   });
+
+  describe('plan changes', () => {
+    const ITEMS = [{ id: 'si_base', price: 'price_pro', quantity: 1 }, { id: 'si_usage', price: 'price_pro_usage' }];
+    const subBody = (over: Record<string, unknown> = {}) => ({
+      id: 'sub_1',
+      customer: 'cus_1',
+      status: 'active',
+      items: { data: [{ id: 'si_base', price: { id: 'price_growth' }, current_period_end: 1_795_000_000 }] },
+      ...over,
+    });
+
+    it('previews an upgrade as the proration invoice at the pinned date, creating nothing', async () => {
+      const { stripe, calls } = client([{ status: 200, body: { amount_due: 59_950, currency: 'zar' } }]);
+      const quote = await stripe.previewUpgrade({ subscriptionId: 'sub_1', items: ITEMS, prorationDate: 1_792_000_000 });
+      expect(quote).toEqual({ amountDueCents: 59_950, currency: 'ZAR' });
+      expect(calls[0]!.url).toBe('https://api.stripe.com/v1/invoices/create_preview');
+      const form = new URLSearchParams(calls[0]!.body);
+      expect(form.get('subscription')).toBe('sub_1');
+      expect(form.get('subscription_details[proration_behavior]')).toBe('always_invoice');
+      expect(form.get('subscription_details[proration_date]')).toBe('1792000000');
+      expect(form.get('subscription_details[items][0][id]')).toBe('si_base');
+      expect(form.get('subscription_details[items][0][price]')).toBe('price_pro');
+      expect(form.get('subscription_details[items][0][quantity]')).toBe('1');
+      expect(form.get('subscription_details[items][1][price]')).toBe('price_pro_usage');
+      expect(form.has('subscription_details[items][1][quantity]')).toBe(false);
+    });
+
+    it('upgrades with pending_if_incomplete and always_invoice, and reports a paid invoice', async () => {
+      const { stripe, calls } = client([{ status: 200, body: subBody({ pending_update: null, latest_invoice: { id: 'in_1', status: 'paid' } }) }]);
+      const result = await stripe.upgradeSubscriptionPlan({ subscriptionId: 'sub_1', items: ITEMS, prorationDate: 1_792_000_000, idempotencyKey: 'plan:k' });
+      expect(result).toMatchObject({ payment: 'paid', invoiceId: 'in_1' });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.headers['idempotency-key']).toBe('plan:k');
+      const form = new URLSearchParams(calls[0]!.body);
+      expect(form.get('proration_behavior')).toBe('always_invoice');
+      expect(form.get('payment_behavior')).toBe('pending_if_incomplete');
+      expect(form.get('proration_date')).toBe('1792000000');
+      expect(form.get('items[0][id]')).toBe('si_base');
+      expect(form.get('items[0][quantity]')).toBe('1');
+      expect(form.get('expand[0]')).toBe('latest_invoice');
+    });
+
+    it('tells a card that needs authentication from a declined one by the invoice payment intent', async () => {
+      const pending = { pending_update: { expires_at: 1 }, latest_invoice: { id: 'in_1', status: 'open', hosted_invoice_url: 'https://invoice.stripe.com/i/x' } };
+      const action = client([{ status: 200, body: subBody(pending) }, { status: 200, body: { data: [{ payment: { payment_intent: { status: 'requires_action' } } }] } }]);
+      expect(await action.stripe.upgradeSubscriptionPlan({ subscriptionId: 'sub_1', items: ITEMS, prorationDate: 1, idempotencyKey: 'k' })).toMatchObject({
+        payment: 'requires_action',
+        hostedInvoiceUrl: 'https://invoice.stripe.com/i/x',
+      });
+      expect(action.calls[1]!.url).toContain('/v1/invoice_payments?invoice=in_1');
+
+      const declined = client([{ status: 200, body: subBody(pending) }, { status: 200, body: { data: [{ payment: { payment_intent: { status: 'requires_payment_method' } } }] } }]);
+      expect(await declined.stripe.upgradeSubscriptionPlan({ subscriptionId: 'sub_1', items: ITEMS, prorationDate: 1, idempotencyKey: 'k' })).toMatchObject({ payment: 'failed', invoiceId: 'in_1' });
+    });
+
+    it('schedules a downgrade as a second phase after the current prices, with no proration', async () => {
+      const created = { id: 'sub_sched_1', phases: [{ start_date: 100, end_date: 200, items: [{ price: 'price_pro', quantity: 1 }, { price: 'price_pro_usage', quantity: null }] }] };
+      const { stripe, calls } = client([{ status: 200, body: created }, { status: 200, body: {} }]);
+      const items = [{ price: 'price_starter', quantity: 1 }, { price: 'price_starter_usage' }];
+      expect(await stripe.scheduleDowngrade({ subscriptionId: 'sub_1', items, idempotencyKey: 'plan:k' })).toEqual({ scheduleId: 'sub_sched_1' });
+      expect(calls[0]!.url).toBe('https://api.stripe.com/v1/subscription_schedules');
+      expect(new URLSearchParams(calls[0]!.body).get('from_subscription')).toBe('sub_1');
+      expect(calls[0]!.headers['idempotency-key']).toBe('plan:k:create');
+      expect(calls[1]!.url).toBe('https://api.stripe.com/v1/subscription_schedules/sub_sched_1');
+      expect(calls[1]!.headers['idempotency-key']).toBe('plan:k:phases');
+      const form = new URLSearchParams(calls[1]!.body);
+      expect(form.get('end_behavior')).toBe('release');
+      expect(form.get('proration_behavior')).toBe('none');
+      expect(form.get('phases[0][start_date]')).toBe('100');
+      expect(form.get('phases[0][end_date]')).toBe('200');
+      expect(form.get('phases[0][items][0][price]')).toBe('price_pro');
+      expect(form.get('phases[0][items][0][quantity]')).toBe('1');
+      expect(form.has('phases[0][items][1][quantity]')).toBe(false);
+      expect(form.get('phases[1][items][0][price]')).toBe('price_starter');
+      expect(form.get('phases[1][items][1][price]')).toBe('price_starter_usage');
+      expect(form.has('phases[1][end_date]')).toBe(false);
+    });
+
+    it('releases a schedule and voids an invoice, treating an already-done one as success', async () => {
+      const { stripe, calls } = client([{ status: 200 }, { status: 400, body: { error: { code: 'subscription_schedule_already_released' } } }, { status: 200 }, { status: 400, body: { error: { code: 'invoice_not_open' } } }]);
+      await stripe.releaseSchedule('sub_sched_1');
+      await stripe.releaseSchedule('sub_sched_1');
+      await stripe.voidInvoice('in_1');
+      await stripe.voidInvoice('in_1');
+      expect(calls.map((c) => c.url)).toEqual([
+        'https://api.stripe.com/v1/subscription_schedules/sub_sched_1/release',
+        'https://api.stripe.com/v1/subscription_schedules/sub_sched_1/release',
+        'https://api.stripe.com/v1/invoices/in_1/void',
+        'https://api.stripe.com/v1/invoices/in_1/void',
+      ]);
+    });
+
+    it('reads the schedule id of a subscription', () => {
+      expect(parseSubscription(subBody({ schedule: 'sub_sched_9' }))?.scheduleId).toBe('sub_sched_9');
+      expect(parseSubscription(subBody({ schedule: null }))?.scheduleId).toBeNull();
+    });
+  });
 });
 
 describe('Stripe-Signature', () => {
