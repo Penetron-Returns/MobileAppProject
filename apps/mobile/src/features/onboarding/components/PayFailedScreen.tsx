@@ -30,7 +30,8 @@ export function PayFailedScreen({
   onBack?: () => void;
 }) {
   const { t } = useTranslation();
-  const isBoardCopy = phase.kind === 'cancelled' || phase.kind === 'failed';
+  // "You haven't been charged" only when checkout never opened (failed); a stopped wait may still have paid.
+  const isBoardCopy = phase.kind === 'failed';
   const group = phase.kind === 'not_configured' ? 'notConfigured' : phase.kind;
   const title = isBoardCopy
     ? t('onboarding.payFailed.title')

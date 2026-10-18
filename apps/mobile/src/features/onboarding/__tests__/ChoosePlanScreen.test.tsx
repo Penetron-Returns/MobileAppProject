@@ -25,7 +25,10 @@ const mockReset = jest.fn();
 const mockNotPaid = jest.fn();
 const mockCheckAgain = jest.fn();
 let mockPhase: { kind: string } = { kind: 'idle' };
-let mockOptions: { onReturned?: (o: string, p: string | null) => void } = {};
+let mockOptions: {
+  onReturned?: (o: string, p: string | null) => void;
+  onActivated?: (p: string | null) => void;
+} = {};
 jest.mock('@/features/plans/useCheckout', () => ({
   useCheckout: (options: typeof mockOptions) => {
     mockOptions = options;
@@ -139,10 +142,11 @@ describe('ChoosePlanScreen', () => {
   it('reports how checkout ended, and the plan once it is active', () => {
     mount(<ChoosePlanScreen />);
     act(() => mockOptions.onReturned?.('timeout', 'growth'));
-    act(() => mockOptions.onReturned?.('active', 'growth'));
+    act(() => mockOptions.onReturned?.('success', 'growth'));
+    act(() => mockOptions.onActivated?.('growth'));
     expect(fake.events.slice(1)).toEqual([
       { event: 'checkout_returned', props: { outcome: 'timeout' } },
-      { event: 'checkout_returned', props: { outcome: 'active' } },
+      { event: 'checkout_returned', props: { outcome: 'success' } },
       { event: 'plan_activated', props: { plan: 'growth' } },
     ]);
   });
