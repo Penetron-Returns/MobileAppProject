@@ -115,3 +115,19 @@ Deno.test('nerova connector rejects a bad token and lists the published tools un
   assertEquals(result.tools.length, 14, 'tool count');
   assertEquals(result.tools[0].name, 'accounts_list', 'first tool');
 });
+
+Deno.test('checkout confirm skips the idempotency key and wildcard CORS under the /api prefix', async () => {
+  const origin = 'http://localhost:3000';
+  const post = await server.request('/api/public/billing/checkout/confirm', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin },
+    body: JSON.stringify({ session_id: 'cs_test_missing' }),
+  });
+  const body = await post.json();
+  assertEquals(body?.error?.code === 'IDEMPOTENCY_KEY_REQUIRED', false, 'idempotency key not required');
+  const pre = await server.request('/api/public/billing/checkout/confirm', {
+    method: 'OPTIONS',
+    headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
+  });
+  assertEquals(pre.headers.get('access-control-allow-origin'), origin, 'preflight echoes the allowed origin');
+});

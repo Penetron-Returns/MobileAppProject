@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Hono } from 'hono';
 
 import { signStripePayload } from '@booking/features/billing/lib/stripeSignature.ts';
 import { billingConfigFromEnv, checkoutAllowedOrigins } from '@booking/features/billing/lib/config.ts';
@@ -339,5 +340,28 @@ describe('Stripe HTTP client: embedded session', () => {
     });
     expect(await stripe.retrieveCheckoutSession('cs_test_nope')).toBeNull();
     await expect(stripe.expireCheckoutSession('cs_test_done')).resolves.toBeUndefined();
+  });
+});
+
+describe('confirm route under the /api mount (Edge Function)', () => {
+  const mounted = () => new Hono().route('/api', setup().h.app);
+
+  it('does not require an Idempotency-Key when mounted under /api', async () => {
+    const res = await mounted().request('/api/public/billing/checkout/confirm', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: PAGE },
+      body: JSON.stringify({ session_id: 'cs_test_missing' }),
+    });
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).not.toBe('IDEMPOTENCY_KEY_REQUIRED');
+    expect(res.headers.get('access-control-allow-origin')).toBe(PAGE);
+  });
+
+  it('answers the preflight with the exact allowed origin, not the wildcard', async () => {
+    const res = await mounted().request('/api/public/billing/checkout/confirm', {
+      method: 'OPTIONS',
+      headers: { origin: PAGE, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
+    });
+    expect(res.headers.get('access-control-allow-origin')).toBe(PAGE);
   });
 });

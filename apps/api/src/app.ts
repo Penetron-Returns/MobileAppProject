@@ -24,11 +24,14 @@ import {
 } from './routes/whatsapp/index.ts';
 import type { AppEnv } from './types.ts';
 
-/** Runs `handler` for every path except `path`. */
+/**
+ * Runs `handler` for every path except `path`. The Edge Function mounts the app under `/api`, so `c.req.path`
+ * is `/api<path>` there: match the route-relative path as a suffix (its leading `/` is the segment boundary).
+ */
 const skipPath =
   (path: string, handler: MiddlewareHandler<AppEnv>): MiddlewareHandler<AppEnv> =>
   (c, next) =>
-    c.req.path === path ? next() : handler(c, next);
+    c.req.path === path || c.req.path.endsWith(path) ? next() : handler(c, next);
 
 export interface AppOptions {
   getContainer?: () => Container;
