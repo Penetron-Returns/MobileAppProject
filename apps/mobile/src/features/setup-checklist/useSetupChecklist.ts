@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as React from 'react';
 import { AppState, Platform } from 'react-native';
 
@@ -8,51 +7,12 @@ import {
 } from '@/features/business/hooks';
 import { useMe } from '@/features/business/me';
 import { useServices, useStaff } from '@/features/catalog/hooks';
+import { useCompanionSetup } from '@/features/companion/hooks';
 import { getPushPermission } from '@/features/notifications/pushDevice';
 import { useHeyClovieOn } from '@/features/voice/hooks';
 
-import {
-  deriveChecklist,
-  parseReviewed,
-  serializeReviewed,
-  type Checklist,
-  type ChecklistItemId,
-} from './logic';
-
-const keyFor = (businessId: string) => `checklist.reviewed.v1.${businessId}`;
-
-/** Which items the owner has opened, kept per business on this phone. */
-function useReviewed(businessId: string | undefined) {
-  const [reviewed, setReviewed] = React.useState<ReadonlySet<ChecklistItemId>>(
-    () => new Set(),
-  );
-  React.useEffect(() => {
-    if (!businessId) return;
-    let alive = true;
-    AsyncStorage.getItem(keyFor(businessId))
-      .then((raw) => alive && setReviewed(parseReviewed(raw)))
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, [businessId]);
-
-  const markReviewed = React.useCallback(
-    (id: ChecklistItemId) => {
-      if (!businessId) return;
-      setReviewed((current) => {
-        if (current.has(id)) return current;
-        const next = new Set(current).add(id);
-        AsyncStorage.setItem(keyFor(businessId), serializeReviewed(next)).catch(
-          () => undefined,
-        );
-        return next;
-      });
-    },
-    [businessId],
-  );
-  return { reviewed, markReviewed };
-}
+import { deriveChecklist, type Checklist, type ChecklistItemId } from './logic';
+import { useReviewed } from './reviewedStore';
 
 /** Whether the OS lets the app send notifications; re-asked when the app returns from Settings. */
 function usePushGranted(): boolean | null {
@@ -89,6 +49,7 @@ export function useSetupChecklist(): SetupChecklistView {
   const hours = useBusinessHours();
   const staff = useStaff();
   const details = useBusinessDetails();
+  const companion = useCompanionSetup({ enabled: isOwner });
   const isVoiceOn = useHeyClovieOn();
   const isPushGranted = usePushGranted();
   const { reviewed, markReviewed } = useReviewed(me.data?.business.id);
@@ -101,6 +62,9 @@ export function useSetupChecklist(): SetupChecklistView {
         : Platform.OS === 'ios'
           ? 'ios'
           : 'web',
+    isWhatsAppConnected: companion.data
+      ? companion.data.whatsapp.connected
+      : null,
     servicesCount: services.data?.length ?? null,
     hoursCount: hours.data?.length ?? null,
     staffCount: staff.data?.length ?? null,

@@ -15,6 +15,11 @@ export function GetSetUpRow() {
       <GroupRow
         icon={GLYPHS.sliders}
         title={t('checklist.title')}
+        subtitle={
+          checklist.items.some((i) => i.id === 'whatsapp' && !i.isDone)
+            ? t('checklist.whatsapp.first')
+            : undefined
+        }
         detail={t('checklist.progress', {
           done: checklist.doneCount,
           total: checklist.items.length,
