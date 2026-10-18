@@ -111,11 +111,9 @@ function RescheduleForm({
   const isOnline = useIsOnline();
   const { guard, sheetProps } = useOfflineGuard(!isOnline);
   const move = useRescheduleAppointment({
-    onSuccess: () =>
-      setDone(
-        `${formatDateShort(businessDate(picked?.startsAt ?? '', tz))}, ${formatTime(picked?.startsAt ?? '', tz)}`,
-      ),
     onError: (error) => {
+      // The optimistic "moved" screen was wrong: back to the picker.
+      setDone(null);
       if (isApiError(error) && error.code === 'SLOT_UNAVAILABLE') {
         toast.error(error, t('reschedule.slotTaken'));
         setPicked(null);
@@ -191,9 +189,14 @@ function RescheduleForm({
         size="lg"
         disabled={!request || move.isPending}
         accessibilityState={{ busy: move.isPending }}
-        onPress={guard(
-          () => request && move.mutate({ id: appointment.id, ...request }),
-        )}
+        onPress={guard(() => {
+          if (!request || !picked) return;
+          // Done at once; the server confirms (or sends us back) in the background.
+          setDone(
+            `${formatDateShort(businessDate(picked.startsAt, tz))}, ${formatTime(picked.startsAt, tz)}`,
+          );
+          move.mutate({ id: appointment.id, ...request });
+        })}
       >
         <Text className="text-title">
           {picked

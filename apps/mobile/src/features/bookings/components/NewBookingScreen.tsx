@@ -116,10 +116,22 @@ function NewBookingFlow({
   const startWhen = React.useMemo(() => whenFromPrefill(prefill), [prefill]);
   const [when, setWhen] = React.useState<WhenState>(startWhen);
   const [takenAt, setTakenAt] = React.useState<string | null>(null);
+  // Shown the moment the owner confirms; `id` follows when the server answers.
   const [booked, setBooked] = React.useState<{
-    id: string;
+    id: string | null;
     label: string;
   } | null>(null);
+  const mounted = React.useRef(true);
+  React.useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
+  const labelFor = (startsAt: string) =>
+    startsAt
+      ? `${formatDateShort(businessDate(startsAt, tz))}, ${formatTime(startsAt, tz)}`
+      : '';
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
 
   // Route params preselect the client once. Background refetches hand back a
@@ -174,16 +186,16 @@ function NewBookingFlow({
   }, [when.staffId, staffOptions, staff.data, links.data]);
 
   const create = useCreateAppointment({
-    onSuccess: (id) => {
-      const startsAt = when.picked?.startsAt ?? '';
-      setBooked({
+    onSuccess: (id) =>
+      setBooked((b) => ({
         id,
-        label: startsAt
-          ? `${formatDateShort(businessDate(startsAt, tz))}, ${formatTime(startsAt, tz)}`
-          : '',
-      });
-    },
+        label: b?.label ?? labelFor(when.picked?.startsAt ?? ''),
+      })),
     onError: (error) => {
+      // The optimistic "booked" screen was wrong: back to the form.
+      setBooked(null);
+      // Closed meanwhile: nobody is left to show the conflict card, so let the toast say it.
+      if (!mounted.current) return false;
       if (isApiError(error) && error.code === 'SLOT_UNAVAILABLE') {
         // Conflicts are normal: refresh the live slots and offer the closest ones.
         haptics.warning();
@@ -283,6 +295,8 @@ function NewBookingFlow({
           <Button
             variant="secondary"
             size="lg"
+            disabled={!booked.id}
+            accessibilityState={{ busy: !booked.id, disabled: !booked.id }}
             onPress={() => {
               closeSheet();
               router.push(`/bookings/${booked.id}` as never);
@@ -309,6 +323,7 @@ function NewBookingFlow({
       toast.blocked(t(`newBooking.errors.${result.error}`));
       return;
     }
+    setBooked({ id: null, label: labelFor(when.picked?.startsAt ?? '') });
     create.mutate(result.request);
   };
 
