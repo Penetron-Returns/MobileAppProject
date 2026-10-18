@@ -271,7 +271,12 @@ export * from './rnr/toggle-group';
 export * from './rnr/tooltip';
 
 // Haptics and title collapse
-export { haptics } from './lib/haptics';
+export {
+  getHapticsEnabled,
+  haptics,
+  setHapticsEnabled,
+  useHapticsEnabled,
+} from './lib/haptics';
 export {
   COLLAPSE_FADE,
   collapseThreshold,

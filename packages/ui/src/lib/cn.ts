@@ -16,6 +16,18 @@ const twMerge = extendTailwindMerge({
   },
 });
 
+/** Merged results by their joined class string: the same few strings render all day. */
+const cache = new Map<string, string>();
+const CACHE_LIMIT = 1000;
+
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  const joined = clsx(inputs);
+  if (!joined) return '';
+  const hit = cache.get(joined);
+  if (hit !== undefined) return hit;
+  const merged = twMerge(joined);
+  // Dynamic class strings are rare; a hard cap keeps memory bounded.
+  if (cache.size >= CACHE_LIMIT) cache.clear();
+  cache.set(joined, merged);
+  return merged;
 }

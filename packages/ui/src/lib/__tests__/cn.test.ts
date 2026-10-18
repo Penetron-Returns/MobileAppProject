@@ -32,3 +32,14 @@ describe('cn with the type scale', () => {
     expect(cn('text-base', 'text-subtitle')).toBe('text-subtitle');
   });
 });
+
+describe('cn cache', () => {
+  it('returns the same merged result for repeated input', () => {
+    const first = cn('p-2 p-4', 'text-title');
+    expect(first).toBe('p-4 text-title');
+    expect(cn('p-2 p-4', 'text-title')).toBe(first);
+  });
+  it('returns an empty string for no classes', () => {
+    expect(cn(undefined, false, '')).toBe('');
+  });
+});
