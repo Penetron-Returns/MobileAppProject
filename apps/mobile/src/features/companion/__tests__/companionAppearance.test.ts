@@ -36,6 +36,24 @@ describe('buildCompanionAppearance', () => {
   });
 });
 
+describe('buildCompanionAppearance setup tokens', () => {
+  it('uses pill buttons, the screen padding and the 44pt tap target', () => {
+    const appearance = buildCompanionAppearance(getDepth('light'), false);
+    expect(appearance.button?.shape).toBe('pill');
+    expect(appearance.spacing).toEqual({ screenPadding: 20, tapTarget: 44 });
+  });
+
+  it('maps radii, separator, raised and success for the setup card', () => {
+    const depth = getDepth('light');
+    const a = buildCompanionAppearance(depth, false);
+    expect(a.colors?.raised).toBe(depth.raised.backgroundColor);
+    expect(a.colors?.separator).toBe(depth.colors.hairline);
+    expect(a.colors?.success).toBe(depth.colors.success);
+    expect(a.radii?.card).toBeGreaterThan(0);
+    expect(a.radii?.control).toBeGreaterThan(0);
+  });
+});
+
 describe('buildCompanionAppearance owner bubble', () => {
   it('tints the owner bubble with white text', () => {
     const depth = getDepth('light');

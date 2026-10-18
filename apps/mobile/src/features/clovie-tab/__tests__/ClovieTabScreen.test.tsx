@@ -30,9 +30,19 @@ jest.mock('../useStartVoice', () => ({ useStartVoice: () => mockStartVoice }));
 
 // Nerova owns the chat UI: the screen only has to host it with the right props.
 let mockMomentProps: Record<string, any> = {};
+let mockRole = 'owner';
+jest.mock('@/features/business/me', () => ({
+  useMe: () => ({ data: { role: mockRole, business: { id: 'biz1' } } }),
+}));
+const mockOrder: string[] = [];
 jest.mock('@nerova/react-native', () => ({
+  CompanionSetupCard: () => {
+    mockOrder.push('card');
+    return null;
+  },
   CompanionMoment: (props: Record<string, unknown>) => {
     mockMomentProps = props;
+    mockOrder.push('moment');
     return null;
   },
 }));
@@ -73,6 +83,8 @@ beforeEach(() => {
   mockStartVoice.mockReset();
   mockSheet = { isAvailable: true, hasFailed: false };
   mockMomentProps = {};
+  mockRole = 'owner';
+  mockOrder.length = 0;
 });
 
 describe('ClovieTabScreen', () => {
@@ -130,6 +142,24 @@ describe('ClovieTabScreen', () => {
     mockSheet = { isAvailable: false, hasFailed: false };
     mount(<ClovieTabScreen />);
     expect(mockMomentProps).toEqual({});
+  });
+
+  it('renders the setup card above the moment for owners', () => {
+    mount(<ClovieTabScreen />);
+    expect(mockOrder.slice(0, 2)).toEqual(['card', 'moment']);
+  });
+
+  it('does not render the setup card for staff', () => {
+    mockRole = 'staff';
+    mount(<ClovieTabScreen />);
+    expect(mockOrder).not.toContain('card');
+    expect(mockOrder).toContain('moment');
+  });
+
+  it('does not render the setup card without a companion session', () => {
+    mockSheet = { isAvailable: false, hasFailed: false };
+    mount(<ClovieTabScreen />);
+    expect(mockOrder).not.toContain('card');
   });
 
   it('starts native voice from the moment mic', () => {
