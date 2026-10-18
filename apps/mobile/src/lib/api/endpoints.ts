@@ -1,4 +1,7 @@
 import type {
+  ChangePlanRequest,
+  ChangePlanResultDTO,
+  PlanChangePreviewDTO,
   AccountDeletionPreviewDTO,
   AnswerAttendanceRequest,
   AppointmentDTO,
@@ -12,9 +15,7 @@ import type {
   BillingUsageDTO,
   BusinessDTO,
   CheckoutSessionDTO,
-  ChangePlanRequest,
   PortalSessionDTO,
-  SubscriptionDTO,
   CreateCheckoutRequest,
   DeviceTokenDTO,
   VoiceTodayDTO,
@@ -78,6 +79,8 @@ import type {
   WhatsAppChannelDTO,
 } from '@booking/types';
 
+import type { CheckoutPlanId } from '@/features/plans/checkout';
+
 import { apiRequest, enc, get, send } from './client';
 
 /** PATCH /v1/companion/settings body: either field. */
@@ -115,8 +118,10 @@ export const api = {
       'POST',
       '/v1/billing/checkout',
     )(b, key),
+  previewPlanChange: (plan: CheckoutPlanId) =>
+    get<PlanChangePreviewDTO>('/v1/billing/plan/preview', { plan }),
   changePlan: (b: ChangePlanRequest, key: string) =>
-    send<ChangePlanRequest, SubscriptionDTO>('POST', '/v1/billing/plan')(
+    send<ChangePlanRequest, ChangePlanResultDTO>('POST', '/v1/billing/plan')(
       b,
       key,
     ),

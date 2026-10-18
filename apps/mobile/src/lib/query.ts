@@ -64,6 +64,9 @@ export const qk = {
   conversation: (id: string) => ['conversations', 'one', id] as const,
   messages: (conversationId: string) => ['messages', conversationId] as const,
   plans: ['plans'] as const,
+  planPreview: (plan: string) => ['plans', 'preview', plan] as const,
+  /** A downgrade booked for the end of the period (set from the change response). */
+  planScheduled: ['plans', 'scheduled'] as const,
   billingUsage: (month: string | null) =>
     ['billing-usage', month ?? 'current'] as const,
   /** Appointments (and the clients created in the window) behind the Reports screen; under `appointments` so Realtime refreshes them. */

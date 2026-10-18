@@ -27,11 +27,25 @@ jest.mock('../useCheckout', () => ({
     reset: jest.fn(),
   }),
 }));
-const mockChange = jest.fn();
 const mockManage = jest.fn();
 jest.mock('../useBillingActions', () => ({
-  useChangePlan: () => ({ mutate: mockChange }),
   useManageSubscription: () => ({ mutate: mockManage }),
+}));
+const mockKeep = jest.fn();
+let mockScheduled: { plan: string; effective_at: string } | null = null;
+jest.mock('../usePlanChange', () => ({
+  useKeepPlan: () => ({ mutate: mockKeep, isPending: false }),
+  useScheduledChange: () => mockScheduled,
+}));
+let mockSheetPlan: { id: string } | null = null;
+jest.mock('../components/PlanChangeSheet', () => ({
+  PlanChangeSheet: ({ plan }: { plan: { id: string } | null }) => {
+    mockSheetPlan = plan;
+    return null;
+  },
+}));
+jest.mock('@/features/business/hooks', () => ({
+  useBusiness: () => ({ data: { timezone: 'Africa/Johannesburg' } }),
 }));
 const mockBlocked = jest.fn();
 jest.mock('@/lib/toast', () => ({
@@ -110,6 +124,8 @@ const query = (over: Record<string, unknown>) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockPhase = { kind: 'idle' };
+  mockScheduled = null;
+  mockSheetPlan = null;
   mockCanManage = true;
   mockUseUsage.mockReturnValue(query({ data: usage() }));
 });
@@ -174,12 +190,21 @@ describe('PlanScreen', () => {
     expect(out).toContain('4 extra bookings, R16 so far');
   });
 
-  it('a subscriber switches plan through the plan endpoint, not checkout', () => {
+  it('a subscriber opens the confirmation sheet instead of changing at once', () => {
     mockUsePlans.mockReturnValue(query({ data: plans('growth') }));
     const tree = mount(<PlanScreen />);
     act(() => pressableByText(tree, 'Choose Pro').props.onPress());
-    expect(mockChange).toHaveBeenCalledWith('pro');
+    expect(mockSheetPlan?.id).toBe('pro');
     expect(mockStart).not.toHaveBeenCalled();
+  });
+
+  it('shows a quiet banner for a booked downgrade, and Keep re-selects the current plan', () => {
+    mockScheduled = { plan: 'starter', effective_at: '2026-11-18T08:00:00Z' };
+    mockUsePlans.mockReturnValue(query({ data: plans('pro') }));
+    const tree = mount(<PlanScreen />);
+    expect(text(tree)).toContain('Switching to Starter on 18 Nov');
+    act(() => pressableByText(tree, 'Keep Pro').props.onPress());
+    expect(mockKeep).toHaveBeenCalledWith('pro');
   });
 
   it('a business with no plan starts checkout for the chosen plan', () => {
@@ -188,6 +213,7 @@ describe('PlanScreen', () => {
     const tree = mount(<PlanScreen />);
     act(() => pressableByText(tree, 'Choose Pro').props.onPress());
     expect(mockStart).toHaveBeenCalledWith('pro');
+    expect(mockSheetPlan).toBeNull();
   });
 
   it('tells staff that choosing a plan is for the owner', () => {

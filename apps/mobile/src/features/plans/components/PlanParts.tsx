@@ -282,3 +282,34 @@ export function CheckoutNote() {
     </>
   );
 }
+
+/** A booked downgrade: quiet, with the way back. */
+export function ScheduledChangeBanner({
+  name,
+  date,
+  currentName,
+  onKeep,
+  isPending,
+}: {
+  name: string;
+  date: string;
+  currentName: string;
+  onKeep: () => void;
+  isPending?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Surface
+      variant="inset"
+      radius={20}
+      className="mx-5 mt-3 flex-row items-center gap-3 px-4 py-2"
+    >
+      <Text className="flex-1 text-subtitle">
+        {t('plans.change.scheduledBanner', { name, date })}
+      </Text>
+      <Button variant="ghost" size="sm" loading={isPending} onPress={onKeep}>
+        <Text>{t('plans.change.keep', { name: currentName })}</Text>
+      </Button>
+    </Surface>
+  );
+}

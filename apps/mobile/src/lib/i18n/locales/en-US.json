@@ -2031,6 +2031,28 @@
       "choose": "Choose {{name}}",
       "chooseLabel": "Choose {{name}}, {{price}} a month, opens secure checkout on the web"
     },
+    "change": {
+      "close": "Close",
+      "notNow": "Not now",
+      "loading": "Loading the cost of this change",
+      "loadFailed": "We could not work out the cost. Check your connection and try again.",
+      "upgradeTitle": "Upgrade to {{name}}",
+      "upgradeBody": "{{due}} today for the rest of this month, then {{next}} a month from {{date}}.",
+      "upgradeBodyFree": "Nothing to pay today, then {{next}} a month from {{date}}.",
+      "upgradeConfirm": "Pay {{due}} and upgrade",
+      "upgradeConfirmFree": "Upgrade",
+      "downgradeTitle": "Switch to {{name}} on {{date}}",
+      "downgradeBody": "You keep {{current}} until then. No refund for this month.",
+      "downgradeConfirm": "Switch on {{date}}",
+      "working": "Working",
+      "confirming": "Confirming",
+      "done": "Plan updated",
+      "declined": "Your card was declined. Your plan has not changed.",
+      "updateCard": "Update card",
+      "failed": "Something went wrong. Your plan has not changed.",
+      "scheduledBanner": "Switching to {{name}} on {{date}}",
+      "keep": "Keep {{name}}"
+    },
     "compare": {
       "title": "Compare plans",
       "yes": "Yes",
