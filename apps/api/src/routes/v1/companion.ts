@@ -2,6 +2,7 @@
  * Owner chat session (member) and WhatsApp setup (owner) for the Nerova companion, all gated on feature `companion`:
  * POST /v1/companion/session, GET /v1/companion/setup, POST /v1/companion/whatsapp/connect-session.
  */
+import { APP_ID_HEADER } from '@booking/companion/nerova/nativeApps.ts';
 import { Hono } from 'hono';
 
 import { parseJson } from '../../lib/validation.ts';
@@ -15,7 +16,7 @@ export const companionRoutes = new Hono<AppEnv>();
 companionRoutes.post('/companion/session', requireFeature('companion'), async (c) => {
   const { color_mode, platform } = await parseJson(c, createCompanionSessionSchema);
   const { businessId, userId } = c.get('auth');
-  const session = await c.get('container').companion.createSession(businessId, { ownerReference: userId, colorMode: color_mode, platform });
+  const session = await c.get('container').companion.createSession(businessId, { ownerReference: userId, colorMode: color_mode, platform, appId: c.req.header(APP_ID_HEADER) });
   return c.json({ data: session });
 });
 
@@ -30,7 +31,7 @@ companionRoutes.post('/companion/whatsapp/connect-session', requireOwner, requir
   // Hono caches the body, so reading text here and again in parseJson is safe.
   const hasBody = (await c.req.text()).trim().length > 0;
   const { return_url } = hasBody ? await parseJson(c, connectWhatsAppSessionSchema) : {};
-  const session = await c.get('container').companion.createWhatsAppConnectSession(c.get('auth').businessId, { returnUrl: return_url });
+  const session = await c.get('container').companion.createWhatsAppConnectSession(c.get('auth').businessId, { returnUrl: return_url, appId: c.req.header(APP_ID_HEADER) });
   return c.json({ data: session }, 201);
 });
 

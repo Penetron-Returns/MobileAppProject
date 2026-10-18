@@ -18,6 +18,7 @@ import { sha256Hex } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { PlanRepository } from '@booking/features/ports.ts';
+import { DEFAULT_NATIVE_APP_ID, isReturnUrlForApp, resolveNativeAppId } from './nativeApps.ts';
 import type { NerovaAccount, NerovaClient, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 
 /** Nerova accepts idempotency keys of 8 to 128 characters. */
@@ -29,9 +30,11 @@ export interface CompanionSessionInput {
   colorMode: CompanionColorMode;
   /** Default 'web' */
   platform?: 'web' | 'native';
+  /** The calling build's application id (X-Clovie-App-Id); used only when allow-listed, else NEROVA_APP_ID */
+  appId?: string | undefined;
 }
 
-export const DEFAULT_NATIVE_APP_ID = 'si.nerova.booking.dev';
+export { DEFAULT_NATIVE_APP_ID };
 
 /** The only return URL we forward: the admin app's own WhatsApp-return route under one of its variant schemes (optional query, no fragment). */
 const RETURN_URL_ALLOWLIST = /^(?:bookingadmin|clovie|clovie-preview):\/\/\/?companion\/whatsapp-return(\?[^#]*)?$/;
@@ -46,7 +49,7 @@ export interface CompanionService {
    * Starts the hosted WhatsApp connect flow. COMPANION_NOT_READY (409) without a provisioned account,
    * WHATSAPP_ALREADY_CONNECTED (409) when WhatsApp is already connected. The launch URL is a secret.
    */
-  createWhatsAppConnectSession(businessId: UUID, options?: { returnUrl?: string | undefined }): Promise<CompanionWhatsAppConnectSessionDTO>;
+  createWhatsAppConnectSession(businessId: UUID, options?: { returnUrl?: string | undefined; appId?: string | undefined }): Promise<CompanionWhatsAppConnectSessionDTO>;
   /** Speech-to-text through the business's Nerova account. COMPANION_NOT_READY (409) without an account; other errors as NerovaClient.transcribe. */
   transcribe(businessId: UUID, file: TranscribeFile, opts?: TranscribeOptions): Promise<TranscriptionResult>;
   /** Nerova's outcome counts for the month, or null when Nerova is unavailable. Never throws. */
@@ -143,7 +146,7 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     const native = input.platform === 'native' && deps.nativeSessions === true;
     const session = await nerova.createOwnerChatSession({
       accountId: account.id,
-      ...(native ? { native: { appId: deps.nativeAppId || DEFAULT_NATIVE_APP_ID } } : { origin: deps.embedOrigin }),
+      ...(native ? { native: { appId: resolveNativeAppId(input.appId, deps.nativeAppId) } } : { origin: deps.embedOrigin }),
       ownerReference: input.ownerReference,
       colorMode: input.colorMode,
       // A native session must not replay a web one minted in the same minute (different body, same key).
@@ -192,12 +195,16 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     };
   }
 
-  async function createWhatsAppConnectSession(businessId: UUID, options: { returnUrl?: string | undefined } = {}): Promise<CompanionWhatsAppConnectSessionDTO> {
+  async function createWhatsAppConnectSession(businessId: UUID, options: { returnUrl?: string | undefined; appId?: string | undefined } = {}): Promise<CompanionWhatsAppConnectSessionDTO> {
     if (!deps.embedOrigin) throw notReady('unavailable');
     // Forwarded only with NEROVA_WHATSAPP_RETURN_URL on (before #946 Nerova's body rejects unknown fields); otherwise dropped.
     const returnUrl = deps.forwardReturnUrl ? options.returnUrl : undefined;
     if (returnUrl !== undefined && !isAllowedReturnUrl(returnUrl)) {
       throw new AppError('VALIDATION_FAILED', 'return_url is not an allowed return URL', { field: 'return_url' });
+    }
+    const appId = resolveNativeAppId(options.appId, deps.nativeAppId);
+    if (returnUrl !== undefined && !isReturnUrlForApp(returnUrl, options.appId)) {
+      throw new AppError('VALIDATION_FAILED', 'return_url does not match the app build', { field: 'return_url' });
     }
     const profile = await plans.getProfile(businessId);
     const account = await resolveAccount(businessId, profile.nerovaAccountId);
@@ -214,7 +221,7 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
           accountId: account.id,
           embedOrigin: deps.embedOrigin,
           expectedVersion: setup.version,
-          ...(returnUrl ? { returnUrl, appId: deps.nativeAppId || DEFAULT_NATIVE_APP_ID } : {}),
+          ...(returnUrl ? { returnUrl, appId } : {}),
           idempotencyKey: connectSessionIdempotencyKey(account.id, clock(), setup.version),
         });
         return { launch_url: session.launchUrl, expires_at: session.expiresAt };

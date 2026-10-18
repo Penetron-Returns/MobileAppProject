@@ -134,6 +134,33 @@ describe('POST /v1/companion/whatsapp/connect-session', () => {
     });
 
     it.each([
+      ['si.nerova.booking.dev', 'bookingadmin://companion/whatsapp-return'],
+      ['app.getclovie.preview', 'clovie-preview://companion/whatsapp-return'],
+      ['app.getclovie', 'clovie://companion/whatsapp-return'],
+    ])('sends appId %s with its matching return scheme', async (appId, return_url) => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
+      const r = await h.call('POST', path, { body: { return_url }, headers: { 'x-clovie-app-id': appId } });
+      expect(r.status).toBe(201);
+      expect(h.nerova.connectionSessionRequests[0]).toMatchObject({ returnUrl: return_url, appId });
+    });
+
+    it('rejects a return scheme that does not belong to the named build', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true });
+      const r = await h.call('POST', path, { body: { return_url: 'clovie://companion/whatsapp-return' }, headers: { 'x-clovie-app-id': 'app.getclovie.preview' } });
+      expect(r.status).toBe(400);
+      expect(r.body.error.code).toBe('VALIDATION_FAILED');
+      expect(h.nerova.connectionSessionRequests).toHaveLength(0);
+    });
+
+    it('uses the fallback appId for an unknown or missing header (no scheme check)', async () => {
+      const h = plansHarness({ plan: 'growth', accounts: [ready], forwardReturnUrl: true, nativeAppId: 'si.nerova.booking' });
+      const url = 'clovie://companion/whatsapp-return';
+      await h.call('POST', path, { body: { return_url: url }, headers: { 'x-clovie-app-id': 'evil.app' } });
+      await h.call('POST', path, { body: { return_url: url } });
+      expect(h.nerova.connectionSessionRequests.map((q) => q.appId)).toEqual(['si.nerova.booking', 'si.nerova.booking']);
+    });
+
+    it.each([
       'https://app.example.test/done',
       'bookingadmin://other/path',
       'bookingadmin://companion/whatsapp-return/extra',

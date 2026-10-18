@@ -69,6 +69,28 @@ describe('POST /v1/companion/session', () => {
       expect(h.nerova.sessionRequests[1]).not.toHaveProperty('native');
     });
 
+    describe('X-Clovie-App-Id', () => {
+      it.each(['si.nerova.booking.dev', 'app.getclovie.preview', 'app.getclovie'])('mints the session for the allow-listed build %s', async (appId) => {
+        const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true, nativeAppId: 'si.nerova.booking' });
+        const r = await h.call('POST', '/v1/companion/session', { body: native, headers: { 'x-clovie-app-id': appId } });
+        expect(r.status).toBe(200);
+        expect(h.nerova.sessionRequests[0]?.native).toEqual({ appId });
+      });
+
+      it.each([['an unknown id', { 'x-clovie-app-id': 'evil.app' }], ['no header', {}]])('falls back to NEROVA_APP_ID for %s', async (_name, headers) => {
+        const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true, nativeAppId: 'si.nerova.booking' });
+        const r = await h.call('POST', '/v1/companion/session', { body: native, headers });
+        expect(r.status).toBe(200);
+        expect(h.nerova.sessionRequests[0]?.native).toEqual({ appId: 'si.nerova.booking' });
+      });
+
+      it('falls back to the default id when neither the header nor NEROVA_APP_ID is set', async () => {
+        const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true });
+        await h.call('POST', '/v1/companion/session', { body: native, headers: { 'x-clovie-app-id': 'nope' } });
+        expect(h.nerova.sessionRequests[0]?.native).toEqual({ appId: 'si.nerova.booking.dev' });
+      });
+    });
+
     it('rejects an unknown platform with VALIDATION_FAILED', async () => {
       const h = plansHarness({ plan: 'growth', accounts: [ready], nativeSessions: true });
       const r = await h.call('POST', '/v1/companion/session', { body: { color_mode: 'dark', platform: 'tv' } });
