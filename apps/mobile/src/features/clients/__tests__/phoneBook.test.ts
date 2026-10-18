@@ -1,5 +1,8 @@
 import {
   bookItemLayout,
+  buildBookIndex,
+  flattenSections,
+  sectionsFromIndex,
   buildSections,
   letterIndexAt,
   listChrome,
@@ -322,24 +325,79 @@ describe('letterIndexAt', () => {
   });
 });
 
-describe('bookItemLayout', () => {
+describe('flattenSections', () => {
   const sections = [
-    { letter: 'A', rows: [{}, {}] },
-    { letter: 'B', rows: [{}] },
+    { letter: 'A', rows: [{ id: 'a1' }, { id: 'a2' }] },
+    { letter: 'B', rows: [{ id: 'b1' }] },
   ] as never;
-  const layout = bookItemLayout(sections, {
+
+  it('emits a header then one item per client and tracks header indices', () => {
+    const { items, headerIndices } = flattenSections(sections);
+    expect(items.map((i) => i.key)).toEqual(['h:A', 'a1', 'a2', 'h:B', 'b1']);
+    expect(headerIndices).toEqual([0, 3]);
+  });
+
+  it('marks the first and last row of each group', () => {
+    const { items } = flattenSections(sections);
+    const flags = items.flatMap((i) =>
+      i.kind === 'row' ? [[i.isFirst, i.isLast]] : [],
+    );
+    expect(flags).toEqual([
+      [true, false],
+      [false, true],
+      [true, true],
+    ]);
+  });
+
+  it('is empty for no sections', () => {
+    expect(flattenSections([])).toEqual({ items: [], headerIndices: [] });
+  });
+});
+
+describe('bookItemLayout', () => {
+  const { items } = flattenSections([
+    { letter: 'A', rows: [{ id: 'a1' }, { id: 'a2' }] },
+    { letter: 'B', rows: [{ id: 'b1' }] },
+  ] as never);
+  const layout = bookItemLayout(items, {
     listHeader: 100,
     sectionHeader: 28,
     row: 70,
     gap: 12,
   });
 
-  it('stacks header, group and footer of each section after the list header', () => {
+  it('stacks headers and rows after the list header, the last row adds the gap', () => {
     expect(layout(0)).toEqual({ index: 0, offset: 100, length: 28 });
-    expect(layout(1)).toEqual({ index: 1, offset: 128, length: 152 });
-    expect(layout(2)).toEqual({ index: 2, offset: 280, length: 0 });
+    expect(layout(1)).toEqual({ index: 1, offset: 128, length: 70 });
+    expect(layout(2)).toEqual({ index: 2, offset: 198, length: 82 });
     expect(layout(3)).toEqual({ index: 3, offset: 280, length: 28 });
     expect(layout(4)).toEqual({ index: 4, offset: 308, length: 82 });
+  });
+});
+
+describe('buildBookIndex and sectionsFromIndex', () => {
+  const clients = [
+    client('1', 'Zed', { phone_e164: '+27820000001' }),
+    client('2', 'Émile'),
+    client('3', null, { phone_e164: '+27829999999' }),
+  ];
+  const index = buildBookIndex(clients, { now: NOW, timezone: TZ });
+
+  it('sorts once and filters by name or phone digits per keystroke', () => {
+    expect(sectionsFromIndex(index, '').map((s) => s.letter)).toEqual([
+      'E',
+      'Z',
+      '#',
+    ]);
+    expect(sectionsFromIndex(index, 'emi')[0].rows[0].id).toBe('2');
+    expect(sectionsFromIndex(index, '1234')[0].rows[0].id).toBe('2');
+    expect(sectionsFromIndex(index, 'nobody')).toEqual([]);
+  });
+
+  it('agrees with buildSections', () => {
+    expect(sectionsFromIndex(index, 'z')).toEqual(
+      buildSections(clients, { query: 'z', now: NOW, timezone: TZ }),
+    );
   });
 });
 
@@ -382,13 +440,13 @@ describe('listChrome', () => {
   });
 
   it('a section jump lands the header on the sticky line on each platform', () => {
-    const sections = [
-      { letter: 'A', rows: [{}] },
-      { letter: 'B', rows: [{}] },
-    ] as never;
+    const { items } = flattenSections([
+      { letter: 'A', rows: [{ id: 'a' }] },
+      { letter: 'B', rows: [{ id: 'b' }] },
+    ] as never);
     for (const os of ['ios', 'android']) {
       const c = listChrome(54, os);
-      const layout = bookItemLayout(sections, {
+      const layout = bookItemLayout(items, {
         listHeader: 20 + c.topSpacer,
         sectionHeader: 28,
         row: 70,
@@ -396,8 +454,8 @@ describe('listChrome', () => {
       });
       // scrollToIndex scrolls to offset - viewOffset; a row at content y sits at
       // frameTop + y - scrollY on screen. Headers stick at frameTop + contentInset.
-      const scrollY = layout(3).offset - c.jumpViewOffset;
-      const screenY = c.frameTop + layout(3).offset - scrollY;
+      const scrollY = layout(2).offset - c.jumpViewOffset;
+      const screenY = c.frameTop + layout(2).offset - scrollY;
       expect(screenY).toBe(c.frameTop + c.contentInset);
     }
   });

@@ -22,13 +22,15 @@ export const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 /**
  * Drives the large-title collapse from the scroll offset on the UI thread:
  * `scrollHandler` goes on an `AnimatedScrollView`, `barStyle` on the bar,
- * `titleStyle` on the large title (it stretches on overscroll).
+ * `titleStyle` on the large title (it stretches on overscroll). A list that
+ * rests at a negative offset (iOS `contentInset`) passes it as `restOffset`
+ * so 0 still means "at rest".
  */
-export function useTitleCollapse(threshold: number) {
+export function useTitleCollapse(threshold: number, restOffset = 0) {
   const reduceMotion = useReduceMotion();
   const offset = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((event) => {
-    offset.value = event.contentOffset.y;
+    offset.value = event.contentOffset.y + restOffset;
   });
   const barStyle = useAnimatedStyle(() => ({
     opacity: titleCollapse(offset.value, threshold, reduceMotion).barOpacity,

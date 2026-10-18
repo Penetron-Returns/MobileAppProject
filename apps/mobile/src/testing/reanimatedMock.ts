@@ -25,6 +25,7 @@ function createReanimatedMock() {
     withSequence: (...values: unknown[]) => values[values.length - 1],
     cancelAnimation: () => {},
     useAnimatedReaction: () => {},
+    useAnimatedScrollHandler: () => undefined,
     Easing: {
       linear: (t: number) => t,
       bezier: () => (t: number) => t,

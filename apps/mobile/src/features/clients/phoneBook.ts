@@ -84,7 +84,15 @@ export function lastVisitOf(
   now: Date,
   timezone: string,
 ): LastVisit | null {
-  const today = todayISO(timezone, now);
+  return lastVisitUpTo(appointments, todayISO(timezone, now), timezone);
+}
+
+/** `lastVisitOf` with today already resolved, so a whole book resolves it once. */
+function lastVisitUpTo(
+  appointments: BookAppointment[],
+  today: ISODate,
+  timezone: string,
+): LastVisit | null {
   let best: BookAppointment | null = null;
   for (const a of appointments) {
     if (a.status === 'cancelled' || a.status === 'no_show') continue;
@@ -104,6 +112,18 @@ export interface SubtitleCopy {
   noVisits: string;
 }
 
+const dayMonthCache = new Map<ISODate, string>();
+
+/** `formatDayMonth` is Intl work; a book repeats the same few dates. */
+function cachedDayMonth(date: ISODate): string {
+  let text = dayMonthCache.get(date);
+  if (text === undefined) {
+    text = formatDayMonth(date);
+    dayMonthCache.set(date, text);
+  }
+  return text;
+}
+
 /** "Gel Manicure · 9 Oct", "Pedicure · today"; the year shows once it is not this one. */
 export function visitSubtitle(
   visit: LastVisit | null,
@@ -116,8 +136,8 @@ export function visitSubtitle(
     visit.date === today
       ? copy.today
       : sameYear
-        ? formatDayMonth(visit.date)
-        : `${formatDayMonth(visit.date)} ${visit.date.slice(0, 4)}`;
+        ? cachedDayMonth(visit.date)
+        : `${cachedDayMonth(visit.date)} ${visit.date.slice(0, 4)}`;
   return visit.service ? `${visit.service} · ${when}` : when;
 }
 
@@ -129,10 +149,75 @@ export function matchesQuery(
   const q = sortKey(query);
   if (!q) return true;
   if (sortKey(clientDisplayName(client)).includes(q)) return true;
-  const digits = q.replace(/\D/g, '');
-  return (
-    digits.length >= 3 && client.phone_e164.replace(/\D/g, '').includes(digits)
+  return phoneMatches(client.phone_e164.replace(/\D/g, ''), q);
+}
+
+function phoneMatches(phoneDigits: string, normalisedQuery: string): boolean {
+  const digits = normalisedQuery.replace(/\D/g, '');
+  return digits.length >= 3 && phoneDigits.includes(digits);
+}
+
+/** One client, normalised once so a keystroke only compares strings. */
+export interface BookIndexEntry {
+  /** `sortKey` of the display name: the sort order and the name search text. */
+  key: string;
+  /** Digits of the phone number, for number search. */
+  digits: string;
+  letter: string;
+  row: BookRow;
+}
+
+/**
+ * The searchable, sorted form of the whole book (accent- and case-insensitive
+ * by name, ties by id). Build it when the clients change, never per keystroke.
+ */
+export function buildBookIndex(
+  clients: BookClient[],
+  options: { now: Date; timezone: string },
+): BookIndexEntry[] {
+  const { now, timezone } = options;
+  const today = todayISO(timezone, now);
+  const entries: BookIndexEntry[] = [];
+  for (const c of clients) {
+    const name = clientDisplayName(c);
+    entries.push({
+      key: sortKey(name),
+      digits: c.phone_e164.replace(/\D/g, ''),
+      letter: sectionLetter(name),
+      row: {
+        id: c.id,
+        name,
+        phone: c.phone_e164,
+        visit: lastVisitUpTo(c.appointments, today, timezone),
+        isVip: c.tags.includes(VIP_TAG),
+      },
+    });
+  }
+  return entries.sort((a, b) =>
+    a.key === b.key ? (a.row.id < b.row.id ? -1 : 1) : a.key < b.key ? -1 : 1,
   );
+}
+
+/** A-Z sections of the entries matching `query`; "#" last, empty sections omitted. */
+export function sectionsFromIndex(
+  index: BookIndexEntry[],
+  query: string,
+): BookSection[] {
+  const q = sortKey(query);
+  const byLetter = new Map<string, BookRow[]>();
+  for (const entry of index) {
+    if (q && !entry.key.includes(q) && !phoneMatches(entry.digits, q)) continue;
+    const list = byLetter.get(entry.letter);
+    if (list) list.push(entry.row);
+    else byLetter.set(entry.letter, [entry.row]);
+  }
+  const sections: BookSection[] = [];
+  for (const [letter, rows] of byLetter) sections.push({ letter, rows });
+  return sections.sort((a, b) => {
+    if (a.letter === OTHER_LETTER) return 1;
+    if (b.letter === OTHER_LETTER) return -1;
+    return a.letter < b.letter ? -1 : 1;
+  });
 }
 
 /**
@@ -143,37 +228,7 @@ export function buildSections(
   clients: BookClient[],
   options: { query: string; now: Date; timezone: string },
 ): BookSection[] {
-  const { query, now, timezone } = options;
-  const rows = clients
-    .filter((c) => matchesQuery(c, query))
-    .map((c) => {
-      const name = clientDisplayName(c);
-      return {
-        key: sortKey(name),
-        letter: sectionLetter(name),
-        row: {
-          id: c.id,
-          name,
-          phone: c.phone_e164,
-          visit: lastVisitOf(c.appointments, now, timezone),
-          isVip: c.tags.includes(VIP_TAG),
-        } satisfies BookRow,
-      };
-    })
-    .sort((a, b) =>
-      a.key === b.key ? (a.row.id < b.row.id ? -1 : 1) : a.key < b.key ? -1 : 1,
-    );
-  const byLetter = new Map<string, BookRow[]>();
-  for (const { letter, row } of rows) {
-    byLetter.set(letter, [...(byLetter.get(letter) ?? []), row]);
-  }
-  return [...byLetter.entries()]
-    .sort(([a], [b]) => {
-      if (a === OTHER_LETTER) return 1;
-      if (b === OTHER_LETTER) return -1;
-      return a < b ? -1 : 1;
-    })
-    .map(([letter, list]) => ({ letter, rows: list }));
+  return sectionsFromIndex(buildBookIndex(clients, options), options.query);
 }
 
 /**
@@ -236,6 +291,45 @@ export function letterIndexAt(y: number, height: number): number {
   return Math.min(LETTERS.length - 1, Math.max(0, raw));
 }
 
+export type BookItem =
+  | { kind: 'header'; key: string; letter: string }
+  | {
+      kind: 'row';
+      key: string;
+      row: BookRow;
+      isFirst: boolean;
+      isLast: boolean;
+    };
+
+/**
+ * The sections as one flat list (a header item, then one item per client) so a
+ * virtualised list mounts only the rows on screen. `headerIndices` holds the
+ * index of each section's header, in section order: the sticky headers and the
+ * scrubber's jump targets.
+ */
+export function flattenSections(sections: BookSection[]): {
+  items: BookItem[];
+  headerIndices: number[];
+} {
+  const items: BookItem[] = [];
+  const headerIndices: number[] = [];
+  for (const s of sections) {
+    headerIndices.push(items.length);
+    items.push({ kind: 'header', key: `h:${s.letter}`, letter: s.letter });
+    const last = s.rows.length - 1;
+    s.rows.forEach((row, i) => {
+      items.push({
+        kind: 'row',
+        key: row.id,
+        row,
+        isFirst: i === 0,
+        isLast: i === last,
+      });
+    });
+  }
+  return { items, headerIndices };
+}
+
 export interface BookMetrics {
   /** Height of everything above the first section header. */
   listHeader: number;
@@ -246,23 +340,23 @@ export interface BookMetrics {
 }
 
 /**
- * `getItemLayout` for a SectionList whose sections are one header, one item
- * (the whole group) and no footer, so flattened index = 3 * section + part.
+ * `getItemLayout` for the flat list: a header is `sectionHeader` tall, a row
+ * `row`, and the last row of a group adds `gap`. Only valid while rows are
+ * exactly `row` tall (the default text size).
  */
 export function bookItemLayout(
-  sections: BookSection[],
+  items: BookItem[],
   metrics: BookMetrics,
 ): (index: number) => { length: number; offset: number; index: number } {
   const offsets: { length: number; offset: number }[] = [];
   let offset = metrics.listHeader;
-  for (const s of sections) {
-    const body = s.rows.length * metrics.row + metrics.gap;
-    offsets.push(
-      { length: metrics.sectionHeader, offset },
-      { length: body, offset: offset + metrics.sectionHeader },
-      { length: 0, offset: offset + metrics.sectionHeader + body },
-    );
-    offset += metrics.sectionHeader + body;
+  for (const item of items) {
+    const length =
+      item.kind === 'header'
+        ? metrics.sectionHeader
+        : metrics.row + (item.isLast ? metrics.gap : 0);
+    offsets.push({ length, offset });
+    offset += length;
   }
   return (index) => {
     const hit = offsets[index] ?? { length: 0, offset };

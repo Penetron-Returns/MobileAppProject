@@ -6,27 +6,22 @@ import {
   Text,
   collapseThreshold,
   tabBarClearance,
-  titleCollapse,
   useDepth,
-  useReduceMotion,
+  useTitleCollapse,
 } from '@booking/ui';
 import { BlurView } from 'expo-blur';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Platform,
+  FlatList,
   RefreshControl,
-  SectionList,
   StyleSheet,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ISODate } from '@/lib/time';
@@ -34,13 +29,14 @@ import type { ISODate } from '@/lib/time';
 import {
   bookItemLayout,
   CONTENT_TOP_BELOW_INSET,
+  flattenSections,
   listChrome,
   sectionIndexForLetter,
   type BookClient,
-  type BookRow,
+  type BookItem,
   type BookSection,
 } from '../phoneBook';
-import { ClientGroup, ROW_HEIGHT } from './ClientGroup';
+import { ClientListRow, GROUP_GAP, ROW_HEIGHT } from './ClientGroup';
 import { IndexScrubber } from './IndexScrubber';
 import { RecentCard } from './RecentCard';
 
@@ -50,16 +46,8 @@ const TITLE_LINE = 41;
 const TITLE_TOP = 4;
 /** 20pt of air above the 28pt letter row. */
 const SECTION_HEADER_HEIGHT = 48;
-/** Space between two groups. */
-const GROUP_GAP = 12;
 /** Estimate used until the header has been measured. */
 const HEADER_ESTIMATE = 280;
-
-interface BookListSection {
-  key: string;
-  letter: string;
-  data: BookRow[][];
-}
 
 export interface PhoneBookListProps {
   title: string;
@@ -92,8 +80,8 @@ export function PhoneBookList({
   const { t } = useTranslation();
   const depth = useDepth();
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReduceMotion();
-  const list = React.useRef<SectionList<BookRow[], BookListSection>>(null);
+  const { fontScale } = useWindowDimensions();
+  const list = React.useRef<FlatList<BookItem>>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [headerHeight, setHeaderHeight] = React.useState(HEADER_ESTIMATE);
 
@@ -105,63 +93,84 @@ export function PhoneBookList({
     inset + TITLE_TOP + TITLE_LINE,
     barHeight,
   );
-  const offset = useSharedValue(0);
   // `restOffset` makes 0 mean at rest (iOS rests at -inset, Android at 0).
-  const onScroll = React.useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      offset.value = event.nativeEvent.contentOffset.y + chrome.restOffset;
-    },
-    [offset, chrome.restOffset],
+  const { scrollHandler, barStyle, titleStyle } = useTitleCollapse(
+    threshold,
+    chrome.restOffset,
   );
-  const barStyle = useAnimatedStyle(() => ({
-    opacity: titleCollapse(offset.value, threshold, reduceMotion).barOpacity,
-  }));
-  const titleStyle = useAnimatedStyle(() => ({
-    transformOrigin: 'left bottom',
-    transform: [
-      {
-        scale: titleCollapse(offset.value, threshold, reduceMotion).titleScale,
-      },
-    ],
-  }));
 
-  const listSections = React.useMemo<BookListSection[]>(
-    () =>
-      sections.map((s) => ({
-        key: s.letter,
-        letter: s.letter,
-        data: [s.rows],
-      })),
+  const { items, headerIndices } = React.useMemo(
+    () => flattenSections(sections),
     [sections],
   );
   const present = React.useMemo(
     () => new Set(sections.map((s) => s.letter)),
     [sections],
   );
+  // Rows are exactly ROW_HEIGHT only at the default text size; larger text
+  // grows them, so the exact layout is dropped and the list measures instead.
   const layout = React.useMemo(
     () =>
-      bookItemLayout(sections, {
-        listHeader: headerHeight,
-        sectionHeader: SECTION_HEADER_HEIGHT,
-        row: ROW_HEIGHT,
-        gap: GROUP_GAP,
-      }),
-    [sections, headerHeight],
+      fontScale <= 1
+        ? bookItemLayout(items, {
+            listHeader: headerHeight,
+            sectionHeader: SECTION_HEADER_HEIGHT,
+            row: ROW_HEIGHT,
+            gap: GROUP_GAP,
+          })
+        : null,
+    [items, headerHeight, fontScale],
   );
 
   const jumpTo = React.useCallback(
     (letter: string, animated = true) => {
       const sectionIndex = sectionIndexForLetter(sections, letter);
       if (sectionIndex < 0) return;
-      // itemIndex 0 is the section header; viewOffset lands it on the sticky line.
-      list.current?.scrollToLocation({
-        sectionIndex,
-        itemIndex: 0,
+      // The section's header item; viewOffset lands it on the sticky line.
+      list.current?.scrollToIndex({
+        index: headerIndices[sectionIndex],
         viewOffset: chrome.jumpViewOffset,
         animated,
       });
     },
-    [sections, chrome.jumpViewOffset],
+    [sections, headerIndices, chrome.jumpViewOffset],
+  );
+
+  // Without an exact layout a far, unmeasured row cannot be scrolled to
+  // directly: go near it by the average row, then land on it.
+  const onScrollToIndexFailed = React.useCallback(
+    (info: { index: number; averageItemLength: number }) => {
+      list.current?.scrollToOffset({
+        offset: info.averageItemLength * info.index,
+        animated: false,
+      });
+      setTimeout(
+        () =>
+          list.current?.scrollToIndex({
+            index: info.index,
+            viewOffset: chrome.jumpViewOffset,
+            animated: false,
+          }),
+        80,
+      );
+    },
+    [chrome.jumpViewOffset],
+  );
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: BookItem }) =>
+      item.kind === 'header' ? (
+        <SectionHeader letter={item.letter} />
+      ) : (
+        <ClientListRow
+          row={item.row}
+          today={today}
+          onOpen={onOpen}
+          isFirst={item.isFirst}
+          isLast={item.isLast}
+        />
+      ),
+    [today, onOpen],
   );
 
   const handleRefresh = React.useCallback(async () => {
@@ -229,24 +238,20 @@ export function PhoneBookList({
       className="flex-1"
       style={{ backgroundColor: depth.ground.backgroundColor }}
     >
-      <SectionList
+      <AnimatedFlatList
         ref={list}
-        sections={listSections}
-        keyExtractor={(group: BookRow[]) => group[0].id}
-        renderItem={({ item }: { item: BookRow[] }) => (
-          <ClientGroup rows={item} today={today} onOpen={onOpen} />
-        )}
-        renderSectionHeader={({ section }: { section: BookListSection }) => (
-          <SectionHeader letter={section.letter} />
-        )}
-        getItemLayout={(_data: unknown, index: number) => layout(index)}
+        data={items}
+        keyExtractor={keyOf}
+        renderItem={renderItem}
+        getItemLayout={layout ? (_data, index) => layout(index) : undefined}
+        onScrollToIndexFailed={onScrollToIndexFailed}
+        stickyHeaderIndices={headerIndices}
         ListHeaderComponent={header}
         ListEmptyComponent={
           <Text className="m-5 text-title text-muted-foreground">
             {emptyText}
           </Text>
         }
-        stickySectionHeadersEnabled
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentInsetAdjustmentBehavior="never"
@@ -254,7 +259,7 @@ export function PhoneBookList({
         contentInset={{ top: chrome.contentInset }}
         contentOffset={{ x: 0, y: -chrome.contentInset }}
         scrollIndicatorInsets={{ top: chrome.contentInset, right: 0 }}
-        onScroll={onScroll}
+        onScroll={scrollHandler}
         scrollEventThrottle={16}
         initialNumToRender={12}
         windowSize={9}
@@ -296,6 +301,10 @@ export function PhoneBookList({
   );
 }
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<BookItem>);
+
+const keyOf = (item: BookItem) => item.key;
+
 /** Sticky letter header: 28pt, translucent fill over a blur (board: blur 12). */
 const SectionHeader = React.memo(function SectionHeader({
   letter,
@@ -307,7 +316,7 @@ const SectionHeader = React.memo(function SectionHeader({
     <View
       accessibilityRole="header"
       style={{
-        height: SECTION_HEADER_HEIGHT,
+        minHeight: SECTION_HEADER_HEIGHT,
         paddingTop: 24,
         paddingRight: 36,
         paddingLeft: 28,
@@ -336,7 +345,6 @@ const SectionHeader = React.memo(function SectionHeader({
       />
       <Text
         style={{ color: depth.colors.secondary }}
-        maxFontSizeMultiplier={1.1}
         className="text-subtitle font-bold"
       >
         {letter}
