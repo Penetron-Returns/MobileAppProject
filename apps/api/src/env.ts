@@ -86,6 +86,12 @@ const EnvSchema = z.object({
   STRIPE_PRICE_STARTER: optional,
   STRIPE_PRICE_GROWTH: optional,
   STRIPE_PRICE_PRO: optional,
+  /** Metered per-booking usage price ids (price_...) per plan, attached to the subscription at checkout */
+  STRIPE_PRICE_STARTER_USAGE: optional,
+  STRIPE_PRICE_GROWTH_USAGE: optional,
+  STRIPE_PRICE_PRO_USAGE: optional,
+  /** Stripe billing meter event name for completed bookings (defaults to booking_made) */
+  STRIPE_METER_EVENT_NAME: optional,
   /** Optional USD price ids, for a future USD checkout (not used yet) */
   STRIPE_PRICE_STARTER_USD: optional,
   STRIPE_PRICE_GROWTH_USD: optional,
