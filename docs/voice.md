@@ -41,7 +41,7 @@ All of them land on `VoiceTalkActivity`, a transparent activity that starts the 
 | Native module (Kotlin): service, wake-word engine, overlay, headless bridge | `apps/mobile/modules/clovie-voice/android/` |
 | JS API of the module | `apps/mobile/modules/clovie-voice/src/` |
 | Overlay page (HTML/JS, placeholder visual) | `apps/mobile/modules/clovie-voice/overlay/`, built into `android/src/main/assets/overlay/overlay.html` by `node scripts/build-voice-overlay.mjs` (output is committed) |
-| Config plugin (manifest entries, classifier copy) | `apps/mobile/plugins/with-clovie-voice.js` (listed in `app.json`) |
+| Config plugin (manifest entries, classifier copy) | `apps/mobile/plugins/with-clovie-voice.cjs` (listed in `app.json`) |
 | Command parser, appointment pick | `apps/mobile/src/features/voice/{logic,checkIn}.ts` |
 | Headless task and its tested core | `src/features/voice/{headlessTask,headless}.ts` (registered in `src/app/_layout.tsx`) |
 | Deep link routes | `src/app/(app)/voice/index.tsx` (`bookingadmin://voice?text=...`, finishes a command in the app) and `voice/listen.tsx` (`bookingadmin://voice/listen`) |

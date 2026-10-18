@@ -158,4 +158,4 @@ eas build -p android --profile production     # AAB, autoIncrement, first run ge
 eas submit -p android --profile production    # needs ./google-play-service-account.json (git-ignored); or upload the AAB by hand
 ```
 
-Repo facts for this build: `@nerova/react-native` is vendored in `apps/mobile/vendor/` (see its README); `expo-dev-client` is only a dev-client launcher (the `developmentClient` flag is set only on the `development` profile, and the `(dev)` gallery/stories routes redirect to `/` when `!__DEV__`); R8 keep rules are added by `plugins/with-clovie-proguard.js`.
+Repo facts for this build: `@nerova/react-native` is vendored in `apps/mobile/vendor/` (see its README); `expo-dev-client` is only a dev-client launcher (the `developmentClient` flag is set only on the `development` profile, and the `(dev)` gallery/stories routes redirect to `/` when `!__DEV__`); R8 keep rules are added by `plugins/with-clovie-proguard.cjs`.
