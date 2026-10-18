@@ -1,7 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { SAMPLE_STORIES } from '@/features/stories/sampleStories';
 import { act, mount, pressableByLabel } from '@/testing/render';
 
 import { StoriesRow } from '../components/StoriesRow';
+import { resetGuideStore } from '../guideStore';
 
 const mockOpen = jest.fn();
 let mockSetup: { done: number; total: number; open: () => void } | null = null;
@@ -33,8 +36,12 @@ const labels = (tree: ReturnType<typeof row>) =>
     .map((n) => n.props.accessibilityLabel as string)
     .filter((l, i, all) => all.indexOf(l) === i);
 
-beforeEach(() => {
+const settle = () => act(async () => {});
+
+beforeEach(async () => {
   jest.clearAllMocks();
+  await AsyncStorage.clear();
+  resetGuideStore();
   mockSetup = null;
   mockSettled = true;
 });
@@ -68,7 +75,7 @@ describe('StoriesRow', () => {
     expect(labels(row()).some((l) => l.startsWith('Get set up'))).toBe(false);
   });
 
-  it('still shows the bubble when there are no stories', () => {
+  it('still shows the bubble when there are no stories', async () => {
     mockSetup = { done: 0, total: 7, open: mockOpen };
     const tree = mount(
       <StoriesRow
@@ -80,10 +87,18 @@ describe('StoriesRow', () => {
         onClose={jest.fn()}
       />,
     );
-    expect(labels(tree)).toEqual(['Get set up, 0 of 7 done']);
+    await settle();
+    expect(labels(tree)).toEqual([
+      'Brief, viewed',
+      'Client updates, viewed',
+      'Business update, viewed',
+      'Get set up, 0 of 7 done',
+      "What's new, viewed",
+      'Guide, new',
+    ]);
   });
 
-  it('keeps the row height and shows placeholder rings when there is nothing at all', () => {
+  it('shows quiet placeholder rings for all four kinds when there is nothing at all', async () => {
     const tree = mount(
       <StoriesRow
         stories={[]}
@@ -94,12 +109,56 @@ describe('StoriesRow', () => {
         onClose={jest.fn()}
       />,
     );
-    expect(
-      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
-    ).toBeGreaterThan(0);
+    await settle();
+    expect(labels(tree).slice(0, 3)).toEqual([
+      'Brief, viewed',
+      'Client updates, viewed',
+      'Business update, viewed',
+    ]);
     expect(
       tree.root.findAllByProps({ testID: 'stories-row' }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('fills only the kinds the backend left out', async () => {
+    const onlyBrief = SAMPLE_STORIES.filter((s) => s.kind === 'brief');
+    const tree = mount(
+      <StoriesRow
+        stories={onlyBrief}
+        isLoading={false}
+        onViewed={jest.fn()}
+        onEvent={jest.fn()}
+        onAction={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    await settle();
+    const all = labels(tree);
+    expect(all[0]).toMatch(/^Brief/);
+    expect(all.slice(1, 4)).toEqual([
+      'Client updates, viewed',
+      'Business update, viewed',
+      "What's new, viewed",
+    ]);
+  });
+
+  it('puts the Guide ring last, after product updates', async () => {
+    const tree = row();
+    await settle();
+    const all = labels(tree);
+    expect(all[all.length - 1]).toBe('Guide, new');
+    expect(all[all.length - 2]).toMatch(/^Product updates/);
+  });
+
+  it('keeps the Guide ring hidden until its stored state is known', () => {
+    expect(labels(row()).some((l) => l.startsWith('Guide'))).toBe(false);
+  });
+
+  it('shows the Guide as viewed once it was opened on this device', async () => {
+    await AsyncStorage.setItem('clovie.guide.viewed.v1', '1');
+    const tree = row();
+    await settle();
+    expect(labels(tree).pop()).toBe('Guide, viewed');
   });
 
   it('mounts the checklist bubble (and so its queries) only after the first screen settles', () => {

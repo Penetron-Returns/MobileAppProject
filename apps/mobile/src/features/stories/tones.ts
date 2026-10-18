@@ -95,6 +95,14 @@ export const KIND_GLYPHS: Record<StoryKind, KindGlyph> = {
     light: { tile: ['#E8F0FB', '#D2E1F5'], ink: '#1078AF' },
     dark: { tile: ['#203A52', '#172B3F'], ink: '#9DD9F5' },
   },
+  guide: {
+    // lucide "book-open": the pages filled, a couple of text lines on top.
+    shape:
+      'M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z',
+    line: 'M5.5 8.5h2 M16.5 8.5h2',
+    light: { tile: ['#F1EAFB', '#E3D6F5'], ink: '#6B3FB5' },
+    dark: { tile: ['#35264D', '#281C3B'], ink: '#C9B0F2' },
+  },
 };
 
 /**

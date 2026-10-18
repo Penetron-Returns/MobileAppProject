@@ -2249,7 +2249,59 @@
     "next": "Next card",
     "pause": "Pause story",
     "resume": "Resume story",
-    "empty": "Updates will show here.",
+    "empty": {
+      "headline": "No new updates yet",
+      "brief": {
+        "title": "Brief",
+        "body": "Check in later! I'll post your day's brief here."
+      },
+      "clients": {
+        "title": "Client updates",
+        "body": "Check in later! I'll post here when a client books, cancels or comes back."
+      },
+      "business": {
+        "title": "Business update",
+        "body": "Check in later! I'll post here when something changes in your business."
+      },
+      "product": {
+        "title": "What's new",
+        "body": "Check in later! I'll post here when there is news about Clovie."
+      }
+    },
+    "guide": {
+      "title": "Guide",
+      "tryMic": "Try the mic",
+      "meet": {
+        "kicker": "Meet Clovie",
+        "headline": "Ask me anything",
+        "body": "Type or tap the mic to ask about your day, your clients or your bookings."
+      },
+      "stories": {
+        "kicker": "Stories",
+        "headline": "Updates live up here",
+        "body": "When something happens in your bookings or business, it shows up in this row."
+      },
+      "calendar": {
+        "kicker": "Calendar",
+        "headline": "Your day and week",
+        "body": "See what is booked, and tap a free slot to add a booking."
+      },
+      "whatsapp": {
+        "kicker": "WhatsApp",
+        "headline": "Clients book themselves",
+        "body": "They book in WhatsApp and I keep your calendar in sync."
+      },
+      "clients": {
+        "kicker": "Clients and Reports",
+        "headline": "Know your clients",
+        "body": "Your client book, and how the month is going, all in one place."
+      },
+      "settings": {
+        "kicker": "Settings",
+        "headline": "Make it yours",
+        "body": "Set your hours, services and team. Get set up shows what is left."
+      }
+    },
     "loadError": "Can’t load updates.",
     "retry": "Retry",
     "progress": "Card {{current}} of {{total}}",
