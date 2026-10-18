@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AccessibilityInfo } from 'react-native';
 
+import { resetReduceMotionForTests } from '../../theme/useReduceMotion';
 import { act, render } from '../../testing/render';
 import { Pressable } from '../../primitives/Pressable';
 import { DURATION } from '../../tokens/motion';
@@ -22,6 +23,7 @@ function styleOf(tree: ReturnType<typeof render>) {
 }
 
 describe('reduced motion', () => {
+  beforeEach(resetReduceMotionForTests);
   afterEach(() => jest.restoreAllMocks());
 
   it('drops the press transition when the OS asks for reduced motion', async () => {

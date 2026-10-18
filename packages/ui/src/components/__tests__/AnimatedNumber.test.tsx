@@ -1,5 +1,6 @@
 import { AccessibilityInfo } from 'react-native';
 
+import { resetReduceMotionForTests } from '../../theme/useReduceMotion';
 import { act, render } from '../../testing/render';
 import { AnimatedNumber } from '../AnimatedNumber';
 
@@ -10,6 +11,7 @@ function textNode(tree: ReturnType<typeof render>) {
 }
 
 describe('AnimatedNumber', () => {
+  beforeEach(resetReduceMotionForTests);
   afterEach(() => jest.restoreAllMocks());
 
   it('labels the final value from the first frame, while the shown text counts', () => {
