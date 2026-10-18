@@ -26,7 +26,12 @@ import { formatPhone } from '@/lib/format';
 import { formatDateMedium, businessDate } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
-import { useClient, useUpdateClient, type ClientProfile } from '../hooks';
+import {
+  useClient,
+  useClientPreview,
+  useUpdateClient,
+  type ClientProfile,
+} from '../hooks';
 import { VIP_TAG } from '../logic';
 import { ClientHistory } from './ClientHistory';
 import { ClientNotesCard } from './ClientNotesCard';
@@ -41,6 +46,7 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
   const queryClient = useQueryClient();
   const business = useBusiness();
   const client = useClient(clientId);
+  const preview = useClientPreview(clientId);
 
   let body: React.ReactNode;
   if (isFailed(client) || isFailed(business)) {
@@ -57,7 +63,12 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
       />
     );
   } else if (client.isPending || !business.data) {
-    body = <ListSkeleton rows={3} />;
+    body = (
+      <>
+        {preview ? <PreviewHeader preview={preview} /> : null}
+        <ListSkeleton rows={3} />
+      </>
+    );
   } else if (!client.data) {
     body = (
       <View className="items-center px-10 pt-16">
@@ -82,7 +93,9 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
       title={
         client.data
           ? (client.data.name ?? formatPhone(client.data.phone_e164))
-          : ' '
+          : preview
+            ? (preview.name ?? formatPhone(preview.phone_e164))
+            : ' '
       }
       backLabel={t('clients.title')}
       backFallback="/clients"
@@ -91,6 +104,24 @@ export function ClientProfileScreen({ clientId }: { clientId: string }) {
       <SavedCopyBanner query={client} timezone={business.data?.timezone} />
       {body}
     </Page>
+  );
+}
+
+/** The avatar and VIP badge from the phone book, while the profile itself loads. */
+function PreviewHeader({
+  preview,
+}: {
+  preview: { name: string | null; phone_e164: string; tags: string[] };
+}) {
+  const name = preview.name ?? formatPhone(preview.phone_e164);
+  const { t } = useTranslation();
+  return (
+    <View className="mx-5 mt-2 flex-row items-center gap-3">
+      <Avatar name={name} size="xl" />
+      {preview.tags.includes(VIP_TAG) ? (
+        <Capsule label={t('clients.vip')} className="self-start" />
+      ) : null}
+    </View>
   );
 }
 
@@ -175,7 +206,6 @@ function ProfileBody({
           trailing={
             <Switch
               checked={client.whatsapp_opt_in}
-              disabled={update.isPending}
               onCheckedChange={(checked) =>
                 update.mutate({ whatsapp_opt_in: checked })
               }

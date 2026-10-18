@@ -19,6 +19,7 @@ import {
   type ClientNoteRow,
 } from '../hooks';
 import { isFailed } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
 
 const KIND_ICON = {
   warning: AlertTriangle,
@@ -36,15 +37,21 @@ export function ClientNotesCard({
 }) {
   const { t } = useTranslation();
   const notes = useClientNotes(clientId);
-  const addNote = useAddClientNote(clientId);
-  const deleteNote = useDeleteClientNote(clientId);
   const [draft, setDraft] = React.useState('');
+  // The note is already in the list when the server refuses it: put the words
+  // back (unless something new was typed meanwhile) so nothing is lost.
+  const addNote = useAddClientNote(clientId, (body) =>
+    setDraft((current) => current || body),
+  );
+  const deleteNote = useDeleteClientNote(clientId);
+  const isOnline = useIsOnline();
 
   const submit = () => {
     const body = draft.trim();
     if (!body) return;
     addNote.mutate({ body });
-    setDraft('');
+    // Offline the write is refused up front: keep the draft for later.
+    if (isOnline) setDraft('');
   };
 
   return (
@@ -91,7 +98,7 @@ export function ClientNotesCard({
               size="sm"
               className="h-9"
               onPress={submit}
-              disabled={!draft.trim() || addNote.isPending}
+              disabled={!draft.trim()}
               accessibilityLabel={t('clients.profile.addNote')}
             >
               <Text>{t('clients.profile.addNote')}</Text>

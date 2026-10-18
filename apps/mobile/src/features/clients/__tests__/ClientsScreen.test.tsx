@@ -21,7 +21,10 @@ jest.mock('expo-router', () => ({
 }));
 
 const mockBook = jest.fn();
-jest.mock('../hooks', () => ({ useClientBook: () => mockBook() }));
+jest.mock('../hooks', () => ({
+  useClientBook: () => mockBook(),
+  usePrefetchClient: () => () => undefined,
+}));
 jest.mock('@/features/business/hooks', () => ({
   useBusiness: () => ({
     data: { timezone: 'Africa/Johannesburg' },
