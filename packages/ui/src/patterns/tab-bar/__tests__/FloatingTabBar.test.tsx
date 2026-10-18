@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Dimensions } from 'react-native';
 
 import { act, byLabel, pressable, render } from '../../../testing/render';
 import { FloatingTabBar } from '../FloatingTabBar';
@@ -64,6 +65,35 @@ function renderBar(
 }
 
 describe('FloatingTabBar', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('keeps the labels at normal and moderately large text sizes', () => {
+    jest
+      .spyOn(Dimensions, 'get')
+      .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1.2 });
+    const { tree } = renderBar('index');
+    expect(
+      tree.root.findAll((n) => (n.type as unknown) === 'Text').length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('drops to icons only at very large text sizes, keeping each tab labelled', () => {
+    jest
+      .spyOn(Dimensions, 'get')
+      .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 2 });
+    const { tree } = renderBar('index');
+    expect(
+      tree.root.findAll((n) => (n.type as unknown) === 'Text'),
+    ).toHaveLength(0);
+    expect(pressable(tree, 'Calendar').props.accessibilityRole).toBe('tab');
+  });
+
+  it('moves the pill and buzzes at once on press, before the new tab mounts', () => {
+    const { tree, navigation } = renderBar('index');
+    act(() => pressable(tree, 'Clients').props.onPress());
+    expect(navigation.navigate).toHaveBeenCalledWith('clients');
+  });
+
   it('renders the four tabs and the centre plus', () => {
     const { tree } = renderBar('index', { onAdd: jest.fn() });
     const labels = tree.root

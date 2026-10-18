@@ -71,6 +71,7 @@ export function CompanionDome({
             accessibilityElementsHidden
             importantForAccessibility="no"
             resizeMode="contain"
+            resizeMethod="resize"
             style={{ width: CHARACTER_SIZE, height: CHARACTER_SIZE }}
           />
         )}
