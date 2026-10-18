@@ -8,6 +8,7 @@ import {
 
 const fresh: ChecklistInput = {
   platform: 'android',
+  isWhatsAppConnected: false,
   servicesCount: 4,
   hoursCount: 6,
   staffCount: 1,
@@ -23,8 +24,9 @@ const done = (input: ChecklistInput) =>
   ) as Record<ChecklistItemId, boolean | undefined>;
 
 describe('deriveChecklist', () => {
-  it('lists the seven items in order on Android, with no test message', () => {
+  it('lists the eight items, WhatsApp first, in order on Android, with no test message', () => {
     expect(deriveChecklist(fresh).items.map((i) => i.id)).toEqual([
+      'whatsapp',
       'services',
       'hours',
       'team',
@@ -40,7 +42,7 @@ describe('deriveChecklist', () => {
       (i) => i.id,
     );
     expect(ids).not.toContain('voice');
-    expect(ids).toHaveLength(6);
+    expect(ids).toHaveLength(7);
   });
 
   it('starts with nothing done right after onboarding (the template alone is not a review)', () => {
@@ -98,6 +100,7 @@ describe('deriveChecklist', () => {
   it('is complete (and hides) only when every item is done', () => {
     const all: ChecklistInput = {
       ...fresh,
+      isWhatsAppConnected: true,
       staffCount: 3,
       hasContactDetails: true,
       isVoiceOn: true,
@@ -107,9 +110,9 @@ describe('deriveChecklist', () => {
     expect(deriveChecklist(all)).toMatchObject({
       isComplete: true,
       isReady: true,
-      doneCount: 7,
+      doneCount: 8,
     });
-    expect(deriveChecklist({ ...all, platform: 'ios' }).doneCount).toBe(6);
+    expect(deriveChecklist({ ...all, platform: 'ios' }).doneCount).toBe(7);
     expect(
       deriveChecklist({ ...all, reviewed: new Set(['services', 'hours']) })
         .isComplete,
@@ -117,6 +120,7 @@ describe('deriveChecklist', () => {
   });
 
   it.each([
+    ['whatsapp', { isWhatsAppConnected: null }],
     ['services', { servicesCount: null }],
     ['hours', { hoursCount: null }],
     ['team', { staffCount: null }],
@@ -141,5 +145,23 @@ describe('reviewed persistence', () => {
 
   it('drops ids it does not know', () => {
     expect(parseReviewed('["rules","florist"]')).toEqual(new Set(['rules']));
+  });
+});
+
+describe('the WhatsApp step', () => {
+  it('is required, first, and done only when WhatsApp is really connected', () => {
+    const open = deriveChecklist(fresh).items[0];
+    expect(open).toEqual({ id: 'whatsapp', isDone: false, isRequired: true });
+    const reviewed = new Set<ChecklistItemId>(['whatsapp']);
+    expect(done({ ...fresh, reviewed }).whatsapp).toBe(false);
+    expect(done({ ...fresh, isWhatsAppConnected: true }).whatsapp).toBe(true);
+  });
+
+  it('is the only required item', () => {
+    expect(
+      deriveChecklist(fresh)
+        .items.filter((i) => i.isRequired)
+        .map((i) => i.id),
+    ).toEqual(['whatsapp']);
   });
 });

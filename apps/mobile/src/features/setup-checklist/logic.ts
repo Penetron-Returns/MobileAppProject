@@ -5,6 +5,7 @@
  */
 
 export type ChecklistItemId =
+  | 'whatsapp'
   | 'services'
   | 'hours'
   | 'team'
@@ -15,6 +16,7 @@ export type ChecklistItemId =
 
 /** Where each item leads, in the order the list shows them. */
 export const CHECKLIST_ORDER: readonly ChecklistItemId[] = [
+  'whatsapp',
   'services',
   'hours',
   'team',
@@ -26,6 +28,7 @@ export const CHECKLIST_ORDER: readonly ChecklistItemId[] = [
 
 /** The Settings screen each item opens. */
 export const CHECKLIST_ROUTES: Record<ChecklistItemId, string> = {
+  whatsapp: '/settings/whatsapp',
   services: '/settings/services',
   hours: '/settings/operating-hours',
   team: '/settings/team',
@@ -38,6 +41,8 @@ export const CHECKLIST_ROUTES: Record<ChecklistItemId, string> = {
 /** What the screen knows. `null` = still loading. */
 export interface ChecklistInput {
   platform: 'ios' | 'android' | 'web';
+  /** Clovie's WhatsApp number is connected (Nerova's setup state). */
+  isWhatsAppConnected: boolean | null;
   servicesCount: number | null;
   hoursCount: number | null;
   /** Everyone who can take bookings, the owner included. */
@@ -55,6 +60,8 @@ export interface ChecklistInput {
 export interface ChecklistItem {
   id: ChecklistItemId;
   isDone: boolean;
+  /** Nothing works without it; the rest are recommended. */
+  isRequired: boolean;
 }
 
 export interface Checklist {
@@ -76,6 +83,8 @@ export interface Checklist {
 export function deriveChecklist(input: ChecklistInput): Checklist {
   const seen = (id: ChecklistItemId) => input.reviewed.has(id);
   const done: Record<ChecklistItemId, boolean> = {
+    // Only the real connection counts; looking at it is not enough.
+    whatsapp: input.isWhatsAppConnected === true,
     services: (input.servicesCount ?? 0) > 0 && seen('services'),
     hours: (input.hoursCount ?? 0) > 0 && seen('hours'),
     team: (input.staffCount ?? 0) > 1 || seen('team'),
@@ -88,9 +97,14 @@ export function deriveChecklist(input: ChecklistInput): Checklist {
     // Hey Clovie is an Android feature.
     (id) => id !== 'voice' || input.platform === 'android',
   );
-  const items = ids.map((id) => ({ id, isDone: done[id] }));
+  const items = ids.map((id) => ({
+    id,
+    isDone: done[id],
+    isRequired: id === 'whatsapp',
+  }));
   const doneCount = items.filter((i) => i.isDone).length;
   const isReady =
+    input.isWhatsAppConnected !== null &&
     input.servicesCount !== null &&
     input.hoursCount !== null &&
     input.staffCount !== null &&

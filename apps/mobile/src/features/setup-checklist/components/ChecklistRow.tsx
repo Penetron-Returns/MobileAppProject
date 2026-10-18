@@ -38,6 +38,11 @@ export function ChecklistRow({
         <Text numberOfLines={2} className="min-w-0 flex-1 text-title">
           {title}
         </Text>
+        {item.isRequired && !item.isDone ? (
+          <Text className="text-subtitle font-semibold text-destructive">
+            {t('checklist.required')}
+          </Text>
+        ) : null}
         <ChevronRight
           size={14}
           strokeWidth={2.8}

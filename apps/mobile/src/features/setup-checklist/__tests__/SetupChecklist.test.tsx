@@ -23,6 +23,7 @@ jest.mock('../useSetupChecklist', () => ({
 
 const baseInput = (): ChecklistInput => ({
   platform: 'android',
+  isWhatsAppConnected: false,
   servicesCount: 4,
   hoursCount: 6,
   staffCount: 1,
@@ -54,9 +55,9 @@ beforeEach(() => {
 });
 
 describe('useSetupStory (the stories row bubble)', () => {
-  it('reports progress out of seven and opens the full checklist', () => {
+  it('reports progress out of eight and opens the full checklist', () => {
     const result = story();
-    expect(result).toMatchObject({ done: 0, total: 7 });
+    expect(result).toMatchObject({ done: 0, total: 8 });
     result?.open();
     expect(mockPush).toHaveBeenCalledWith('/settings/get-set-up');
   });
@@ -75,6 +76,7 @@ describe('useSetupStory (the stories row bubble)', () => {
     mockInput = {
       ...baseInput(),
       platform: 'ios',
+      isWhatsAppConnected: true,
       staffCount: 3,
       hasContactDetails: true,
       isPushGranted: true,
@@ -89,6 +91,7 @@ describe('GetSetUpScreen', () => {
     const tree = mount(<GetSetUpScreen />);
     const out = text(tree);
     for (const item of [
+      'Connect your WhatsApp',
       'Check services & prices',
       'Check opening hours',
       'Add your team',
