@@ -18,8 +18,9 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import { initAnalytics } from '@/features/analytics';
 import { analyticsConfig, env, validateEnv } from '@/lib/env';
 import { registerDeviceTokenSource } from '@/features/voice/deviceToken';
-import { registerVoiceHeadlessTask } from '@/features/voice/headlessTask';
+import { registerVoiceHeadlessTask } from '@/features/voice/headlessRegistration';
 import { startFocusSync, startOnlineSync } from '@/lib/online';
+import { whenIdle } from '@/lib/whenIdle';
 import { queryClient } from '@/lib/query';
 import {
   PERSIST_BUSTER,
@@ -37,10 +38,10 @@ const persistOptions = {
 
 const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
-initAnalytics(analyticsConfig);
 startOnlineSync();
 startFocusSync();
 // Hey Clovie (Android): lets the voice service run a command with the app in the background.
+// Only the registration runs here; the task's code loads when a command arrives.
 registerDeviceTokenSource();
 registerVoiceHeadlessTask();
 // Keep the native splash until a screen has drawn: the loading screen hides it on
@@ -48,6 +49,8 @@ registerVoiceHeadlessTask();
 holdNativeSplash();
 
 export default function RootLayout() {
+  // Analytics is not needed for the first frame: set it up once the thread is idle.
+  React.useEffect(() => whenIdle(() => initAnalytics(analyticsConfig)), []);
   React.useEffect(() => {
     // Safety net: never leave the splash up if no screen reports a first frame.
     const id = setTimeout(hideNativeSplash, SPLASH_SAFETY_MS);

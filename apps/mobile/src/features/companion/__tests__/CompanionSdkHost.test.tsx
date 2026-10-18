@@ -74,6 +74,9 @@ function avatarWrapper(tree: ReturnType<typeof mount>) {
   return tree.root.find((n) => n.props.testID === 'sheet-avatar-wrapper');
 }
 
+// The first mint normally waits for the shell to settle; tests mint at once.
+jest.mock('@/lib/idleGate', () => ({ shellIdle: () => Promise.resolve() }));
+
 async function settle() {
   for (let i = 0; i < 5; i++) await flush();
 }
