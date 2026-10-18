@@ -1142,7 +1142,15 @@
     "allDone": "All set up",
     "done": "done",
     "notDone": "not done",
+    "required": "Required",
+    "whatsapp": {
+      "title": "Connect your WhatsApp",
+      "why": "So Clovie can take bookings for you",
+      "connect": "Connect WhatsApp",
+      "first": "Start by connecting WhatsApp"
+    },
     "items": {
+      "whatsapp": "Connect your WhatsApp",
       "services": "Check services & prices",
       "hours": "Check opening hours",
       "team": "Add your team",
@@ -1152,6 +1160,7 @@
       "notifications": "Notifications"
     },
     "spoken": {
+      "whatsapp": "Connect your WhatsApp, so Clovie can take bookings for you.",
       "services": "Check your services and prices.",
       "hours": "Check your opening hours.",
       "team": "Add the people on your team.",
