@@ -9,6 +9,7 @@ import { isCheckoutPlan, type CheckoutPlanId } from '@/features/plans/checkout';
 import { usePlans } from '@/features/plans/hooks';
 import { formatRand } from '@/features/plans/logic';
 import { useCheckout } from '@/features/plans/useCheckout';
+import { useIsOnline } from '@/lib/online';
 import { describeError } from '@/lib/toast';
 
 import { TYPE, useOnbColors } from '../theme';
@@ -34,6 +35,7 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
   const { t } = useTranslation();
   const c = useOnbColors();
   const plans = usePlans();
+  const isOnline = useIsOnline();
   const checkout = useCheckout({
     onReturned: (outcome, plan) => {
       analytics.track('checkout_returned', { outcome });
@@ -99,7 +101,17 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
   const pick = selected && isCheckoutPlan(selected.id) ? selected : null;
 
   let body: React.ReactNode;
-  if (plans.isError) {
+  if (!plans.data && !isOnline) {
+    // Offline the plans query just waits: say so instead of showing skeletons for ever.
+    body = (
+      <ErrorState
+        variant="banner"
+        title={t('onboarding.plan.offlineTitle')}
+        description={t('onboarding.plan.offlineHint')}
+        onRetry={() => void plans.refetch()}
+      />
+    );
+  } else if (plans.isError) {
     body = (
       <ErrorState
         variant="banner"

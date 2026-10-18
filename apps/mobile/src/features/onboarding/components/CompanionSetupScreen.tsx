@@ -2,7 +2,7 @@ import { Text } from '@booking/ui';
 import { Check } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import Animated, {
   Easing,
   FadeOut,
@@ -32,6 +32,9 @@ const POLL_MS = 3_000;
 /** The checks land one after another, about this far apart. */
 export const CHECK_EVERY_MS = 900;
 const STEPS = ['hours', 'services', 'calendar'] as const;
+export const SUPPORT_EMAIL = 'support@nerovasystems.com';
+/** Once every check but the last has landed, the clock has nothing left to drive. */
+const LAST_TICK_MS = (STEPS.length - 1) * CHECK_EVERY_MS;
 
 /** How many of the checks have landed after `elapsedMs`; the last one waits for the real setup. */
 export function checksDone(elapsedMs: number): number {
@@ -173,7 +176,12 @@ function Step({
  * companion account; the app shell leaves this screen by itself when the setup
  * state stops saying `provision_account`, and the Clovie tab takes over.
  */
-export function CompanionSetupScreen() {
+export function CompanionSetupScreen({
+  onContinue,
+}: {
+  /** Past the slow threshold: go on into the app while the setup finishes. */
+  onContinue?: () => void;
+} = {}) {
   const { t } = useTranslation();
   const setup = useCompanionSetup({ enabled: true, pollMs: POLL_MS });
   const [isSlow, setIsSlow] = React.useState(false);
@@ -183,10 +191,12 @@ export function CompanionSetupScreen() {
     analytics.track('setup_waiting_shown');
     const started = Date.now();
     const slow = setTimeout(() => setIsSlow(true), SLOW_AFTER_MS);
-    const tick = setInterval(
-      () => setElapsed(Date.now() - started),
-      CHECK_EVERY_MS,
-    );
+    const tick = setInterval(() => {
+      const spent = Date.now() - started;
+      setElapsed(spent);
+      // Stop re-rendering every 900ms once all the checks that can land have.
+      if (spent >= LAST_TICK_MS) clearInterval(tick);
+    }, CHECK_EVERY_MS);
     return () => {
       clearTimeout(slow);
       clearInterval(tick);
@@ -205,11 +215,25 @@ export function CompanionSetupScreen() {
       spoken={`${title} ${hint}`}
       footer={
         isSlow ? (
-          <OnbButton
-            label={t('onboarding.setup.retry')}
-            loading={setup.isFetching}
-            onPress={() => void setup.refetch()}
-          />
+          <>
+            {onContinue ? (
+              <OnbButton
+                label={t('onboarding.setup.continue')}
+                onPress={onContinue}
+              />
+            ) : null}
+            <OnbButton
+              label={t('onboarding.setup.retry')}
+              variant={onContinue ? 'secondary' : 'primary'}
+              loading={setup.isFetching}
+              onPress={() => void setup.refetch()}
+            />
+            <OnbButton
+              label={t('onboarding.setup.contactSupport')}
+              variant="link"
+              onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+            />
+          </>
         ) : undefined
       }
     >

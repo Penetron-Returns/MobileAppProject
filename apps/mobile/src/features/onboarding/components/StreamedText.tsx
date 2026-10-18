@@ -2,6 +2,7 @@ import { Text, useReduceMotion } from '@booking/ui';
 import * as React from 'react';
 
 import { TYPE, useOnbColors } from '../theme';
+import type { HeadingRef } from '../useScreenReader';
 
 const WORD_MS = 90;
 const WORD = /\S+\s*/g;
@@ -18,7 +19,13 @@ export function revealed(text: string, count: number): [string, string] {
  * "says" it. The words still to come are transparent, so the line breaks never
  * move. Screen readers get the whole sentence at once; Reduce Motion shows it whole.
  */
-export function StreamedText({ text }: { text: string }) {
+export function StreamedText({
+  text,
+  headingRef,
+}: {
+  text: string;
+  headingRef?: HeadingRef;
+}) {
   const c = useOnbColors();
   const isReduced = useReduceMotion();
   const total = (text.match(WORD) ?? []).length;
@@ -42,6 +49,7 @@ export function StreamedText({ text }: { text: string }) {
   const [shown, rest] = revealed(text, count);
   return (
     <Text
+      ref={headingRef}
       role="heading"
       aria-level="1"
       accessibilityLabel={text.replace(/\s+/g, ' ')}

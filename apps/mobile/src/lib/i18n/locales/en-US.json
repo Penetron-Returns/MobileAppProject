@@ -1125,6 +1125,10 @@
     "description": "The web booking page for \"{{slug}}\" will live here."
   },
   "session": {
+    "offline": {
+      "title": "You're offline",
+      "hint": "Clovie needs a connection to open your business. Reconnect and try again."
+    },
     "unsupportedTask": "This account needs an extra step ({{task}}) that the app can't show. Sign out and contact support."
   },
   "speak": {
@@ -1161,6 +1165,7 @@
     "step": "Step {{step}} of {{max}}",
     "continue": "Continue",
     "back": "Back",
+    "signOut": "Not you? Sign out",
     "replayVoice": "Replay Clovie's voice",
     "orgFailed": "Could not create the organisation.",
     "welcome": {
@@ -1189,6 +1194,7 @@
     },
     "create": {
       "failed": "Couldn't create your business",
+      "reviseFailed": "Couldn't save the change",
       "retry": "Try again"
     },
     "plan": {
@@ -1203,6 +1209,8 @@
       "spokenPlan": "{{name}}: {{price}} a month, {{count}} bookings.",
       "loading": "Loading plans",
       "loadFailed": "Couldn't load the plans",
+      "offlineTitle": "You're offline",
+      "offlineHint": "The plans need a connection. Reconnect and try again.",
       "retry": "Try again"
     },
     "checkout": {
@@ -1260,6 +1268,8 @@
         "title": "Taking longer than usual",
         "hint": "You can wait or try again."
       },
+      "continue": "Continue to Clovie",
+      "contactSupport": "Contact support",
       "retry": "Try again"
     },
     "inactive": {
@@ -1587,7 +1597,7 @@
       "closeKeyboard": "Close keyboard",
       "welcomeTitle": "Hi, I'm {name}",
       "welcomeTitleNoName": "Hi, I'm Clovie",
-      "welcomeBody": "I can check the diary, move bookings and tell you who still needs a nudge, so your salon day runs itself.",
+      "welcomeBody": "I can check the diary, move bookings and tell you who still needs a nudge, so your business day runs itself.",
       "welcomeSuggestion1": "What's on today?",
       "welcomeSuggestion2": "Move a booking",
       "welcomeSuggestion3": "Who hasn't confirmed?",
