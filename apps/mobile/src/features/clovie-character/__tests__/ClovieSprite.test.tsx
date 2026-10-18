@@ -1,9 +1,19 @@
+import { BLINK_GAP_MIN_MS, BLINK_STEP_MS } from '../spriteSchedule';
 import { act, mount } from '@/testing/render';
 
 import { ClovieSprite } from '../ClovieSprite';
 
-beforeEach(() => jest.useFakeTimers());
-afterEach(() => jest.useRealTimers());
+let randomSpy: jest.SpyInstance;
+beforeEach(() => {
+  jest.useFakeTimers();
+  // Random 0 makes the first blink land exactly BLINK_GAP_MIN_MS after mount.
+  randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0);
+});
+afterEach(() => {
+  randomSpy.mockRestore();
+  jest.clearAllTimers();
+  jest.useRealTimers();
+});
 
 const opacityOf = (tree: ReturnType<typeof mount>, id: string) => {
   const style = tree.root.findByProps({ testID: id }).props.style;
@@ -20,26 +30,32 @@ describe('ClovieSprite', () => {
     expect(opacityOf(tree, 'clovie-sprite')).toBe(1);
     expect(opacityOf(tree, 'clovie-sprite-blink-1')).toBe(0);
     expect(opacityOf(tree, 'clovie-sprite-blink-2')).toBe(0);
+    act(() => tree.unmount());
   });
 
   it('keeps the open frame visible and schedules nothing when inactive', () => {
     const tree = mount(<ClovieSprite size={100} isActive={false} />);
     expect(opacityOf(tree, 'clovie-sprite')).toBe(1);
     expect(jest.getTimerCount()).toBe(0);
+    act(() => tree.unmount());
   });
 
   it('blinks by toggling overlay opacity while the open frame stays mounted', () => {
     const tree = mount(<ClovieSprite size={100} isActive />);
-    let seen = false;
-    for (let i = 0; i < 40 && !seen; i++) {
-      act(() => {
-        jest.advanceTimersByTime(100);
-      });
-      seen =
-        opacityOf(tree, 'clovie-sprite-blink-2') === 1 ||
-        opacityOf(tree, 'clovie-sprite-blink-1') === 1;
-    }
-    expect(seen).toBe(true);
+    act(() => {
+      jest.advanceTimersByTime(BLINK_GAP_MIN_MS - 1);
+    });
+    expect(opacityOf(tree, 'clovie-sprite-blink-1')).toBe(0);
+    act(() => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(opacityOf(tree, 'clovie-sprite-blink-1')).toBe(1);
+    act(() => {
+      jest.advanceTimersByTime(BLINK_STEP_MS);
+    });
+    expect(opacityOf(tree, 'clovie-sprite-blink-1')).toBe(0);
+    expect(opacityOf(tree, 'clovie-sprite-blink-2')).toBe(1);
     expect(opacityOf(tree, 'clovie-sprite')).toBe(1);
+    act(() => tree.unmount());
   });
 });
