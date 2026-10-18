@@ -113,7 +113,7 @@ export const Column = React.memo(function Column({
               overflow: 'hidden',
             }}
           >
-            <Hatch />
+            <Hatch width={horizontal.width} height={spanHeight} />
           </View>
         );
       })}
@@ -231,7 +231,7 @@ const UnavailableBlock = React.memo(function UnavailableBlock({
         paddingTop: height > 160 ? 12 : 0,
       }}
     >
-      <Hatch />
+      <Hatch width={Math.max(0, width - 2)} height={Math.max(0, height - 2)} />
       <Text
         numberOfLines={1}
         style={{ color: depth.colors.secondary }}

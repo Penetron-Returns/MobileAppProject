@@ -37,6 +37,8 @@ import { NowLabel, NowLine } from './NowLine';
 
 const GUTTER = 52;
 const HEADER = 56;
+/** Matches the header's px-5, so cells stop where the title does. */
+const RIGHT_GUTTER = 20;
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
@@ -67,7 +69,10 @@ export function DayView({
   const [refreshing, setRefreshing] = React.useState(false);
 
   const { date, columns, window, timezone, closedDay } = view;
-  const colWidth = columnWidth(windowWidth - GUTTER, columns.length);
+  const colWidth = columnWidth(
+    windowWidth - GUTTER - RIGHT_GUTTER,
+    columns.length,
+  );
   const contentWidth = colWidth * columns.length;
   const scrolls = columns.length > 2;
   const height = minutesToPx(window.endMin - window.startMin);

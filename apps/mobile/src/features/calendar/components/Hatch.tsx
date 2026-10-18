@@ -14,7 +14,14 @@ export const HATCH_TILES = {
  * Diagonal stripes over a region of the grid that is outside working hours (or
  * blocked). The parent clips it to its rounded frame.
  */
-export const Hatch = React.memo(function Hatch() {
+export const Hatch = React.memo(function Hatch({
+  width,
+  height,
+}: {
+  /** The span's own size: Android only tiles a bitmap that has explicit dimensions. */
+  width: number;
+  height: number;
+}) {
   const depth = useDepth();
   const isDark = depth.scheme === 'dark';
   if (Platform.OS === 'web') {
@@ -38,7 +45,7 @@ export const Hatch = React.memo(function Hatch() {
       testID="hatch"
       source={isDark ? HATCH_TILES.dark : HATCH_TILES.light}
       resizeMode="repeat"
-      style={IMAGE_STYLE}
+      style={[IMAGE_STYLE, { width, height }]}
       accessible={false}
       importantForAccessibility="no-hide-descendants"
     />
@@ -50,7 +57,5 @@ const IMAGE_STYLE = {
   position: 'absolute',
   top: 0,
   left: 0,
-  right: 0,
-  bottom: 0,
   pointerEvents: 'none',
 } as const;
