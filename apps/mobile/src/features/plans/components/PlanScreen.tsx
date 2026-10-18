@@ -12,6 +12,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { useBusiness } from '@/features/business/hooks';
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { useCanManage } from '@/features/business/me';
 import { OwnerOnlyNote } from '@/features/settings/components/OwnerOnlyNote';
@@ -22,16 +23,20 @@ import { isCheckoutPlan, type CheckoutPlanId } from '../checkout';
 import { paidPlans } from '../compare';
 import { useBillingUsage, usePlans } from '../hooks';
 import { formatRand } from '../logic';
-import { useChangePlan, useManageSubscription } from '../useBillingActions';
+import { formatEffectiveDate } from '../planChange';
+import { useManageSubscription } from '../useBillingActions';
+import { useKeepPlan, useScheduledChange } from '../usePlanChange';
 import { useCheckout } from '../useCheckout';
 import {
   BillingRows,
   CheckoutNote,
   CompanionPerks,
   ComparePlans,
+  ScheduledChangeBanner,
   TierCard,
 } from './PlanParts';
 import { CheckoutStatus } from './CheckoutStatus';
+import { PlanChangeSheet } from './PlanChangeSheet';
 import { UsageCard } from './UsageCard';
 
 /**
@@ -93,7 +98,11 @@ function PlanBody({
   // Staff see the plans; choosing one is the owner's call (the API refuses it too).
   const checkout = useCheckout();
   const manage = useManageSubscription();
-  const changePlan = useChangePlan();
+  const keepPlan = useKeepPlan();
+  const scheduled = useScheduledChange();
+  const business = useBusiness();
+  const [changing, setChanging] = React.useState<PlanDTO | null>(null);
+  const closeChange = React.useCallback(() => setChanging(null), []);
   const lastPlan = React.useRef<CheckoutPlanId | null>(null);
   const start = (id: CheckoutPlanId) => {
     lastPlan.current = id;
@@ -102,8 +111,8 @@ function PlanBody({
   const choose = canManage
     ? (plan: PlanDTO) => {
         if (!isCheckoutPlan(plan.id)) return;
-        // A subscriber switches plan; only a first purchase goes through checkout.
-        if (isPaid) changePlan.mutate(plan.id);
+        // A subscriber confirms the change in a sheet first; only a first purchase goes through checkout.
+        if (isPaid) setChanging(plan);
         else start(plan.id);
       }
     : () => toast.blocked(t('settings.ownerOnly'));
@@ -156,6 +165,23 @@ function PlanBody({
           onBack={checkout.reset}
         />
       ) : null}
+      {scheduled ? (
+        <ScheduledChangeBanner
+          name={
+            plans.find((p) => p.id === scheduled.plan)?.name ??
+            t(`plans.names.${scheduled.plan}`)
+          }
+          date={formatEffectiveDate(
+            scheduled.effective_at,
+            business.data?.timezone ?? 'Africa/Johannesburg',
+          )}
+          currentName={current?.name ?? t(`plans.names.${currentPlan}`)}
+          isPending={keepPlan.isPending}
+          onKeep={() =>
+            isCheckoutPlan(currentPlan) && keepPlan.mutate(currentPlan)
+          }
+        />
+      ) : null}
       {tiers.map((plan) => (
         <TierCard key={plan.id} plan={plan} onChoose={choose} />
       ))}
@@ -182,6 +208,11 @@ function PlanBody({
         onManage={isPaid && canManage ? () => manage.mutate() : undefined}
       />
       <OwnerOnlyNote />
+      <PlanChangeSheet
+        plan={changing}
+        currentName={current?.name ?? t(`plans.names.${currentPlan}`)}
+        onClose={closeChange}
+      />
     </>
   );
 }
