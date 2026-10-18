@@ -2,16 +2,24 @@ import { useAppColorScheme } from '@booking/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   useAnimatedProps,
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
-import { COLORS, GAP_NEW, RING, styles } from './StoryRing';
+import { LABEL_MAX_FONT_SCALE, storyLabelHeight } from './ringLayout';
+import { COLORS, GAP_NEW, PRESS_TIMING, RING, styles } from './StoryRing';
 import { KIND_GLYPHS, TONES } from './tones';
 
 export interface ProgressStoryRingProps {
@@ -27,7 +35,7 @@ export interface ProgressStoryRingProps {
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** One glide to a new value, never a loop: nothing runs while the ring rests. */
-const GLIDE_MS = 600;
+const GLIDE = { duration: 600, reduceMotion: ReduceMotion.System } as const;
 
 const STROKE = (RING - GAP_NEW) / 2 + 1;
 const RADIUS = (RING - STROKE) / 2;
@@ -38,7 +46,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * `StoryRing`, with the ring drawn as an arc filled to `done / total`. It is
  * never "viewed": it stays until the list is finished. Flat, no shadow.
  */
-export function ProgressStoryRing({
+export const ProgressStoryRing = React.memo(function ProgressStoryRing({
   label,
   accessibilityLabel,
   icon: Icon,
@@ -46,6 +54,7 @@ export function ProgressStoryRing({
   total,
   onPress,
 }: ProgressStoryRingProps) {
+  const { fontScale } = useWindowDimensions();
   const { isDark } = useAppColorScheme();
   const c = COLORS[isDark ? 'dark' : 'light'];
   const glyph = KIND_GLYPHS.brief[isDark ? 'dark' : 'light'];
@@ -57,7 +66,7 @@ export function ProgressStoryRing({
   const arc = TONES.neutral.ring[1];
   const progress = useSharedValue(fraction);
   React.useEffect(() => {
-    progress.value = withTiming(fraction, { duration: GLIDE_MS });
+    progress.value = withTiming(fraction, GLIDE);
   }, [fraction, progress]);
   const arcProps = useAnimatedProps(() => ({
     strokeDasharray: `${CIRCUMFERENCE * progress.value} ${CIRCUMFERENCE}`,
@@ -71,10 +80,10 @@ export function ProgressStoryRing({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       onPressIn={() => {
-        press.value = withTiming(0.94, { duration: 120 });
+        press.value = withTiming(0.94, PRESS_TIMING);
       }}
       onPressOut={() => {
-        press.value = withTiming(1, { duration: 120 });
+        press.value = withTiming(1, PRESS_TIMING);
       }}
       style={styles.button}
     >
@@ -125,13 +134,21 @@ export function ProgressStoryRing({
       </Animated.View>
       <Text
         numberOfLines={2}
-        style={[styles.label, { color: c.label, fontWeight: '600' }]}
+        maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+        style={[
+          styles.label,
+          {
+            height: storyLabelHeight(fontScale),
+            color: c.label,
+            fontWeight: '600',
+          },
+        ]}
       >
         {label}
       </Text>
     </Pressable>
   );
-}
+});
 
 const tile = StyleSheet.create({
   base: {

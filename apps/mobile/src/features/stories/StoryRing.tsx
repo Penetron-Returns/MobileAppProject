@@ -2,15 +2,28 @@ import { useAppColorScheme } from '@booking/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
 import { KindTile } from './KindTile';
+import {
+  LABEL_MARGIN_TOP,
+  LABEL_MAX_FONT_SCALE,
+  RING_SIZE,
+  storyLabelHeight,
+} from './ringLayout';
 import type { OriginFrame, Story } from './model';
 import { TONES } from './tones';
 
@@ -20,7 +33,7 @@ export interface StoryRingProps {
   onPress: (storyId: string, frame: OriginFrame) => void;
 }
 
-export const RING = 76;
+export const RING = RING_SIZE;
 export const GAP_NEW = 70;
 const GAP_VIEWED = 74;
 
@@ -39,16 +52,28 @@ export const COLORS = {
   },
 } as const;
 
+/** One press-scale leg: quick and instant under Reduce Motion. */
+export const PRESS_TIMING = {
+  duration: 120,
+  reduceMotion: ReduceMotion.System,
+} as const;
+
 /**
  * A story bubble: a tone gradient ring while new, a 1 pt grey ring once
  * viewed, the title under it, and a press scale. Nothing animates at rest;
  * the ring fade and gap resize play once when `viewed` flips.
  */
-export function StoryRing({ story, onPress }: StoryRingProps) {
+export const StoryRing = React.memo(function StoryRing({
+  story,
+  onPress,
+}: StoryRingProps) {
   const { t } = useTranslation();
   const { isDark } = useAppColorScheme();
   const c = COLORS[isDark ? 'dark' : 'light'];
+  const { fontScale } = useWindowDimensions();
   const ringRef = React.useRef<View>(null);
+  // Measured as the finger lands, so the frame is ready before the press ends.
+  const frameRef = React.useRef<OriginFrame | null>(null);
   const press = useSharedValue(1);
   const isNew = !story.viewed;
   const fresh = useSharedValue(isNew ? 1 : 0);
@@ -57,6 +82,7 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
     fresh.value = withTiming(isNew ? 1 : 0, {
       duration: 500,
       easing: Easing.out(Easing.quad),
+      reduceMotion: ReduceMotion.System,
     });
   }, [fresh, isNew]);
 
@@ -69,7 +95,17 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
     return { width: size, height: size };
   });
 
+  const measure = () => {
+    ringRef.current?.measureInWindow((x, y, width, height) => {
+      frameRef.current = { x, y, width, height };
+    });
+  };
   const handlePress = () => {
+    const known = frameRef.current;
+    if (known) {
+      onPress(story.id, known);
+      return;
+    }
     ringRef.current?.measureInWindow((x, y, width, height) =>
       onPress(story.id, { x, y, width, height }),
     );
@@ -83,10 +119,11 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
       })}
       onPress={handlePress}
       onPressIn={() => {
-        press.value = withTiming(0.94, { duration: 120 });
+        measure();
+        press.value = withTiming(0.94, PRESS_TIMING);
       }}
       onPressOut={() => {
-        press.value = withTiming(1, { duration: 120 });
+        press.value = withTiming(1, PRESS_TIMING);
       }}
       style={styles.button}
     >
@@ -113,9 +150,11 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
       </Animated.View>
       <Text
         numberOfLines={2}
+        maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
         style={[
           styles.label,
           {
+            height: storyLabelHeight(fontScale),
             color: isNew ? c.label : c.dim,
             fontWeight: isNew ? '600' : '500',
           },
@@ -125,7 +164,7 @@ export function StoryRing({ story, onPress }: StoryRingProps) {
       </Text>
     </Pressable>
   );
-}
+});
 
 /** Shared with the other bubble kinds, so every ring and label lines up. */
 export const styles = StyleSheet.create({
@@ -148,9 +187,8 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    marginTop: 6,
+    marginTop: LABEL_MARGIN_TOP,
     width: 80,
-    height: 36,
     fontSize: 14,
     lineHeight: 18,
     textAlign: 'center',

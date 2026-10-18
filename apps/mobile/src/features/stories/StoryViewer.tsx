@@ -1,5 +1,6 @@
-import { useReduceMotion } from '@booking/ui';
+import { haptics, useReduceMotion } from '@booking/ui';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -76,6 +77,14 @@ export function StoryViewer(props: StoryViewerProps) {
   const drag = useSharedValue(0);
   const [isClosing, setIsClosing] = React.useState(false);
   const closingRef = React.useRef(false);
+  const [isContentReady, setIsContentReady] = React.useState(false);
+  const [isPausedByUser, setIsPausedByUser] = React.useState(false);
+  // The shell is on screen at once (the open animation starts this frame);
+  // the cards and Clovie mount one frame later, so the press never waits on them.
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setIsContentReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const onEvent = props.onEvent ?? noop;
 
   const closeNow = React.useCallback(() => {
@@ -132,6 +141,18 @@ export function StoryViewer(props: StoryViewerProps) {
     () => placeOnScreen(layout.placement, width, top),
     [layout.placement, width, top],
   );
+
+  const goStep = (direction: 'prev' | 'next') => {
+    setIsPausedByUser(false);
+    playerRef.current.resume();
+    if (direction === 'prev') playerRef.current.prev();
+    else playerRef.current.next();
+  };
+  const togglePause = () => {
+    if (isPausedByUser) playerRef.current.resume();
+    else playerRef.current.pause();
+    setIsPausedByUser(!isPausedByUser);
+  };
 
   const handleTap = (x: number) =>
     tapAction(x, width) === 'prev'
@@ -205,22 +226,24 @@ export function StoryViewer(props: StoryViewerProps) {
           <LinearGradient colors={['#0F2D42', '#0A1A28']} style={styles.fill} />
           <ToneGlow tone={card.tone} />
 
-          {faces.map(({ pos, role }) => (
-            <StoryFace
-              key={`${pos.story}:${pos.card}`}
-              role={role}
-              transitionKind={player.transition.kind}
-              dir={player.transition.dir}
-              turn={player.turn}
-              turnId={player.turnId}
-              width={width}
-              isReduced={isReduced}
-              isTransitioning={player.outgoing !== null}
-              card={stories[pos.story].cards[pos.card]}
-              storyKind={stories[pos.story].kind}
-              top={top}
-            />
-          ))}
+          {isContentReady
+            ? faces.map(({ pos, role }) => (
+                <StoryFace
+                  key={`${pos.story}:${pos.card}`}
+                  role={role}
+                  transitionKind={player.transition.kind}
+                  dir={player.transition.dir}
+                  turn={player.turn}
+                  turnId={player.turnId}
+                  width={width}
+                  isReduced={isReduced}
+                  isTransitioning={player.outgoing !== null}
+                  card={stories[pos.story].cards[pos.card]}
+                  storyKind={stories[pos.story].kind}
+                  top={top}
+                />
+              ))
+            : null}
 
           <GestureDetector gesture={gesture}>
             <View
@@ -268,14 +291,47 @@ export function StoryViewer(props: StoryViewerProps) {
             </Pressable>
           </View>
 
-          <ViewerCharacter
-            emotion={layout.emotion}
-            target={target}
-            travel={player.travel}
-            screenWidth={width}
-            isSearching={layout.isSearching}
-            isCatching={layout.isCatching}
-          />
+          {isContentReady ? (
+            <ViewerCharacter
+              emotion={layout.emotion}
+              target={target}
+              travel={player.travel}
+              screenWidth={width}
+              isSearching={layout.isSearching}
+              isCatching={layout.isCatching}
+            />
+          ) : null}
+
+          <View
+            style={[
+              styles.controls,
+              { bottom: insets.bottom + (card.action ? 96 : 28) },
+            ]}
+            pointerEvents="box-none"
+          >
+            <ControlButton
+              label={t('stories.previous')}
+              onPress={() => goStep('prev')}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </ControlButton>
+            <ControlButton
+              label={t(isPausedByUser ? 'stories.resume' : 'stories.pause')}
+              onPress={togglePause}
+            >
+              {isPausedByUser ? (
+                <Play size={22} color="#FFFFFF" />
+              ) : (
+                <Pause size={22} color="#FFFFFF" />
+              )}
+            </ControlButton>
+            <ControlButton
+              label={t('stories.next')}
+              onPress={() => goStep('next')}
+            >
+              <ChevronRight size={24} color="#FFFFFF" />
+            </ControlButton>
+          </View>
 
           {card.action && !isClosing ? (
             <Rise
@@ -286,6 +342,7 @@ export function StoryViewer(props: StoryViewerProps) {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
+                  haptics.light();
                   player.emit('action');
                   onAction?.(card);
                 }}
@@ -311,6 +368,29 @@ export function StoryViewer(props: StoryViewerProps) {
         </Animated.View>
       </GestureHandlerRootView>
     </Modal>
+  );
+}
+
+/** A 44 pt round control over the dark viewer, for people who cannot tap, hold or swipe. */
+function ControlButton({
+  label,
+  onPress,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={4}
+      style={styles.control}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -342,6 +422,22 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  controls: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  control: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   actionWrap: { position: 'absolute', left: 24, right: 24 },
   action: {

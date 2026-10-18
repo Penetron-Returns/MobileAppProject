@@ -1,24 +1,34 @@
-import { Text, useReduceMotion } from '@booking/ui';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { useUser } from '@clerk/expo';
+import { Text } from '@booking/ui';
+import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
+
+import { useBusiness } from '@/features/business/hooks';
+import { formatDayCaption } from '@/features/today/logic';
+import { useNow } from '@/hooks/useNow';
+import { todayISO } from '@/lib/time';
+
+import { greetingText } from '../greeting';
+
+/** The greeting only changes on the hour, so a slow clock is plenty. */
+const CLOCK_MS = 5 * 60_000;
+const FALLBACK_TIMEZONE = 'UTC';
 
 /**
- * The date line and the large greeting. The greeting is the screen's heading.
- * It fades in once on mount (the only motion here) and not at all with
- * Reduce Motion.
+ * The date line and the large greeting (the screen's heading). It owns the
+ * clock, so its tick re-renders these two lines and not the whole tab. Static:
+ * no entrance animation, so the first frame is the final frame.
  */
-export function ClovieHeader({
-  caption,
-  greeting,
-}: {
-  caption: string;
-  greeting: string;
-}) {
-  const isReduced = useReduceMotion();
+export function ClovieHeader() {
+  const { t } = useTranslation();
+  const { user } = useUser();
+  const business = useBusiness();
+  const now = useNow(CLOCK_MS);
+  const timezone = business.data?.timezone ?? FALLBACK_TIMEZONE;
+  const greeting = greetingText(now, timezone, user?.firstName);
+  const caption = formatDayCaption(todayISO(timezone, now));
   return (
-    <Animated.View
-      entering={isReduced ? undefined : FadeIn.duration(400)}
-      className="px-5 pt-1"
-    >
+    <View className="px-5 pt-1">
       <Text className="text-title font-semibold text-muted-foreground">
         {caption}
       </Text>
@@ -28,8 +38,8 @@ export function ClovieHeader({
         style={{ letterSpacing: 0.4 }}
         className="text-large-title font-bold"
       >
-        {greeting}
+        {t(greeting.key, greeting.values)}
       </Text>
-    </Animated.View>
+    </View>
   );
 }

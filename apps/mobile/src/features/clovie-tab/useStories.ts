@@ -77,9 +77,13 @@ export function useStories() {
     [queryClient],
   );
 
+  const isPaused = query.fetchStatus === 'paused';
   return {
     stories,
-    isLoading: query.isPending,
+    // Offline, the first fetch is paused rather than failed: show the retry row, not a skeleton forever.
+    isLoading: query.isPending && !isPaused,
+    isError: query.isError || (query.isPending && isPaused),
+    refetch: query.refetch,
     markViewed,
   };
 }
