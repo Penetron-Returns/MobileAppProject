@@ -2,6 +2,7 @@ import { ErrorState, Skeleton, Text } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { analytics } from '@/features/analytics';
 import { paidPlans } from '@/features/plans/compare';
@@ -21,6 +22,9 @@ import { PayFailedScreen } from './PayFailedScreen';
 import { PayingScreen } from './PayingScreen';
 import { PlanCard } from './PlanCard';
 import { Rise } from './Rise';
+
+/** Three 80pt cards and the two 12pt gaps between them. */
+const PLANS_MIN_HEIGHT = 3 * 80 + 2 * 12;
 
 /** The plan chosen first: the entry plan, as the boards show it. */
 const DEFAULT_PLAN: CheckoutPlanId = 'starter';
@@ -100,8 +104,10 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
   const isStarting = phase.kind === 'starting' || phase.kind === 'browser';
   const pick = selected && isCheckoutPlan(selected.id) ? selected : null;
 
+  let bodyKey = 'loaded';
   let body: React.ReactNode;
   if (!plans.data && !isOnline) {
+    bodyKey = 'offline';
     // Offline the plans query just waits: say so instead of showing skeletons for ever.
     body = (
       <ErrorState
@@ -112,6 +118,7 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
       />
     );
   } else if (plans.isError) {
+    bodyKey = 'error';
     body = (
       <ErrorState
         variant="banner"
@@ -121,6 +128,7 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
       />
     );
   } else if (!plans.data) {
+    bodyKey = 'loading';
     body = (
       <View
         style={{ gap: 12 }}
@@ -190,7 +198,16 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
           <Heading label={title.replace('\n', ' ')}>{title}</Heading>
         </Rise>
         <Rise index={2} style={{ alignSelf: 'stretch', marginTop: 4 }}>
-          {body}
+          {/* Heights are reserved (three 80pt cards), so loading to loaded never moves the page. */}
+          <View style={{ minHeight: PLANS_MIN_HEIGHT }}>
+            <Animated.View
+              key={bodyKey}
+              entering={FadeIn.duration(180)}
+              exiting={FadeOut.duration(120)}
+            >
+              {body}
+            </Animated.View>
+          </View>
         </Rise>
         {extra > 0 ? (
           <Rise index={3}>

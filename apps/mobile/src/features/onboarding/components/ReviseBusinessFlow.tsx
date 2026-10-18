@@ -1,10 +1,5 @@
-import { Ground } from '@booking/ui';
 import * as React from 'react';
-import Animated, {
-  ReduceMotion,
-  SlideInLeft,
-  SlideInRight,
-} from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 import { analytics } from '@/features/analytics';
 
@@ -23,10 +18,9 @@ import {
 import { saveBusinessType } from '../storage';
 import { CreateFailedScreen } from './CreateFailedScreen';
 import { NameScreen } from './NameScreen';
+import { OnboardingChrome } from './OnboardingShell';
+import { StepHost } from './StepHost';
 import { TypeScreen } from './TypeScreen';
-
-const FORWARD = SlideInRight.duration(300).reduceMotion(ReduceMotion.System);
-const BACKWARD = SlideInLeft.duration(300).reduceMotion(ReduceMotion.System);
 
 /**
  * Back from the plan screen: the name (prefilled), and the type behind it, for a
@@ -46,12 +40,13 @@ export function ReviseBusinessFlow({
   const [screen, setScreen] = React.useState<OnboardingScreen>(() =>
     reviseStartScreen(current),
   );
-  const [isBack, setIsBack] = React.useState(false);
+  // 1 going on, -1 going back: read on the UI thread by the step transition.
+  const direction = useSharedValue(1);
   const [error, setError] = React.useState<unknown>(null);
   const revise = useReviseBusiness();
 
   const go = (next: OnboardingScreen, back = false) => {
-    setIsBack(back);
+    direction.value = back ? -1 : 1;
     setScreen(next);
   };
   const goBack = () => {
@@ -111,14 +106,10 @@ export function ReviseBusinessFlow({
   }
 
   return (
-    <Ground style={{ flex: 1 }}>
-      <Animated.View
-        key={screen}
-        entering={isBack ? BACKWARD : FORWARD}
-        style={{ flex: 1 }}
-      >
+    <OnboardingChrome reserveDots>
+      <StepHost stepKey={screen} direction={direction}>
         {body}
-      </Animated.View>
-    </Ground>
+      </StepHost>
+    </OnboardingChrome>
   );
 }

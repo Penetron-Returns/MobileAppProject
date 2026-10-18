@@ -1,4 +1,11 @@
-import { Pressable, SPRING, Text, useReduceMotion } from '@booking/ui';
+import {
+  Pressable,
+  SCALE,
+  SPRING,
+  Text,
+  haptics,
+  useReduceMotion,
+} from '@booking/ui';
 import {
   Check,
   Heart,
@@ -56,9 +63,16 @@ function Tile({
   const scale = useSharedValue(1);
   const tick = useSharedValue(isSelected ? 1 : 0);
   const opacity = useSharedValue(1);
+  const isPicked = state === 'picked';
+  const press = (down: boolean) => {
+    scale.value = withSpring(down || isPicked ? SCALE.pressed : 1, {
+      ...SPRING.snappy,
+      duration: 140,
+    });
+  };
 
   React.useEffect(() => {
-    scale.value = withSpring(state === 'picked' ? 0.97 : 1, {
+    scale.value = withSpring(state === 'picked' ? SCALE.pressed : 1, {
       ...SPRING.snappy,
       duration: 140,
     });
@@ -88,6 +102,8 @@ function Tile({
       <Pressable
         feedback="none"
         onPress={onPress}
+        onPressIn={() => press(true)}
+        onPressOut={() => press(false)}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ selected: isSelected }}
@@ -181,6 +197,7 @@ export function TypeScreen({
 
   const pick = (id: BusinessTypeId) => {
     if (picked) return;
+    haptics.selection();
     setPicked(id);
     timer.current = setTimeout(() => onSelect(id), isReduced ? 0 : ADVANCE_MS);
   };

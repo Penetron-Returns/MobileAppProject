@@ -4,7 +4,9 @@ import * as React from 'react';
 import { TYPE, useOnbColors } from '../theme';
 import type { HeadingRef } from '../useScreenReader';
 
-const WORD_MS = 90;
+/** Words appear 55ms apart, and the whole line never takes longer than STREAM_MAX_MS. */
+const WORD_MS = 55;
+const STREAM_MAX_MS = 450;
 const WORD = /\S+\s*/g;
 
 /** Splits `text` after the first `count` words: what is shown, and what is still to come. */
@@ -15,8 +17,8 @@ export function revealed(text: string, count: number): [string, string] {
 }
 
 /**
- * The screen's heading, streamed in word by word (90ms each) the way Clovie
- * "says" it. The words still to come are transparent, so the line breaks never
+ * The screen's heading, streamed in word by word the way Clovie "says" it
+ * (visual only: nothing on the screen waits for it). The words still to come are transparent, so the line breaks never
  * move. Screen readers get the whole sentence at once; Reduce Motion shows it whole.
  */
 export function StreamedText({
@@ -38,11 +40,14 @@ export function StreamedText({
     }
     setCount(0);
     let n = 0;
-    const id = setInterval(() => {
-      n += 1;
-      setCount(n);
-      if (n >= total) clearInterval(id);
-    }, WORD_MS);
+    const id = setInterval(
+      () => {
+        n += 1;
+        setCount(n);
+        if (n >= total) clearInterval(id);
+      },
+      Math.min(WORD_MS, STREAM_MAX_MS / Math.max(1, total)),
+    );
     return () => clearInterval(id);
   }, [text, total, isReduced]);
 

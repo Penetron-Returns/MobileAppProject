@@ -1,12 +1,7 @@
-import { Ground } from '@booking/ui';
 import { useUser } from '@clerk/expo';
 import { router } from 'expo-router';
 import * as React from 'react';
-import Animated, {
-  ReduceMotion,
-  SlideInLeft,
-  SlideInRight,
-} from 'react-native-reanimated';
+import { useSharedValue } from 'react-native-reanimated';
 
 import { analytics } from '@/features/analytics';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
@@ -29,6 +24,8 @@ import { clearDraft, saveBusinessType } from '../storage';
 import { useOnboardingDraft } from '../useOnboardingDraft';
 import { CreateFailedScreen } from './CreateFailedScreen';
 import { NameScreen } from './NameScreen';
+import { OnboardingChrome } from './OnboardingShell';
+import { StepHost } from './StepHost';
 import { TypeScreen } from './TypeScreen';
 import { WelcomeScreen } from './WelcomeScreen';
 
@@ -40,10 +37,6 @@ async function rememberCreated(typeId: BusinessTypeId | null) {
 
 /** Ignore a second tap on a sign-in link for this long (the push is not instant). */
 const PUSH_GUARD_MS = 1000;
-
-/** Screens slide in from the right going on, from the left going back (300ms). */
-const FORWARD = SlideInRight.duration(300).reduceMotion(ReduceMotion.System);
-const BACKWARD = SlideInLeft.duration(300).reduceMotion(ReduceMotion.System);
 
 /**
  * Welcome, business type, name. Signed out, the name's Continue goes on to the
@@ -64,7 +57,8 @@ export function OnboardingFlow({
   const ownerName = user?.fullName ?? user?.firstName ?? null;
   const { draft, update } = useOnboardingDraft();
   const [screen, setScreen] = React.useState<OnboardingScreen | null>(null);
-  const [isBack, setIsBack] = React.useState(false);
+  // 1 going on, -1 going back: read on the UI thread by the step transition.
+  const direction = useSharedValue(1);
   const [isBusy, setIsBusy] = React.useState(false);
   const [error, setError] = React.useState<unknown>(null);
   const submit = useCompleteOnboarding();
@@ -91,7 +85,7 @@ export function OnboardingFlow({
   }, [screen]);
 
   const go = (next: OnboardingScreen, back = false) => {
-    setIsBack(back);
+    direction.value = back ? -1 : 1;
     setScreen(next);
   };
 
@@ -185,14 +179,10 @@ export function OnboardingFlow({
   }
 
   return (
-    <Ground style={{ flex: 1 }}>
-      <Animated.View
-        key={screen}
-        entering={isBack ? BACKWARD : FORWARD}
-        style={{ flex: 1 }}
-      >
+    <OnboardingChrome reserveDots>
+      <StepHost stepKey={screen} direction={direction}>
         {body}
-      </Animated.View>
-    </Ground>
+      </StepHost>
+    </OnboardingChrome>
   );
 }

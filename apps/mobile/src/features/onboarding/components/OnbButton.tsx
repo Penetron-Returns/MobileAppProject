@@ -1,4 +1,4 @@
-import { Pressable, Text } from '@booking/ui';
+import { Pressable, Text, haptics } from '@booking/ui';
 import type { LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
 import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
@@ -36,7 +36,10 @@ export function OnbButton({
   return (
     <Pressable
       feedback={isLink ? 'dim' : 'nudge'}
-      onPress={onPress}
+      onPress={() => {
+        if (isPrimary) haptics.light();
+        onPress();
+      }}
       disabled={disabled || loading}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
