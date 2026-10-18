@@ -151,8 +151,14 @@ export function provisioningStatus(input: {
   isOwner: boolean;
   isActive: boolean;
   setup: { isLoading: boolean; nextStep: CompanionSetupStep | null };
+  /**
+   * `/v1/me` was already known from the saved cache at launch, so this is a
+   * returning owner: open the app now and only fall back to the setup screen
+   * if Nerova then says the account is still being created.
+   */
+  hasCachedMe?: boolean;
 }): ProvisioningStatus {
   if (!input.isOwner || !input.isActive) return 'ready';
-  if (input.setup.isLoading) return 'pending';
+  if (input.setup.isLoading) return input.hasCachedMe ? 'ready' : 'pending';
   return input.setup.nextStep === 'provision_account' ? 'pending' : 'ready';
 }

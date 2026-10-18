@@ -290,6 +290,26 @@ describe('provisioningStatus', () => {
       'pending',
     ],
     [
+      'loading does not block a returning owner with a cached /me',
+      {
+        isOwner: true,
+        isActive: true,
+        hasCachedMe: true,
+        setup: { isLoading: true, nextStep: null },
+      },
+      'ready',
+    ],
+    [
+      'provision_account still waits for a returning owner',
+      {
+        isOwner: true,
+        isActive: true,
+        hasCachedMe: true,
+        setup: { isLoading: false, nextStep: 'provision_account' },
+      },
+      'pending',
+    ],
+    [
       'provision_account waits',
       {
         isOwner: true,
