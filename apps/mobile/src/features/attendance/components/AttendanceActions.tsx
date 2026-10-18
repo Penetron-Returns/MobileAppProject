@@ -1,5 +1,5 @@
 import type { AttendanceCheckDTO, AttendanceOutcome } from '@booking/types';
-import { Button, Pressable, Text, useDepth } from '@booking/ui';
+import { Button, haptics, Pressable, Text, useDepth } from '@booking/ui';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -21,7 +21,10 @@ export function AttendanceActions({
       <Button
         className="flex-1"
         size={size}
-        onPress={() => onAnswer(check, 'came')}
+        onPress={() => {
+          haptics.light();
+          onAnswer(check, 'came');
+        }}
         accessibilityLabel={t('attendance.cameLabel', { name })}
       >
         <Text className="text-title">{t('attendance.came')}</Text>
@@ -30,7 +33,10 @@ export function AttendanceActions({
         className="flex-1"
         size={size}
         variant="secondary"
-        onPress={() => onAnswer(check, 'no_show')}
+        onPress={() => {
+          haptics.light();
+          onAnswer(check, 'no_show');
+        }}
         accessibilityLabel={t('attendance.noShowLabel', { name })}
       >
         <Text style={{ color: depth.colors.tint }} className="text-title">

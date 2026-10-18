@@ -21,8 +21,8 @@ import { toast } from '@/lib/toast';
 
 import { attendanceIdempotencyKey, withoutCheck } from './logic';
 
-/** How long "Marked Thandi as came" stays before the next item or the all-clear. */
-export const CONFIRMATION_MS = 2000;
+/** A stable empty list: a fresh `[]` every render would re-render every consumer. */
+const NO_CHECKS: AttendanceCheckDTO[] = [];
 
 export function useAttendancePending(enabled = true) {
   return useQuery({
@@ -86,20 +86,14 @@ export function useAnswerAttendance() {
 
 /**
  * The caller's open questions plus `answer`, which shows the follow-up line
- * ("Marked Thandi as came") for about 2 s. The line is dropped again if the
- * answer fails.
+ * ("Marked Thandi as came"). It stays until the next answer replaces it or
+ * the screen is left, so it is never missed; it is dropped if the answer fails.
  */
 export function useAttendance(enabled = true) {
   const { t } = useTranslation();
   const pending = useAttendancePending(enabled);
   const { mutateAsync } = useAnswerAttendance();
   const [confirmation, setConfirmation] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!confirmation) return;
-    const timer = setTimeout(() => setConfirmation(null), CONFIRMATION_MS);
-    return () => clearTimeout(timer);
-  }, [confirmation]);
 
   const answer = React.useCallback(
     async (check: AttendanceCheckDTO, outcome: AttendanceOutcome) => {
@@ -124,7 +118,7 @@ export function useAttendance(enabled = true) {
   );
 
   return {
-    checks: pending.data?.checks ?? [],
+    checks: pending.data?.checks ?? NO_CHECKS,
     isLoading: pending.isPending,
     isError: pending.isError,
     error: pending.error,
