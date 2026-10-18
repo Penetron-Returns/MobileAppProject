@@ -10,6 +10,7 @@ Supabase Postgres schema for the booking platform: the tables, RLS, RPCs, realti
 | `packages/database/supabase/migrations/20260924000004_rls_grants.sql` | RLS, SELECT-only policies, table/column grants, default privileges |
 | `packages/database/supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
 | `packages/database/supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
+| `packages/database/supabase/migrations/20261029000002_realtime_config_tables.sql` | Adds the schedule-config tables (hours, special days, availability rules/overrides, breaks, time off) to `supabase_realtime` (guarded, idempotent) |
 | `packages/database/supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
 | `packages/database/supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
 | `packages/database/supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
