@@ -9,6 +9,7 @@ import {
   type BearerCredential,
 } from '../auth-token';
 import { env } from '../env';
+import { fetchWithTimeout } from '../fetchWithTimeout';
 
 /** Client-side codes for failures that never reached the API. */
 export type ClientErrorCode =
@@ -174,7 +175,7 @@ export async function apiRequest<T>(
 
   let res: Response;
   try {
-    res = await fetch(buildUrl(env.apiUrl, path, opts.query), {
+    res = await fetchWithTimeout(buildUrl(env.apiUrl, path, opts.query), {
       method,
       headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
