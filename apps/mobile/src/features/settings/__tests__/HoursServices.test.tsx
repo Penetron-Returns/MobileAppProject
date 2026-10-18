@@ -42,11 +42,17 @@ const mockHooks: Record<string, unknown> = {};
 const mockReplace = jest.fn();
 const mockSave = jest.fn();
 const mockDelete = jest.fn();
+const mockReplaceOpts: { current: { onSuccess?: () => void } } = {
+  current: {},
+};
 
 jest.mock('@/features/business/hooks', () => ({
   useBusinessHours: () => mockHooks.hours,
   useBusiness: () => mockHooks.business,
-  useReplaceBusinessHours: () => ({ mutate: mockReplace, isPending: false }),
+  useReplaceBusinessHours: (opts: { onSuccess?: () => void } = {}) => {
+    mockReplaceOpts.current = opts;
+    return { mutate: mockReplace, isPending: false };
+  },
 }));
 jest.mock('@/features/availability/hooks', () => ({
   useAvailabilityConfig: () => ({
@@ -194,6 +200,22 @@ describe('Operating hours screen', () => {
       { weekday: 1, opens_at: '09:00', closes_at: '10:00' },
       { weekday: 2, opens_at: '09:00', closes_at: '17:00' },
     ]);
+  });
+
+  it('refreshes the calendar window and open slots once the hours are saved', () => {
+    const invalidate = jest.spyOn(QueryClient.prototype, 'invalidateQueries');
+    const tree = mount(<OperatingHoursScreen />);
+    press(tree, 'Save Changes');
+    act(() => mockReplaceOpts.current.onSuccess?.());
+    const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        ['availability-config'],
+        ['availability', 'days'],
+        ['availability', 'slots'],
+      ]),
+    );
+    invalidate.mockRestore();
   });
 
   it('has one range per day: no way to add a second one', () => {

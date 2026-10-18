@@ -30,55 +30,69 @@ import { isFailed, loadError } from '@/lib/offline';
 import { WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
+import { invalidateSchedule } from '../hooks';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { SpecialDaysSection } from './SpecialDaysSection';
-
-export function OperatingHoursScreen() {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const hours = useBusinessHours();
-  if (hours.data) return <HoursEditor initial={toWeekSchedule(hours.data)} />;
-  return (
-    <GlassPage
-      title={t('hours.title')}
-      backLabel={t('tabs.settings')}
-      backFallback="/settings"
-      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
-    >
-      {isFailed(hours) ? (
-        <ErrorState
-          variant="banner"
-          {...describeError(loadError(hours))}
-          onRetry={() => void hours.refetch()}
-        />
-      ) : (
-        <ListSkeleton rows={7} />
-      )}
-    </GlassPage>
-  );
-}
 
 interface PickerTarget {
   weekday: number;
   field: TimeEnd;
 }
 
-function HoursEditor({ initial }: { initial: DayHours[] }) {
+/**
+ * Operating hours. One page for the whole life of the screen: the week fills
+ * in when it arrives (and is then the owner's to edit; a later refetch never
+ * overwrites it), so nothing remounts or flashes.
+ */
+export function OperatingHoursScreen() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const canManage = useCanManage();
-  const [days, setDays] = React.useState(initial);
+  const hours = useBusinessHours();
+  const [days, setDays] = React.useState<DayHours[] | null>(() =>
+    hours.data ? toWeekSchedule(hours.data) : null,
+  );
   const [picker, setPicker] = React.useState<PickerTarget | null>(null);
   const [presenting, setPresenting] = React.useState(false);
   const replace = useReplaceBusinessHours({
-    onSuccess: () => toast.success(t('hours.saved')),
+    onSuccess: () => {
+      toast.success(t('hours.saved'));
+      // The calendar's visible window and the live days and slots follow the hours.
+      invalidateSchedule(queryClient);
+    },
   });
 
-  const updateDay = (weekday: number, patch: Partial<DayHours>) =>
-    setDays((prev) =>
-      prev.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d)),
+  React.useEffect(() => {
+    if (!days && hours.data) setDays(toWeekSchedule(hours.data));
+  }, [days, hours.data]);
+
+  const updateDay = React.useCallback(
+    (weekday: number, patch: Partial<DayHours>) =>
+      setDays((prev) =>
+        prev
+          ? prev.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d))
+          : prev,
+      ),
+    [],
+  );
+  const toggle = React.useCallback(
+    (weekday: number, isOpen: boolean) => {
+      updateDay(weekday, { isOpen });
+      setPicker((cur) => (cur?.weekday === weekday ? null : cur));
+    },
+    [updateDay],
+  );
+  const pick = React.useCallback((weekday: number, field: TimeEnd) => {
+    setPicker((cur) =>
+      cur?.weekday === weekday && cur.field === field
+        ? null
+        : { weekday, field },
     );
+  }, []);
+  const closePicker = React.useCallback(() => setPicker(null), []);
 
   const save = () => {
+    if (!days) return;
     const error = validateWeek(days);
     if (error) {
       toast.blocked(
@@ -95,8 +109,13 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
         title={t('hours.title')}
         backLabel={t('tabs.settings')}
         backFallback="/settings"
+        onRefresh={
+          days
+            ? undefined
+            : () => queryClient.refetchQueries({ type: 'active' })
+        }
         footer={
-          canManage ? (
+          canManage && days ? (
             <SaveFooter
               label={
                 replace.isPending ? t('common.saving') : t('common.saveChanges')
@@ -107,51 +126,89 @@ function HoursEditor({ initial }: { initial: DayHours[] }) {
           ) : undefined
         }
       >
-        <Group radius={26} className="mx-4">
-          {days.map((day, i) => (
-            <DayHoursRow
-              key={day.weekday}
-              day={day}
-              label={WEEKDAYS[day.weekday]}
-              editable={canManage}
-              showSeparator={i > 0}
-              picked={picker?.weekday === day.weekday ? picker.field : null}
-              onToggle={(isOpen) => {
-                updateDay(day.weekday, { isOpen });
-                if (picker?.weekday === day.weekday) setPicker(null);
-              }}
-              onPick={(field) =>
-                setPicker((cur) =>
-                  cur?.weekday === day.weekday && cur.field === field
-                    ? null
-                    : { weekday: day.weekday, field },
-                )
-              }
-              onClosePicker={() => setPicker(null)}
-              onChangeTime={(field, time) =>
-                updateDay(day.weekday, { [field]: time })
-              }
+        {days ? (
+          <>
+            <Group radius={26} className="mx-4">
+              {days.map((day, i) => (
+                <WeekdayRow
+                  key={day.weekday}
+                  day={day}
+                  editable={canManage}
+                  showSeparator={i > 0}
+                  picked={picker?.weekday === day.weekday ? picker.field : null}
+                  onToggle={toggle}
+                  onPick={pick}
+                  onClosePicker={closePicker}
+                  onChangeTime={updateDay}
+                />
+              ))}
+            </Group>
+            <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
+              {t('settings.hours.hint')}
+            </Text>
+            <Group radius={26} className="mx-4 mt-5">
+              <GroupRow
+                title={t('hours.breaks.open')}
+                onPress={() => router.push('/settings/team')}
+              />
+            </Group>
+            <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
+              {t('hours.breaks.hint')}
+            </Text>
+            <SpecialDaysSection
+              canManage={canManage}
+              onPresentChange={setPresenting}
             />
-          ))}
-        </Group>
-        <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
-          {t('settings.hours.hint')}
-        </Text>
-        <Group radius={26} className="mx-4 mt-5">
-          <GroupRow
-            title={t('hours.breaks.open')}
-            onPress={() => router.push('/settings/team')}
+            <OwnerOnlyNote />
+          </>
+        ) : isFailed(hours) ? (
+          <ErrorState
+            variant="banner"
+            {...describeError(loadError(hours))}
+            onRetry={() => void hours.refetch()}
           />
-        </Group>
-        <Text className="mx-5 mt-2.5 text-subtitle text-muted-foreground">
-          {t('hours.breaks.hint')}
-        </Text>
-        <SpecialDaysSection
-          canManage={canManage}
-          onPresentChange={setPresenting}
-        />
-        <OwnerOnlyNote />
+        ) : (
+          <ListSkeleton rows={7} />
+        )}
       </GlassPage>
     </Presenter>
   );
 }
+
+interface WeekdayRowProps {
+  day: DayHours;
+  editable: boolean;
+  showSeparator: boolean;
+  picked: TimeEnd | null;
+  onToggle: (weekday: number, isOpen: boolean) => void;
+  onPick: (weekday: number, field: TimeEnd) => void;
+  onClosePicker: () => void;
+  onChangeTime: (weekday: number, patch: Partial<DayHours>) => void;
+}
+
+/** Re-renders only when its own day (or its picker) changes, not the whole week. */
+const WeekdayRow = React.memo(function WeekdayRow({
+  day,
+  editable,
+  showSeparator,
+  picked,
+  onToggle,
+  onPick,
+  onClosePicker,
+  onChangeTime,
+}: WeekdayRowProps) {
+  const { weekday } = day;
+  return (
+    <DayHoursRow
+      day={day}
+      label={WEEKDAYS[weekday]}
+      editable={editable}
+      showSeparator={showSeparator}
+      picked={picked}
+      onToggle={(isOpen) => onToggle(weekday, isOpen)}
+      onPick={(field) => onPick(weekday, field)}
+      onClosePicker={onClosePicker}
+      onChangeTime={(field, time) => onChangeTime(weekday, { [field]: time })}
+    />
+  );
+});

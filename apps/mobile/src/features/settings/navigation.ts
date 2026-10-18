@@ -9,6 +9,7 @@ export type SettingsItem =
   | 'notifications'
   | 'plan'
   | 'appearance'
+  | 'haptics'
   | 'deleteAccount';
 
 export interface SettingsGroup {
@@ -33,12 +34,12 @@ export function settingsGroups(): SettingsGroup[] {
     { id: 'assistant', items: ['clovie', 'whatsapp'] },
     { id: 'notifications', items: ['notifications'] },
     { id: 'plan', items: ['plan'] },
-    { id: 'account', items: ['appearance', 'deleteAccount'] },
+    { id: 'account', items: ['appearance', 'haptics', 'deleteAccount'] },
   ];
 }
 
 export const SETTINGS_ROUTES: Record<
-  Exclude<SettingsItem, 'appearance'>,
+  Exclude<SettingsItem, 'appearance' | 'haptics'>,
   string
 > = {
   businessDetails: '/settings/business-details',

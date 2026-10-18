@@ -137,6 +137,7 @@ const ALL_ROWS = [
   'Notifications',
   'Plan',
   'Appearance',
+  'Haptic feedback',
   'Delete account',
 ];
 const HEADINGS = [
@@ -199,6 +200,10 @@ describe('Settings as owner', () => {
 
   it('toggles the appearance with a switch', () => {
     expect(hasSwitch(mount(), 'Appearance')).toBe(true);
+  });
+
+  it('has a haptic feedback switch', () => {
+    expect(hasSwitch(mount(), 'Haptic feedback')).toBe(true);
   });
 });
 

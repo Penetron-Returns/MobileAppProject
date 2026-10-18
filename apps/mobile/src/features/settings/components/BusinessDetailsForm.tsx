@@ -38,20 +38,43 @@ const API_FIELDS = {
   currency: 'currency',
 } as const;
 
-export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
+function toValues(d: BusinessDetails | undefined): BusinessDetailsValues {
+  return {
+    name: d?.name ?? '',
+    email: d?.email ?? '',
+    phone: d?.phone ?? '',
+    address: d?.address ?? '',
+    currency: d?.currency ?? 'ZAR',
+  };
+}
+
+/**
+ * The Business details page. It is one page throughout: while `initial` is
+ * still loading `fallback` (skeleton or error) fills the body, and the fields
+ * are seeded once when the details arrive (a later refetch never overwrites
+ * what the owner is typing).
+ */
+export function BusinessDetailsForm({
+  initial,
+  fallback,
+}: {
+  initial: BusinessDetails | undefined;
+  fallback: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const canManage = useCanManage();
   const [currencyOpen, setCurrencyOpen] = React.useState(false);
   const form = useForm<BusinessDetailsValues>({
     resolver: zodResolver(businessDetailsSchema(t)),
-    defaultValues: {
-      name: initial.name,
-      email: initial.email ?? '',
-      phone: initial.phone ?? '',
-      address: initial.address ?? '',
-      currency: initial.currency,
-    },
+    defaultValues: toValues(initial),
   });
+  const isSeeded = React.useRef(initial !== undefined);
+  React.useEffect(() => {
+    if (initial && !isSeeded.current) {
+      isSeeded.current = true;
+      form.reset(toValues(initial));
+    }
+  }, [initial, form]);
   const update = useUpdateBusiness({
     onSuccess: () => toast.success(t('businessDetails.saved')),
     onError: (error) =>
@@ -72,7 +95,7 @@ export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
       backLabel={t('tabs.settings')}
       backFallback="/settings"
       footer={
-        canManage ? (
+        canManage && initial ? (
           <SaveFooter
             label={
               update.isPending ? t('common.saving') : t('common.saveChanges')
@@ -83,79 +106,85 @@ export function BusinessDetailsForm({ initial }: { initial: BusinessDetails }) {
         ) : undefined
       }
     >
-      <View className="items-center gap-2 pt-4">
-        <Avatar name={initial.name} imageUrl={initial.logo_url} size="xl" />
-      </View>
+      {initial ? (
+        <>
+          <View className="items-center gap-2 pt-4">
+            <Avatar name={initial.name} imageUrl={initial.logo_url} size="xl" />
+          </View>
 
-      <SectionTitle>{t('settings.details.contact')}</SectionTitle>
-      <Group>
-        <GroupField
-          control={form.control}
-          name="name"
-          label={t('businessDetails.name')}
-          editable={canManage}
-        />
-        <GroupField
-          showSeparator
-          control={form.control}
-          name="email"
-          label={t('businessDetails.email')}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          editable={canManage}
-        />
-        <GroupField
-          showSeparator
-          control={form.control}
-          name="phone"
-          label={t('businessDetails.phone')}
-          keyboardType="phone-pad"
-          editable={canManage}
-        />
-      </Group>
+          <SectionTitle>{t('settings.details.contact')}</SectionTitle>
+          <Group>
+            <GroupField
+              control={form.control}
+              name="name"
+              label={t('businessDetails.name')}
+              editable={canManage}
+            />
+            <GroupField
+              showSeparator
+              control={form.control}
+              name="email"
+              label={t('businessDetails.email')}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={canManage}
+            />
+            <GroupField
+              showSeparator
+              control={form.control}
+              name="phone"
+              label={t('businessDetails.phone')}
+              keyboardType="phone-pad"
+              editable={canManage}
+            />
+          </Group>
 
-      <SectionTitle>{t('settings.details.address')}</SectionTitle>
-      <Group>
-        <GroupField
-          control={form.control}
-          name="address"
-          label={t('businessDetails.address')}
-          multiline
-          editable={canManage}
-        />
-      </Group>
+          <SectionTitle>{t('settings.details.address')}</SectionTitle>
+          <Group>
+            <GroupField
+              control={form.control}
+              name="address"
+              label={t('businessDetails.address')}
+              multiline
+              editable={canManage}
+            />
+          </Group>
 
-      <SectionTitle>{t('settings.details.regional')}</SectionTitle>
-      <Group>
-        <GroupRow
-          title={t('businessDetails.currency')}
-          detail={currencyLabel(currency)}
-          onPress={canManage ? () => setCurrencyOpen(true) : undefined}
-          accessibilityLabel={t('settings.details.currencyChange', {
-            value: currencyLabel(currency),
-          })}
-        />
-        <GroupRow
-          showSeparator
-          title={t('settings.details.timezone')}
-          detail={initial.timezone}
-          subtitle={t('settings.details.timezoneFixed')}
-        />
-      </Group>
-      <OwnerOnlyNote />
-      <OptionSheet
-        open={currencyOpen}
-        onOpenChange={setCurrencyOpen}
-        title={t('businessDetails.currency')}
-        selected={currency}
-        options={CURRENCIES.map((code) => ({
-          value: code,
-          label: currencyLabel(code),
-        }))}
-        onSelect={(code) =>
-          form.setValue('currency', code, { shouldDirty: true })
-        }
-      />
+          <SectionTitle>{t('settings.details.regional')}</SectionTitle>
+          <Group>
+            <GroupRow
+              title={t('businessDetails.currency')}
+              detail={currencyLabel(currency)}
+              onPress={canManage ? () => setCurrencyOpen(true) : undefined}
+              accessibilityLabel={t('settings.details.currencyChange', {
+                value: currencyLabel(currency),
+              })}
+            />
+            <GroupRow
+              showSeparator
+              title={t('settings.details.timezone')}
+              detail={initial.timezone}
+              subtitle={t('settings.details.timezoneFixed')}
+            />
+          </Group>
+          <OwnerOnlyNote />
+          <OptionSheet
+            open={currencyOpen}
+            onOpenChange={setCurrencyOpen}
+            title={t('businessDetails.currency')}
+            selected={currency}
+            options={CURRENCIES.map((code) => ({
+              value: code,
+              label: currencyLabel(code),
+            }))}
+            onSelect={(code) =>
+              form.setValue('currency', code, { shouldDirty: true })
+            }
+          />
+        </>
+      ) : (
+        fallback
+      )}
     </Page>
   );
 }
