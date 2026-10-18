@@ -335,6 +335,28 @@ describe('Services screen', () => {
     expect(mockSave).not.toHaveBeenCalled();
   });
 
+  it('validates on save, not while typing, then re-checks as the name changes', async () => {
+    const tree = mount(<ServicesScreen />);
+    press(tree, 'Add a service');
+    await act(async () => {
+      input(tree, 'Name').props.onChangeText('x');
+    });
+    await act(async () => {
+      input(tree, 'Name').props.onChangeText('');
+    });
+    expect(text(tree)).not.toContain('This field is required.');
+    await act(async () => {
+      tree.root
+        .find((n) => n.props.accessibilityLabel === 'Save' && !!n.props.onPress)
+        .props.onPress();
+    });
+    expect(text(tree)).toContain('This field is required.');
+    await act(async () => {
+      input(tree, 'Name').props.onChangeText('Brow tint');
+    });
+    expect(text(tree)).not.toContain('This field is required.');
+  });
+
   it('asks before deleting, from the screen, and deletes on confirm', () => {
     const tree = mount(<ServicesScreen />);
     press(tree, "Women's Haircut, 1 h · R850");

@@ -39,7 +39,12 @@ export function useEntitlements(): Entitlements {
 
 /** Plans and prices for the Plan page, in catalogue order. */
 export function usePlans() {
-  return useQuery({ queryKey: qk.plans, queryFn: api.plans });
+  // The catalogue changes with a release, not a session: keep it for 10 minutes.
+  return useQuery({
+    queryKey: qk.plans,
+    queryFn: api.plans,
+    staleTime: 10 * 60_000,
+  });
 }
 
 /** Completed jobs against the allowance; the current month when `month` is omitted. */

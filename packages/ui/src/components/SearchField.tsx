@@ -60,7 +60,10 @@ export const SearchField = React.forwardRef<TextInput, SearchFieldProps>(
               onPress={() => onChangeText('')}
               accessibilityRole="button"
               accessibilityLabel={t('common.clearSearch')}
-              hitSlop={12}
+              // A 44pt target around the 16pt glyph, with the margin taking
+              // the extra size back out so the field does not grow.
+              style={{ width: 44, height: 44, margin: -14 }}
+              className="items-center justify-center"
             >
               <X size={16} strokeWidth={2.4} color={depth.colors.secondary} />
             </Pressable>
@@ -79,7 +82,7 @@ export const SearchField = React.forwardRef<TextInput, SearchFieldProps>(
             onPress={() => onChangeText('')}
             accessibilityRole="button"
             accessibilityLabel={cancel}
-            className="min-h-11 justify-center active:opacity-50"
+            className="min-h-11 min-w-11 justify-center active:opacity-50"
           >
             <Text style={{ color: depth.colors.tint }} className="text-title">
               {cancel}

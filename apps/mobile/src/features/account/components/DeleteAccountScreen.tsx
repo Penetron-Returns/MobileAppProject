@@ -3,6 +3,7 @@ import {
   ConfirmDialog,
   Group,
   InsetInput,
+  ListSkeleton,
   Page,
   SectionTitle,
   Text,
@@ -41,6 +42,8 @@ export function DeleteAccountScreen() {
       backLabel={t('tabs.settings')}
       backFallback="/settings"
     >
+      {preview.isPending ? <ListSkeleton /> : null}
+
       {preview.isError ? (
         <View accessibilityRole="alert" className="mx-5 mt-4 gap-3">
           <Text className="text-muted-foreground">
