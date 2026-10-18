@@ -17,6 +17,7 @@ jest.mock('lucide-react-native', () => {
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
+  useFocusEffect: () => undefined,
   router: { push: (...args: unknown[]) => mockPush(...args) },
   Redirect: () => null,
 }));

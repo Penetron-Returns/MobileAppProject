@@ -1,6 +1,5 @@
 import {
   ErrorState,
-  GLYPHS,
   Group,
   GroupRow,
   Page,
@@ -22,6 +21,7 @@ import { useHeyClovieOn } from '@/features/voice/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
 import { BookingsByClovieSection } from './BookingsByClovieSection';
 import { CompanionGlyph } from './CompanionGlyph';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
@@ -50,6 +50,7 @@ export function CompanionSettingsScreen() {
         disabled
         title={t('settings.companionSettings.status')}
         reason={t('settings.clovie.ownerOnly')}
+        visual={<ExplainerStage scene="cstatus" />}
       />
     );
   } else if (isFailed(setup)) {
@@ -65,6 +66,8 @@ export function CompanionSettingsScreen() {
     status = (
       <GroupRow
         title={t('settings.companionSettings.status')}
+        subtitle={t('settings.explainers.help.status')}
+        visual={<ExplainerStage scene="cstatus" />}
         detail={
           isLive === undefined
             ? undefined
@@ -104,8 +107,9 @@ export function CompanionSettingsScreen() {
       <SectionTitle>{t('settings.clovie.moreTitle')}</SectionTitle>
       <Group radius={26}>
         <GroupRow
-          icon={GLYPHS.team}
           title={t('settings.items.attendance')}
+          subtitle={t('settings.explainers.help.attendance')}
+          visual={<ExplainerStage scene="catt" index={1} />}
           detail={
             attendance
               ? t(`settings.clovie.attendance.${attendance}`)
@@ -115,8 +119,9 @@ export function CompanionSettingsScreen() {
         />
         <GroupRow
           showSeparator
-          icon={GLYPHS.chat}
           title={t('settings.items.voice')}
+          subtitle={t('settings.explainers.help.voice')}
+          visual={<ExplainerStage scene="cvoice" index={2} />}
           detail={t(isVoiceOn ? 'settings.clovie.on' : 'settings.clovie.off')}
           disabled={!isVoiceAvailable}
           reason={t('settings.clovie.voiceAndroidOnly')}

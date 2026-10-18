@@ -13,6 +13,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
+  useFocusEffect: () => undefined,
   router: {
     canGoBack: () => true,
     back: jest.fn(),

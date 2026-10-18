@@ -16,12 +16,24 @@ import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { useCanManage } from '@/features/business/me';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
+import { shortDays, shortMinutes } from '../explainers/labels';
+import type { SceneId } from '../explainers/scenes';
 import { formatDays, formatMinutes } from '../format';
 import { useBookingRules, useSaveBookingRules, type RulePatch } from '../hooks';
 import { RULE_OPTIONS } from '../rules';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
 
 type NumericKey = keyof typeof RULE_OPTIONS;
+
+/** The thumbnail of each rule row, and the short label drawn in it. */
+const SCENE: Record<NumericKey, SceneId> = {
+  lead_time_minutes: 'lead',
+  booking_horizon_days: 'horizon',
+  cancellation_window_minutes: 'cancel',
+  slot_interval_minutes: 'interval',
+  buffer_minutes: 'buffer',
+};
 interface Picker {
   key: NumericKey;
   days: boolean;
@@ -55,6 +67,7 @@ export function BookingRulesScreen() {
   } else {
     const r = rules.data;
     const numeric = (key: NumericKey, days = false) => ({
+      key,
       title: t(`settings.rules.${key}`),
       value: days ? formatDays(t, r[key]) : formatMinutes(t, r[key]),
       open: () => setPicker({ key, days }),
@@ -79,6 +92,19 @@ export function BookingRulesScreen() {
               key={row.title}
               showSeparator={i > 0}
               title={row.title}
+              subtitle={t(`settings.explainers.help.${row.key}`)}
+              visual={
+                <ExplainerStage
+                  scene={SCENE[row.key]}
+                  index={i}
+                  label={
+                    row.key === 'booking_horizon_days'
+                      ? shortDays(t, r[row.key])
+                      : shortMinutes(t, r[row.key])
+                  }
+                  stepMinutes={r.slot_interval_minutes}
+                />
+              }
               detail={row.value}
               onPress={canManage ? row.open : undefined}
               accessibilityLabel={
@@ -94,6 +120,8 @@ export function BookingRulesScreen() {
           <GroupRow
             showSeparator
             title={t('settings.rules.allow_staff_selection')}
+            subtitle={t('settings.explainers.help.allow_staff_selection')}
+            visual={<ExplainerStage scene="staff" index={rows.length} />}
             trailing={
               <Switch
                 checked={r.allow_staff_selection}

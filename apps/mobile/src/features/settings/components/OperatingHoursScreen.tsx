@@ -30,7 +30,9 @@ import { isFailed, loadError } from '@/lib/offline';
 import { WEEKDAYS } from '@/lib/time';
 import { toast, describeError } from '@/lib/toast';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
 import { invalidateSchedule } from '../hooks';
+import { openDaysSummary } from '../summaries';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { SpecialDaysSection } from './SpecialDaysSection';
 
@@ -128,6 +130,17 @@ export function OperatingHoursScreen() {
       >
         {days ? (
           <>
+            <Group radius={26} className="mx-4 mb-4">
+              <GroupRow
+                title={t('hours.title')}
+                subtitle={t('settings.explainers.help.hours')}
+                detail={
+                  openDaysSummary(days.filter((d) => d.isOpen)) ??
+                  t('settings.hoursClosed')
+                }
+                visual={<ExplainerStage scene="week" />}
+              />
+            </Group>
             <Group radius={26} className="mx-4">
               {days.map((day, i) => (
                 <WeekdayRow

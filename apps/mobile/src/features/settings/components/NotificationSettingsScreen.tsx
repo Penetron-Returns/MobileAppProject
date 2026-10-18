@@ -18,6 +18,8 @@ import {
 import { pushStore } from '@/features/notifications/pushStore';
 import { toast } from '@/lib/toast';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
+
 /** The last permission and opt-out read, so a revisit starts on the real state. */
 let lastKnown: { permission: PushPermission; optedOut: boolean } | null = null;
 
@@ -100,6 +102,7 @@ export function NotificationSettingsScreen() {
       <Group className="mt-5">
         <GroupRow
           title={t('settings.notifications.push')}
+          visual={<ExplainerStage scene="push" />}
           subtitle={
             permission === 'denied' && !isWeb
               ? t('settings.notifications.pushOffHint')

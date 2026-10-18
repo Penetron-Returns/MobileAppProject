@@ -28,6 +28,8 @@ import {
 } from '@/features/availability/specialDays';
 import { isFailed, loadError } from '@/lib/offline';
 import { formatWeekdayDayMonth } from '@/lib/time';
+
+import { ExplainerStage } from '../explainers/ExplainerStage';
 import { describeError, toast } from '@/lib/toast';
 
 import { SpecialDaySheet } from './SpecialDaySheet';
@@ -80,7 +82,15 @@ export function SpecialDaysSection({
         <ListSkeleton rows={2} />
       ) : (
         <Group radius={26} className="mx-4 mt-1">
-          {days.map((day, i) => {
+          <GroupRow
+            title={t('hours.special.title')}
+            subtitle={t('settings.explainers.help.holidays')}
+            detail={t('settings.explainers.help.holidaysCount', {
+              count: days.length,
+            })}
+            visual={<ExplainerStage scene="holiday" index={1} />}
+          />
+          {days.map((day) => {
             const date = formatWeekdayDayMonth(day.date);
             const value = specialDayValue(day, t('hours.closed'));
             return (
@@ -98,7 +108,7 @@ export function SpecialDaysSection({
                 ]}
               >
                 <GroupRow
-                  showSeparator={i > 0}
+                  showSeparator
                   title={day.name}
                   subtitle={date}
                   detail={value}
@@ -113,7 +123,7 @@ export function SpecialDaysSection({
             );
           })}
           {canManage ? (
-            <GroupBlock showSeparator={days.length > 0}>
+            <GroupBlock showSeparator>
               <Pressable
                 onPress={() => setEditing('new')}
                 accessibilityRole="button"

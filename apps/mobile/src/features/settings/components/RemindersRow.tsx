@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useCanManage } from '@/features/business/me';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
+import { shortReminder } from '../explainers/labels';
 import { formatReminders } from '../format';
 import { useBookingRules, useSaveBookingRules } from '../hooks';
 import { REMINDER_OPTIONS, sameOffsets } from '../rules';
@@ -27,6 +29,13 @@ export function RemindersRow({ showSeparator }: { showSeparator?: boolean }) {
       <GroupRow
         showSeparator={showSeparator}
         title={title}
+        subtitle={t('settings.explainers.help.reminders')}
+        visual={
+          <ExplainerStage
+            scene="remind"
+            label={offsets ? shortReminder(t, offsets) : undefined}
+          />
+        }
         detail={value}
         onPress={canManage && offsets ? () => setOpen(true) : undefined}
         accessibilityLabel={
