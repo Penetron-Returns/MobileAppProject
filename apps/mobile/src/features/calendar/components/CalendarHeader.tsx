@@ -1,5 +1,6 @@
 import { SegmentedControl, Text, useDepth } from '@booking/ui';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import {
@@ -35,12 +36,19 @@ export function CalendarHeader({
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
-  const title =
-    view === 'week'
-      ? formatWeekRange(startOfWeek(anchor))
-      : formatDateLong(anchor);
-  const caption =
-    view === 'week' ? t('calendar.weekView') : WEEKDAYS[weekdayOf(anchor)];
+  const { title, caption } = React.useMemo(
+    () =>
+      view === 'week'
+        ? {
+            title: formatWeekRange(startOfWeek(anchor)),
+            caption: t('calendar.weekView'),
+          }
+        : {
+            title: formatDateLong(anchor),
+            caption: WEEKDAYS[weekdayOf(anchor)],
+          },
+    [view, anchor, t],
+  );
   return (
     <View className="px-5 pb-2">
       <View className="flex-row items-end justify-between">
@@ -119,7 +127,7 @@ export function CalendarHeader({
   );
 }
 
-export function DayStrip({
+export const DayStrip = React.memo(function DayStrip({
   anchor,
   today,
   onPick,
@@ -130,9 +138,10 @@ export function DayStrip({
 }) {
   const { t } = useTranslation();
   const depth = useDepth();
+  const strip = React.useMemo(() => weekStrip(anchor, today), [anchor, today]);
   return (
     <View className="mt-2 flex-row justify-between">
-      {weekStrip(anchor, today).map((d) => (
+      {strip.map((d) => (
         <Pressable
           key={d.date}
           onPress={() => onPick(d.date)}
@@ -169,4 +178,4 @@ export function DayStrip({
       ))}
     </View>
   );
-}
+});

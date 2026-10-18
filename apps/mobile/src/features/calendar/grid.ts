@@ -27,8 +27,17 @@ export interface BlockFrame {
   height: number;
 }
 
-/** One empty cell per hour of the window (the last may be shorter), inset on all sides. */
+const frameCache = new Map<string, BlockFrame[]>();
+
+/**
+ * One empty cell per hour of the window (the last may be shorter), inset on all
+ * sides. Every column of a day shares one window, so the frames are computed
+ * once and reused (callers must not mutate them).
+ */
 export function cellFrames(window: MinuteSpan): BlockFrame[] {
+  const key = `${window.startMin}-${window.endMin}`;
+  const cached = frameCache.get(key);
+  if (cached) return cached;
   const frames: BlockFrame[] = [];
   for (let m = window.startMin; m < window.endMin; m += 60) {
     const end = Math.min(m + 60, window.endMin);
@@ -37,6 +46,8 @@ export function cellFrames(window: MinuteSpan): BlockFrame[] {
       height: minutesToPx(end - m) - 2 * BLOCK_INSET_PX,
     });
   }
+  if (frameCache.size > 16) frameCache.clear();
+  frameCache.set(key, frames);
   return frames;
 }
 
@@ -98,4 +109,26 @@ export function contrastRatio(a: string, b: string): number {
   };
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Smallest comfortable touch target (HIG): shorter blocks grow their hit area, not their look. */
+export const MIN_TOUCH_PX = 44;
+
+export function blockHitSlop(
+  height: number,
+): { top: number; bottom: number } | undefined {
+  const extra = Math.ceil((MIN_TOUCH_PX - height) / 2);
+  return extra > 0 ? { top: extra, bottom: extra } : undefined;
+}
+
+/** How far above the focus line (now, or the first working hour) the grid opens, so it is not flush with the top. */
+const FOCUS_LEAD_PX = 120;
+
+/** Vertical offset the day grid opens at: the focus minute near the top, or the very top without one. */
+export function focusScrollY(
+  focusMin: number | undefined,
+  window: MinuteSpan,
+): number {
+  if (focusMin === undefined) return 0;
+  return Math.max(minutesToPx(focusMin - window.startMin) - FOCUS_LEAD_PX, 0);
 }

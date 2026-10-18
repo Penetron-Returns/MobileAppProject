@@ -1,7 +1,21 @@
 import { Text, useDepth, withAlpha } from '@booking/ui';
+import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View, type GestureResponderEvent } from 'react-native';
+
+import type { AppointmentListItem } from '@/features/appointments/hooks';
 import { minutesToTime } from '@/lib/time';
+
+import {
+  BLOCK_INSET_PX,
+  BLOCK_RADIUS,
+  GRID_CELL,
+  blockFrame,
+  blockHorizontal,
+  cellFrames,
+  type BlockFrame,
+} from '../grid';
+import type { CalendarDayView } from '../hooks';
 import {
   appointmentSpan,
   complementSpans,
@@ -10,22 +24,33 @@ import {
   type BlockedSpan,
   type MinuteSpan,
 } from '../logic';
-import {
-  BLOCK_RADIUS,
-  BLOCK_INSET_PX,
-  GRID_CELL,
-  blockHorizontal,
-  cellFrames,
-  blockFrame,
-  type BlockFrame,
-} from '../grid';
 import { AppointmentBlock } from './AppointmentBlock';
 import { Hatch } from './Hatch';
-import type { CalendarDayView } from '../hooks';
 
 export type Ready = Extract<CalendarDayView, { status: 'ready' }>;
 
-export function Column({
+interface ColumnProps {
+  staffId: string;
+  width: number;
+  height: number;
+  window: MinuteSpan;
+  working: MinuteSpan[];
+  /** Breaks and time off inside the working hours. */
+  blocks: BlockedSpan[];
+  /** A closed holiday: the day banner explains it, so no "Not working" here. */
+  closed: boolean;
+  appointments: AppointmentListItem[];
+  timezone: string;
+  /**
+   * Long-press on an empty part of the column (paid plans' quiet manual-booking
+   * fallback). One stable callback serves every column.
+   */
+  onLongPressEmpty?: (staffId: string, minutes: number) => void;
+}
+
+/** One staff column. Memoised: a clock tick or a scroll in a sibling never re-renders it. */
+export const Column = React.memo(function Column({
+  staffId,
   width,
   height,
   window,
@@ -35,52 +60,38 @@ export function Column({
   appointments,
   timezone,
   onLongPressEmpty,
-}: {
-  width: number;
-  height: number;
-  window: MinuteSpan;
-  working: MinuteSpan[];
-  /** Breaks and time off inside the working hours. */
-  blocks: BlockedSpan[];
-  /** A closed holiday: the day banner explains it, so no "Not working" here. */
-  closed: boolean;
-  appointments: Ready['columns'][number]['appointments'];
-  timezone: string;
-  /** Long-press on an empty part of the column (paid plans' quiet manual-booking fallback). */
-  onLongPressEmpty?: (minutes: number) => void;
-}) {
+}: ColumnProps) {
   const { t } = useTranslation();
-  const depth = useDepth();
   const horizontal = blockHorizontal(width);
-  const off = complementSpans(working, window);
-  const top = (min: number) => minutesToPx(min - window.startMin);
+  const off = React.useMemo(
+    () => complementSpans(working, window),
+    [working, window],
+  );
+  const placed = React.useMemo(
+    () =>
+      appointments.map((a) => ({
+        appointment: a,
+        frame: blockFrame(appointmentSpan(a, timezone), window),
+      })),
+    [appointments, timezone, window],
+  );
+  const onLongPress = React.useCallback(
+    (event: GestureResponderEvent) =>
+      onLongPressEmpty?.(
+        staffId,
+        minuteAtOffset(event.nativeEvent.locationY, window),
+      ),
+    [onLongPressEmpty, staffId, window],
+  );
   return (
     <View style={{ width, height }}>
-      {cellFrames(window).map((cell) => (
-        <View
-          key={cell.top}
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: horizontal.left,
-            top: cell.top,
-            width: horizontal.width,
-            height: cell.height,
-            borderRadius: BLOCK_RADIUS,
-            backgroundColor: GRID_CELL[depth.scheme],
-          }}
-        />
-      ))}
+      <GridCells window={window} width={horizontal.width} />
       {onLongPressEmpty ? (
         <Pressable
           // Screen readers use the header New booking action instead.
           accessible={false}
           delayLongPress={450}
-          onLongPress={(event: GestureResponderEvent) =>
-            onLongPressEmpty(
-              minuteAtOffset(event.nativeEvent.locationY, window),
-            )
-          }
+          onLongPress={onLongPress}
           style={{ position: 'absolute', left: 0, top: 0, width, height }}
         />
       ) : null}
@@ -94,14 +105,15 @@ export function Column({
             style={{
               position: 'absolute',
               left: horizontal.left,
-              top: top(span.startMin) + BLOCK_INSET_PX,
+              top:
+                minutesToPx(span.startMin - window.startMin) + BLOCK_INSET_PX,
               width: horizontal.width,
               height: spanHeight,
               borderRadius: BLOCK_RADIUS,
               overflow: 'hidden',
             }}
           >
-            <Hatch width={horizontal.width} height={spanHeight} />
+            <Hatch />
           </View>
         );
       })}
@@ -121,35 +133,63 @@ export function Column({
           {t('calendar.dayOff')}
         </Text>
       ) : null}
-      {appointments.map((a) => {
-        const frame = blockFrame(appointmentSpan(a, timezone), window);
-        return (
-          <View
-            key={a.id}
-            style={{
-              position: 'absolute',
-              left: horizontal.left,
-              width: horizontal.width,
-              top: frame.top,
-            }}
-          >
-            <AppointmentBlock
-              appointment={a}
-              timezone={timezone}
-              height={frame.height}
-            />
-          </View>
-        );
-      })}
+      {placed.map(({ appointment, frame }) => (
+        <View
+          key={appointment.id}
+          style={{
+            position: 'absolute',
+            left: horizontal.left,
+            width: horizontal.width,
+            top: frame.top,
+          }}
+        >
+          <AppointmentBlock
+            appointment={appointment}
+            timezone={timezone}
+            height={frame.height}
+          />
+        </View>
+      ))}
     </View>
   );
-}
+});
+
+/** The empty hour cells behind a column. Static for a given window, width and scheme. */
+const GridCells = React.memo(function GridCells({
+  window,
+  width,
+}: {
+  window: MinuteSpan;
+  width: number;
+}) {
+  const depth = useDepth();
+  const color = GRID_CELL[depth.scheme];
+  return (
+    <>
+      {cellFrames(window).map((cell) => (
+        <View
+          key={cell.top}
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: BLOCK_INSET_PX,
+            top: cell.top,
+            width,
+            height: cell.height,
+            borderRadius: BLOCK_RADIUS,
+            backgroundColor: color,
+          }}
+        />
+      ))}
+    </>
+  );
+});
 
 /**
- * A break or time off (CalendarDay board): a dashed, hatched rounded block
+ * A break or time off (CalendarDay board): a dashed, tinted rounded block
  * labelled "Lunch · 13:00" or with the reason ("Leave"). Read only.
  */
-function UnavailableBlock({
+const UnavailableBlock = React.memo(function UnavailableBlock({
   block,
   frame,
   width,
@@ -191,12 +231,7 @@ function UnavailableBlock({
         paddingTop: height > 160 ? 12 : 0,
       }}
     >
-      <View
-        style={{ position: 'absolute', left: 0, top: 0 }}
-        pointerEvents="none"
-      >
-        <Hatch width={width} height={height} />
-      </View>
+      <Hatch />
       <Text
         numberOfLines={1}
         style={{ color: depth.colors.secondary }}
@@ -206,4 +241,4 @@ function UnavailableBlock({
       </Text>
     </View>
   );
-}
+});

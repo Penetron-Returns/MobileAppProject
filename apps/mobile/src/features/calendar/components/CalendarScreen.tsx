@@ -8,6 +8,7 @@ import {
   tabBarClearance,
   Text,
   useAppColorScheme,
+  useDepth,
 } from '@booking/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
@@ -18,7 +19,7 @@ import { useBusiness } from '@/features/business/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { todayISO, type ISODate } from '@/lib/time';
-import { useCalendarDay, useCalendarWeek } from '../hooks';
+import { useCalendarDay, useCalendarWeek, useToday } from '../hooks';
 import { newBookingHref, shiftAnchor, type NewBookingPrefill } from '../logic';
 import {
   subscribeCalendarViewMode,
@@ -85,6 +86,20 @@ function CalendarContent({ timezone }: { timezone: string }) {
     [],
   );
 
+  const today = useToday(timezone) ?? todayISO(timezone);
+  const onShift = React.useCallback(
+    (dir: 1 | -1) => setAnchor((a) => shiftAnchor(view, a, dir)),
+    [view],
+  );
+  const onNewBooking = React.useCallback(
+    () => openNewBooking({ date: anchor }),
+    [openNewBooking, anchor],
+  );
+  const onOpenDay = React.useCallback((date: ISODate) => {
+    setAnchor(date);
+    setView('day');
+  }, []);
+
   React.useEffect(
     () =>
       subscribeCalendarViewMode((mode) => {
@@ -104,24 +119,31 @@ function CalendarContent({ timezone }: { timezone: string }) {
       <CalendarHeader
         view={view}
         anchor={anchor}
-        today={todayISO(timezone)}
+        today={today}
         onViewChange={setView}
         onAnchor={setAnchor}
-        onShift={(dir) => setAnchor((a) => shiftAnchor(view, a, dir))}
-        onNewBooking={() => openNewBooking({ date: anchor })}
+        onShift={onShift}
+        onNewBooking={onNewBooking}
       />
       {view === 'day' ? (
         <DayBody date={anchor} onCreateAt={openNewBooking} />
       ) : (
-        <WeekBody
-          anchor={anchor}
-          onOpenDay={(date) => {
-            setAnchor(date);
-            setView('day');
-          }}
-        />
+        <WeekBody anchor={anchor} onOpenDay={onOpenDay} />
       )}
     </View>
+  );
+}
+
+/** A thin line while another period loads behind content that stays on screen. */
+function RefreshBar() {
+  const depth = useDepth();
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      style={{ backgroundColor: depth.colors.tint }}
+      className="h-0.5 opacity-60"
+    />
   );
 }
 
@@ -162,7 +184,6 @@ function DayBody({
       ) : (
         <DayView
           view={view}
-          date={date}
           bottomInset={bottomInset}
           onCreateAt={onCreateAt}
         />
@@ -221,6 +242,7 @@ function WeekBody({
             {view.isOffline ? (
               <OfflineBanner label={t('calendar.offline')} />
             ) : null}
+            {view.isRefreshing ? <RefreshBar /> : null}
             <WeekView view={view} anchor={anchor} onOpenDay={onOpenDay} />
           </>
         ) : null}
