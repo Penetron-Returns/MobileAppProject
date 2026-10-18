@@ -40,6 +40,7 @@ jest.mock('../storage', () => ({
   loadDraft: () => Promise.resolve(mockStored),
   saveDraft: (...a: unknown[]) => mockSave(...a),
   clearDraft: () => mockClear(),
+  saveBusinessType: () => Promise.resolve(),
 }));
 
 let fake: FakeAnalytics;

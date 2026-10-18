@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import * as React from 'react';
 
 import { useAuthFlow } from '../useAuthFlow';
@@ -21,6 +22,7 @@ export function AuthScreen() {
           errorKey={flow.errorKey}
           onGoogle={() => void flow.continueWithGoogle()}
           onEmail={flow.goToIdentifier}
+          onBack={router.canGoBack() ? () => router.back() : undefined}
         />
       ) : null}
       {flow.step === 'identifier' ? (

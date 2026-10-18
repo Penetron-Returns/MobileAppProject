@@ -44,3 +44,19 @@ export function useCompleteOnboarding() {
     },
   });
 }
+
+/**
+ * Back from the plan screen: re-runs onboarding for the business that already
+ * exists. The API applies the new name and type template only while the business
+ * is untouched, and never creates a second business.
+ */
+export function useReviseBusiness() {
+  const qc = useQueryClient();
+  return useApiMutation<OnboardingRequest, MeDTO>({
+    mutationFn: (request, key) => api.onboard(request, key),
+    onError: () => true,
+    onSuccess: (me) => {
+      qc.setQueryData(qk.me, me);
+    },
+  });
+}

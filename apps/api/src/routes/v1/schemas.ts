@@ -218,6 +218,7 @@ export const onboardingSchema = z.object({
     )
     .max(20),
   team: z.array(z.object({ name: text(120).min(1), title: nullableText(80) })).max(20),
+  revise: z.boolean().optional(),
 });
 
 // ---------- team ----------

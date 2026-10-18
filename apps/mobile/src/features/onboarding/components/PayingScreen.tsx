@@ -58,9 +58,12 @@ function PulseDot({ delay }: { delay: number }) {
 export function PayingScreen({
   isPaid,
   onNotPaid,
+  onBack,
 }: {
   isPaid: boolean;
   onNotPaid: () => void;
+  /** Leaves the wait for the plan list; hidden once paid. */
+  onBack?: () => void;
 }) {
   const { t } = useTranslation();
   const c = useOnbColors();
@@ -70,6 +73,7 @@ export function PayingScreen({
   const hint = t('onboarding.paying.hint');
   return (
     <OnboardingShell
+      onBack={isPaid ? undefined : onBack}
       spoken={`${title} ${hint}`}
       footer={
         isPaid ? undefined : (

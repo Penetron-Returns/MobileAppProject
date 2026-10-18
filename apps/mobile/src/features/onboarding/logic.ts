@@ -222,3 +222,67 @@ export function parseDraft(raw: string | null): OnboardingDraft {
     return initialDraft();
   }
 }
+
+// ----- going back -----
+
+/** Where Back leads from a screen: another screen, the plan (leaving a revision), or nowhere. */
+export type BackTarget = OnboardingScreen | 'plan' | null;
+
+/**
+ * The step a Back tap returns to. Welcome has nothing before it; the type goes
+ * back to the welcome while signed out, and has nothing before it when signed in
+ * (unless the owner is revising a business created a moment ago, where it
+ * returns to the plan). The name always goes back to the type.
+ */
+export function backTarget(
+  screen: OnboardingScreen,
+  ctx: { isSignedIn: boolean; isRevising: boolean },
+): BackTarget {
+  if (screen === 'name') return 'type';
+  if (screen === 'type') {
+    if (ctx.isRevising) return 'plan';
+    return ctx.isSignedIn ? null : 'welcome';
+  }
+  return null;
+}
+
+// ----- revising a created business -----
+
+/** What the owner can still fix after the business exists: the name and the type. */
+export interface BusinessBasics {
+  name: string;
+  typeId: BusinessTypeId | null;
+}
+
+/** The draft to edit: prefilled with the business as it is now. */
+export function reviseDraft(current: BusinessBasics): OnboardingDraft {
+  return {
+    step: 2,
+    typeId: current.typeId,
+    businessName: current.name.slice(0, NAME_MAX),
+  };
+}
+
+/** Opens on the name when the type is known (back from there goes to the type), else on the type. */
+export function reviseStartScreen(current: BusinessBasics): OnboardingScreen {
+  return current.typeId ? 'name' : 'type';
+}
+
+/** Whether Continue has anything to save: a changed name or a changed type. */
+export function hasRevision(
+  draft: OnboardingDraft,
+  current: BusinessBasics,
+): boolean {
+  return (
+    draft.businessName.trim() !== current.name.trim() ||
+    (draft.typeId !== null && draft.typeId !== current.typeId)
+  );
+}
+
+/** The revision request: the new name and the (possibly new) type's template, flagged so the API treats it as a re-run. */
+export function buildReviseRequest(
+  draft: OnboardingDraft,
+): OnboardingRequest | null {
+  const request = buildOnboardingRequest(draft, null);
+  return request ? { ...request, revise: true } : null;
+}

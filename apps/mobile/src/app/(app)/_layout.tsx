@@ -25,6 +25,9 @@ import { ChoosePlanScreen } from '@/features/onboarding/components/ChoosePlanScr
 import { CompanionSetupScreen } from '@/features/onboarding/components/CompanionSetupScreen';
 import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import { ReviseBusinessFlow } from '@/features/onboarding/components/ReviseBusinessFlow';
+import { loadBusinessType } from '@/features/onboarding/storage';
+import type { BusinessBasics } from '@/features/onboarding/logic';
 import { nextFunnelState } from '@/features/onboarding/funnel';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import {
@@ -137,6 +140,8 @@ export default function AppLayout() {
   const ground = useDepth().ground.backgroundColor as string;
   const [inOnboarding, setInOnboarding] = React.useState(false);
   const [joinDeclined, setJoinDeclined] = React.useState(false);
+  // Back from the plan screen reopens the name and type of the business just created.
+  const [revising, setRevising] = React.useState<BusinessBasics | null>(null);
 
   const cachedOrgIds = React.useMemo(
     () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
@@ -232,7 +237,20 @@ export default function AppLayout() {
         <OnboardingFlow isSignedIn onDone={() => setInOnboarding(false)} />
       );
     case 'choose-plan':
-      return <ChoosePlanScreen />;
+      return revising ? (
+        <ReviseBusinessFlow
+          current={revising}
+          onDone={() => setRevising(null)}
+        />
+      ) : (
+        <ChoosePlanScreen
+          onBack={() =>
+            void loadBusinessType().then((typeId) =>
+              setRevising({ name: me.data?.business.name ?? '', typeId }),
+            )
+          }
+        />
+      );
     case 'inactive-business':
       return <InactiveBusinessScreen />;
     case 'companion-setup':
