@@ -10,6 +10,7 @@ import {
   phaseForPoll,
   POLL_BUDGET_MS,
   pollDelayMs,
+  isCheckoutSuccess,
   pollUntilActive,
 } from '../checkout';
 
@@ -193,5 +194,40 @@ describe('phaseForPoll', () => {
     ['timeout', apiError('INTERNAL', 500), 'unconfirmed'],
   ] as const)('%s with %s -> %s', (outcome, lastError, kind) => {
     expect(phaseForPoll(outcome, lastError)).toEqual({ kind });
+  });
+});
+
+describe('pollUntilActive fast mode', () => {
+  it('polls every 400ms for the first 8s, then backs off from the first slow step', async () => {
+    const t = { v: 0 };
+    const sleeps: number[] = [];
+    const fetchMe = jest.fn<Promise<MeFacts>, []>().mockResolvedValue(none);
+    await pollUntilActive({
+      now: () => t.v,
+      sleep: (ms) => {
+        sleeps.push(ms);
+        t.v += ms;
+        return Promise.resolve();
+      },
+      fetchMe,
+      isAborted: () => false,
+      isFast: true,
+    });
+    expect(sleeps.slice(0, 20).every((ms) => ms === 400)).toBe(true);
+    expect(sleeps[20]).toBe(1500);
+    expect(sleeps[21]).toBe(2250);
+  });
+});
+
+describe('isCheckoutSuccess', () => {
+  it.each([
+    [{ type: 'success', url: 'clovie://checkout/success' }, true],
+    [{ type: 'success' }, true],
+    [{ type: 'success', url: 'clovie://checkout/cancel' }, false],
+    [{ type: 'cancel' }, false],
+    [{ type: 'dismiss' }, false],
+    [{ type: 'locked' }, false],
+  ])('%j -> %s', (result, expected) => {
+    expect(isCheckoutSuccess(result)).toBe(expected);
   });
 });

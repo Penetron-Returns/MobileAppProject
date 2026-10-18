@@ -18,7 +18,10 @@ jest.mock('@/lib/api', () => ({
 }));
 const mockOpen = jest.fn();
 jest.mock('expo-web-browser', () => ({
-  openBrowserAsync: (...a: unknown[]) => mockOpen(...a),
+  openAuthSessionAsync: (...a: unknown[]) => mockOpen(...a),
+}));
+jest.mock('expo-linking', () => ({
+  createURL: (path: string) => `clovie://${path}`,
 }));
 
 type Checkout = ReturnType<typeof useCheckout>;
@@ -37,16 +40,19 @@ const GROWTH = {
   plan: 'growth',
   features: [{ feature: 'companion', monthly_limit: null }],
 };
+const SUCCESS = { type: 'success', url: 'clovie://checkout/success' };
 
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
-  mockCreate.mockResolvedValue({ checkout_url: 'https://pay.example/c/1' });
+  mockCreate.mockResolvedValue({
+    checkout_url: 'https://pay.example/c/1',
+    session_id: 'cs_1',
+  });
   mockOpen.mockResolvedValue({ type: 'dismiss' });
 });
 afterEach(() => jest.useRealTimers());
 
-/** Starts a checkout and lets the fake clock run (a 5xx is retried after a delay). */
 const run = (h: { current: Checkout }, plan: 'starter' | 'growth' | 'pro') =>
   act(async () => {
     const started = h.current.start(plan);
@@ -57,33 +63,132 @@ const run = (h: { current: Checkout }, plan: 'starter' | 'growth' | 'pro') =>
 const settle = () => act(async () => jest.advanceTimersByTimeAsync(0));
 
 describe('useCheckout', () => {
-  it('asks for a session with an Idempotency-Key, opens it, then confirms once the plan is active', async () => {
-    mockMe.mockResolvedValueOnce(NONE).mockResolvedValue(GROWTH);
+  it('asks for a session with a return_url and an Idempotency-Key, and opens it as an auth session', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
+    mockMe.mockResolvedValue(GROWTH);
     const h = harness();
-    expect(h.current.phase.kind).toBe('idle');
+    await run(h, 'growth');
+    expect(mockCreate).toHaveBeenCalledWith(
+      { plan: 'growth', return_url: 'clovie://checkout/success' },
+      'key-1',
+    );
+    expect(mockOpen).toHaveBeenCalledWith(
+      'https://pay.example/c/1',
+      'clovie://checkout',
+    );
+  });
 
-    let done!: Promise<void>;
-    act(() => {
-      done = h.current.start('growth');
-    });
-    await settle();
-    expect(mockCreate).toHaveBeenCalledWith({ plan: 'growth' }, 'key-1');
-    expect(mockOpen).toHaveBeenCalledWith('https://pay.example/c/1');
-    expect(h.current.phase.kind).toBe('confirming');
-
+  it('is active straight away on success, without ever showing Confirming', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
+    mockMe.mockResolvedValue(GROWTH);
+    const onReturned = jest.fn();
+    const onActivated = jest.fn();
+    const h = harness({ onReturned, onActivated });
+    const phases: string[] = [];
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(5000);
-      await done;
+      const started = h.current.start('growth');
+      await jest.advanceTimersByTimeAsync(0);
+      phases.push(h.current.phase.kind);
+      await started;
     });
+    expect(phases).not.toContain('confirming');
+    expect(mockMe).toHaveBeenCalledTimes(1);
+    expect(h.current.phase).toEqual({ kind: 'active' });
+    expect(onReturned).toHaveBeenCalledWith('success', 'growth');
+    expect(onActivated).toHaveBeenCalledWith('growth');
+  });
+
+  it('polls fast when the flip is slow, and does not show Confirming under 800ms', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
+    mockMe
+      .mockResolvedValueOnce(NONE)
+      .mockResolvedValueOnce(NONE)
+      .mockResolvedValue(GROWTH);
+    const h = harness();
+    act(() => void h.current.start('growth'));
+    await settle();
+    expect(h.current.phase.kind).toBe('browser');
+    await act(async () => jest.advanceTimersByTimeAsync(400));
+    expect(mockMe).toHaveBeenCalledTimes(2);
+    expect(h.current.phase.kind).toBe('browser');
+    await act(async () => jest.advanceTimersByTimeAsync(400));
+    expect(mockMe).toHaveBeenCalledTimes(3);
     expect(h.current.phase.kind).toBe('active');
   });
 
-  it('tells the caller how the confirmation ended and which plan was bought', async () => {
-    mockMe.mockResolvedValue(GROWTH);
+  it('shows Confirming when the flip takes longer than 800ms', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
+    mockMe.mockResolvedValue(NONE);
+    const h = harness();
+    act(() => void h.current.start('growth'));
+    await act(async () => jest.advanceTimersByTimeAsync(900));
+    expect(h.current.phase.kind).toBe('confirming');
+  });
+
+  it('goes straight back to the plans on cancel, with one background refetch', async () => {
+    mockOpen.mockResolvedValue({ type: 'cancel' });
+    mockMe.mockResolvedValue(NONE);
     const onReturned = jest.fn();
-    const h = harness({ onReturned });
+    const onActivated = jest.fn();
+    const h = harness({ onReturned, onActivated });
     await run(h, 'growth');
-    expect(onReturned).toHaveBeenCalledWith('active', 'growth');
+    expect(h.current.phase).toEqual({ kind: 'idle' });
+    expect(mockMe).toHaveBeenCalledTimes(1);
+    expect(onReturned).toHaveBeenCalledWith('cancel', 'growth');
+    expect(onActivated).not.toHaveBeenCalled();
+  });
+
+  it('notices a payment made before the tab was closed early', async () => {
+    mockOpen.mockResolvedValue({ type: 'dismiss' });
+    mockMe.mockResolvedValue(GROWTH);
+    const onActivated = jest.fn();
+    const h = harness({ onActivated });
+    await run(h, 'growth');
+    expect(onActivated).toHaveBeenCalledWith('growth');
+  });
+
+  it('refetches me on ALREADY_SUBSCRIBED and shows no error', async () => {
+    mockCreate.mockRejectedValue(
+      new ApiError({
+        code: 'RULE_VIOLATION',
+        message: 'x',
+        status: 422,
+        details: { rule: 'ALREADY_SUBSCRIBED' },
+      }),
+    );
+    mockMe.mockResolvedValue(GROWTH);
+    const onActivated = jest.fn();
+    const h = harness({ onActivated });
+    await run(h, 'growth');
+    expect(mockMe).toHaveBeenCalled();
+    expect(mockOpen).not.toHaveBeenCalled();
+    expect(h.current.phase).toEqual({ kind: 'idle' });
+    expect(onActivated).toHaveBeenCalled();
+  });
+
+  it('ignores a second tap while an attempt is running', async () => {
+    mockOpen.mockReturnValue(new Promise(() => undefined));
+    const h = harness();
+    act(() => {
+      void h.current.start('growth');
+      void h.current.start('growth');
+    });
+    await settle();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('never lets a stale attempt overwrite a newer one', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
+    mockMe.mockResolvedValue(NONE);
+    const h = harness();
+    act(() => void h.current.start('growth'));
+    await act(async () => jest.advanceTimersByTimeAsync(1000));
+    expect(h.current.phase.kind).toBe('confirming');
+    act(() => h.current.reset());
+    expect(h.current.phase).toEqual({ kind: 'idle' });
+    // The old poll keeps waking up but can no longer change the screen.
+    await act(async () => jest.advanceTimersByTimeAsync(130_000));
+    expect(h.current.phase).toEqual({ kind: 'idle' });
   });
 
   it('says payments are not switched on when the API has no billing configured', async () => {
@@ -116,11 +221,12 @@ describe('useCheckout', () => {
     expect(h.current.phase).toEqual({ kind: 'failed' });
   });
 
-  it('lets the owner say they did not pay, and stops waiting', async () => {
+  it('lets the owner stop waiting on the slow path', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
     mockMe.mockResolvedValue(NONE);
     const h = harness();
     act(() => void h.current.start('growth'));
-    await settle();
+    await act(async () => jest.advanceTimersByTimeAsync(1000));
     expect(h.current.phase.kind).toBe('confirming');
     act(() => h.current.notPaid());
     expect(h.current.phase).toEqual({ kind: 'cancelled' });
@@ -128,7 +234,8 @@ describe('useCheckout', () => {
     expect(h.current.phase).toEqual({ kind: 'cancelled' });
   });
 
-  it('ends in "still confirming" with a retry when the plan never flips, then confirms on Check again', async () => {
+  it('ends in "still confirming" when the plan never flips, then confirms on Check again', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
     mockMe.mockResolvedValue(NONE);
     const h = harness();
     act(() => void h.current.start('growth'));
@@ -141,6 +248,7 @@ describe('useCheckout', () => {
   });
 
   it('reports offline when the confirmation polls fail for the whole budget', async () => {
+    mockOpen.mockResolvedValue(SUCCESS);
     mockMe.mockRejectedValue(
       new ApiError({ code: 'NETWORK_ERROR', message: 'x', status: 0 }),
     );

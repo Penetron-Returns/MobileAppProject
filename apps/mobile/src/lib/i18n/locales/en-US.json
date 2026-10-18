@@ -1222,7 +1222,7 @@
       },
       "cancelled": {
         "title": "Payment cancelled",
-        "hint": "You haven't paid yet."
+        "hint": "We haven't seen a payment yet."
       },
       "unconfirmed": {
         "title": "Still confirming your payment",
@@ -1248,6 +1248,11 @@
       "title": "Confirming your payment...",
       "paid": "Paid",
       "hint": "This takes a few seconds."
+    },
+    "unlocked": {
+      "title": "You're all set.",
+      "subtitle": "Clovie is ready for {{business}}.",
+      "action": "Meet Clovie"
     },
     "payFailed": {
       "title": "That didn't go through.",

@@ -19,10 +19,10 @@ export type CheckoutPhase =
   | { kind: 'starting' }
   /** The hosted page is open. */
   | { kind: 'browser' }
-  /** The page closed; waiting for the plan to flip. */
+  /** Paid and returned, but the plan is slow to flip (shown only past ~800ms). */
   | { kind: 'confirming' }
   | { kind: 'active' }
-  /** The owner said they did not pay. */
+  /** The owner stopped waiting ("I didn't pay") on the slow path. */
   | { kind: 'cancelled' }
   /** Polled for the whole budget and the plan did not flip. */
   | { kind: 'unconfirmed' }
@@ -65,12 +65,28 @@ export function phaseForCheckoutError(error: unknown): CheckoutProblem {
 }
 
 export const POLL_BUDGET_MS = 120_000;
+/** Right after a successful return the server has usually activated already: poll fast first. */
+export const FAST_POLL_MS = 400;
+export const FAST_POLL_WINDOW_MS = 8_000;
+/** The "Confirming" screen only appears if the plan has not flipped by now. */
+export const CONFIRMING_AFTER_MS = 800;
 const POLL_FIRST_MS = 1_500;
 const POLL_MAX_MS = 10_000;
 
 /** Backoff between polls: 1.5s, 2.3s, 3.4s ... capped at 10s. */
 export function pollDelayMs(attempt: number): number {
   return Math.min(POLL_MAX_MS, Math.round(POLL_FIRST_MS * 1.5 ** attempt));
+}
+
+/** Whether the auth session ended on our success redirect (not a cancel page or a closed tab). */
+export function isCheckoutSuccess(result: {
+  type: string;
+  url?: string;
+}): boolean {
+  return (
+    result.type === 'success' &&
+    !/\/checkout\/cancel(?:[/?#]|$)/.test(result.url ?? '')
+  );
 }
 
 export type PollOutcome = 'active' | 'timeout' | 'aborted';
@@ -81,6 +97,8 @@ export interface PollDeps {
   sleep: (ms: number) => Promise<void>;
   isAborted: () => boolean;
   budgetMs?: number;
+  /** Poll every FAST_POLL_MS for the first FAST_POLL_WINDOW_MS, then back off. */
+  isFast?: boolean;
 }
 
 /**
@@ -95,7 +113,8 @@ export async function pollUntilActive(
   const budget = deps.budgetMs ?? POLL_BUDGET_MS;
   const startedAt = deps.now();
   let lastError: unknown = null;
-  for (let attempt = 0; ; attempt += 1) {
+  let slowAttempt = 0;
+  for (;;) {
     if (deps.isAborted()) return { outcome: 'aborted', lastError };
     try {
       const me = await deps.fetchMe();
@@ -104,7 +123,9 @@ export async function pollUntilActive(
     } catch (error) {
       lastError = error;
     }
-    const delay = pollDelayMs(attempt);
+    const isFastNow =
+      deps.isFast === true && deps.now() - startedAt < FAST_POLL_WINDOW_MS;
+    const delay = isFastNow ? FAST_POLL_MS : pollDelayMs(slowAttempt++);
     if (deps.now() - startedAt + delay > budget) {
       return { outcome: 'timeout', lastError };
     }

@@ -23,6 +23,8 @@ import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
 import { usePendingInvitations } from '@/features/join/hooks';
+import { AppUnlockedScreen } from '@/features/onboarding/components/AppUnlockedScreen';
+import { useUnlockMoment } from '@/features/onboarding/unlockMoment';
 import { ChoosePlanScreen } from '@/features/onboarding/components/ChoosePlanScreen';
 import { CompanionSetupScreen } from '@/features/onboarding/components/CompanionSetupScreen';
 import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
@@ -210,6 +212,9 @@ export default function AppLayout() {
       ? { kind: 'tabs' }
       : resolved;
 
+  // Paid: "You're all set" shows once, straight from the route change.
+  const unlocked = useUnlockMoment(route.kind);
+
   // Once the business exists, the draft and the remembered type are spent. Back
   // from the plan screen still needs the type, so only the draft goes there.
   React.useEffect(() => {
@@ -253,6 +258,15 @@ export default function AppLayout() {
   React.useEffect(() => {
     if (isOnboarding) setInOnboarding(true);
   }, [isOnboarding, setInOnboarding]);
+
+  if (unlocked.isShown) {
+    return (
+      <AppUnlockedScreen
+        businessName={me.data?.business.name ?? ''}
+        onContinue={unlocked.dismiss}
+      />
+    );
+  }
 
   if (isOfflineStart) {
     return (

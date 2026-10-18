@@ -41,11 +41,11 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
   const plans = usePlans();
   const isOnline = useIsOnline();
   const checkout = useCheckout({
-    onReturned: (outcome, plan) => {
+    onReturned: (outcome) => {
       analytics.track('checkout_returned', { outcome });
-      if (outcome === 'active' && plan) {
-        analytics.track('plan_activated', { plan });
-      }
+    },
+    onActivated: (plan) => {
+      if (plan) analytics.track('plan_activated', { plan });
     },
   });
   const [chosen, setChosen] = React.useState<CheckoutPlanId>(DEFAULT_PLAN);

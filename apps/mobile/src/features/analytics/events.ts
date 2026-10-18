@@ -5,8 +5,12 @@
  */
 export type OnboardingBusinessType = 'barber' | 'salon' | 'beauty' | 'mix';
 export type OnboardingPlan = 'starter' | 'growth' | 'pro';
-/** How a checkout ended once the owner came back (`PollOutcome` in plans/checkout). */
-export type CheckoutOutcome = 'active' | 'timeout' | 'aborted';
+/**
+ * How a checkout ended once the owner came back: paid and returned (success),
+ * closed the tab (cancel), or the plan never flipped while waiting (timeout)
+ * or they stopped waiting (aborted).
+ */
+export type CheckoutOutcome = 'success' | 'cancel' | 'timeout' | 'aborted';
 
 export interface AnalyticsEvents {
   onboarding_started: Record<string, never>;
