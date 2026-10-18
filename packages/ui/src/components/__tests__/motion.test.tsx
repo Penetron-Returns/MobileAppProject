@@ -1,10 +1,8 @@
 import * as React from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { resetReduceMotionForTests } from '../../theme/useReduceMotion';
 import { act, render } from '../../testing/render';
 import { Pressable } from '../../primitives/Pressable';
-import { DURATION } from '../../tokens/motion';
 import { Reveal } from '../Reveal';
 import { Switch } from '../Switch';
 import { Turn } from '../Turn';
@@ -22,35 +20,53 @@ function styleOf(tree: ReturnType<typeof render>) {
   return node.props.style as Record<string, unknown>;
 }
 
-describe('reduced motion', () => {
-  beforeEach(resetReduceMotionForTests);
-  afterEach(() => jest.restoreAllMocks());
+describe('Pressable press feedback', () => {
+  const flatStyle = (tree: ReturnType<typeof render>) => {
+    return (StyleSheet.flatten(node(tree).props.style) ?? {}) as Record<
+      string,
+      unknown
+    >;
+  };
+  const node = (tree: ReturnType<typeof render>) =>
+    tree.root
+      .findAll((n) => n.props.testID === 'p' && n.props.onPressIn !== undefined)
+      .at(-1)!;
 
-  it('drops the press transition when the OS asks for reduced motion', async () => {
-    jest
-      .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
-      .mockResolvedValue(true);
-    let tree!: ReturnType<typeof render>;
-    await act(async () => {
-      tree = render(
-        <Pressable accessibilityRole="button" feedback="nudge" testID="p" />,
-      );
-    });
-    expect(styleOf(tree).transitionDuration).toBeUndefined();
-    expect(styleOf(tree).transitionProperty).toBeUndefined();
+  it('dims while pressed and restores on release, forwarding the caller handlers', () => {
+    const onPressIn = jest.fn();
+    const onPressOut = jest.fn();
+    const tree = render(
+      <Pressable
+        accessibilityRole="button"
+        testID="p"
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      />,
+    );
+    expect(flatStyle(tree).opacity).toBeUndefined();
+    act(() => node(tree).props.onPressIn({}));
+    expect(flatStyle(tree).opacity).toBe(0.6);
+    expect(onPressIn).toHaveBeenCalledTimes(1);
+    act(() => node(tree).props.onPressOut({}));
+    expect(flatStyle(tree).opacity).toBeUndefined();
+    expect(onPressOut).toHaveBeenCalledTimes(1);
   });
 
-  it('animates the press with the press token otherwise', async () => {
-    jest
-      .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
-      .mockResolvedValue(false);
-    let tree!: ReturnType<typeof render>;
-    await act(async () => {
-      tree = render(
-        <Pressable accessibilityRole="button" feedback="inset" testID="p" />,
-      );
-    });
-    expect(styleOf(tree).transitionDuration).toBe(DURATION.press);
+  it('a nudge press does not re-render the component', () => {
+    let renders = 0;
+    const Probe = () => {
+      renders += 1;
+      return null;
+    };
+    const tree = render(
+      <Pressable accessibilityRole="button" feedback="nudge" testID="p">
+        <Probe />
+      </Pressable>,
+    );
+    const before = renders;
+    act(() => node(tree).props.onPressIn({}));
+    act(() => node(tree).props.onPressOut({}));
+    expect(renders).toBe(before);
   });
 });
 

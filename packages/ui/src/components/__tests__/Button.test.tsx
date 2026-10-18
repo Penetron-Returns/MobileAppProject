@@ -152,7 +152,10 @@ describe('Button', () => {
     beforeEach(() => jest.clearAllMocks());
     const press = (props: React.ComponentProps<typeof Button>) => {
       const node = findButtonNode(renderButton(props));
-      act(() => node.props.onPress({}));
+      act(() => {
+        node.props.onPressIn?.({});
+        node.props.onPress({});
+      });
     };
 
     it('taps lightly when the primary button is pressed', () => {
