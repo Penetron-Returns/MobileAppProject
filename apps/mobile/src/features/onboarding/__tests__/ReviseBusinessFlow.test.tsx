@@ -7,6 +7,11 @@ import { act, flush, mount, pressableByLabel, text } from '@/testing/render';
 
 import { ReviseBusinessFlow } from '../components/ReviseBusinessFlow';
 
+jest.mock('@clerk/expo', () => ({ useAuth: () => ({ isSignedIn: true }) }));
+jest.mock('@/features/auth/useSignOut', () => ({
+  useSignOut: () => jest.fn(),
+}));
+
 jest.mock('@/features/brand/ClovieAnimated', () => ({
   ClovieAnimated: () => null,
 }));
@@ -115,5 +120,16 @@ describe('Back from the plan: revising the business', () => {
     await flush();
     expect(onDone).not.toHaveBeenCalled();
     expect(text(tree)).toContain('Try again');
+    expect(text(tree)).toContain("Couldn't save the change");
+  });
+
+  it('lets the owner leave a failed save back to the plan', async () => {
+    mockRevise.mockRejectedValueOnce(new Error('offline'));
+    const tree = await open();
+    act(() => tree.root.findByType(TextInput).props.onChangeText('New name'));
+    act(() => pressableByLabel(tree, 'Continue').props.onPress());
+    await flush();
+    act(() => pressableByLabel(tree, 'Back').props.onPress());
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 });

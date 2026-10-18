@@ -2,6 +2,7 @@ import { useClerk } from '@clerk/expo';
 import * as React from 'react';
 
 import { analytics } from '@/features/analytics';
+import { clearOnboardingStorage } from '@/features/onboarding/storage';
 import { unregisterPushToken } from '@/features/notifications/pushDevice';
 import { clearDeviceTokenOnSignOut } from '@/features/voice/deviceToken';
 import { queryClient } from '@/lib/query';
@@ -26,6 +27,8 @@ export function useSignOut(): () => Promise<void> {
       toast.error(error);
       return;
     }
+    // A half-finished draft belongs to this account, not the next one.
+    await clearOnboardingStorage().catch(() => undefined);
     queryClient.clear();
     analytics.reset();
   }, [signOut]);

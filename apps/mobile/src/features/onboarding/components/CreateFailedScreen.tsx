@@ -13,15 +13,25 @@ import { Rise } from './Rise';
 export function CreateFailedScreen({
   error,
   onRetry,
+  onBack,
+  mode = 'create',
 }: {
   error: unknown;
   onRetry: () => void;
+  /** A way out (revising an existing business); creation has nothing to go back to. */
+  onBack?: () => void;
+  mode?: 'create' | 'revise';
 }) {
   const { t } = useTranslation();
-  const title = t('onboarding.create.failed');
+  const title = t(
+    mode === 'revise'
+      ? 'onboarding.create.reviseFailed'
+      : 'onboarding.create.failed',
+  );
   const { message } = describeError(error);
   return (
     <OnboardingShell
+      onBack={onBack}
       spoken={`${title} ${message}`}
       footer={
         <OnbButton label={t('onboarding.create.retry')} onPress={onRetry} />

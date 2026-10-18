@@ -75,7 +75,14 @@ export function ReviseBusinessFlow({
   };
 
   if (error) {
-    return <CreateFailedScreen error={error} onRetry={() => void save()} />;
+    return (
+      <CreateFailedScreen
+        mode="revise"
+        error={error}
+        onRetry={() => void save()}
+        onBack={onDone}
+      />
+    );
   }
 
   let body: React.ReactNode;

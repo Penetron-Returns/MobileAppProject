@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 import * as React from 'react';
 
+import { useHardwareBack } from '@/features/onboarding/useHardwareBack';
+
 import { useAuthFlow } from '../useAuthFlow';
 import { AuthBackdrop } from './AuthBackdrop';
 import { CodeStep } from './CodeStep';
@@ -13,6 +15,15 @@ import { WelcomeStep } from './WelcomeStep';
  */
 export function AuthScreen() {
   const flow = useAuthFlow();
+  const exitWelcome = router.canGoBack() ? () => router.back() : undefined;
+  // Welcome with nowhere to go keeps the default (exit); other steps step back like the on-screen Back.
+  useHardwareBack(
+    flow.step === 'code'
+      ? flow.changeIdentifier
+      : flow.step === 'identifier'
+        ? flow.goToWelcome
+        : exitWelcome,
+  );
 
   return (
     <AuthBackdrop>
@@ -22,7 +33,7 @@ export function AuthScreen() {
           errorKey={flow.errorKey}
           onGoogle={() => void flow.continueWithGoogle()}
           onEmail={flow.goToIdentifier}
-          onBack={router.canGoBack() ? () => router.back() : undefined}
+          onBack={exitWelcome}
         />
       ) : null}
       {flow.step === 'identifier' ? (
