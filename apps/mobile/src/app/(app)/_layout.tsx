@@ -102,7 +102,10 @@ function toMeStatus(
  * business) Nerova's setup state, which says whether the companion account
  * exists yet. Null until `/v1/me` has loaded.
  */
-function useBilling(me: MeDTO | undefined): BillingInput | null {
+function useBilling(
+  me: MeDTO | undefined,
+  hasCachedMe: boolean,
+): BillingInput | null {
   const isOwner = me?.role !== 'staff';
   const plan = me?.plan ?? 'none';
   const hasCompanion = Boolean(
@@ -118,6 +121,7 @@ function useBilling(me: MeDTO | undefined): BillingInput | null {
     hasCompanion,
     role: me.role,
     provisioning: provisioningStatus({
+      hasCachedMe,
       isOwner,
       isActive,
       setup: {
@@ -181,7 +185,10 @@ export default function AppLayout() {
   const asksInvitations = asksMemberships;
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
-  const billing = useBilling(me.data);
+  // Sticky: was `me` already in the (restored) cache when the app opened?
+  const startedWithMe = React.useRef<boolean | null>(null);
+  startedWithMe.current ??= Boolean(me.data);
+  const billing = useBilling(me.data, startedWithMe.current);
   useAnalyticsIdentity(isSignedIn ? user?.id : null, me.data?.business.id);
   useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
   useVoiceScheduleSync(hasOrg);
