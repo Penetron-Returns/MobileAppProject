@@ -1,24 +1,19 @@
 import type { MeDTO } from '@booking/types';
-import { DURATION, useDepth } from '@booking/ui';
 import { useAuth, useClerk, useSession, useUser } from '@clerk/expo';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NetInfo from '@react-native-community/netinfo';
 
-import { analytics } from '@/features/analytics';
-import { useAnalyticsIdentity } from '@/features/analytics/useAnalyticsIdentity';
 import { ApprovalNotifications } from '@/features/approvals/ApprovalNotifications';
 import { CompanionSdkHost } from '@/features/companion/sdk/CompanionSdkHost';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
 import { useHideSplashWhen } from '@/features/brand/useHideSplash';
-import { useBusinessRealtime } from '@/features/realtime/useBusinessRealtime';
-import { useAttendanceNotifications } from '@/features/attendance/notifications';
-import { useVoiceDeviceToken } from '@/features/voice/deviceToken';
+import { ShellEffects } from '@/features/shell/ShellEffects';
+import { ShellStack } from '@/features/shell/ShellStack';
 import { PushRegistration } from '@/features/notifications/components/PushRegistration';
 import { useCompanionSetup } from '@/features/companion/hooks';
-import { useEntitlements } from '@/features/plans/hooks';
 import { useMe } from '@/features/business/me';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
@@ -30,13 +25,8 @@ import { CompanionSetupScreen } from '@/features/onboarding/components/Companion
 import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { ReviseBusinessFlow } from '@/features/onboarding/components/ReviseBusinessFlow';
-import {
-  clearDraft,
-  clearOnboardingStorage,
-  loadBusinessType,
-} from '@/features/onboarding/storage';
+import { loadBusinessType } from '@/features/onboarding/storage';
 import type { BusinessBasics } from '@/features/onboarding/logic';
-import { nextFunnelState } from '@/features/onboarding/funnel';
 import { OfflineStartScreen } from '@/features/auth/components/OfflineStartScreen';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import { useUserScopedState } from '@/features/auth/useUserScopedState';
@@ -51,7 +41,6 @@ import {
   type MeStatus,
   type SessionTaskKey,
 } from '@/features/auth/appRoute';
-import { useVoiceScheduleSync } from '@/features/voice/scheduleSync';
 import { isApiError } from '@/lib/api';
 import { useIsOnline } from '@/lib/online';
 
@@ -153,7 +142,6 @@ export default function AppLayout() {
   const { session } = useSession();
   const { setActive } = useClerk();
   const { t } = useTranslation();
-  const ground = useDepth().ground.backgroundColor as string;
   // Per-user flags: they reset on sign-out or when another account signs in.
   const userId = isSignedIn ? (user?.id ?? null) : null;
   const isOnline = useIsOnline();
@@ -189,9 +177,6 @@ export default function AppLayout() {
   const startedWithMe = React.useRef<boolean | null>(null);
   startedWithMe.current ??= Boolean(me.data);
   const billing = useBilling(me.data, startedWithMe.current);
-  useAnalyticsIdentity(isSignedIn ? user?.id : null, me.data?.business.id);
-  useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
-  useVoiceScheduleSync(hasOrg);
 
   const resolved = resolveAppRoute({
     authLoaded,
@@ -222,28 +207,6 @@ export default function AppLayout() {
   // Paid: "You're all set" shows once, straight from the route change.
   const unlocked = useUnlockMoment(route.kind);
 
-  // Once the business exists, the draft and the remembered type are spent. Back
-  // from the plan screen still needs the type, so only the draft goes there.
-  React.useEffect(() => {
-    if (route.kind === 'choose-plan') void clearDraft();
-    if (route.kind === 'tabs' || route.kind === 'companion-setup') {
-      void clearOnboardingStorage();
-    }
-  }, [route.kind]);
-
-  // First run is done when the tabs appear after the onboarding, plan or setup screens.
-  const sawFirstRun = React.useRef(false);
-  React.useEffect(() => {
-    const next = nextFunnelState(sawFirstRun.current, route.kind);
-    sawFirstRun.current = next.hasSeenFirstRun;
-    if (next.isCompleted) analytics.track('onboarding_completed');
-  }, [route.kind]);
-
-  // Taps on attendance pushes navigate, so wait until the tabs are on screen.
-  useAttendanceNotifications(route.kind === 'tabs');
-  // Background voice and notification actions run without a live session: keep their device token fresh.
-  useVoiceDeviceToken(route.kind === 'tabs');
-
   // Offline, the session and business lookups wait for the network: show that
   // (with Retry) instead of an endless splash.
   const isOfflineStart = route.kind === 'splash' && !isOnline;
@@ -266,126 +229,110 @@ export default function AppLayout() {
     if (isOnboarding) setInOnboarding(true);
   }, [isOnboarding, setInOnboarding]);
 
-  if (unlocked.isShown) {
-    return (
-      <AppUnlockedScreen
-        businessName={me.data?.business.name ?? ''}
-        onContinue={unlocked.dismiss}
-      />
-    );
-  }
+  const renderContent = (): React.ReactNode => {
+    if (unlocked.isShown) {
+      return (
+        <AppUnlockedScreen
+          businessName={me.data?.business.name ?? ''}
+          onContinue={unlocked.dismiss}
+        />
+      );
+    }
 
-  if (isOfflineStart) {
-    return (
-      <OfflineStartScreen
-        onRetry={() => {
-          void NetInfo.refresh();
-          void session?.reload();
-          if (memberships.isError) void memberships.refetch();
-          if (me.isError) void me.refetch();
-        }}
-      />
-    );
-  }
+    if (isOfflineStart) {
+      return (
+        <OfflineStartScreen
+          onRetry={() => {
+            void NetInfo.refresh();
+            void session?.reload();
+            if (memberships.isError) void memberships.refetch();
+            if (me.isError) void me.refetch();
+          }}
+        />
+      );
+    }
 
-  switch (route.kind) {
-    case 'splash':
-    case 'activate-org':
-      return <ClovieLoading />;
-    case 'signed-out':
-      // Signed out: first-run onboarding, which hands over to sign-in after the name.
-      return <Redirect href="/onboarding" />;
-    case 'join':
-      return (
-        <JoinScreen
-          invitations={invitations.data ?? []}
-          onDecline={() => setJoinDeclined(true)}
-        />
-      );
-    case 'onboarding':
-      return (
-        <OnboardingFlow isSignedIn onDone={() => setInOnboarding(false)} />
-      );
-    case 'choose-plan':
-      return revising ? (
-        <ReviseBusinessFlow
-          current={revising}
-          onDone={() => setRevising(null)}
-        />
-      ) : (
-        <ChoosePlanScreen
-          onBack={() =>
-            void loadBusinessType().then((typeId) =>
-              setRevising({ name: me.data?.business.name ?? '', typeId }),
-            )
-          }
-        />
-      );
-    case 'inactive-business':
-      return <InactiveBusinessScreen />;
-    case 'companion-setup':
-      return <CompanionSetupScreen onContinue={() => setSetupSkipped(true)} />;
-    case 'unsupported-task':
-      return (
-        <SessionErrorScreen
-          error={new Error(t('session.unsupportedTask', { task: route.task }))}
-          onRetry={() => void session?.reload()}
-          isRetrying={false}
-        />
-      );
-    case 'session-error':
-      return (
-        <SessionErrorScreen
-          error={memberships.error ?? me.error}
-          onRetry={() =>
-            void (memberships.isError ? memberships.refetch() : me.refetch())
-          }
-          isRetrying={memberships.isFetching || me.isFetching}
-        />
-      );
-    case 'tabs':
-      break;
-  }
+    switch (route.kind) {
+      case 'splash':
+      case 'activate-org':
+        return <ClovieLoading />;
+      case 'signed-out':
+        // Signed out: first-run onboarding, which hands over to sign-in after the name.
+        return <Redirect href="/onboarding" />;
+      case 'join':
+        return (
+          <JoinScreen
+            invitations={invitations.data ?? []}
+            onDecline={() => setJoinDeclined(true)}
+          />
+        );
+      case 'onboarding':
+        return (
+          <OnboardingFlow isSignedIn onDone={() => setInOnboarding(false)} />
+        );
+      case 'choose-plan':
+        return revising ? (
+          <ReviseBusinessFlow
+            current={revising}
+            onDone={() => setRevising(null)}
+          />
+        ) : (
+          <ChoosePlanScreen
+            onBack={() =>
+              void loadBusinessType().then((typeId) =>
+                setRevising({ name: me.data?.business.name ?? '', typeId }),
+              )
+            }
+          />
+        );
+      case 'inactive-business':
+        return <InactiveBusinessScreen />;
+      case 'companion-setup':
+        return (
+          <CompanionSetupScreen onContinue={() => setSetupSkipped(true)} />
+        );
+      case 'unsupported-task':
+        return (
+          <SessionErrorScreen
+            error={
+              new Error(t('session.unsupportedTask', { task: route.task }))
+            }
+            onRetry={() => void session?.reload()}
+            isRetrying={false}
+          />
+        );
+      case 'session-error':
+        return (
+          <SessionErrorScreen
+            error={memberships.error ?? me.error}
+            onRetry={() =>
+              void (memberships.isError ? memberships.refetch() : me.refetch())
+            }
+            isRetrying={memberships.isFetching || me.isFetching}
+          />
+        );
+      case 'tabs':
+        break;
+    }
+
+    return (
+      <CompanionSdkHost>
+        <ApprovalNotifications enabled />
+        <PushRegistration enabled />
+        <ShellStack />
+      </CompanionSdkHost>
+    );
+  };
 
   return (
-    <CompanionSdkHost>
-      <ApprovalNotifications enabled />
-      <PushRegistration enabled />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          // Drill-in pages slide in from the right and swipe back natively.
-          animation: 'slide_from_right',
-          animationDuration: DURATION.page,
-          gestureEnabled: true,
-          fullScreenGestureEnabled: true,
-          // The ground colour behind a moving screen, so a transition never flashes white.
-          contentStyle: { backgroundColor: ground },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-        {/* New booking slides up over everything, tab bar included. Swipe-down is
-          off so closing always goes through the discard check. */}
-        <Stack.Screen
-          name="new-booking"
-          options={{
-            presentation: 'fullScreenModal',
-            animation: 'slide_from_bottom',
-            animationDuration: DURATION.page,
-            gestureEnabled: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        {/* The companion sheet draws its own dim and slides itself in. */}
-        <Stack.Screen
-          name="companion"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'none',
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-      </Stack>
-    </CompanionSdkHost>
+    <>
+      <ShellEffects
+        routeKind={route.kind}
+        hasOrg={hasOrg}
+        userId={userId}
+        businessId={me.data?.business.id}
+      />
+      {renderContent()}
+    </>
   );
 }
