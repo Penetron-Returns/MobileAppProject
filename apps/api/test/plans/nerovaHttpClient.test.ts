@@ -50,7 +50,7 @@ describe('createHttpNerovaClient', () => {
       nextStep: 'connect_whatsapp',
       receptionistLive: false,
       version: 3,
-      whatsapp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true, businessVerificationStatus: null },
+      whatsapp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true, businessVerificationStatus: null, health: {} },
       provisioned: false,
       bookingConnection: null,
       blockingReasons: [],
@@ -64,7 +64,7 @@ describe('createHttpNerovaClient', () => {
       nextStep: 'none',
       receptionistLive: false,
       version: null,
-      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null },
+      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null, health: {} },
       provisioned: false,
       bookingConnection: null,
       blockingReasons: [],
@@ -91,7 +91,7 @@ describe('createHttpNerovaClient', () => {
       provisioned: true,
       bookingConnection: 'verified',
       blockingReasons: ['activation.channel_not_ready'],
-      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: 'pending' },
+      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: 'pending', health: {} },
     });
   });
 

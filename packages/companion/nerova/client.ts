@@ -5,7 +5,7 @@
  * (`UPSTREAM_COMPANION_ERROR`, or `COMPANION_NOT_READY` when the client is not configured) and never put the
  * API key in a message or detail.
  */
-import type { CompanionColorMode, CompanionOutcomesDTO, CompanionSettingsDTO } from '@booking/types';
+import type { CompanionColorMode, CompanionOutcomesDTO, CompanionSettingsDTO, WhatsAppHealthDTO } from '@booking/types';
 
 export interface NerovaAccount {
   /** Nerova's `acct_` id */
@@ -25,6 +25,8 @@ export interface NerovaSetupStatus {
     businessVerified: boolean;
     /** Nerova's business verification status string, passed through; null when absent */
     businessVerificationStatus: string | null;
+    /** Health fields Nerova sent, snake_cased and normalised (whatsappHealth.ts); empty when none */
+    health: WhatsAppHealthDTO;
   };
   /** The account is provisioned in Nerova */
   provisioned: boolean;

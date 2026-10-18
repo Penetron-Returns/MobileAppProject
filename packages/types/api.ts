@@ -911,6 +911,56 @@ export type CompanionSetupStep =
   | 'go_live'
   | 'none';
 
+/** WhatsApp number health, as Nerova reports it. Unknown future values arrive as `unknown`. */
+export type WhatsAppPhoneNumberStatus =
+  | 'connected'
+  | 'pending'
+  | 'flagged'
+  | 'restricted'
+  | 'disconnected'
+  | 'unknown';
+export type WhatsAppQualityRating = 'green' | 'yellow' | 'red' | 'unknown';
+export type WhatsAppMessagingLimitTier =
+  'tier_250' | 'tier_1k' | 'tier_10k' | 'tier_100k' | 'unlimited' | 'unknown';
+export type WhatsAppNameStatus =
+  | 'approved'
+  | 'pending_review'
+  | 'declined'
+  | 'expired'
+  | 'available_without_review'
+  | 'none'
+  | 'unknown';
+export type WhatsAppHealthTemplateStatus =
+  'approved' | 'pending' | 'rejected' | 'paused' | 'disabled' | 'unknown';
+
+export interface WhatsAppHealthTemplateDTO {
+  name: string;
+  /** Meta category, passed through (e.g. `utility`, `marketing`); null when absent */
+  category: string | null;
+  status: WhatsAppHealthTemplateStatus;
+  rejected_reason: string | null;
+}
+
+export interface WhatsAppLastErrorDTO {
+  code: string | null;
+  message: string;
+  /** ISO-8601 instant, null when unknown */
+  at: string | null;
+}
+
+/** The health fields of CompanionSetupDTO.whatsapp: all optional, absent until Nerova reports them */
+export interface WhatsAppHealthDTO {
+  phone_number_status?: WhatsAppPhoneNumberStatus | null;
+  quality_rating?: WhatsAppQualityRating | null;
+  messaging_limit_tier?: WhatsAppMessagingLimitTier | null;
+  verified_name?: string | null;
+  name_status?: WhatsAppNameStatus | null;
+  templates?: WhatsAppHealthTemplateDTO[] | null;
+  last_error?: WhatsAppLastErrorDTO | null;
+  /** ISO-8601 instant of Nerova's last health check */
+  last_health_check_at?: string | null;
+}
+
 /** GET /v1/companion/setup (owner) */
 export interface CompanionSetupDTO {
   next_step: CompanionSetupStep;
@@ -921,7 +971,7 @@ export interface CompanionSetupDTO {
     business_verified: boolean;
     /** Nerova's verification status (e.g. `verified`, `pending`), null when unknown */
     business_verification_status: string | null;
-  };
+  } & WhatsAppHealthDTO;
   /** Nerova account provisioned */
   provisioned: boolean;
   /** Booking connection status as Nerova reports it, null when unknown */
