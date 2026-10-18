@@ -3,6 +3,8 @@ import {
   QueryClient,
   useMutation,
   useQueryClient,
+  type QueryClient as QueryClientType,
+  type QueryFilters,
   type QueryKey,
 } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
@@ -85,6 +87,31 @@ export interface MutationCallbacks {
   onError?: (error: unknown) => boolean | void;
 }
 
+/** Rolls an optimistic cache patch back. */
+export type Rollback = () => void;
+
+/**
+ * Patches every cached query matching `filters` with `updater` (skipping
+ * queries with no data yet) and returns a function that restores the exact
+ * previous values. Cancels in-flight fetches first so they can't overwrite it.
+ */
+export function patchQueries<T = unknown>(
+  qc: QueryClientType,
+  filters: QueryFilters,
+  updater: (old: T) => T,
+): Rollback {
+  void qc.cancelQueries(filters);
+  const snapshots = qc
+    .getQueriesData<T>(filters)
+    .filter(([, data]) => data !== undefined);
+  for (const [key, data] of snapshots) {
+    qc.setQueryData<T>(key, updater(data as T));
+  }
+  return () => {
+    for (const [key, data] of snapshots) qc.setQueryData<T>(key, data);
+  };
+}
+
 interface ApiMutationOptions<TVars, TData> {
   mutationFn: (vars: TVars, idempotencyKey: string) => Promise<TData>;
   /** Query keys to invalidate after success. */
@@ -93,6 +120,11 @@ interface ApiMutationOptions<TVars, TData> {
   /** Return true to suppress the default error toast. */
   onError?: (error: unknown, vars: TVars) => boolean | void;
   successMessage?: string;
+  /**
+   * Runs before the request: patch the cache (use `patchQueries`) and return
+   * the rollback. The rollback runs on error; invalidation runs either way.
+   */
+  optimistic?: (vars: TVars, qc: QueryClientType) => Rollback | void;
 }
 
 /**
@@ -108,28 +140,40 @@ export function useApiMutation<TVars, TData = unknown>(
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
-  const m = useMutation<TData, unknown, { vars: TVars; key: string }>({
+  const m = useMutation<
+    TData,
+    unknown,
+    { vars: TVars; key: string },
+    { rollback: Rollback | null }
+  >({
     mutationFn: ({ vars, key }) => optsRef.current.mutationFn(vars, key),
     // Offline writes are refused up front (see `mutate`), so a request that was
     // in flight when the connection dropped fails instead of waiting forever.
     networkMode: 'always',
     retry: (count, err) => count < 2 && isApiError(err) && err.isRetryable,
     retryDelay: (attempt) => 600 * (attempt + 1),
-    onSuccess: async (data, { vars }) => {
+    onMutate: ({ vars }) => {
+      const rollback = optsRef.current.optimistic?.(vars, qc);
+      return { rollback: rollback ?? null };
+    },
+    onSuccess: (data, { vars }) => {
       tracker.current.settle();
       const o = optsRef.current;
-      await Promise.all(
-        (o.invalidate ?? []).map((queryKey) =>
-          qc.invalidateQueries({ queryKey }),
-        ),
-      );
       if (o.successMessage) toast.success(o.successMessage);
       o.onSuccess?.(data, vars);
     },
-    onError: (error, { vars }) => {
+    onError: (error, { vars }, ctx) => {
+      ctx?.rollback?.();
       tracker.current.settle(error);
       const handled = optsRef.current.onError?.(error, vars);
       if (!handled) toast.error(error);
+    },
+    // Fire-and-forget: the UI never waits on the refetch round trip.
+    onSettled: (_data, error, _vars, ctx) => {
+      if (error && !ctx?.rollback) return;
+      for (const queryKey of optsRef.current.invalidate ?? []) {
+        void qc.invalidateQueries({ queryKey });
+      }
     },
   });
 
