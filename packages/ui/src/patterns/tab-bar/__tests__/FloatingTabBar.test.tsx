@@ -241,6 +241,34 @@ describe('FloatingTabBar', () => {
     ).toHaveLength(0);
   });
 
+  it('draws a flat edge-to-edge bar with a hairline top border', () => {
+    const { tree } = renderBar('index');
+    const row = tree.root.findAll(
+      (n) => n.props.accessibilityRole === 'tablist',
+    )[0];
+    expect(row.props.style).toEqual({ height: 64 });
+    const flat = tree.root.findAll((n) => {
+      const style = ([] as unknown[]).concat(n.props.style ?? []).flat();
+      return style.some(
+        (x) =>
+          typeof x === 'object' &&
+          x !== null &&
+          (x as { borderTopWidth?: number }).borderTopWidth !== undefined,
+      );
+    })[0];
+    const merged = Object.assign(
+      {},
+      ...([] as object[]).concat(flat.props.style).flat(),
+    );
+    expect(merged).toMatchObject({
+      left: 0,
+      right: 0,
+      bottom: 0,
+      boxShadow: 'none',
+    });
+    expect(merged.borderRadius).toBeUndefined();
+  });
+
   it('renders nothing on screens that hide the tab bar', () => {
     const { tree } = renderBar('bookings/[id]', { hidden: true });
     expect(

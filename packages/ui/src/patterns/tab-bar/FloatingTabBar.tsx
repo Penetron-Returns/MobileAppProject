@@ -38,7 +38,7 @@ import {
   INBOX_DOME_SIZE,
   DEFAULT_TABS,
   TAB_BAR_HEIGHT,
-  tabBarBottomOffset,
+  tabBarHeight,
   type TabRouteName,
 } from './layout';
 import { useDsText } from '../../lib/strings';
@@ -65,7 +65,7 @@ type TabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>
 >[0];
 
-/** Position of a tab inside the capsule, measured on layout. */
+/** Position of a tab inside the bar, measured on layout. */
 interface TabFrame {
   x: number;
   width: number;
@@ -88,8 +88,8 @@ const ICON_DIP = 0.94;
 export const LABEL_MAX_FONT_SCALE = 1.2;
 
 /**
- * The floating tab bar of the iPhone design: equal tabs in one raised
- * capsule and a dome above the right-hand end. Every tab, Reports included, is drawn the same. The app picks the tabs and
+ * The tab bar of the iPhone design: equal tabs in one flat, edge-to-edge
+ * bar (hairline top border, bottom inset inside it) and a floating dome above the right-hand end. Every tab, Reports included, is drawn the same. The app picks the tabs and
  * their order through `tabs`; Free passes `onAdd`, which puts the "+" (New
  * booking, opened as a modal) between the two halves, and the Inbox dome.
  * Paid plans pass Reports as an ordinary fifth tab and the Companion dome. Hidden on screens
@@ -240,8 +240,8 @@ export function FloatingTabBar({
         position: 'absolute',
         left: 0,
         right: 0,
-        bottom: tabBarBottomOffset(insets.bottom),
-        height: TAB_BAR_HEIGHT + INBOX_DOME_GAP + INBOX_DOME_SIZE,
+        bottom: 0,
+        height: tabBarHeight(insets.bottom) + INBOX_DOME_GAP + INBOX_DOME_SIZE,
       }}
     >
       <View
@@ -251,62 +251,73 @@ export function FloatingTabBar({
         {dome}
       </View>
       <View
-        accessibilityRole="tablist"
         style={[
           depth.bar,
           {
             position: 'absolute',
-            left: 20,
-            right: 20,
+            left: 0,
+            right: 0,
             bottom: 0,
-            height: TAB_BAR_HEIGHT,
-            borderRadius: TAB_BAR_HEIGHT / 2,
+            height: tabBarHeight(insets.bottom),
+            paddingBottom: Math.max(insets.bottom, 0),
+            boxShadow: 'none',
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: depth.colors.hairline,
           },
         ]}
-        className="flex-row items-stretch p-1"
       >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            depth.pill,
-            {
-              position: 'absolute',
-              top: BAR_PAD,
-              bottom: BAR_PAD,
-              left: 0,
-              width: baseW,
-              borderRadius: 28,
-            },
-            pillStyle,
-          ]}
-        />
-        {tabs.slice(0, split).map(renderTab)}
-        {onAdd ? (
-          <Pressable
-            onPress={() => {
-              haptics.light();
-              onAdd();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={t('tabs.add')}
-            {...addBounce.handlers}
-            className="w-[60px] items-center justify-center"
-          >
-            {({ pressed }) => (
-              <Animated.View
-                style={[
-                  depth.navPrimary,
-                  pressed && depth.navPrimaryPressed,
-                  addBounce.style,
-                ]}
-                className="h-[52px] w-[52px] items-center justify-center rounded-full"
-              >
-                <Plus size={26} strokeWidth={2.4} color={depth.colors.onFill} />
-              </Animated.View>
-            )}
-          </Pressable>
-        ) : null}
-        {tabs.slice(split).map(renderTab)}
+        <View
+          accessibilityRole="tablist"
+          style={{ height: TAB_BAR_HEIGHT }}
+          className="flex-row items-stretch p-1"
+        >
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              depth.pill,
+              {
+                position: 'absolute',
+                top: BAR_PAD,
+                bottom: BAR_PAD,
+                left: 0,
+                width: baseW,
+                borderRadius: 28,
+              },
+              pillStyle,
+            ]}
+          />
+          {tabs.slice(0, split).map(renderTab)}
+          {onAdd ? (
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                onAdd();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('tabs.add')}
+              {...addBounce.handlers}
+              className="w-[60px] items-center justify-center"
+            >
+              {({ pressed }) => (
+                <Animated.View
+                  style={[
+                    depth.navPrimary,
+                    pressed && depth.navPrimaryPressed,
+                    addBounce.style,
+                  ]}
+                  className="h-[52px] w-[52px] items-center justify-center rounded-full"
+                >
+                  <Plus
+                    size={26}
+                    strokeWidth={2.4}
+                    color={depth.colors.onFill}
+                  />
+                </Animated.View>
+              )}
+            </Pressable>
+          ) : null}
+          {tabs.slice(split).map(renderTab)}
+        </View>
       </View>
     </View>
   );
