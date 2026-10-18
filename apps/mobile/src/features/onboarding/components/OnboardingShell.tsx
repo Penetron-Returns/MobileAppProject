@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useSignOut } from '@/features/auth/useSignOut';
+import { ClovieWordmark } from '@/features/brand/ClovieWordmark';
 
 import type { OnboardingStage } from '../logic';
 import { useOnbColors } from '../theme';
@@ -32,8 +33,8 @@ const FOOTER_MS = 280;
 
 /**
  * The shared shell of the onboarding boards: a 44pt header (Back on the left,
- * progress dots in the middle, the quiet read-aloud icon on the right), the
- * content, and a footer that sits above the keyboard. `footerBottom` is the
+ * the Clovie wordmark dead centre, the quiet read-aloud icon on the right), the
+ * progress dots just under it, the content, and a footer that sits above the keyboard. `footerBottom` is the
  * board's bottom padding (24, 34, or 12 with the keyboard up).
  */
 export function OnboardingShell({
@@ -108,11 +109,39 @@ export function OnboardingShell({
               </Pressable>
             ) : null}
           </View>
-          {stage ? <ProgressDots stage={stage} /> : <View />}
+          {/* Absolute so it is centred on the screen whatever the side buttons hold. */}
+          <View
+            testID="onboarding-wordmark"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={t('auth.appName')}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <ClovieWordmark size={22} />
+            </View>
+          </View>
           <View style={{ width: 44, height: 44 }}>
             <ReplayVoiceButton text={spoken} autoSpeak={autoSpeak} />
           </View>
         </View>
+        {stage ? (
+          <View style={{ alignItems: 'center', paddingTop: 4 }}>
+            <ProgressDots stage={stage} />
+          </View>
+        ) : null}
         <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
         {isSignedIn ? (
           <Pressable
