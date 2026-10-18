@@ -2,7 +2,7 @@ import '../../global.css';
 import '@/lib/i18n';
 import { Toaster } from '@booking/ui';
 import { ClerkProvider } from '@clerk/expo';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PortalHost } from '@rn-primitives/portal';
 import { Slot } from 'expo-router';
 import * as React from 'react';
@@ -21,6 +21,19 @@ import { registerDeviceTokenSource } from '@/features/voice/deviceToken';
 import { registerVoiceHeadlessTask } from '@/features/voice/headlessTask';
 import { startFocusSync, startOnlineSync } from '@/lib/online';
 import { queryClient } from '@/lib/query';
+import {
+  PERSIST_BUSTER,
+  PERSIST_MAX_AGE_MS,
+  persister,
+  shouldPersistQuery,
+} from '@/lib/queryPersist';
+
+const persistOptions = {
+  persister,
+  maxAge: PERSIST_MAX_AGE_MS,
+  buster: PERSIST_BUSTER,
+  dehydrateOptions: { shouldDehydrateQuery: shouldPersistQuery },
+};
 
 const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
@@ -53,14 +66,17 @@ export default function RootLayout() {
           tokenCache={tokenCache}
         >
           <AuthTokenBridge />
-          <QueryClientProvider client={queryClient}>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={persistOptions}
+          >
             <SessionCacheGuard />
             <ThemeProvider>
               <Slot />
               <Toaster />
               <PortalHost />
             </ThemeProvider>
-          </QueryClientProvider>
+          </PersistQueryClientProvider>
         </ClerkProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
