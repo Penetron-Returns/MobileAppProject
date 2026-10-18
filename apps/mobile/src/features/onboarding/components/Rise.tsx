@@ -1,19 +1,15 @@
 import * as React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
-  Easing,
   ReduceMotion,
   withDelay,
   withTiming,
+  type LayoutAnimationFunction,
 } from 'react-native-reanimated';
 
-const RISE_PT = 14;
-const RISE_MS = 550;
-const STAGGER_MS = 70;
-/** The boards' gentle curve. */
-const GENTLE = Easing.bezier(0.22, 1, 0.36, 1);
+import { GENTLE, RISE_MS, RISE_PT, riseDelay } from '../motion';
 
-/** Entering animation: rises 14pt and fades over 550ms, `delay` after the first. Instant under Reduce Motion. */
+/** Entering animation: rises a few pt and fades in, `delay` after the first. Instant under Reduce Motion. */
 function riseIn(delay: number) {
   return () => {
     'worklet';
@@ -32,19 +28,30 @@ function riseIn(delay: number) {
   };
 }
 
-/** One staged line of a screen: the boards' staggered rise (70ms apart). */
+/**
+ * One staged line of a screen: a subtle rise 40ms after the one before, and
+ * nothing waits past the fourth. It is only visual: taps work from the first frame.
+ */
 export function Rise({
   index = 0,
   style,
+  layout,
   children,
 }: {
   index?: number;
   style?: StyleProp<ViewStyle>;
+  /** Animates this line's position when what is above it changes size. */
+  layout?: LayoutAnimationFunction | object;
   children: React.ReactNode;
 }) {
-  const entering = React.useMemo(() => riseIn(index * STAGGER_MS), [index]);
+  const entering = React.useMemo(() => riseIn(riseDelay(index)), [index]);
   return (
-    <Animated.View entering={entering} style={style}>
+    <Animated.View
+      entering={entering}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      layout={layout as any}
+      style={style}
+    >
       {children}
     </Animated.View>
   );

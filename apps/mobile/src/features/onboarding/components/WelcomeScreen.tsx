@@ -48,7 +48,8 @@ export function WelcomeScreen({
           alignItems: 'flex-start',
           gap: 14,
           paddingHorizontal: 20,
-          paddingBottom: 40,
+          // 40 plus the 12pt dots row the chrome now reserves above, so Clovie sits where it did.
+          paddingBottom: 52,
         }}
       >
         <Rise index={0}>
