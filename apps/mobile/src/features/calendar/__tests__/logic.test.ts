@@ -149,6 +149,13 @@ describe('span helpers', () => {
   });
 });
 
+describe('closed day hatch', () => {
+  it('hatches the whole week window when nobody works that day', () => {
+    const window = { startMin: 480, endMin: 1080 };
+    expect(complementSpans([], window)).toEqual([window]);
+  });
+});
+
 describe('businessWindows', () => {
   it('uses the weekly hours, merged and sorted', () => {
     expect(businessWindows('2026-10-12', HOURS, [])).toEqual([

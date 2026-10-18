@@ -127,6 +127,13 @@ export function CalendarHeader({
   );
 }
 
+/** Explicit radius: the className radius did not apply on Android once a style was set. */
+export const DAY_CIRCLE = {
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+} as const;
+
 export const DayStrip = React.memo(function DayStrip({
   anchor,
   today,
@@ -156,10 +163,11 @@ export const DayStrip = React.memo(function DayStrip({
             {WEEKDAYS[d.weekday].slice(0, 1)}
           </Text>
           <View
-            style={
-              d.isSelected ? { backgroundColor: depth.colors.tint } : undefined
-            }
-            className="h-8 w-8 items-center justify-center rounded-full"
+            style={[
+              DAY_CIRCLE,
+              d.isSelected ? { backgroundColor: depth.colors.tint } : null,
+            ]}
+            className="items-center justify-center"
           >
             <Text
               style={{
