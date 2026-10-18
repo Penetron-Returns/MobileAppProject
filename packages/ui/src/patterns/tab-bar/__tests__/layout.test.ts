@@ -1,7 +1,7 @@
 import {
   TAB_BAR_HEIGHT,
   isTabRootPath,
-  tabBarBottomOffset,
+  tabBarHeight,
   tabBarClearance,
 } from '../layout';
 
@@ -25,16 +25,16 @@ describe('isTabRootPath', () => {
   ])('hides the bar on %s', (path) => expect(isTabRootPath(path)).toBe(false));
 });
 
-describe('tab bar offsets', () => {
-  it('sits just above the home indicator on notched iPhones', () => {
-    expect(tabBarBottomOffset(34)).toBe(32);
+describe('tab bar height', () => {
+  it('extends the tab row under the home indicator', () => {
+    expect(tabBarHeight(34)).toBe(TAB_BAR_HEIGHT + 34);
   });
 
-  it('keeps a minimum margin where there is no inset', () => {
-    expect(tabBarBottomOffset(0)).toBe(16);
+  it('is just the tab row where there is no inset', () => {
+    expect(tabBarHeight(0)).toBe(TAB_BAR_HEIGHT);
   });
 
-  it('clears the capsule plus a gap for scrolling content', () => {
-    expect(tabBarClearance(34)).toBe(TAB_BAR_HEIGHT + 32 + 16);
+  it('clears the whole bar plus a gap for scrolling content', () => {
+    expect(tabBarClearance(34)).toBe(TAB_BAR_HEIGHT + 34 + 16);
   });
 });

@@ -239,7 +239,7 @@ export {
   INBOX_DOME_SIZE,
   TAB_BAR_HEIGHT,
   isTabRootPath,
-  tabBarBottomOffset,
+  tabBarHeight,
   tabBarClearance,
 } from './patterns/tab-bar/layout';
 
