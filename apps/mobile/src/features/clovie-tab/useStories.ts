@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import type { Story } from '@/features/stories';
 import { api, newIdempotencyKey } from '@/lib/api';
@@ -38,15 +38,6 @@ export function useStories() {
     queryFn: () => api.stories(storyHeaders()),
     staleTime: STORIES_STALE_MS,
   });
-
-  React.useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        void queryClient.invalidateQueries({ queryKey: qk.stories });
-      }
-    });
-    return () => sub.remove();
-  }, [queryClient]);
 
   const { data, dataUpdatedAt } = query;
   const productTitle = t('clovieTab.productUpdates');
