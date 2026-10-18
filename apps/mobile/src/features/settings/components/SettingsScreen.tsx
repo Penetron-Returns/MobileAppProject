@@ -31,7 +31,8 @@ import {
   settingsGroups,
   type SettingsItem,
 } from '../navigation';
-import { useSettingsRows } from '../useSettingsRows';
+import { usePrefetchSettingsScreens } from '../usePrefetchSettingsScreens';
+import { useSettingsRows, type RowModel } from '../useSettingsRows';
 import { CompanionGlyph } from './CompanionGlyph';
 
 const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
@@ -48,6 +49,63 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   deleteAccount: GLYPHS.trash,
 };
 
+interface SettingsRowProps {
+  item: SettingsItem;
+  index: number;
+  detail?: string;
+  tone?: RowModel['tone'];
+  disabled?: boolean;
+  reason?: string;
+}
+
+/** Memoised on its primitive props: a query landing re-renders only the rows it changed. */
+const SettingsRow = React.memo(function SettingsRow({
+  item,
+  index,
+  detail,
+  tone,
+  disabled,
+  reason,
+}: SettingsRowProps) {
+  const { t } = useTranslation();
+  const common = {
+    showSeparator: index > 0,
+    icon: GLYPH_FOR[item],
+    title: t(`settings.items.${item}`),
+  };
+  if (item === 'appearance') return <AppearanceRow {...common} />;
+  return (
+    <GroupRow
+      {...common}
+      detail={detail}
+      detailTone={tone}
+      disabled={disabled}
+      reason={reason}
+      destructive={item === 'deleteAccount'}
+      onPress={() => router.push(SETTINGS_ROUTES[item] as never)}
+    />
+  );
+});
+
+const AppearanceRow = React.memo(function AppearanceRow(
+  props: React.ComponentProps<typeof GroupRow>,
+) {
+  const { t } = useTranslation();
+  const { isDark, toggle } = useAppColorScheme();
+  return (
+    <GroupRow
+      {...props}
+      trailing={
+        <Switch
+          checked={isDark}
+          onCheckedChange={toggle}
+          accessibilityLabel={t('settings.items.appearance')}
+        />
+      }
+    />
+  );
+});
+
 /**
  * Settings: the business and the role, then one list for everyone (owner or
  * staff), Sign out and the app version. The role decides what can be changed,
@@ -61,45 +119,11 @@ export function SettingsScreen() {
   const { organization } = useOrganization();
   const me = useMe();
   const rows = useSettingsRows();
-  const { isDark, toggle } = useAppColorScheme();
+  usePrefetchSettingsScreens();
   const userName =
     user?.fullName || user?.primaryEmailAddress?.emailAddress || '';
   const title = organization?.name ?? userName;
   const role = me.data ? t(`settings.roles.${me.data.role}`) : '';
-
-  const renderRow = (item: SettingsItem, index: number) => {
-    const row = rows[item];
-    const common = {
-      showSeparator: index > 0,
-      icon: GLYPH_FOR[item],
-      title: t(`settings.items.${item}`),
-    };
-    if (item === 'appearance') {
-      return (
-        <GroupRow
-          {...common}
-          trailing={
-            <Switch
-              checked={isDark}
-              onCheckedChange={toggle}
-              accessibilityLabel={t('settings.items.appearance')}
-            />
-          }
-        />
-      );
-    }
-    return (
-      <GroupRow
-        {...common}
-        detail={row.detail}
-        detailTone={row.tone}
-        disabled={row.disabled}
-        reason={row.reason}
-        destructive={item === 'deleteAccount'}
-        onPress={() => router.push(SETTINGS_ROUTES[item] as never)}
-      />
-    );
-  };
 
   return (
     <Page title={t('settings.title')} isTab>
@@ -134,7 +158,15 @@ export function SettingsScreen() {
           <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
           <Group radius={26}>
             {group.items.map((item, i) => (
-              <React.Fragment key={item}>{renderRow(item, i)}</React.Fragment>
+              <SettingsRow
+                key={item}
+                item={item}
+                index={i}
+                detail={rows[item].detail}
+                tone={rows[item].tone}
+                disabled={rows[item].disabled}
+                reason={rows[item].reason}
+              />
             ))}
           </Group>
         </Reveal>

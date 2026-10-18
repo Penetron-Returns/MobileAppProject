@@ -1,9 +1,8 @@
-import type { BookingRules } from '@booking/types';
+import type { BookingRules, UpdateBusinessRequest } from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
-import { useUpdateBusiness } from '@/features/business/hooks';
 import { api } from '@/lib/api';
-import { qk, useApiMutation } from '@/lib/query';
+import { patchQueries, qk, useApiMutation } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
 import { parseRules } from './rules';
@@ -16,16 +15,30 @@ async function fetchBookingRules() {
   return parseRules(unwrap<NonNullable<typeof res.data>>(res).booking_rules);
 }
 
+const RULES_KEY = [...qk.business, 'rules'] as const;
+
 export function useBookingRules() {
   return useQuery({
-    queryKey: [...qk.business, 'rules'],
+    queryKey: RULES_KEY,
     queryFn: fetchBookingRules,
   });
 }
 
-/** Saves one or more rules; the API merges `booking_rules` partially. */
+/**
+ * Saves one or more rules; the API merges `booking_rules` partially. The new
+ * value shows at once and goes back if the save fails.
+ */
 export function useSaveBookingRules() {
-  return useUpdateBusiness();
+  return useApiMutation<UpdateBusinessRequest>({
+    mutationFn: (body, key) => api.updateBusiness(body, key),
+    invalidate: [qk.business],
+    optimistic: (body, qc) =>
+      patchQueries<BookingRules>(
+        qc,
+        { queryKey: RULES_KEY, exact: true },
+        (rules) => ({ ...rules, ...body.booking_rules }),
+      ),
+  });
 }
 
 export type RulePatch = Partial<BookingRules>;

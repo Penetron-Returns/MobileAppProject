@@ -1,4 +1,4 @@
-import { Group, GroupRow, Page, Switch, Text } from '@booking/ui';
+import { Group, GroupRow, Page, Skeleton, Switch, Text } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
@@ -18,6 +18,9 @@ import {
 import { pushStore } from '@/features/notifications/pushStore';
 import { toast } from '@/lib/toast';
 
+/** The last permission and opt-out read, so a revisit starts on the real state. */
+let lastKnown: { permission: PushPermission; optedOut: boolean } | null = null;
+
 /**
  * Settings > Notifications. v1 has one real control: push on this phone
  * (registers an Expo push token with `POST /v1/devices`, which the API uses
@@ -28,17 +31,26 @@ import { toast } from '@/lib/toast';
  */
 export function NotificationSettingsScreen() {
   const { t } = useTranslation();
-  const [permission, setPermission] =
-    React.useState<PushPermission>('undetermined');
-  const [optedOut, setOptedOut] = React.useState(false);
-  const [busy, setBusy] = React.useState(false);
+  // Seeded from the last read, so coming back shows the real state at once.
+  const [permission, setPermission] = React.useState<PushPermission>(
+    lastKnown?.permission ?? 'undetermined',
+  );
+  const [optedOut, setOptedOut] = React.useState(lastKnown?.optedOut ?? false);
+  const [isLoaded, setIsLoaded] = React.useState(lastKnown !== null);
+  const isTurningOn = React.useRef(false);
   const isWeb = Platform.OS === 'web';
   const enabled = isPushEnabled(permission, optedOut);
 
   React.useEffect(() => {
     void (async () => {
-      setPermission(await getPushPermission());
-      setOptedOut(await pushStore.isOptedOut());
+      const [granted, out] = await Promise.all([
+        getPushPermission(),
+        pushStore.isOptedOut(),
+      ]);
+      lastKnown = { permission: granted, optedOut: out };
+      setPermission(granted);
+      setOptedOut(out);
+      setIsLoaded(true);
     })();
   }, []);
 
@@ -47,26 +59,34 @@ export function NotificationSettingsScreen() {
       toast.info(t('settings.notifications.needsDevice'));
       return;
     }
-    setBusy(true);
+    if (isTurningOn.current) return;
+    isTurningOn.current = true;
+    // The switch moves now; it goes back if the permission or token fails.
+    const before = { permission, optedOut };
+    setOptedOut(false);
+    setPermission('granted');
     try {
       if (!(await requestPushPermission())) {
         setPermission('denied');
+        setOptedOut(before.optedOut);
         toast.info(t('settings.notifications.denied'));
         return;
       }
       await registerPushToken(await fetchPushToken());
       await pushStore.setOptedOut(false);
-      setOptedOut(false);
-      setPermission('granted');
+      lastKnown = { permission: 'granted', optedOut: false };
     } catch {
+      setPermission(before.permission);
+      setOptedOut(before.optedOut);
       toast.info(t('settings.notifications.failed'));
     } finally {
-      setBusy(false);
+      isTurningOn.current = false;
     }
   };
 
   const turnOff = () => {
     setOptedOut(true);
+    lastKnown = { permission, optedOut: true };
     void pushStore.setOptedOut(true);
     void unregisterPushToken();
   };
@@ -86,12 +106,16 @@ export function NotificationSettingsScreen() {
               : t('settings.notifications.pushHint')
           }
           trailing={
-            <Switch
-              checked={enabled}
-              disabled={busy || isWeb}
-              onCheckedChange={(on) => (on ? void turnOn() : turnOff())}
-              accessibilityLabel={t('settings.notifications.push')}
-            />
+            isLoaded ? (
+              <Switch
+                checked={enabled}
+                disabled={isWeb}
+                onCheckedChange={(on) => (on ? void turnOn() : turnOff())}
+                accessibilityLabel={t('settings.notifications.push')}
+              />
+            ) : (
+              <Skeleton className="h-[31px] w-[51px] rounded-full" />
+            )
           }
         />
       </Group>
