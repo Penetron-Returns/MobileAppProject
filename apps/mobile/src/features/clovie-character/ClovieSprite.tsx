@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Image, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { useBlinkFrame } from './useBlinkFrame';
 
@@ -50,22 +50,43 @@ export const ClovieSprite = React.memo(function ClovieSprite({
   const frame = useBlinkFrame(isActive);
   React.useEffect(prefetchFrames, []);
   const body = size * BODY_SCALE;
+  const imageStyle = {
+    width: body,
+    height: body,
+    marginLeft: (size - body) / 2,
+    marginTop: size * BODY_DROP,
+  };
+  // The open frame is always mounted at full opacity (never gated on onLoad or
+  // on the blink state), so the first paint can never be an empty box. The blink
+  // frames are mounted too and only toggle opacity: swapping one Image's source
+  // makes Android cancel and re-request the bitmap, which flashed an
+  // EmptyDrawable (blank) when that raced the tab handover on a cold start.
   return (
     <View style={{ width: size, height: size }}>
       <Image
         testID={testID}
-        source={FRAMES[frame]}
+        source={FRAMES[0]}
         onLoad={onLoad}
         resizeMode="contain"
         resizeMethod="resize"
         fadeDuration={0}
-        style={{
-          width: body,
-          height: body,
-          marginLeft: (size - body) / 2,
-          marginTop: size * BODY_DROP,
-        }}
+        style={imageStyle}
       />
+      {([1, 2] as const).map((index) => (
+        <Image
+          key={index}
+          testID={`${testID}-blink-${index}`}
+          source={FRAMES[index]}
+          resizeMode="contain"
+          resizeMethod="resize"
+          fadeDuration={0}
+          style={[
+            StyleSheet.absoluteFill,
+            imageStyle,
+            { opacity: frame === index ? 1 : 0 },
+          ]}
+        />
+      ))}
     </View>
   );
 });
