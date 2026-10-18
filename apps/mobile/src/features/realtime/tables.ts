@@ -3,6 +3,12 @@ import { qk } from '@/lib/query';
 export type RealtimeTable =
   | 'appointments'
   | 'attendance_checks'
+  | 'business_hours'
+  | 'business_special_days'
+  | 'availability_rules'
+  | 'availability_overrides'
+  | 'staff_breaks'
+  | 'staff_time_off'
   | 'conversations'
   | 'messages'
   | 'escalations';
@@ -30,6 +36,23 @@ const INBOX_KEYS = [
   active(['escalations']),
 ];
 
+/** Schedule configuration: any change moves the calendar's visible hours and what can be booked. */
+const CONFIG_TABLES: RealtimeTable[] = [
+  'business_hours',
+  'business_special_days',
+  'availability_rules',
+  'availability_overrides',
+  'staff_breaks',
+  'staff_time_off',
+];
+
+const CONFIG_KEYS = [
+  active(qk.availabilityConfig),
+  active(qk.businessHours),
+  active(qk.availabilityDays),
+  active(qk.availabilitySlots),
+];
+
 /** The query keys a change to each table makes stale. */
 const KEYS: Record<RealtimeTable, readonly Invalidation[]> = {
   appointments: [
@@ -39,6 +62,12 @@ const KEYS: Record<RealtimeTable, readonly Invalidation[]> = {
     { key: qk.clientBook, refetchType: 'none' },
   ],
   attendance_checks: [active(qk.attendance)],
+  business_hours: CONFIG_KEYS,
+  business_special_days: CONFIG_KEYS,
+  availability_rules: CONFIG_KEYS,
+  availability_overrides: CONFIG_KEYS,
+  staff_breaks: CONFIG_KEYS,
+  staff_time_off: CONFIG_KEYS,
   conversations: INBOX_KEYS,
   messages: INBOX_KEYS,
   escalations: INBOX_KEYS,
@@ -48,6 +77,7 @@ const KEYS: Record<RealtimeTable, readonly Invalidation[]> = {
 const ECHOES_OF_OWN_WRITES = new Set<RealtimeTable>([
   'appointments',
   'attendance_checks',
+  ...CONFIG_TABLES,
 ]);
 
 export function isEchoCandidate(table: RealtimeTable): boolean {
@@ -62,6 +92,7 @@ export function realtimeTables(hasInbox: boolean): RealtimeTable[] {
   return [
     'appointments',
     'attendance_checks',
+    ...CONFIG_TABLES,
     ...(hasInbox ? INBOX_TABLES : []),
   ];
 }
