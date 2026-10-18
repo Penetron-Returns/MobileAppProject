@@ -810,12 +810,15 @@ export interface SubscriptionDTO {
 /** POST /v1/billing/checkout (owner only, Idempotency-Key) */
 export interface CreateCheckoutRequest {
   plan: 'starter' | 'growth' | 'pro';
+  /** Where the checkout page sends the owner after paying: `<scheme>://checkout(/...)` (clovie, clovie-preview or bookingadmin) */
+  return_url?: string;
 }
 /** POST /v1/billing/plan (owner only, Idempotency-Key): switch an existing subscription to another paid plan; answers a SubscriptionDTO */
 export type ChangePlanRequest = CreateCheckoutRequest;
 /** Open it in the browser; the plan flips when Stripe's webhook arrives, so refetch /v1/plans after returning */
 export interface CheckoutSessionDTO {
   checkout_url: string;
+  session_id?: string;
 }
 /** POST /v1/billing/portal (owner only, Idempotency-Key): manage, change or cancel the subscription */
 export interface PortalSessionDTO {

@@ -4,7 +4,8 @@
  * is told about activations through AccountEventsPort (in the background: the Stripe response never waits for it).
  */
 import type { PlanKey, SubscriptionDTO, SubscriptionStatus, UUID } from '@booking/types';
-import { AppError, ruleViolation } from '../../lib/errors.ts';
+import { AppError, notFound, ruleViolation } from '../../lib/errors.ts';
+import { PLAN_CATALOG, PLAN_CURRENCY } from '../../plans/lib/planCatalog.ts';
 import { createLogger, type Logger } from '../../lib/logger.ts';
 import type { AccountEventsPort, ClerkAdmin } from '../../ports.ts';
 import { REPORT_HORIZON_MS, accessFor, isCompanionPlan, isPaidPlan, isUsagePrice, planForPrice, priceIdFor, usagePriceFor } from '../lib/policy.ts';
@@ -18,6 +19,7 @@ import type {
   BillingRecord,
   BillingRepository,
   BillingService,
+  CheckoutConfirmation,
   BillingSummary,
   PaidPlan,
   ReportOutcome,
@@ -77,16 +79,50 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return (await repo.saveCustomer(businessId, created.id)).stripeCustomerId;
   }
 
-  async function createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }) {
+  /**
+   * Two sessions must never both be payable: refuse when Stripe already shows a live subscription for the customer (our
+   * row can lag a webhook), and expire every other open session once the new one exists.
+   */
+  async function assertNotSubscribedAtStripe(stripe: StripeClient, customerId: string): Promise<void> {
+    const subs = await stripe.listSubscriptions(customerId);
+    if (subs.some((sub) => accessFor(sub.status) === 'entitled')) {
+      throw ruleViolation('ALREADY_SUBSCRIBED', 'This business already has a subscription: change or cancel it in the billing portal');
+    }
+  }
+
+  async function expireOtherOpenSessions(stripe: StripeClient, customerId: string, keepId: string): Promise<void> {
+    const open = await stripe.listOpenCheckoutSessions(customerId);
+    await Promise.all(open.filter((session) => session.id !== keepId).map((session) => stripe.expireCheckoutSession(session.id)));
+  }
+
+  /** The fragment the checkout page reads: session, client secret, plan, base price, currency, business name, return URL. */
+  async function checkoutPageUrl(page: string, session: { id: string; clientSecret: string }, input: { businessId: UUID; plan: PaidPlan; returnUrl?: string }): Promise<string> {
+    const contact = await repo.getBusinessContact(input.businessId);
+    const params = new URLSearchParams({
+      s: session.id,
+      cs: session.clientSecret,
+      p: input.plan,
+      a: String(PLAN_CATALOG[input.plan].priceCents),
+      c: PLAN_CURRENCY,
+      b: contact.name ?? '',
+    });
+    if (input.returnUrl) params.set('r', input.returnUrl);
+    return `${page}/#${params.toString()}`;
+  }
+
+  async function createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string; returnUrl?: string }) {
     const { stripe, config } = requireStripe();
     const priceId = priceIdFor(config, input.plan, 'ZAR');
     const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
     if (!priceId || !usagePriceId) throw notConfigured(`no base or usage price for ${input.plan}`, { plan: input.plan });
+    const embedded = Boolean(config.checkoutPageUrl);
+    if (!embedded && (!config.successUrl || !config.cancelUrl)) throw notConfigured('hosted checkout return URLs are missing');
     const record = await repo.getByBusiness(input.businessId);
     if (record?.stripeSubscriptionId && record.status && accessFor(record.status) === 'entitled') {
       throw ruleViolation('ALREADY_SUBSCRIBED', 'This business already has a subscription: change or cancel it in the billing portal');
     }
     const customerId = await customerFor(stripe, input.businessId, record);
+    await assertNotSubscribedAtStripe(stripe, customerId);
     const session = await stripe.createCheckoutSession({
       customerId,
       priceId,
@@ -95,10 +131,17 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
       plan: input.plan,
       successUrl: config.successUrl,
       cancelUrl: config.cancelUrl,
+      embedded,
       idempotencyKey: `checkout:${input.businessId}:${input.idempotencyKey}`,
     });
+    await expireOtherOpenSessions(stripe, customerId, session.id);
     await audit({ businessId: input.businessId, actorId: input.actorId, action: 'insert', entity: 'billing_checkout', entityId: session.id, diff: { plan: input.plan, source: 'owner' } });
-    return { checkout_url: session.url };
+    if (config.checkoutPageUrl) {
+      if (!session.clientSecret) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned no client secret');
+      return { checkout_url: await checkoutPageUrl(config.checkoutPageUrl, { id: session.id, clientSecret: session.clientSecret }, input), session_id: session.id };
+    }
+    if (!session.url) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned no checkout url');
+    return { checkout_url: session.url, session_id: session.id };
   }
 
   async function changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO> {
@@ -175,8 +218,8 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
 
   interface Origin {
     actorId: string;
-    source: 'stripe' | 'owner_api';
-    /** Stripe event id, or the request's Idempotency-Key */
+    source: 'stripe' | 'owner_api' | 'checkout_confirm';
+    /** Stripe event id, the request's Idempotency-Key, or the Checkout Session id */
     ref: string;
   }
 
@@ -254,13 +297,38 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
 
   const stripeOrigin = (event: StripeEvent): Origin => ({ actorId: '', source: 'stripe', ref: event.id });
 
+  /** The one activation path: the webhook and the public confirm route both land here (idempotent, audited by applySubscription). */
+  async function activateFromCheckout(input: { subscriptionId: string; businessId: UUID; at: number; origin: Origin }): Promise<BillingEventOutcome> {
+    if (!deps.stripe) return 'ignored';
+    const sub = await deps.stripe.retrieveSubscription(input.subscriptionId);
+    return applySubscription({ ...sub, businessId: input.businessId }, input.at, input.origin);
+  }
+
   async function onCheckoutCompleted(event: StripeEvent): Promise<BillingEventOutcome> {
     const session = event.object;
     const subscriptionId = refId(session.subscription);
     const businessId = asString(session.client_reference_id);
-    if (session.mode !== 'subscription' || !subscriptionId || !businessId || !deps.stripe) return 'ignored';
-    const sub = await deps.stripe.retrieveSubscription(subscriptionId);
-    return applySubscription({ ...sub, businessId: businessId as UUID }, event.created, stripeOrigin(event));
+    if (session.mode !== 'subscription' || !subscriptionId || !businessId) return 'ignored';
+    return activateFromCheckout({ subscriptionId, businessId: businessId as UUID, at: event.created, origin: stripeOrigin(event) });
+  }
+
+  async function confirmCheckout(sessionId: string): Promise<CheckoutConfirmation> {
+    const { stripe } = requireStripe();
+    const session = await stripe.retrieveCheckoutSession(sessionId);
+    if (!session?.businessId || session.mode !== 'subscription') throw notFound('Checkout session');
+    if (session.status === 'open') return { status: 'open' };
+    if (session.status === 'expired') return { status: 'expired' };
+    if (session.paymentStatus === 'unpaid' || !session.subscriptionId) return { status: 'processing' };
+    // "Now" is right: the subscription was just read from Stripe, so it is at least as new as any webhook already received.
+    await activateFromCheckout({
+      subscriptionId: session.subscriptionId,
+      businessId: session.businessId,
+      at: Math.floor(clock().getTime() / 1000),
+      origin: { actorId: '', source: 'checkout_confirm', ref: session.id },
+    });
+    const record = await repo.getByBusiness(session.businessId);
+    const entitled = record?.stripeSubscriptionId === session.subscriptionId && record.status !== null && accessFor(record.status) === 'entitled';
+    return entitled && record?.plan ? { status: 'active', plan: record.plan } : { status: 'processing' };
   }
 
   async function onSubscriptionEvent(event: StripeEvent): Promise<BillingEventOutcome> {
@@ -374,5 +442,5 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return deps.stripe !== null && deps.config !== null && isPaidPlan(plan) && priceIdFor(deps.config, plan, 'ZAR') !== null && usagePriceFor(deps.config, plan, 'ZAR') !== null;
   }
 
-  return { createCheckout, changePlan, createPortal, handleEvent, sweepUnreportedBookings, bookingCreated, getSubscription, isCheckoutAvailable };
+  return { createCheckout, confirmCheckout, changePlan, createPortal, handleEvent, sweepUnreportedBookings, bookingCreated, getSubscription, isCheckoutAvailable };
 }

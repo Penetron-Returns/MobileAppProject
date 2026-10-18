@@ -102,6 +102,10 @@ const EnvSchema = z.object({
   BILLING_SUCCESS_URL: optional,
   BILLING_CANCEL_URL: optional,
   BILLING_RETURN_URL: optional,
+  /** Our own checkout page (https://checkout.getclovie.app). Set = Checkout Sessions use ui_mode embedded_page and the app opens this page; unset = hosted Checkout with the BILLING_* URLs */
+  CHECKOUT_PAGE_URL: optional,
+  /** Comma-separated origins allowed to call POST /public/billing/checkout/confirm (CORS). Default: the CHECKOUT_PAGE_URL origin plus http://localhost:3000 */
+  CHECKOUT_ALLOWED_ORIGINS: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

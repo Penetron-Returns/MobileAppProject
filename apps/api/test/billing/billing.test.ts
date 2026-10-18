@@ -497,7 +497,7 @@ describe('audit_log entries', () => {
     const t = setup();
     await t.h.call('POST', '/v1/billing/checkout', { body: { plan: 'growth' } });
     expect(t.audits).toEqual([
-      { businessId: BIZ, actorId: 'user_owner_clerk_id', action: 'insert', entity: 'billing_checkout', entityId: 'cs_1', diff: { plan: 'growth', source: 'owner' } },
+      { businessId: BIZ, actorId: 'user_owner_clerk_id', action: 'insert', entity: 'billing_checkout', entityId: 'cs_test_1', diff: { plan: 'growth', source: 'owner' } },
     ]);
   });
 

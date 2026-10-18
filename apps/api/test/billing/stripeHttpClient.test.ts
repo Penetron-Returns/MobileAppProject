@@ -47,7 +47,9 @@ describe('StripeClient over fetch', () => {
       cancelUrl: 'clovie://no',
       idempotencyKey: 'checkout:k',
     });
-    expect(session).toEqual({ id: 'cs_1', url: 'https://checkout.stripe.com/c/cs_1' });
+    expect(session).toEqual({ id: 'cs_1', url: 'https://checkout.stripe.com/c/cs_1', clientSecret: null });
+    expect(new URLSearchParams(calls[0]!.body).get('success_url')).toBe('clovie://ok');
+    expect(new URLSearchParams(calls[0]!.body).has('ui_mode')).toBe(false);
     const call = calls[0]!;
     expect(call.url).toBe('https://api.stripe.com/v1/checkout/sessions');
     expect(call.headers.authorization).toBe('Bearer sk_test_secret');

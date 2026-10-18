@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 
 import { getContainer as defaultGetContainer, type Container } from './container.ts';
@@ -13,6 +13,7 @@ import { invalidateConnectorCache, nerovaRoutes } from './routes/nerova.ts';
 import { nerovaWebhookRoutes } from './routes/nerovaWebhook.ts';
 import { stripeWebhookRoutes } from './routes/stripeWebhook.ts';
 import { publicRoutes } from './routes/public.ts';
+import { CHECKOUT_CONFIRM_PATH, checkoutConfirmCors } from './routes/publicBilling.ts';
 import { onboardingRoutes } from './routes/v1/onboarding.ts';
 import { v1Routes } from './routes/v1/index.ts';
 import {
@@ -22,6 +23,12 @@ import {
   whatsappWebhookRoutes,
 } from './routes/whatsapp/index.ts';
 import type { AppEnv } from './types.ts';
+
+/** Runs `handler` for every path except `path`. */
+const skipPath =
+  (path: string, handler: MiddlewareHandler<AppEnv>): MiddlewareHandler<AppEnv> =>
+  (c, next) =>
+    c.req.path === path ? next() : handler(c, next);
 
 export interface AppOptions {
   getContainer?: () => Container;
@@ -42,7 +49,9 @@ export function createApp(options: AppOptions = {}) {
 
   app.use('*', baseContext(options.getContainer ?? defaultGetContainer));
   app.use('/v1/*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id', 'X-App-Version', 'X-Platform'], exposeHeaders: ['X-Request-Id'] }));
-  app.use('/public/*', cors({ origin: '*', allowHeaders: ['Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] }));
+  // The checkout confirm route moves money state, so it gets an allowlist instead of the public wildcard.
+  app.use(CHECKOUT_CONFIRM_PATH, checkoutConfirmCors);
+  app.use('/public/*', skipPath(CHECKOUT_CONFIRM_PATH, cors({ origin: '*', allowHeaders: ['Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] })));
 
   app.get('/health', (c) => c.json({ data: { ok: true, time: new Date().toISOString() } }));
 
@@ -65,7 +74,8 @@ export function createApp(options: AppOptions = {}) {
   app.route('/v1', v1Routes);
 
   // Public web-booking comparator (no auth)
-  app.use('/public/*', idem);
+  // Confirm is idempotent by itself (the page polls it), so a stored replay of 'processing' would be harmful.
+  app.use('/public/*', skipPath(CHECKOUT_CONFIRM_PATH, idem));
   app.route('/public', publicRoutes);
 
   // Signed inbound integrations

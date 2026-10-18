@@ -16,10 +16,13 @@ export interface BillingConfig {
   usagePrices: Partial<Record<PaidPlan, Partial<Record<BillingCurrency, string>>>>;
   /** Stripe Billing Meter event name; the meter maps `stripe_customer_id` and sums `value` */
   meterEventName: string;
+  /** Hosted Checkout return URLs (empty when only the embedded checkout page is configured) */
   successUrl: string;
   cancelUrl: string;
   /** Where the billing portal sends the owner back to */
   returnUrl: string;
+  /** Our own checkout page (CHECKOUT_PAGE_URL, no trailing slash). Set = embedded_page sessions; unset = hosted Checkout. */
+  checkoutPageUrl?: string | undefined;
 }
 
 // ---------- Stripe objects, normalised (no raw Stripe payloads cross the port) ----------
@@ -38,6 +41,19 @@ export interface StripeSubscription {
   metadataPlan: string | null;
 }
 
+/** The slice of a Checkout Session the confirm route reads (no customer details) */
+export interface StripeCheckoutSession {
+  id: string;
+  status: 'open' | 'complete' | 'expired';
+  paymentStatus: 'paid' | 'unpaid' | 'no_payment_required';
+  mode: string | null;
+  subscriptionId: string | null;
+  /** `metadata.business_id` / `client_reference_id` we set at checkout */
+  businessId: UUID | null;
+  /** Unix seconds */
+  created: number;
+}
+
 export interface StripeClient {
   createCustomer(input: { businessId: UUID; name: string | null; email: string | null; idempotencyKey: string }): Promise<{ id: string }>;
   createCheckoutSession(input: {
@@ -48,10 +64,21 @@ export interface StripeClient {
     usagePriceId: string;
     businessId: UUID;
     plan: PaidPlan;
+    /** Hosted mode: where Stripe redirects. Embedded mode ignores both (redirect_on_completion 'never'). */
     successUrl: string;
     cancelUrl: string;
+    /** True = `ui_mode: 'embedded_page'` rendered on our checkout page; the result carries `clientSecret` */
+    embedded?: boolean;
     idempotencyKey: string;
-  }): Promise<{ id: string; url: string }>;
+  }): Promise<{ id: string; url: string | null; clientSecret: string | null }>;
+  /** Checkout Sessions of the customer that are still payable (status `open`) */
+  listOpenCheckoutSessions(customerId: string): Promise<{ id: string }[]>;
+  /** Expires an open session; a session that is no longer open is not an error */
+  expireCheckoutSession(sessionId: string): Promise<void>;
+  /** Every subscription Stripe holds for the customer (all statuses Stripe lists) */
+  listSubscriptions(customerId: string): Promise<StripeSubscription[]>;
+  /** Null when Stripe does not know the session */
+  retrieveCheckoutSession(sessionId: string): Promise<StripeCheckoutSession | null>;
   /** Updates the subscription's lines in one call (both the base and the usage price) with proration; returns the result. */
   changeSubscriptionPlan(input: { subscriptionId: string; items: { id: string | null; price: string }[]; idempotencyKey: string }): Promise<StripeSubscription>;
   createPortalSession(input: { customerId: string; returnUrl: string }): Promise<{ url: string }>;
@@ -134,7 +161,12 @@ export interface BillingAudit {
 
 /** Owner-facing billing use cases and the webhook handler. */
 export interface BillingService {
-  createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<CheckoutSessionDTO>;
+  createCheckout(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string; returnUrl?: string }): Promise<CheckoutSessionDTO>;
+  /**
+   * Public confirm: verifies the session with Stripe and, when paid, activates the plan through the same path as the
+   * `checkout.session.completed` webhook (idempotent either way round). Throws NOT_FOUND for an unknown or foreign session.
+   */
+  confirmCheckout(sessionId: string): Promise<CheckoutConfirmation>;
   /** Moves an existing subscription to another paid plan (portal cannot: multi-item metered subscriptions) */
   changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO>;
   createPortal(businessId: UUID): Promise<PortalSessionDTO>;
@@ -143,6 +175,8 @@ export interface BillingService {
   /** Cron sweep: resends every booking of the last 34 days that has no billing_reported_at (Stripe dedupes on the identifier) */
   sweepUnreportedBookings(now: Date, opts?: { limit?: number }): Promise<ReportOutcome>;
 }
+
+export type CheckoutConfirmation = { status: 'active'; plan: PaidPlan } | { status: 'processing' | 'open' | 'expired' };
 
 /** Called by BookingService after a booking commits. Never throws; failures are left to the sweep. */
 export interface BookingMeter {

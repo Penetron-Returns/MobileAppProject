@@ -1,6 +1,6 @@
 /** In-memory BillingRepository and a recording fake StripeClient. They honour the real contracts (see ports.ts). */
 import type { PlanKey, UUID } from '@booking/types';
-import type { BillingRecord, BillingRepository, StripeClient, StripeSubscription, UnreportedBooking } from '@booking/features/billing/ports.ts';
+import type { BillingRecord, BillingRepository, StripeCheckoutSession, StripeClient, StripeSubscription, UnreportedBooking } from '@booking/features/billing/ports.ts';
 import { notFound } from '@booking/features/lib/errors.ts';
 
 export interface MemoryBooking {
@@ -114,7 +114,11 @@ export function createMemoryBillingRepository(
 
 export interface FakeStripe extends StripeClient {
   customers: { id: string; businessId: UUID; idempotencyKey: string }[];
-  sessions: { customerId: string; priceId: string; usagePriceId: string; plan: string; businessId: UUID; successUrl: string; cancelUrl: string; idempotencyKey: string }[];
+  sessions: { customerId: string; priceId: string; usagePriceId: string; plan: string; businessId: UUID; successUrl: string; cancelUrl: string; embedded?: boolean; idempotencyKey: string }[];
+  /** Checkout Sessions by id with their status, as Stripe holds them (created by createCheckoutSession) */
+  checkoutSessions: Map<string, StripeCheckoutSession & { customerId: string }>;
+  /** Ids passed to expireCheckoutSession, in order */
+  expired: string[];
   portals: { customerId: string; returnUrl: string }[];
   planChanges: { subscriptionId: string; items: { id: string | null; price: string }[] }[];
   usageSwaps: { subscriptionId: string; itemId: string | null; priceId: string }[];
@@ -136,6 +140,8 @@ export function createFakeStripe(): FakeStripe {
   const usageSwaps: FakeStripe['usageSwaps'] = [];
   const planChanges: FakeStripe['planChanges'] = [];
   const subscriptions = new Map<string, StripeSubscription>();
+  const checkoutSessions: FakeStripe['checkoutSessions'] = new Map();
+  const expired: string[] = [];
   const fake: FakeStripe = {
     customers,
     sessions,
@@ -146,6 +152,8 @@ export function createFakeStripe(): FakeStripe {
     meterCalls: 0,
     failMeterEvents: 0,
     subscriptions,
+    checkoutSessions,
+    expired,
     async createCustomer({ businessId, idempotencyKey }) {
       const existing = customers.find((c) => c.idempotencyKey === idempotencyKey);
       if (existing) return { id: existing.id };
@@ -154,10 +162,31 @@ export function createFakeStripe(): FakeStripe {
       return { id };
     },
     async createCheckoutSession(input) {
-      const existing = sessions.findIndex((s) => s.idempotencyKey === input.idempotencyKey);
-      if (existing >= 0) return { id: `cs_${existing + 1}`, url: `https://checkout.test/cs_${existing + 1}` };
-      sessions.push(input);
-      return { id: `cs_${sessions.length}`, url: `https://checkout.test/cs_${sessions.length}` };
+      let index = sessions.findIndex((s) => s.idempotencyKey === input.idempotencyKey);
+      if (index < 0) {
+        sessions.push(input);
+        index = sessions.length - 1;
+        checkoutSessions.set(`cs_test_${index + 1}`, { id: `cs_test_${index + 1}`, customerId: input.customerId, status: 'open', paymentStatus: 'unpaid', mode: 'subscription', subscriptionId: null, businessId: input.businessId, created: 0 });
+      }
+      const id = `cs_test_${index + 1}`;
+      return { id, url: input.embedded ? null : `https://checkout.test/${id}`, clientSecret: input.embedded ? `${id}_secret_abc` : null };
+    },
+    async listOpenCheckoutSessions(customerId) {
+      return [...checkoutSessions.values()].filter((s) => s.customerId === customerId && s.status === 'open').map((s) => ({ id: s.id }));
+    },
+    async expireCheckoutSession(sessionId) {
+      expired.push(sessionId);
+      const session = checkoutSessions.get(sessionId);
+      if (session?.status === 'open') session.status = 'expired';
+    },
+    async listSubscriptions(customerId) {
+      return [...subscriptions.values()].filter((s) => s.customerId === customerId);
+    },
+    async retrieveCheckoutSession(sessionId) {
+      const session = checkoutSessions.get(sessionId);
+      if (!session) return null;
+      const { customerId: _customerId, ...rest } = session;
+      return rest;
     },
     async createPortalSession(input) {
       portals.push(input);
