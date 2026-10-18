@@ -10,5 +10,8 @@
 alter table public.billing_subscriptions
   add column if not exists scheduled_plan public.plan_key
     check (scheduled_plan is null or scheduled_plan in ('starter', 'growth', 'pro')),
-  add column if not exists scheduled_at timestamptz,
+  add column if not exists scheduled_at timestamptz;
+
+alter table public.billing_subscriptions drop constraint if exists billing_subscriptions_schedule_pair;
+alter table public.billing_subscriptions
   add constraint billing_subscriptions_schedule_pair check ((scheduled_plan is null) = (scheduled_at is null));
