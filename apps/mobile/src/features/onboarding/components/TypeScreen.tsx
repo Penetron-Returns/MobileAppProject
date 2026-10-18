@@ -119,7 +119,16 @@ function Tile({
             color={isSelected ? c.onFill : c.tint}
           />
         </View>
-        <Text style={[TYPE.tile, { color: fg, textAlign: 'center' }]}>
+        {/* alignSelf stretch gives the label the full tile width: on Android a
+            Text inside an alignItems:center parent is measured too narrow and
+            the last word ("mix") is clipped. */}
+        <Text
+          numberOfLines={1}
+          style={[
+            TYPE.tile,
+            { color: fg, textAlign: 'center', alignSelf: 'stretch' },
+          ]}
+        >
           {label}
         </Text>
         <Animated.View

@@ -16,6 +16,7 @@ import { PayFailedScreen } from '../components/PayFailedScreen';
 import { PayingScreen } from '../components/PayingScreen';
 import { ProgressDots } from '../components/ProgressDots';
 import { ReplayVoiceButton } from '../components/ReplayVoiceButton';
+import { TypeScreen } from '../components/TypeScreen';
 
 jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 jest.mock('@/features/brand/ClovieAnimated', () => ({
@@ -194,5 +195,14 @@ describe('InactiveBusinessScreen', () => {
     expect(out).toContain('Ask the owner to choose a plan.');
     act(() => pressableByLabel(tree, 'Sign out').props.onPress());
     expect(mockSignOut).toHaveBeenCalled();
+  });
+});
+
+describe('TypeScreen', () => {
+  it('renders every tile label in full, including "A mix"', () => {
+    const tree = mount(<TypeScreen selected={null} onSelect={jest.fn()} />);
+    for (const label of ['Barbershop', 'Salon', 'Beauty parlour', 'A mix']) {
+      expect(text(tree)).toContain(label);
+    }
   });
 });
