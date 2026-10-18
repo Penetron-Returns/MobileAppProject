@@ -91,6 +91,7 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
           : undefined,
       },
       appearance: none,
+      haptics: none,
       deleteAccount: none,
     };
   }, [

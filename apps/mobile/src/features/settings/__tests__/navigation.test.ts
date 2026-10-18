@@ -12,7 +12,7 @@ describe('settingsGroups', () => {
       ['assistant', ['clovie', 'whatsapp']],
       ['notifications', ['notifications']],
       ['plan', ['plan']],
-      ['account', ['appearance', 'deleteAccount']],
+      ['account', ['appearance', 'haptics', 'deleteAccount']],
     ]);
   });
 
@@ -29,7 +29,7 @@ describe('settingsGroups', () => {
 
   it('opens every row but the appearance switch on a settings route', () => {
     for (const item of settingsGroups().flatMap((g) => g.items)) {
-      if (item === 'appearance') continue;
+      if (item === 'appearance' || item === 'haptics') continue;
       expect(SETTINGS_ROUTES[item]).toMatch(/^\/settings\//);
     }
   });

@@ -617,7 +617,8 @@
       "voice": "Clovie voice",
       "deleteAccount": "Delete account",
       "clovie": "Clovie",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "haptics": "Haptic feedback"
     },
     "companionSettings": {
       "title": "Companion",

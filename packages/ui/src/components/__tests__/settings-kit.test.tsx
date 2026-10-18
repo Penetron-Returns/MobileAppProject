@@ -17,7 +17,7 @@ import { MonthGrid } from '../MonthGrid';
 import { SegmentedControl } from '../SegmentedControl';
 import { Stepper } from '../Stepper';
 import { TimeField } from '../TimeField';
-import { TimeWheel } from '../TimeWheel';
+import { TimeWheel, wheelSteps } from '../TimeWheel';
 import { TintLink } from '../TintLink';
 
 jest.mock('lucide-react-native', () => {
@@ -273,6 +273,20 @@ describe('TimeWheel', () => {
     expect(byLabel(tree, 'Hour 03')).toHaveLength(0);
     expect(byLabel(tree, 'Minutes 60')).toHaveLength(0);
     expect(pressable(tree, 'Hour 06')).toBeTruthy();
+  });
+});
+
+describe('wheelSteps', () => {
+  it.each([
+    [0, 0, 5, 5, 0],
+    [-36, 0, 5, 5, 1],
+    [36, 0, 5, 5, -1],
+    [-20, -1000, 5, 5, 4],
+    [-400, 0, 5, 2, 2],
+    [400, 0, 1, 5, -1],
+    [-10, 0, 5, 5, 0],
+  ])('drag %d, flick %d -> %d rows', (drag, flick, before, after, steps) => {
+    expect(wheelSteps(drag, flick, before, after)).toBe(steps);
   });
 });
 

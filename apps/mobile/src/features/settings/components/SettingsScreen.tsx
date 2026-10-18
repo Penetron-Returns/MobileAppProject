@@ -10,6 +10,7 @@ import {
   Text,
   useAppColorScheme,
   useDepth,
+  useHapticsEnabled,
   type GlyphComponent,
   Reveal,
 } from '@booking/ui';
@@ -46,6 +47,7 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   notifications: GLYPHS.bell,
   plan: GLYPHS.card,
   appearance: GLYPHS.moon,
+  haptics: GLYPHS.sliders,
   deleteAccount: GLYPHS.trash,
 };
 
@@ -74,6 +76,7 @@ const SettingsRow = React.memo(function SettingsRow({
     title: t(`settings.items.${item}`),
   };
   if (item === 'appearance') return <AppearanceRow {...common} />;
+  if (item === 'haptics') return <HapticsRow {...common} />;
   return (
     <GroupRow
       {...common}
@@ -100,6 +103,25 @@ const AppearanceRow = React.memo(function AppearanceRow(
           checked={isDark}
           onCheckedChange={toggle}
           accessibilityLabel={t('settings.items.appearance')}
+        />
+      }
+    />
+  );
+});
+
+const HapticsRow = React.memo(function HapticsRow(
+  props: React.ComponentProps<typeof GroupRow>,
+) {
+  const { t } = useTranslation();
+  const [isOn, setOn] = useHapticsEnabled();
+  return (
+    <GroupRow
+      {...props}
+      trailing={
+        <Switch
+          checked={isOn}
+          onCheckedChange={setOn}
+          accessibilityLabel={t('settings.items.haptics')}
         />
       }
     />
