@@ -138,11 +138,13 @@ export function GroupRow({
       {IconGlyph ? (
         <IconGlyph size={20} strokeWidth={1.8} color={depth.colors.secondary} />
       ) : null}
-      <View className="min-w-0 flex-1">
-        <Text
-          numberOfLines={1}
-          className={cn('text-title', destructive && 'text-destructive')}
-        >
+      {/* The title never truncates: a plain row lets the detail give way first. */}
+      <View
+        className={
+          subtitle || (disabled && reason) ? 'min-w-0 flex-1' : 'shrink-0 grow'
+        }
+      >
+        <Text className={cn('text-title', destructive && 'text-destructive')}>
           {title}
         </Text>
         {subtitle || (disabled && reason) ? (
@@ -163,7 +165,7 @@ export function GroupRow({
             detailTone === 'success' ? { color: depth.colors.green } : null,
           ]}
           className={cn(
-            'max-w-[45%] text-title',
+            'shrink max-w-[60%] text-title',
             detailTone === 'secondary' && 'text-muted-foreground',
           )}
         >
