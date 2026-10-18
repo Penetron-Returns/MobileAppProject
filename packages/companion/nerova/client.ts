@@ -23,7 +23,15 @@ export interface NerovaSetupStatus {
     state: string;
     displayPhoneNumber: string | null;
     businessVerified: boolean;
+    /** Nerova's business verification status string, passed through; null when absent */
+    businessVerificationStatus: string | null;
   };
+  /** The account is provisioned in Nerova */
+  provisioned: boolean;
+  /** Booking connection status, passed through; null when absent */
+  bookingConnection: string | null;
+  /** Activation blockers (e.g. `activation.channel_not_ready`), passed through */
+  blockingReasons: string[];
   /** The receptionist (companion) is live on WhatsApp */
   receptionistLive: boolean;
   /** Activation version (int64): the `expectedVersion` of the next activation command; null when Nerova omits it */

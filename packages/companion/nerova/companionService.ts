@@ -160,7 +160,10 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
 
   const noAccountSetup: CompanionSetupDTO = {
     next_step: 'connect_booking_system',
-    whatsapp: { connected: false, state: 'not_connected', display_phone_number: null, business_verified: false },
+    whatsapp: { connected: false, state: 'not_connected', display_phone_number: null, business_verified: false, business_verification_status: null },
+    provisioned: false,
+    booking_connection: null,
+    blocking_reasons: [],
     companion_live: false,
   };
 
@@ -179,7 +182,11 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
         state: setup.whatsapp.state,
         display_phone_number: setup.whatsapp.displayPhoneNumber,
         business_verified: setup.whatsapp.businessVerified,
+        business_verification_status: setup.whatsapp.businessVerificationStatus,
       },
+      provisioned: setup.provisioned,
+      booking_connection: setup.bookingConnection,
+      blocking_reasons: setup.blockingReasons,
       companion_live: setup.receptionistLive,
     };
   }
