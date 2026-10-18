@@ -6,3 +6,10 @@ describe('DayStrip circle', () => {
     expect(DAY_CIRCLE.width).toBe(DAY_CIRCLE.height);
   });
 });
+
+describe('DayStrip cell', () => {
+  it('centres its label in the circle box', () => {
+    expect(DAY_CIRCLE.alignItems).toBe('center');
+    expect(DAY_CIRCLE.justifyContent).toBe('center');
+  });
+});

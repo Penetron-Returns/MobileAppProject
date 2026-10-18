@@ -7,12 +7,12 @@ import {
 describe('settingsGroups', () => {
   it('lists the groups in the agreed order, one row set for everyone', () => {
     expect(settingsGroups().map((g) => [g.id, g.items])).toEqual([
-      ['business', ['businessDetails', 'hours', 'services', 'rules']],
-      ['team', ['team']],
+      ['business', ['businessDetails', 'hours', 'services', 'rules', 'team']],
       ['assistant', ['clovie', 'whatsapp']],
-      ['notifications', ['notifications']],
-      ['plan', ['plan']],
-      ['account', ['appearance', 'haptics', 'deleteAccount']],
+      [
+        'account',
+        ['plan', 'notifications', 'appearance', 'haptics', 'deleteAccount'],
+      ],
     ]);
   });
 
