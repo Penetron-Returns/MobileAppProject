@@ -5,7 +5,7 @@ import { cn } from '../lib/cn';
 import { Text } from '../primitives/Text';
 import { useDepth } from '../theme/useDepth';
 
-export type CapsuleTone = 'neutral' | 'amber' | 'green' | 'grey';
+export type CapsuleTone = 'neutral' | 'amber' | 'green' | 'grey' | 'red';
 
 export interface CapsuleProps {
   label: string;
@@ -16,7 +16,7 @@ export interface CapsuleProps {
 /**
  * Small pill label. Status capsules are for exceptions only (SOFT.md): the
  * quiet `neutral` kind ("VIP", "Regular"), `amber` for needs-attention,
- * `green` for checked in, `grey` for cancelled.
+ * `green` for checked in, `grey` for cancelled, `red` for blocked or failed.
  */
 export function Capsule({ label, tone = 'neutral', className }: CapsuleProps) {
   const depth = useDepth();
