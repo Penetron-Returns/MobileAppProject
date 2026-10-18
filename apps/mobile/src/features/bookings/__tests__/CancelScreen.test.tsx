@@ -9,6 +9,7 @@ import { CancelScreen } from '../components/CancelScreen';
 const mockAppointment = jest.fn();
 const mockCancelMutate = jest.fn();
 let mockOnCancelled: (() => void) | undefined;
+let mockOnCancelFailed: (() => void) | undefined;
 
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
@@ -29,8 +30,12 @@ jest.mock('@/features/business/hooks', () => ({
 jest.mock('@/features/appointments/hooks', () => ({
   useAppointment: () => mockAppointment(),
   useBookingRules: () => ({ data: { cancellation_window_minutes: 1440 } }),
-  useCancelAppointment: (opts: { onSuccess?: () => void }) => {
+  useCancelAppointment: (opts: {
+    onSuccess?: () => void;
+    onError?: () => void;
+  }) => {
     mockOnCancelled = opts.onSuccess;
+    mockOnCancelFailed = opts.onError;
     return { mutate: mockCancelMutate, isPending: false };
   },
 }));
@@ -79,13 +84,14 @@ const text = (tree: renderer.ReactTestRenderer) =>
   );
 
 beforeEach(() => {
+  mockOnCancelFailed = undefined;
   mockCancelMutate.mockReset();
   mockOnCancelled = undefined;
   mockAppointment.mockReturnValue(detail('confirmed'));
 });
 
 describe('CancelScreen', () => {
-  it('asks for a reason and does not show the done card before the cancel succeeds', () => {
+  it('shows the done card at once and returns to the form when the cancel fails', () => {
     const tree = mount();
     expect(text(tree)).toContain('Why is this being cancelled?');
 
@@ -97,7 +103,10 @@ describe('CancelScreen', () => {
     expect(mockCancelMutate).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'a-1', notify_customer: true }),
     );
-    // The request is still in flight: no confirmation yet.
+    // Optimistic: the request is still in flight but the card is already up.
+    expect(text(tree)).toContain('Booking cancelled');
+
+    act(() => mockOnCancelFailed?.());
     expect(text(tree)).not.toContain('Booking cancelled');
     expect(text(tree)).toContain('Why is this being cancelled?');
   });

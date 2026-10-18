@@ -12,9 +12,10 @@ import {
 import * as React from 'react';
 
 import { api } from '@/lib/api';
-import { qk, useApiMutation } from '@/lib/query';
+import { qk, useApiMutation, type MutationCallbacks } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
+import { patchAppointment } from './optimistic';
 import { detailFromListItem } from './placeholder';
 
 const LIST_SELECT =
@@ -121,16 +122,23 @@ const APPOINTMENT_KEYS = [qk.appointments, qk.dashboardAll, qk.clients];
 export function useCheckInAppointment(opts: { onSuccess?: () => void } = {}) {
   return useApiMutation<string>({
     mutationFn: (id, key) => api.checkInAppointment(id, key),
+    optimistic: (id, qc) =>
+      patchAppointment(qc, id, {
+        kind: 'checkIn',
+        at: new Date().toISOString(),
+      }),
     invalidate: APPOINTMENT_KEYS,
     onSuccess: opts.onSuccess,
   });
 }
 
-export function useCancelAppointment(opts: { onSuccess?: () => void } = {}) {
+export function useCancelAppointment(opts: MutationCallbacks = {}) {
   return useApiMutation<{ id: string } & CancelAppointmentRequest>({
     mutationFn: ({ id, ...body }, key) => api.cancelAppointment(id, body, key),
+    optimistic: ({ id }, qc) => patchAppointment(qc, id, { kind: 'cancel' }),
     invalidate: APPOINTMENT_KEYS,
     onSuccess: opts.onSuccess,
+    onError: opts.onError,
   });
 }
 
@@ -252,6 +260,8 @@ export function useRescheduleAppointment(
   return useApiMutation<{ id: string } & RescheduleAppointmentRequest>({
     mutationFn: ({ id, ...body }, key) =>
       api.rescheduleAppointment(id, body, key),
+    optimistic: ({ id, starts_at }, qc) =>
+      patchAppointment(qc, id, { kind: 'move', startsAt: starts_at }),
     invalidate: [
       ...APPOINTMENT_KEYS,
       qk.availabilitySlots,
@@ -267,6 +277,8 @@ export function useSetAppointmentStatus(opts: { onSuccess?: () => void } = {}) {
   return useApiMutation<{ id: string } & SetAppointmentStatusRequest>({
     mutationFn: ({ id, ...body }, key) =>
       api.setAppointmentStatus(id, body, key),
+    optimistic: ({ id, status }, qc) =>
+      patchAppointment(qc, id, { kind: 'status', status }),
     invalidate: APPOINTMENT_KEYS,
     onSuccess: opts.onSuccess,
   });

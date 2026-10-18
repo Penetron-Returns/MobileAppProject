@@ -61,12 +61,15 @@ export function CancelScreen({ appointmentId }: { appointmentId: string }) {
   // cancel refetches the booking as cancelled, which swaps the form for the
   // "can't be changed" state and would take the done card down with it.
   const [outcome, setOutcome] = React.useState<CancelOutcome | null>(null);
-  const submitted = React.useRef<CancelOutcome | null>(null);
   const cancel = useCancelAppointment({
-    onSuccess: () => setOutcome(submitted.current),
+    // The optimistic "cancelled" card was wrong: back to the form.
+    onError: () => {
+      setOutcome(null);
+    },
   });
   const confirm = ({ request, outcome: result }: CancelChoice) => {
-    submitted.current = result;
+    // Shown at once; the cache already says cancelled and the server confirms.
+    setOutcome(result);
     cancel.mutate({ id: appointmentId, ...request });
   };
   return (
