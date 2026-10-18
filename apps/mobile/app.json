@@ -50,9 +50,9 @@
           "appleSignIn": false
         }
       ],
-      "./plugins/with-dev-menu-no-fab.js",
-      "./plugins/with-clovie-voice.js",
-      "./plugins/with-clovie-proguard.js"
+      "./plugins/with-dev-menu-no-fab.cjs",
+      "./plugins/with-clovie-voice.cjs",
+      "./plugins/with-clovie-proguard.cjs"
     ],
     "experiments": {
       "typedRoutes": true

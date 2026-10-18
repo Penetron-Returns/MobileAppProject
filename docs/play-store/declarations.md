@@ -1,6 +1,6 @@
 # Google Play declarations: Clovie (`app.getclovie`)
 
-Answers for Play Console > App content and Policy > App content. Facts from `docs/voice.md`, `apps/mobile/plugins/with-clovie-voice.js`, the voice module's `AndroidManifest.xml` and the generated `android/app/src/main/AndroidManifest.xml`. Items not provable from the repo are marked **(assumption)**. Policy names and form layouts change; the structure below follows Play's current console, re-check labels when you get there.
+Answers for Play Console > App content and Policy > App content. Facts from `docs/voice.md`, `apps/mobile/plugins/with-clovie-voice.cjs`, the voice module's `AndroidManifest.xml` and the generated `android/app/src/main/AndroidManifest.xml`. Items not provable from the repo are marked **(assumption)**. Policy names and form layouts change; the structure below follows Play's current console, re-check labels when you get there.
 
 Draft for Colin's review. This is not legal advice.
 
