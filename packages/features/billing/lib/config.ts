@@ -15,15 +15,18 @@ export interface BillingEnv {
   readonly BILLING_SUCCESS_URL?: string | undefined;
   readonly BILLING_CANCEL_URL?: string | undefined;
   readonly BILLING_RETURN_URL?: string | undefined;
+  readonly CHECKOUT_PAGE_URL?: string | undefined;
+  readonly CHECKOUT_ALLOWED_ORIGINS?: string | undefined;
 }
 
 const clean = (value: string | undefined): string | undefined => value?.trim() || undefined;
 
-/** Null unless both return URLs are set: checkout cannot send the owner anywhere without them. */
+/** Null unless checkout can send the owner somewhere: the embedded page URL, or both hosted return URLs. */
 export function billingConfigFromEnv(env: BillingEnv): BillingConfig | null {
   const successUrl = clean(env.BILLING_SUCCESS_URL);
   const cancelUrl = clean(env.BILLING_CANCEL_URL);
-  if (!successUrl || !cancelUrl) return null;
+  const checkoutPageUrl = clean(env.CHECKOUT_PAGE_URL)?.replace(/\/+$/, '');
+  if (!checkoutPageUrl && (!successUrl || !cancelUrl)) return null;
   return {
     prices: {
       starter: { ZAR: clean(env.STRIPE_PRICE_STARTER), USD: clean(env.STRIPE_PRICE_STARTER_USD) },
@@ -36,8 +39,28 @@ export function billingConfigFromEnv(env: BillingEnv): BillingConfig | null {
       pro: { ZAR: clean(env.STRIPE_PRICE_PRO_USAGE) },
     },
     meterEventName: clean(env.STRIPE_METER_EVENT_NAME) ?? 'booking_made',
-    successUrl,
-    cancelUrl,
-    returnUrl: clean(env.BILLING_RETURN_URL) ?? successUrl,
+    successUrl: successUrl ?? '',
+    cancelUrl: cancelUrl ?? '',
+    returnUrl: clean(env.BILLING_RETURN_URL) ?? successUrl ?? checkoutPageUrl ?? '',
+    checkoutPageUrl,
   };
+}
+
+const originOf = (url: string): string | null => {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+};
+
+/** CORS allowlist for the public confirm route: CHECKOUT_ALLOWED_ORIGINS, else the checkout page origin plus localhost:3000. */
+export function checkoutAllowedOrigins(env: BillingEnv): string[] {
+  const listed = (clean(env.CHECKOUT_ALLOWED_ORIGINS) ?? '')
+    .split(',')
+    .map((o) => originOf(o.trim()))
+    .filter((o): o is string => o !== null);
+  if (listed.length > 0) return listed;
+  const page = clean(env.CHECKOUT_PAGE_URL);
+  return [...new Set([page ? originOf(page) : null, 'http://localhost:3000'].filter((o): o is string => o !== null))];
 }

@@ -4,8 +4,9 @@
  * keeps the choice reversible. Never logs request or response bodies (customer emails live there).
  */
 import { AppError } from '../../lib/errors.ts';
-import { asRecord, asString, parseSubscription } from '../lib/stripeObjects.ts';
-import type { StripeClient } from '../ports.ts';
+import type { UUID } from '@booking/types';
+import { asRecord, asString, parseSubscription, UUID_RE } from '../lib/stripeObjects.ts';
+import type { StripeCheckoutSession, StripeClient } from '../ports.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -105,14 +106,67 @@ export function createStripeHttpClient(options: StripeHttpOptions): StripeClient
           client_reference_id: input.businessId,
           // Base fee (quantity 1) plus the metered usage price: the plan's allowance at R0, then R4 per extra booking.
           line_items: [{ price: input.priceId, quantity: 1 }, { price: input.usagePriceId }],
-          success_url: input.successUrl,
-          cancel_url: input.cancelUrl,
+          ...(input.embedded
+            ? {
+                // Managed Payments only allows embedded_page; our own page renders it and confirms through the API.
+                ui_mode: 'embedded_page',
+                redirect_on_completion: 'never',
+                branding_settings: { button_color: '#0A69DB', background_color: '#FFFFFF', border_style: 'rounded', font_family: 'inter' },
+              }
+            : { success_url: input.successUrl, cancel_url: input.cancelUrl }),
           metadata,
           subscription_data: { metadata },
         },
         input.idempotencyKey,
       );
-      return { id: need(body.id, 'session id'), url: need(body.url, 'checkout url') };
+      return { id: need(body.id, 'session id'), url: asString(body.url), clientSecret: asString(body.client_secret) };
+    },
+    async listOpenCheckoutSessions(customerId) {
+      const body = await call('GET', `/checkout/sessions?customer=${encodeURIComponent(customerId)}&status=open&limit=100`);
+      const data = Array.isArray(body.data) ? body.data : [];
+      return data.flatMap((row) => {
+        const id = asString(asRecord(row).id);
+        return id ? [{ id }] : [];
+      });
+    },
+    async expireCheckoutSession(sessionId) {
+      try {
+        await call('POST', `/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, {});
+      } catch (error) {
+        // Completed or expired in the meantime: nothing left to expire.
+        if (!(error instanceof AppError && error.details?.status === 400)) throw error;
+      }
+    },
+    async listSubscriptions(customerId) {
+      const body = await call('GET', `/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=100`);
+      const data = Array.isArray(body.data) ? body.data : [];
+      return data.flatMap((row) => {
+        const sub = parseSubscription(row);
+        return sub ? [sub] : [];
+      });
+    },
+    async retrieveCheckoutSession(sessionId) {
+      let body: Record<string, unknown>;
+      try {
+        body = await call('GET', `/checkout/sessions/${encodeURIComponent(sessionId)}`);
+      } catch (error) {
+        if (error instanceof AppError && error.details?.status === 404) return null;
+        throw error;
+      }
+      const status = asString(body.status);
+      const payment = asString(body.payment_status);
+      if (!asString(body.id) || (status !== 'open' && status !== 'complete' && status !== 'expired')) return null;
+      const businessId = asString(asRecord(body.metadata).business_id) ?? asString(body.client_reference_id);
+      const session: StripeCheckoutSession = {
+        id: sessionId,
+        status,
+        paymentStatus: payment === 'paid' || payment === 'no_payment_required' ? payment : 'unpaid',
+        mode: asString(body.mode),
+        subscriptionId: asString(body.subscription) ?? asString(asRecord(body.subscription).id),
+        businessId: businessId && UUID_RE.test(businessId) ? (businessId as UUID) : null,
+        created: typeof body.created === 'number' ? body.created : 0,
+      };
+      return session;
     },
     async createPortalSession({ customerId, returnUrl }) {
       const body = await call('POST', '/billing_portal/sessions', { customer: customerId, return_url: returnUrl });
