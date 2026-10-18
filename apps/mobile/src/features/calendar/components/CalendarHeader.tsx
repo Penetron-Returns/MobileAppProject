@@ -2,7 +2,7 @@ import { SegmentedControl, Text, useDepth } from '@booking/ui';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import {
   WEEKDAYS,
   formatDateLong,
@@ -132,6 +132,8 @@ export const DAY_CIRCLE = {
   width: 32,
   height: 32,
   borderRadius: 16,
+  alignItems: 'center',
+  justifyContent: 'center',
 } as const;
 
 export const DayStrip = React.memo(function DayStrip({
@@ -162,13 +164,24 @@ export const DayStrip = React.memo(function DayStrip({
           <Text className="text-meta text-muted-foreground">
             {WEEKDAYS[d.weekday].slice(0, 1)}
           </Text>
-          <View
-            style={[
-              DAY_CIRCLE,
-              d.isSelected ? { backgroundColor: depth.colors.tint } : null,
-            ]}
-            className="items-center justify-center"
-          >
+          <View style={DAY_CIRCLE}>
+            {/* A separate circle, mounted with its colour (keyed on selection):
+                Android Fabric does not re-clip a rounded view whose background
+                is added after mount, and drew a square. */}
+            <View
+              key={d.isSelected ? 'on' : 'off'}
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: DAY_CIRCLE.borderRadius,
+                  backgroundColor: d.isSelected
+                    ? depth.colors.tint
+                    : 'transparent',
+                  overflow: 'hidden',
+                },
+              ]}
+            />
             <Text
               style={{
                 color: d.isSelected

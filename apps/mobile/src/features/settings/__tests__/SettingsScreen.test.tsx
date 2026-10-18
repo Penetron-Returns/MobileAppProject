@@ -138,20 +138,13 @@ const ALL_ROWS = [
   'Team',
   'Clovie',
   'WhatsApp',
-  'Notifications',
   'Plan',
+  'Notifications',
   'Appearance',
   'Haptic feedback',
   'Delete account',
 ];
-const HEADINGS = [
-  'Your business',
-  'Team',
-  'Clovie and WhatsApp',
-  'Notifications',
-  'Plan & billing',
-  'Account',
-];
+const HEADINGS = ['Your business', 'Clovie and WhatsApp', 'Account'];
 
 const asOwner = (plan: string, features: string[] = []) => {
   mockMe.data = {
