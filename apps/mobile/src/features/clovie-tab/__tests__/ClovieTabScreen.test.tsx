@@ -4,8 +4,12 @@ import { mount, text } from '@/testing/render';
 
 import { ClovieTabScreen } from '../components/ClovieTabScreen';
 
+let mockSetup: { done: number; total: number; open: () => void } | null = null;
 jest.mock('@/features/setup-checklist/useSetupStory', () => ({
-  useSetupStory: () => null,
+  useSetupStory: () => mockSetup,
+}));
+jest.mock('../useAfterInteractions', () => ({
+  useAfterInteractions: () => true,
 }));
 jest.mock('@clerk/expo', () => ({
   useUser: () => ({ user: { firstName: 'Colin' } }),
@@ -63,6 +67,7 @@ function check(id: string, createdAt: string): AttendanceCheckDTO {
 
 beforeEach(() => {
   mockChecks = [];
+  mockSetup = null;
   mockStories = { stories: [], isLoading: false };
   mockAnswer.mockReset();
   mockStartVoice.mockReset();
@@ -77,7 +82,7 @@ describe('ClovieTabScreen', () => {
     expect(out).toContain('Saturday 17 October');
   });
 
-  it('shows skeleton rings while stories load and none when empty', () => {
+  it('shows skeleton rings while stories load and the placeholder when empty', () => {
     mockStories = { stories: [], isLoading: true };
     expect(
       mount(<ClovieTabScreen />).root.findAllByProps({
@@ -90,6 +95,28 @@ describe('ClovieTabScreen', () => {
         testID: 'stories-skeleton',
       }),
     ).toHaveLength(0);
+  });
+
+  it('always shows the stories row with placeholders and the companion moment, even while setup is needed', () => {
+    mockSetup = { done: 1, total: 7, open: jest.fn() };
+    const tree = mount(<ClovieTabScreen />);
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-row' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
+    ).toBeGreaterThan(0);
+    expect(text(tree)).toContain('Get set up');
+    expect(mockMomentProps.testID).toBe('clovie-moment');
+  });
+
+  it('keeps the placeholder row (with its caption) when there are no stories and nothing to set up', () => {
+    const tree = mount(<ClovieTabScreen />);
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
+    ).toBeGreaterThan(0);
+    expect(text(tree)).toContain('Updates will show here.');
+    expect(mockMomentProps.testID).toBe('clovie-moment');
   });
 
   it('hosts the companion moment with a calm idle line and undo off', () => {

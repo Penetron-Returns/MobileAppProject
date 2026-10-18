@@ -74,6 +74,76 @@ function SkeletonRings({ fontScale }: { fontScale: number }) {
   );
 }
 
+/**
+ * Calm placeholder for "no updates yet": dimmed rings at the real ring size
+ * (so the row's height never changes) and, when nothing else sits in the row,
+ * a short line saying where updates will appear.
+ */
+function EmptyPlaceholders({
+  fontScale,
+  hasCaption,
+}: {
+  fontScale: number;
+  hasCaption: boolean;
+}) {
+  const { t } = useTranslation();
+  const { isDark } = useAppColorScheme();
+  const fill = isDark ? 'rgba(235,235,245,0.12)' : 'rgba(60,60,67,0.1)';
+  return (
+    <View
+      testID="stories-empty"
+      accessible
+      accessibilityLabel={t('stories.empty')}
+      className="flex-row gap-2"
+    >
+      {[1, 0.6].map((opacity) => (
+        <View
+          key={opacity}
+          style={{ width: 80, opacity }}
+          className="items-center"
+        >
+          <View
+            style={{
+              width: RING_SIZE,
+              height: RING_SIZE,
+              borderRadius: RING_SIZE / 2,
+              backgroundColor: fill,
+            }}
+          />
+          <View
+            style={{
+              width: 80,
+              height: storyLabelHeight(fontScale),
+              marginTop: LABEL_MARGIN_TOP,
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 10,
+                borderRadius: 5,
+                marginTop: 4,
+                backgroundColor: fill,
+              }}
+            />
+          </View>
+        </View>
+      ))}
+      {hasCaption ? (
+        <View
+          style={{ height: RING_SIZE, width: 160 }}
+          className="justify-center pl-2"
+        >
+          <Text className="text-subtitle text-muted-foreground">
+            {t('stories.empty')}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 /** The failure stays visible and recoverable ("Can't load updates. Retry"), never a blank row. */
 function LoadErrorRow({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
@@ -103,7 +173,7 @@ function LoadErrorRow({ onRetry }: { onRetry: () => void }) {
 /**
  * The "Get set up" bubble. Mounted only after the first screen has settled, so
  * the checklist's queries never compete with it. Reports whether it shows
- * anything, so the row can collapse when there is nothing at all.
+ * anything, so the placeholder knows whether to add its caption.
  */
 function SetupRing({ onPresence }: { onPresence: (isShown: boolean) => void }) {
   const { t } = useTranslation();
@@ -142,8 +212,8 @@ interface StoriesRowProps {
 /**
  * The stories row: skeleton rings while loading, an inline retry on failure,
  * otherwise a ring per story. It reserves one fixed height from the first
- * frame, so nothing below it shifts when the stories arrive; it collapses only
- * once everything has settled and there is truly nothing to show. A press
+ * frame, so nothing below it shifts when the stories arrive; it never collapses:
+ * with nothing to show it keeps dimmed placeholder rings. A press
  * opens the viewer at once from the frame measured as the finger landed.
  */
 export const StoriesRow = React.memo(function StoriesRow({
@@ -179,9 +249,7 @@ export const StoriesRow = React.memo(function StoriesRow({
   }, [onClose]);
 
   const isFailed = isError && stories.length === 0;
-  const isEmpty =
-    isSettled && !isLoading && !isFailed && stories.length === 0 && !hasSetup;
-  const height = isEmpty ? 0 : ROW_PAD_TOP + storyRingHeight(fontScale);
+  const height = ROW_PAD_TOP + storyRingHeight(fontScale);
 
   let body: React.ReactNode;
   if (isLoading) {
@@ -211,16 +279,16 @@ export const StoriesRow = React.memo(function StoriesRow({
           </React.Fragment>
         ))}
         {setupAt === stories.length ? setupRing : null}
+        {stories.length === 0 ? (
+          <EmptyPlaceholders fontScale={fontScale} hasCaption={!hasSetup} />
+        ) : null}
       </ScrollView>
     );
   }
 
   return (
     <>
-      <View
-        style={{ height, paddingTop: ROW_PAD_TOP, overflow: 'hidden' }}
-        pointerEvents={isEmpty ? 'none' : 'auto'}
-      >
+      <View style={{ height, paddingTop: ROW_PAD_TOP, overflow: 'hidden' }}>
         {body}
       </View>
       {open ? (

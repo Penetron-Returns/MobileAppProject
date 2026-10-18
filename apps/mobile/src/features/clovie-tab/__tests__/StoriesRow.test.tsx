@@ -83,6 +83,25 @@ describe('StoriesRow', () => {
     expect(labels(tree)).toEqual(['Get set up, 0 of 7 done']);
   });
 
+  it('keeps the row height and shows placeholder rings when there is nothing at all', () => {
+    const tree = mount(
+      <StoriesRow
+        stories={[]}
+        isLoading={false}
+        onViewed={jest.fn()}
+        onEvent={jest.fn()}
+        onAction={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-empty' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      tree.root.findAllByProps({ testID: 'stories-row' }).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('mounts the checklist bubble (and so its queries) only after the first screen settles', () => {
     mockSettled = false;
     mockSetup = { done: 4, total: 7, open: mockOpen };

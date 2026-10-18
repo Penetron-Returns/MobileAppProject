@@ -2179,6 +2179,7 @@
     "next": "Next card",
     "pause": "Pause story",
     "resume": "Resume story",
+    "empty": "Updates will show here.",
     "loadError": "Can’t load updates.",
     "retry": "Retry",
     "progress": "Card {{current}} of {{total}}",
