@@ -21,6 +21,7 @@ import {
   setName,
   shouldAutoSubmit,
   startScreen,
+  type BusinessTypeId,
   type OnboardingDraft,
   type OnboardingScreen,
 } from '../logic';
@@ -30,6 +31,15 @@ import { CreateFailedScreen } from './CreateFailedScreen';
 import { NameScreen } from './NameScreen';
 import { TypeScreen } from './TypeScreen';
 import { WelcomeScreen } from './WelcomeScreen';
+
+/** Keeps the type for Back from the plan screen, then drops the draft. */
+async function rememberCreated(typeId: BusinessTypeId | null) {
+  if (typeId) await saveBusinessType(typeId);
+  await clearDraft();
+}
+
+/** Ignore a second tap on a sign-in link for this long (the push is not instant). */
+const PUSH_GUARD_MS = 1000;
 
 /** Screens slide in from the right going on, from the left going back (300ms). */
 const FORWARD = SlideInRight.duration(300).reduceMotion(ReduceMotion.System);
@@ -60,6 +70,17 @@ export function OnboardingFlow({
   const submit = useCompleteOnboarding();
   const inFlight = React.useRef(false);
   const created = React.useRef(false);
+  const pushGuard = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => clearTimeout(pushGuard.current ?? undefined), []);
+
+  // One push to sign-in per tap burst: a double tap must not stack two screens.
+  const openSignIn = () => {
+    if (pushGuard.current) return;
+    pushGuard.current = setTimeout(() => {
+      pushGuard.current = null;
+    }, PUSH_GUARD_MS);
+    router.push('/sign-in');
+  };
 
   React.useEffect(() => {
     if (draft && screen === null) setScreen(startScreen(draft, isSignedIn));
@@ -85,11 +106,12 @@ export function OnboardingFlow({
       try {
         const me = await submit.mutateAsync(request);
         created.current = true;
-        if (from.typeId) await saveBusinessType(from.typeId);
-        await clearDraft();
         analytics.track('business_created');
         analytics.group('business', me.business.id);
+        // Move on first; remembering the type and dropping the draft is not on the
+        // critical path (both are best effort and never throw).
         onDone?.();
+        void rememberCreated(from.typeId);
       } catch (e) {
         setError(e);
       } finally {
@@ -118,16 +140,13 @@ export function OnboardingFlow({
     update(confirmName);
     analytics.track('onboarding_name_entered');
     if (isSignedIn) void create(confirmName(draft));
-    else router.push('/sign-in');
+    else openSignIn();
   };
 
   let body: React.ReactNode = null;
   if (screen === 'welcome') {
     body = (
-      <WelcomeScreen
-        onStart={() => go('type')}
-        onHaveAccount={() => router.push('/sign-in')}
-      />
+      <WelcomeScreen onStart={() => go('type')} onHaveAccount={openSignIn} />
     );
   } else if (screen === 'type') {
     body = (

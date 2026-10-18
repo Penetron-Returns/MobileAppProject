@@ -20,6 +20,7 @@ import Animated, {
 import { BUSINESS_TYPE_IDS, type BusinessTypeId } from '../logic';
 import { TYPE, useOnbColors } from '../theme';
 import { ClovieReaction } from './ClovieReaction';
+import { useFocusHeading } from '../useScreenReader';
 import { Heading } from './Heading';
 import { OnboardingShell } from './OnboardingShell';
 import { Rise } from './Rise';
@@ -31,8 +32,8 @@ const ICONS: Record<BusinessTypeId, LucideIcon> = {
   mix: Layers,
 };
 
-/** After the tap, the tile fills and the others dim; the next screen follows. */
-const ADVANCE_MS = 400;
+/** After the tap, the tile fills and the others dim for a beat, then the next screen follows; nothing waits on the animations. */
+const ADVANCE_MS = 120;
 const DIM_OPACITY = 0.6;
 
 type TileState = 'idle' | 'picked' | 'dimmed';
@@ -91,7 +92,7 @@ function Tile({
         accessibilityLabel={label}
         accessibilityState={{ selected: isSelected }}
         style={{
-          height: 176,
+          minHeight: 176,
           borderRadius: 26,
           alignItems: 'center',
           justifyContent: 'center',
@@ -123,7 +124,7 @@ function Tile({
             Text inside an alignItems:center parent is measured too narrow and
             the last word ("mix") is clipped. */}
         <Text
-          numberOfLines={1}
+          numberOfLines={2}
           style={[
             TYPE.tile,
             { color: fg, textAlign: 'center', alignSelf: 'stretch' },
@@ -171,6 +172,7 @@ export function TypeScreen({
 }) {
   const { t } = useTranslation();
   const isReduced = useReduceMotion();
+  const headingRef = useFocusHeading();
   const [picked, setPicked] = React.useState<BusinessTypeId | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -184,13 +186,13 @@ export function TypeScreen({
   };
 
   const current = picked ?? selected;
+  const spoken = [
+    t('onboarding.type.title'),
+    ...BUSINESS_TYPE_IDS.map((id) => t(`onboarding.types.${id}`)),
+  ].join('. ');
   const rows = [BUSINESS_TYPE_IDS.slice(0, 2), BUSINESS_TYPE_IDS.slice(2, 4)];
   return (
-    <OnboardingShell
-      stage={1}
-      onBack={onBack}
-      spoken={t('onboarding.type.title')}
-    >
+    <OnboardingShell stage={1} onBack={onBack} spoken={spoken}>
       <View
         style={{
           flex: 1,
@@ -204,7 +206,9 @@ export function TypeScreen({
           <ClovieReaction mood="curious" size={80} />
         </Rise>
         <Rise index={1}>
-          <Heading>{t('onboarding.type.title')}</Heading>
+          <Heading headingRef={headingRef}>
+            {t('onboarding.type.title')}
+          </Heading>
         </Rise>
         <View
           accessibilityLabel={t('onboarding.typeLabel')}

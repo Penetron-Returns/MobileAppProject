@@ -5,6 +5,8 @@ import { Redirect, Stack } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
+import NetInfo from '@react-native-community/netinfo';
+
 import { analytics } from '@/features/analytics';
 import { useAnalyticsIdentity } from '@/features/analytics/useAnalyticsIdentity';
 import { ApprovalNotifications } from '@/features/approvals/ApprovalNotifications';
@@ -26,14 +28,21 @@ import { CompanionSetupScreen } from '@/features/onboarding/components/Companion
 import { InactiveBusinessScreen } from '@/features/onboarding/components/InactiveBusinessScreen';
 import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
 import { ReviseBusinessFlow } from '@/features/onboarding/components/ReviseBusinessFlow';
-import { loadBusinessType } from '@/features/onboarding/storage';
+import {
+  clearDraft,
+  clearOnboardingStorage,
+  loadBusinessType,
+} from '@/features/onboarding/storage';
 import type { BusinessBasics } from '@/features/onboarding/logic';
 import { nextFunnelState } from '@/features/onboarding/funnel';
+import { OfflineStartScreen } from '@/features/auth/components/OfflineStartScreen';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
+import { useUserScopedState } from '@/features/auth/useUserScopedState';
 import {
   isBusinessActive,
   provisioningStatus,
   resolveAppRoute,
+  type AppRoute,
   type BillingInput,
   type InvitationsInput,
   type LookupStatus,
@@ -42,6 +51,7 @@ import {
 } from '@/features/auth/appRoute';
 import { useVoiceScheduleSync } from '@/features/voice/scheduleSync';
 import { isApiError } from '@/lib/api';
+import { useIsOnline } from '@/lib/online';
 
 function toInvitationsInput(
   enabled: boolean,
@@ -138,10 +148,17 @@ export default function AppLayout() {
   const { setActive } = useClerk();
   const { t } = useTranslation();
   const ground = useDepth().ground.backgroundColor as string;
-  const [inOnboarding, setInOnboarding] = React.useState(false);
-  const [joinDeclined, setJoinDeclined] = React.useState(false);
+  // Per-user flags: they reset on sign-out or when another account signs in.
+  const userId = isSignedIn ? (user?.id ?? null) : null;
+  const isOnline = useIsOnline();
+  const [inOnboarding, setInOnboarding] = useUserScopedState(userId, false);
+  const [joinDeclined, setJoinDeclined] = useUserScopedState(userId, false);
+  const [setupSkipped, setSetupSkipped] = useUserScopedState(userId, false);
   // Back from the plan screen reopens the name and type of the business just created.
-  const [revising, setRevising] = React.useState<BusinessBasics | null>(null);
+  const [revising, setRevising] = useUserScopedState<BusinessBasics | null>(
+    userId,
+    null,
+  );
 
   const cachedOrgIds = React.useMemo(
     () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
@@ -157,10 +174,9 @@ export default function AppLayout() {
   const membershipOrgIds = cachedOrgIds.length
     ? cachedOrgIds
     : (memberships.data ?? cachedOrgIds);
-  // Invitations only matter to someone proven to have no organisation to open.
-  const asksInvitations = Boolean(
-    asksMemberships && memberships.isSuccess && membershipOrgIds.length === 0,
-  );
+  // Invitations are only used when there is no organisation to open, but asking
+  // them alongside the memberships saves a round trip on a fresh sign-in.
+  const asksInvitations = asksMemberships;
   const invitations = usePendingInvitations(asksInvitations);
   const me = useMe({ enabled: hasOrg });
   const billing = useBilling(me.data);
@@ -168,7 +184,7 @@ export default function AppLayout() {
   useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
   useVoiceScheduleSync(hasOrg);
 
-  const route = resolveAppRoute({
+  const resolved = resolveAppRoute({
     authLoaded,
     isSignedIn: Boolean(isSignedIn),
     sessionStatus:
@@ -188,6 +204,20 @@ export default function AppLayout() {
     joinDeclined,
     inOnboarding,
   });
+  // "Continue to Clovie" on a slow setup: the app opens while Nerova finishes.
+  const route: AppRoute =
+    resolved.kind === 'companion-setup' && setupSkipped
+      ? { kind: 'tabs' }
+      : resolved;
+
+  // Once the business exists, the draft and the remembered type are spent. Back
+  // from the plan screen still needs the type, so only the draft goes there.
+  React.useEffect(() => {
+    if (route.kind === 'choose-plan') void clearDraft();
+    if (route.kind === 'tabs' || route.kind === 'companion-setup') {
+      void clearOnboardingStorage();
+    }
+  }, [route.kind]);
 
   // First run is done when the tabs appear after the onboarding, plan or setup screens.
   const sawFirstRun = React.useRef(false);
@@ -202,7 +232,13 @@ export default function AppLayout() {
   // Background voice and notification actions run without a live session: keep their device token fresh.
   useVoiceDeviceToken(route.kind === 'tabs');
 
-  useHideSplashWhen(route.kind !== 'splash' && route.kind !== 'activate-org');
+  // Offline, the session and business lookups wait for the network: show that
+  // (with Retry) instead of an endless splash.
+  const isOfflineStart = route.kind === 'splash' && !isOnline;
+  useHideSplashWhen(
+    isOfflineStart ||
+      (route.kind !== 'splash' && route.kind !== 'activate-org'),
+  );
 
   const activateOrgId = route.kind === 'activate-org' ? route.orgId : null;
   React.useEffect(() => {
@@ -216,7 +252,20 @@ export default function AppLayout() {
   // Keep onboarding mounted once started, even as the new org makes the route flip.
   React.useEffect(() => {
     if (isOnboarding) setInOnboarding(true);
-  }, [isOnboarding]);
+  }, [isOnboarding, setInOnboarding]);
+
+  if (isOfflineStart) {
+    return (
+      <OfflineStartScreen
+        onRetry={() => {
+          void NetInfo.refresh();
+          void session?.reload();
+          if (memberships.isError) void memberships.refetch();
+          if (me.isError) void me.refetch();
+        }}
+      />
+    );
+  }
 
   switch (route.kind) {
     case 'splash':
@@ -254,7 +303,7 @@ export default function AppLayout() {
     case 'inactive-business':
       return <InactiveBusinessScreen />;
     case 'companion-setup':
-      return <CompanionSetupScreen />;
+      return <CompanionSetupScreen onContinue={() => setSetupSkipped(true)} />;
     case 'unsupported-task':
       return (
         <SessionErrorScreen

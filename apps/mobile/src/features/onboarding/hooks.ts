@@ -41,6 +41,8 @@ export function useCompleteOnboarding() {
     onError: () => true,
     onSuccess: (me) => {
       qc.setQueryData(qk.me, me);
+      // The plan screen is next: warm its query so it opens without skeletons.
+      void qc.prefetchQuery({ queryKey: qk.plans, queryFn: api.plans });
     },
   });
 }

@@ -1,6 +1,7 @@
 import { Text } from '@booking/ui';
 
 import { TYPE, useOnbColors } from '../theme';
+import type { HeadingRef } from '../useScreenReader';
 
 /** A screen's heading in the boards' 22/29 medium (or the 28/34 hero on the welcome). */
 export function Heading({
@@ -8,16 +9,20 @@ export function Heading({
   size = 'title',
   align = 'left',
   label,
+  headingRef,
 }: {
   children: string;
   size?: 'title' | 'hero';
   align?: 'left' | 'center';
   /** Spoken form when the text carries line breaks. */
   label?: string;
+  /** Receives accessibility focus on a screen change (see `useFocusHeading`). */
+  headingRef?: HeadingRef;
 }) {
   const c = useOnbColors();
   return (
     <Text
+      ref={headingRef}
       role="heading"
       aria-level="1"
       accessibilityLabel={label}

@@ -1,10 +1,10 @@
-import { useReduceMotion } from '@booking/ui';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, Platform, TextInput, View } from 'react-native';
 
 import { NAME_MAX, type BusinessTypeId } from '../logic';
 import { TYPE, useOnbColors } from '../theme';
+import { useFocusHeading, useScreenReaderEnabled } from '../useScreenReader';
 import { ClovieReaction } from './ClovieReaction';
 import { Heading } from './Heading';
 import { OnbButton } from './OnbButton';
@@ -12,7 +12,6 @@ import { OnboardingShell } from './OnboardingShell';
 import { Rise } from './Rise';
 import { StreamedText } from './StreamedText';
 
-const WORD_MS = 90;
 const SHOW_EVENT =
   Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
 
@@ -28,8 +27,8 @@ function useKeyboardOpened(): boolean {
 
 /**
  * Board 3: "{Type}. Lovely! What's it called?" with a big underline field. The
- * greeting streams in word by word while Clovie hops; then the field takes
- * focus, the keyboard rises, Clovie shrinks and Continue lifts above it. Until
+ * greeting streams in word by word while Clovie hops, and the field takes
+ * focus at once (the keyboard rises while the screen slides in), Clovie shrinks and Continue lifts above it. Until
  * there is a name, Continue stays flat grey.
  */
 export function NameScreen({
@@ -49,25 +48,23 @@ export function NameScreen({
 }) {
   const { t } = useTranslation();
   const c = useOnbColors();
-  const isReduced = useReduceMotion();
   const inputRef = React.useRef<TextInput>(null);
   const isCompact = useKeyboardOpened();
+  const headingRef = useFocusHeading();
+  const isScreenReader = useScreenReaderEnabled();
   const canContinue = name.trim().length > 0 && !isBusy;
 
   const greeting = `${t('onboarding.name.lovely', {
     type: t(`onboarding.types.${typeId}`),
   })}\n${t('onboarding.name.title')}`;
 
-  // Focus once the greeting has been said, so the keyboard does not cut it off.
+  // Focus the field as soon as the screen is up (the streamed greeting and the
+  // slide never wait on it). With a screen reader on, the heading takes focus
+  // instead, so the keyboard does not cut the announcement off.
   React.useEffect(() => {
-    if (isBusy) return;
-    const words = greeting.split(/\s+/).length;
-    const id = setTimeout(
-      () => inputRef.current?.focus(),
-      isReduced ? 0 : words * WORD_MS + 200,
-    );
-    return () => clearTimeout(id);
-  }, [greeting, isReduced, isBusy]);
+    if (isBusy || isScreenReader !== false) return;
+    inputRef.current?.focus();
+  }, [isBusy, isScreenReader]);
 
   const submit = () => {
     if (canContinue) onContinue();
@@ -105,9 +102,11 @@ export function NameScreen({
           />
         </View>
         {isCompact ? (
-          <Heading>{t('onboarding.name.title')}</Heading>
+          <Heading headingRef={headingRef}>
+            {t('onboarding.name.title')}
+          </Heading>
         ) : (
-          <StreamedText text={greeting} />
+          <StreamedText text={greeting} headingRef={headingRef} />
         )}
         <Rise index={2} style={{ alignSelf: 'stretch' }}>
           <View
