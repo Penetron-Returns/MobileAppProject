@@ -6,7 +6,6 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
-import { AppState } from 'react-native';
 
 import { api, isApiError } from '@/lib/api';
 import { qk, useApiMutation } from '@/lib/query';
@@ -120,15 +119,10 @@ export function useCompanionSetup(
     enabled: opts.enabled,
     refetchInterval: opts.pollMs || false,
     staleTime: 30_000,
+    // The owner leaves for the browser tab and comes back: TanStack's focus
+    // manager (fed by AppState) refetches even a fresh result on return.
+    refetchOnWindowFocus: 'always',
   });
-  const { refetch } = query;
-  React.useEffect(() => {
-    if (!opts.enabled) return;
-    const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') void refetch();
-    });
-    return () => sub.remove();
-  }, [opts.enabled, refetch]);
   return query;
 }
 
