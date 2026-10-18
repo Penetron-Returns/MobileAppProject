@@ -32,6 +32,8 @@ interface ClovieSpriteProps {
   /** Blinks only while true. */
   isActive: boolean;
   testID?: string;
+  /** Fires when the first frame has loaded (a splash can hide behind it). */
+  onLoad?: () => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export const ClovieSprite = React.memo(function ClovieSprite({
   size,
   isActive,
   testID = 'clovie-sprite',
+  onLoad,
 }: ClovieSpriteProps) {
   const frame = useBlinkFrame(isActive);
   React.useEffect(prefetchFrames, []);
@@ -52,6 +55,7 @@ export const ClovieSprite = React.memo(function ClovieSprite({
       <Image
         testID={testID}
         source={FRAMES[frame]}
+        onLoad={onLoad}
         resizeMode="contain"
         resizeMethod="resize"
         fadeDuration={0}

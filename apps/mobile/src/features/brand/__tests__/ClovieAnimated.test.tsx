@@ -53,6 +53,23 @@ describe('ClovieAnimated', () => {
     expect(stillShown(tree)).toBe(false);
   });
 
+  it('mounts the WebView only after the first content when deferred', () => {
+    const tree = mount(<ClovieAnimated size={140} isDeferred />);
+    expect(web(tree)).toHaveLength(0);
+    expect(stillShown(tree)).toBe(true);
+    act(() => {
+      jest.advanceTimersByTime(5);
+    });
+    expect(web(tree).length).toBeGreaterThan(0);
+  });
+
+  it('hands the WebView the same source object across re-renders', () => {
+    const tree = mount(<ClovieAnimated size={140} />);
+    const first = web(tree)[0].props.source;
+    tree.update(<ClovieAnimated size={140} />);
+    expect(web(tree)[0].props.source).toBe(first);
+  });
+
   it('loads the still without a fade', () => {
     const tree = mount(<ClovieAnimated size={120} />);
     expect(

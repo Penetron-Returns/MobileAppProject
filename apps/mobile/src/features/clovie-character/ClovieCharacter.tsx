@@ -1,4 +1,4 @@
-import { useAppColorScheme, useReduceMotion } from '@booking/ui';
+import { useReduceMotion } from '@booking/ui';
 import * as React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -54,7 +54,6 @@ export const ClovieCharacter = React.memo(function ClovieCharacter({
   facing = 1,
   testID,
 }: ClovieCharacterProps) {
-  const { isDark } = useAppColorScheme();
   const isReduced = useReduceMotion();
   const pose = poseFor(emotion);
   const compiled = compiledPose(emotion);
@@ -115,11 +114,7 @@ export const ClovieCharacter = React.memo(function ClovieCharacter({
                 <ClovieSprite size={DESIGN} isActive />
               ) : (
                 <Image
-                  source={
-                    isDark
-                      ? require('@/assets/images/companion-default-dark.png')
-                      : require('@/assets/images/companion-default.png')
-                  }
+                  source={require('@/assets/images/companion-default.png')}
                   resizeMode="contain"
                   resizeMethod="resize"
                   fadeDuration={0}
