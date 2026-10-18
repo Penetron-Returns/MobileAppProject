@@ -38,6 +38,7 @@ jest.mock('@/features/business/hooks', () => ({
 }));
 jest.mock('@/features/appointments/hooks', () => ({
   useBookingRules: () => ({ data: null }),
+  usePrefetchAvailability: () => jest.fn(),
   useCreateAppointment: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 jest.mock('@/features/catalog/hooks', () => ({

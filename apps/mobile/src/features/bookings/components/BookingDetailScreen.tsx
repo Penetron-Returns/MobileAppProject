@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Linking, Pressable, View } from 'react-native';
 import {
   useAppointment,
+  useAppointmentEvents,
   type AppointmentDetail,
 } from '@/features/appointments/hooks';
 import { useBusiness, type BusinessSummary } from '@/features/business/hooks';
@@ -42,6 +43,9 @@ export function BookingDetailScreen({
   const { t } = useTranslation();
   const business = useBusiness();
   const appointment = useAppointment(appointmentId);
+  // Start the history request with the detail, not after it: History reads
+  // the same cache entry when it mounts.
+  useAppointmentEvents(appointmentId);
   const failed = isFailed(business)
     ? business
     : isFailed(appointment)

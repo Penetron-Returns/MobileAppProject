@@ -88,26 +88,29 @@ export function RowContextMenu({
       <View ref={anchor} collapsable={false}>
         {children}
       </View>
-      <MenuOverlay
-        open={open}
-        onClose={() => setOpen(false)}
-        onDismissed={flush}
-        closeLabel={t('common.dismiss')}
-      >
-        {rect ? (
-          <Lifted
-            rect={rect}
-            actions={actions}
-            previewRadius={previewRadius}
-            onChoose={(action) => {
-              setOpen(false);
-              defer(action.onPress);
-            }}
-          >
-            {children}
-          </Lifted>
-        ) : null}
-      </MenuOverlay>
+      {/* The modal is mounted on first use: a calendar can hold hundreds of rows, each with a menu. */}
+      {rect ? (
+        <MenuOverlay
+          open={open}
+          onClose={() => setOpen(false)}
+          onDismissed={flush}
+          closeLabel={t('common.dismiss')}
+        >
+          {rect ? (
+            <Lifted
+              rect={rect}
+              actions={actions}
+              previewRadius={previewRadius}
+              onChoose={(action) => {
+                setOpen(false);
+                defer(action.onPress);
+              }}
+            >
+              {children}
+            </Lifted>
+          ) : null}
+        </MenuOverlay>
+      ) : null}
     </RowActionsProvider>
   );
 }

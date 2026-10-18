@@ -21,6 +21,7 @@ import { BackHandler, View } from 'react-native';
 import {
   useBookingRules,
   useCreateAppointment,
+  usePrefetchAvailability,
 } from '@/features/appointments/hooks';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
 import type { BusinessSummary } from '@/features/business/hooks';
@@ -44,6 +45,7 @@ import { toast } from '@/lib/toast';
 import {
   bookableStaff,
   bookingHorizonDays,
+  dayRange,
   hasUnsavedInput,
   toCreateRequest,
 } from '../logic';
@@ -135,12 +137,33 @@ function NewBookingFlow({
   const staff = useStaff();
   const links = useStaffServices();
   const rules = useBookingRules();
-  const activeServices = (services.data ?? []).filter((s) => s.is_active);
+  const activeServices = React.useMemo(
+    () => (services.data ?? []).filter((s) => s.is_active),
+    [services.data],
+  );
   const service = activeServices.find((s) => s.id === serviceId) ?? null;
-  const staffOptions = bookableStaff(
-    staff.data ?? [],
-    links.data ?? [],
-    serviceId,
+  // Memoised: the effect below must not re-run on every render.
+  const staffOptions = React.useMemo(
+    () => bookableStaff(staff.data ?? [], links.data ?? [], serviceId),
+    [staff.data, links.data, serviceId],
+  );
+  const prefetchAvailability = usePrefetchAvailability();
+  const horizonDays = bookingHorizonDays(rules.data);
+  const onService = React.useCallback(
+    (id: string | null) => {
+      setServiceId(id);
+      setWhen(startWhen);
+      if (!id) return;
+      // Warm the next step while the owner finishes this one.
+      const range = dayRange(todayISO(tz), horizonDays);
+      void prefetchAvailability({
+        serviceId: id,
+        from: range.from,
+        to: range.to,
+        staffId: startWhen.staffId,
+      });
+    },
+    [startWhen, tz, horizonDays, prefetchAvailability],
   );
   // A staff member who cannot do the chosen service falls back to "Any".
   React.useEffect(() => {
@@ -332,10 +355,7 @@ function NewBookingFlow({
           onChoice={setChoice}
           services={activeServices}
           serviceId={serviceId}
-          onService={(id) => {
-            setServiceId(id);
-            setWhen(startWhen);
-          }}
+          onService={onService}
           currency={business.currency}
         />
       ) : serviceId ? (
@@ -346,7 +366,7 @@ function NewBookingFlow({
           staff={staffOptions}
           timezone={tz}
           today={todayISO(tz)}
-          horizonDays={bookingHorizonDays(rules.data)}
+          horizonDays={horizonDays}
           firstName={firstName}
           preferredTime={prefill?.time ?? null}
           takenAt={takenAt}

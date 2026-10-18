@@ -19,7 +19,8 @@ import { useBusiness } from '@/features/business/hooks';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError } from '@/lib/toast';
 import { todayISO, type ISODate } from '@/lib/time';
-import { useCalendarDay, useCalendarWeek, useToday } from '../hooks';
+import { useCalendarDay, useCalendarWeek } from '../hooks';
+import { useToday } from '../useToday';
 import { newBookingHref, shiftAnchor, type NewBookingPrefill } from '../logic';
 import {
   subscribeCalendarViewMode,
