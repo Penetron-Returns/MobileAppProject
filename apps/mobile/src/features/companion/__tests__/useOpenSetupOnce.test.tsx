@@ -16,10 +16,6 @@ const mockOpen = jest.fn();
 jest.mock('../sdk/companionSheetControl', () => ({
   useCompanionSheet: () => ({ isAvailable: true, open: mockOpen }),
 }));
-let mockInline: unknown;
-jest.mock('../sdk/inlineSetup', () => ({
-  getCompanionSetup: () => mockInline,
-}));
 
 function Probe() {
   useOpenSetupOnce();
@@ -33,7 +29,6 @@ const flush = () =>
 beforeEach(async () => {
   jest.clearAllMocks();
   await AsyncStorage.clear();
-  mockInline = undefined;
   mockSetup = { next_step: 'connect_whatsapp', companion_live: false };
 });
 
@@ -53,13 +48,5 @@ describe('useOpenSetupOnce', () => {
     mount(<Probe />);
     await flush();
     expect(mockOpen).not.toHaveBeenCalled();
-  });
-
-  it('only sets the flag when the inline setup is on the tab', async () => {
-    mockInline = () => null;
-    mount(<Probe />);
-    await flush();
-    expect(mockOpen).not.toHaveBeenCalled();
-    expect(await AsyncStorage.getItem(setupOpenedKey('biz1'))).toBe('1');
   });
 });

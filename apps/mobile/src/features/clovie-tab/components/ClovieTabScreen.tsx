@@ -15,7 +15,6 @@ import { useCompanionSheet } from '@/features/companion/sdk/companionSheetContro
 import { useKeyboardHeight } from '@/features/onboarding/useKeyboardHeight';
 import { toast } from '@/lib/toast';
 
-import { InlineCompanionSetup } from '../InlineCompanionSetup';
 import { attendanceQueue, outcomeForAction } from '../queue';
 import { storyActionOutcome } from '../storyActions';
 import { useStartVoice } from '../useStartVoice';
@@ -114,17 +113,15 @@ export function ClovieTabScreen() {
           onClose={events.flush}
         />
         {isAvailable || hasFailed ? (
-          <InlineCompanionSetup>
-            <CompanionMoment
-              testID="clovie-moment"
-              idleLine={t('clovieTab.idleLine')}
-              queueItems={queue}
-              onQueueAction={onQueueAction}
-              onMicPress={onMicPress}
-              enableUndo={false}
-              renderAvatar={renderAvatar}
-            />
-          </InlineCompanionSetup>
+          <CompanionMoment
+            testID="clovie-moment"
+            idleLine={t('clovieTab.idleLine')}
+            queueItems={queue}
+            onQueueAction={onQueueAction}
+            onMicPress={onMicPress}
+            enableUndo={false}
+            renderAvatar={renderAvatar}
+          />
         ) : null}
       </Animated.View>
     </Ground>

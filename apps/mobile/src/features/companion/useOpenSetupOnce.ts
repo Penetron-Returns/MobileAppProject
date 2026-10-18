@@ -5,16 +5,15 @@ import { useMe } from '@/features/business/me';
 
 import { useCompanionSetup } from './hooks';
 import { useCompanionSheet } from './sdk/companionSheetControl';
-import { getCompanionSetup } from './sdk/inlineSetup';
 
 export const setupOpenedKey = (businessId: string) =>
   `companion.setupOpened.v1.${businessId}`;
 
 /**
  * After onboarding, the first time the owner lands in the tabs with
- * WhatsApp still to connect, Clovie's setup is brought up once (the sheet; the
- * inline setup on the Clovie tab needs no opening). A per-business flag keeps
- * it from ever nagging again.
+ * WhatsApp still to connect, Clovie's setup is brought up once (the companion
+ * sheet, which shows Nerova's setup while it is needed). A per-business flag
+ * keeps it from ever nagging again.
  */
 export function useOpenSetupOnce(): void {
   const me = useMe();
@@ -35,7 +34,7 @@ export function useOpenSetupOnce(): void {
       .then((seen) => {
         if (seen) return;
         void AsyncStorage.setItem(key, '1').catch(() => undefined);
-        if (!getCompanionSetup()) open();
+        open();
       })
       .catch(() => undefined);
   }, [businessId, isOwner, isAvailable, needs, open]);
