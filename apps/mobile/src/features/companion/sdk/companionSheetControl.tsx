@@ -15,6 +15,12 @@ export interface CompanionSheetControl {
   hasFailed: boolean;
   open: (options?: OpenCompanionOptions) => void;
   close: () => void;
+  /**
+   * Takes the owner to Clovie's guided setup (WhatsApp, then go live): the
+   * Clovie tab when the SDK renders setup inline, else the sheet, which shows
+   * the setup while it is needed. A no-op when `isAvailable` is false.
+   */
+  openSetup: () => void;
 }
 
 const UNAVAILABLE: CompanionSheetControl = {
@@ -22,6 +28,7 @@ const UNAVAILABLE: CompanionSheetControl = {
   hasFailed: false,
   open: () => {},
   close: () => {},
+  openSetup: () => {},
 };
 
 const CompanionSheetControlContext =

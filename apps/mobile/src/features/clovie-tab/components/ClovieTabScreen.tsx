@@ -10,10 +10,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
+import { useOpenSetupOnce } from '@/features/companion/useOpenSetupOnce';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
 import { useKeyboardHeight } from '@/features/onboarding/useKeyboardHeight';
 import { toast } from '@/lib/toast';
 
+import { InlineCompanionSetup } from '../InlineCompanionSetup';
 import { attendanceQueue, outcomeForAction } from '../queue';
 import { storyActionOutcome } from '../storyActions';
 import { useStartVoice } from '../useStartVoice';
@@ -44,6 +46,7 @@ export function ClovieTabScreen() {
   const business = useBusiness();
   const timezone = business.data?.timezone ?? FALLBACK_TIMEZONE;
   const { isAvailable, hasFailed } = useCompanionSheet();
+  useOpenSetupOnce();
   const startVoice = useStartVoice();
   const attendance = useAttendance();
   const keyboardHeight = useKeyboardHeight();
@@ -111,15 +114,17 @@ export function ClovieTabScreen() {
           onClose={events.flush}
         />
         {isAvailable || hasFailed ? (
-          <CompanionMoment
-            testID="clovie-moment"
-            idleLine={t('clovieTab.idleLine')}
-            queueItems={queue}
-            onQueueAction={onQueueAction}
-            onMicPress={onMicPress}
-            enableUndo={false}
-            renderAvatar={renderAvatar}
-          />
+          <InlineCompanionSetup>
+            <CompanionMoment
+              testID="clovie-moment"
+              idleLine={t('clovieTab.idleLine')}
+              queueItems={queue}
+              onQueueAction={onQueueAction}
+              onMicPress={onMicPress}
+              enableUndo={false}
+              renderAvatar={renderAvatar}
+            />
+          </InlineCompanionSetup>
         ) : null}
       </Animated.View>
     </Ground>

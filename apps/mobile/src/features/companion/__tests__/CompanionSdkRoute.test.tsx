@@ -27,6 +27,7 @@ function mountRoute() {
         hasFailed: false,
         open,
         close: jest.fn(),
+        openSetup: jest.fn(),
       }}
     >
       <CompanionSdkRoute />

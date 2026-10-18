@@ -1,3 +1,5 @@
+import type { CompanionSetupDTO } from '@booking/types';
+import type { TFunction } from 'i18next';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,10 +12,13 @@ import { useServices, useStaff } from '@/features/catalog/hooks';
 import { useCompanionSetup } from '@/features/companion/hooks';
 import { useEntitlements } from '@/features/plans/hooks';
 
+import { formatPhone } from '@/lib/format';
+
 import { formatMinutes } from './format';
 import { useBookingRules } from './hooks';
 import type { SettingsItem } from './navigation';
 import { openDaysSummary } from './summaries';
+import { goLiveSteps } from './whatsappStatus';
 
 /** What a Settings row shows beside its title; `disabled` rows stay visible and say why. */
 export interface RowModel {
@@ -21,6 +26,33 @@ export interface RowModel {
   tone?: 'secondary' | 'success';
   disabled?: boolean;
   reason?: string;
+}
+
+/** The WhatsApp row: the number when connected, else how many steps are left. */
+function whatsappRow(setup: CompanionSetupDTO, t: TFunction): RowModel {
+  const steps = goLiveSteps(setup).length;
+  if (setup.whatsapp.connected) {
+    const phone = formatPhone(setup.whatsapp.display_phone_number);
+    return {
+      detail: phone
+        ? t('settings.whatsapp.rowConnected', { phone })
+        : t('settings.whatsapp.pill.connected'),
+      tone: 'success',
+    };
+  }
+  if (steps > 1 || setup.whatsapp.state !== 'not_connected') {
+    return {
+      detail:
+        setup.whatsapp.state === 'not_connected'
+          ? t('settings.whatsapp.rowSteps', { count: steps })
+          : t('settings.whatsapp.pill.pending'),
+      tone: 'secondary',
+    };
+  }
+  return {
+    detail: t('settings.whatsapp.pill.not_connected'),
+    tone: 'secondary',
+  };
 }
 
 /**
@@ -55,16 +87,7 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
         }
       : none;
 
-    const whatsapp: RowModel = setup.data
-      ? {
-          detail: t(
-            setup.data.whatsapp.connected
-              ? 'settings.whatsapp.rowStatus.live'
-              : 'settings.whatsapp.rowStatus.none',
-          ),
-          tone: setup.data.whatsapp.connected ? 'success' : 'secondary',
-        }
-      : none;
+    const whatsapp: RowModel = setup.data ? whatsappRow(setup.data, t) : none;
 
     return {
       businessDetails: { detail: details.data?.name },

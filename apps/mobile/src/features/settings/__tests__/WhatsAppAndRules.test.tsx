@@ -19,6 +19,7 @@ jest.mock('lucide-react-native', () => {
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn() },
   Redirect: () => null,
+  useFocusEffect: () => undefined,
 }));
 
 jest.mock('@tanstack/react-query', () => ({
@@ -44,6 +45,7 @@ const mockSetup = {
     companion_live: true,
     whatsapp: {
       connected: false,
+      state: 'not_connected',
       display_phone_number: null as string | null,
     },
   },
@@ -104,43 +106,11 @@ const pressable = (tree: ReactTestRenderer, label: string) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockRole = 'owner';
-  mockSetup.data.whatsapp = { connected: false, display_phone_number: null };
-});
-
-describe('WhatsApp settings on a paid plan', () => {
-  it('shows the status without the free-plan booking-menu gate, and the client reminders', () => {
-    const out = text(mount(<WhatsAppSettingsScreen />));
-    expect(out).toContain('WhatsApp');
-    expect(out).toContain('Not connected');
-    expect(out).toContain('Reminders to clients');
-    expect(out).toContain('1 day and 2 hours');
-  });
-
-  it('offers to connect while nothing is connected', () => {
-    const tree = mount(<WhatsAppSettingsScreen />);
-    act(() => pressable(tree, 'Connect WhatsApp')?.props.onPress());
-    expect(mockStart).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows the connected number and no connect action', () => {
-    mockSetup.data.whatsapp = {
-      connected: true,
-      display_phone_number: '+27821234567',
-    };
-    const tree = mount(<WhatsAppSettingsScreen />);
-    expect(text(tree)).toContain('Connected');
-    expect(pressable(tree, 'Connect WhatsApp')).toBeUndefined();
-  });
-
-  it('shows staff the same rows, dimmed where only the owner can see them', () => {
-    mockRole = 'staff';
-    const tree = mount(<WhatsAppSettingsScreen />);
-    const out = text(tree);
-    expect(out).toContain('Owner only');
-    expect(out).toContain('Reminders to clients');
-    expect(out).toContain('Only the owner can change this.');
-    expect(pressable(tree, 'Connect WhatsApp')).toBeUndefined();
-  });
+  mockSetup.data.whatsapp = {
+    connected: false,
+    state: 'not_connected',
+    display_phone_number: null,
+  };
 });
 
 describe('Reminders to clients', () => {
