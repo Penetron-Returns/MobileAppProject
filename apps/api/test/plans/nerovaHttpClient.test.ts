@@ -50,7 +50,10 @@ describe('createHttpNerovaClient', () => {
       nextStep: 'connect_whatsapp',
       receptionistLive: false,
       version: 3,
-      whatsapp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true },
+      whatsapp: { connected: true, state: 'connected', displayPhoneNumber: '+27 82 000 0000', businessVerified: true, businessVerificationStatus: null },
+      provisioned: false,
+      bookingConnection: null,
+      blockingReasons: [],
     });
     expect(f.calls[0]?.url).toBe('https://api.nerova.si/v1/accounts/acct_1/companion/setup');
   });
@@ -61,7 +64,34 @@ describe('createHttpNerovaClient', () => {
       nextStep: 'none',
       receptionistLive: false,
       version: null,
-      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false },
+      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null },
+      provisioned: false,
+      bookingConnection: null,
+      blockingReasons: [],
+    });
+  });
+
+  it('reads the live setup shape: companionLive, verification status, blocking reasons', async () => {
+    const f = fakeFetch(() =>
+      json(200, {
+        provisioned: true,
+        bookingConnection: 'verified',
+        whatsApp: { connected: false, state: 'not_connected', businessVerificationStatus: 'pending', businessVerified: false, displayPhoneNumber: null },
+        companionLive: true,
+        nextStep: 'connect_whatsapp',
+        blockingReasons: ['activation.channel_not_ready', 7, ''],
+        version: 2,
+      }),
+    );
+    const client = createHttpNerovaClient({ apiKey: NEROVA_KEY, fetch: f.impl });
+    expect(await client.getCompanionSetup('acct_1')).toEqual({
+      nextStep: 'connect_whatsapp',
+      receptionistLive: true,
+      version: 2,
+      provisioned: true,
+      bookingConnection: 'verified',
+      blockingReasons: ['activation.channel_not_ready'],
+      whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: 'pending' },
     });
   });
 

@@ -206,8 +206,13 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
           state: text(whatsapp.state) ?? 'not_connected',
           displayPhoneNumber: text(whatsapp.displayPhoneNumber),
           businessVerified: whatsapp.businessVerified === true,
+          businessVerificationStatus: text(whatsapp.businessVerificationStatus),
         },
-        receptionistLive: body.receptionistLive === true,
+        provisioned: body.provisioned === true,
+        bookingConnection: text(body.bookingConnection),
+        blockingReasons: Array.isArray(body.blockingReasons) ? body.blockingReasons.filter((r): r is string => typeof r === 'string' && r.length > 0) : [],
+        // Nerova answers `companionLive`; `receptionistLive` is the older name.
+        receptionistLive: body.companionLive === true || body.receptionistLive === true,
         version: typeof body.version === 'number' && Number.isInteger(body.version) ? body.version : null,
       };
     },

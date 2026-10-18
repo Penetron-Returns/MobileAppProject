@@ -20,6 +20,9 @@ export interface FakeNerovaAccount extends NerovaAccount {
   /** Defaults to not connected */
   whatsapp?: Partial<NerovaSetupStatus['whatsapp']>;
   receptionistLive?: boolean;
+  provisioned?: boolean;
+  bookingConnection?: string | null;
+  blockingReasons?: string[];
   /** Activation version; defaults to 1 */
   activationVersion?: number;
 }
@@ -97,7 +100,10 @@ export function createFakeNerovaClient(
       if (!found) return null;
       return {
         nextStep: found.nextStep ?? null,
-        whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, ...found.whatsapp },
+        whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null, ...found.whatsapp },
+        provisioned: found.provisioned ?? true,
+        bookingConnection: found.bookingConnection ?? null,
+        blockingReasons: found.blockingReasons ?? [],
         receptionistLive: found.receptionistLive ?? false,
         version: found.activationVersion ?? 1,
       };

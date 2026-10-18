@@ -919,7 +919,15 @@ export interface CompanionSetupDTO {
     state: string;
     display_phone_number: string | null;
     business_verified: boolean;
+    /** Nerova's verification status (e.g. `verified`, `pending`), null when unknown */
+    business_verification_status: string | null;
   };
+  /** Nerova account provisioned */
+  provisioned: boolean;
+  /** Booking connection status as Nerova reports it, null when unknown */
+  booking_connection: string | null;
+  /** What still blocks going live, e.g. `activation.channel_not_ready`; empty when nothing blocks */
+  blocking_reasons: string[];
   companion_live: boolean;
 }
 

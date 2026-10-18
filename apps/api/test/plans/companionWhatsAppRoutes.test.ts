@@ -16,7 +16,10 @@ describe('GET /v1/companion/setup', () => {
   };
   const none = {
     next_step: 'connect_booking_system',
-    whatsapp: { connected: false, state: 'not_connected', display_phone_number: null, business_verified: false },
+    whatsapp: { connected: false, state: 'not_connected', display_phone_number: null, business_verified: false, business_verification_status: null },
+    provisioned: false,
+    booking_connection: null,
+    blocking_reasons: [],
     companion_live: false,
   };
 
@@ -24,14 +27,34 @@ describe('GET /v1/companion/setup', () => {
     const h = plansHarness({ plan: 'growth', accounts: [{ ...ready, nextStep: 'connect_whatsapp' }] });
     const r = await h.call('GET', setupPath);
     expect(r.status).toBe(200);
-    expect(r.body.data).toEqual({ ...none, next_step: 'connect_whatsapp' });
+    expect(r.body.data).toEqual({ ...none, next_step: 'connect_whatsapp', provisioned: true });
+  });
+
+  it('passes through verification status, blocking reasons and booking connection', async () => {
+    const blocked = {
+      ...ready,
+      nextStep: 'connect_whatsapp',
+      bookingConnection: 'verified',
+      blockingReasons: ['activation.channel_not_ready', 'activation.consent_dataprocessing_missing'],
+      whatsapp: { businessVerificationStatus: 'pending' },
+    };
+    const r = await plansHarness({ plan: 'growth', accounts: [blocked] }).call('GET', setupPath);
+    expect(r.body.data).toMatchObject({
+      provisioned: true,
+      booking_connection: 'verified',
+      blocking_reasons: ['activation.channel_not_ready', 'activation.consent_dataprocessing_missing'],
+      whatsapp: { business_verification_status: 'pending' },
+    });
   });
 
   it('reports a connected, live companion', async () => {
     const r = await plansHarness({ plan: 'pro', accounts: [live] }).call('GET', setupPath);
     expect(r.body.data).toEqual({
       next_step: 'none',
-      whatsapp: { connected: true, state: 'connected', display_phone_number: '+27 82 000 0000', business_verified: true },
+      whatsapp: { connected: true, state: 'connected', display_phone_number: '+27 82 000 0000', business_verified: true, business_verification_status: null },
+      provisioned: true,
+      booking_connection: null,
+      blocking_reasons: [],
       companion_live: true,
     });
   });
