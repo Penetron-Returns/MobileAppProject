@@ -103,7 +103,7 @@ Under POPIA, and the GDPR where it applies, you can:
 - ask for a copy in a usable format (**portability**, GDPR);
 - complain (section 10).
 
-**To delete your account:** in the app go to Settings and choose Delete account [to be added before release], or visit https://getclovie.app/delete-account, or email support@nerovasystems.com from the address you signed up with. We act on requests within 30 days. We may ask you to confirm who you are first.
+**To delete your account:** in the app go to Settings and choose Delete account, or visit https://getclovie.app/delete-account, or email support@nerovasystems.com from the address you signed up with. We act on requests within 30 days. We may ask you to confirm who you are first.
 
 If you are a salon's customer, ask the salon first; we will also act on a request sent to us and tell the salon where needed.
 
@@ -127,7 +127,7 @@ We use encryption in transit (HTTPS) for all traffic between the app, our server
 
 ## 12. Cookies and similar technologies
 
-The app does not use advertising or analytics trackers. The public booking page and website may use only the cookies needed to work. [Confirm after the website is built.]
+The app does not use advertising trackers. It uses PostHog for product analytics (screens viewed and onboarding steps, tied to your account id, with no names, phone numbers or message text). The public booking page and website may use only the cookies needed to work. [Confirm after the website is built.]
 
 ## 13. Changes to this policy
 

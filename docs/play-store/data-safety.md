@@ -91,7 +91,8 @@ Caveat for voice accuracy: the on-device path uses Android's `SpeechRecognizer`,
 
 | Type | Collected | Shared | Optional? | Purpose | In transit encrypted |
 | --- | --- | --- | --- | --- | --- |
-| **App interactions** | **No** for the owner app. We keep `booking_attempts` step counts and timings only for the public web booking page and WhatsApp customers (research, FR21), not for app users | | | | |
+| **App interactions** (PostHog product analytics: screens viewed and onboarding funnel steps in the owner app; no booking content, names, phone numbers or message text) | Yes | No (PostHog is a service provider acting for us) | Not user-switchable (a no-op when the key is unset) | Analytics | Yes |
+| **User IDs** for analytics (Clerk user id and business id sent to PostHog as the identity, see `apps/mobile/src/features/analytics`) | Yes | No | Required | Analytics | Yes |
 | **Other user-generated content** (bookings, client notes, service descriptions, appointment notes the owner writes) | Yes | No | Optional notes; bookings are the core function | App functionality | Yes |
 | **Other actions** (audit trail of who changed settings, appointments, team) | Yes | No | Required | App functionality, Security/fraud prevention | Yes |
 | In-app search history, installed apps | No | | | | |
@@ -126,6 +127,7 @@ We list every outside party that touches data so the privacy policy and this for
 | Microsoft Azure (via Nerova) | Speech-to-text | the voice clip, transiently | sub-processor of Nerova |
 | Meta WhatsApp Cloud API | Delivers WhatsApp messages | customer phone numbers and message content | the channel the customer chose; delivery on behalf of the business |
 | Expo push service, Google (FCM) | Delivers notifications to the phone | push token and the notification text | delivery provider |
+| PostHog (US cloud, `us.i.posthog.com`) | Product analytics | Clerk user id, business id, screen and funnel events, no PII | analytics provider processing on our behalf |
 | Apple push | iOS only (not in this Android release) | n/a | |
 
 Judgment call for Colin: Meta is an independent party for WhatsApp, and customers use WhatsApp under Meta's own terms. We present it as the delivery channel (a service provider) because the owner's customer chooses to message the business there and we reply on the owner's behalf. If you want to be conservative, you can list "Phone number" and "Other in-app messages" as shared with Meta for "App functionality"; no policy risk comes from over-disclosing, but it would look odd next to the policy. Pick one and keep the privacy policy identical.
@@ -137,15 +139,14 @@ Data is **not** sold, not used for advertising, and not used to train models **(
 Required form fields:
 
 - **Does your app let users request data deletion?** Yes.
-- **Delete account URL (web):** `https://getclovie.app/delete-account` (to be created; text suggested in `declarations.md` section 9).
-- **In-app path:** Settings > Profile > Delete account (to be built, see below).
+- **Delete account URL (web):** `https://getclovie.app/delete-account`.
+- **In-app path:** Settings > Delete account.
 
 Current state of the product (verified):
 
-- There is **no delete-account screen or API in the app today** (searched `apps/mobile/src` and `apps/api/src`; Settings only has sign out).
+- Account deletion **exists**: in the app at Settings > Delete account (`apps/mobile/src/app/delete-account.tsx`), and on the web at `https://getclovie.app/delete-account`.
 - Deletion machinery already exists server-side through Clerk: `organization.deleted` deletes the business, and every business-owned table has `on delete cascade` from `businesses` (`BUILD_PLAN` section 3), so all customers, bookings, messages, staff and tokens go with it. `user.deleted` removes the user row and unlinks the staff row (`packages/features/team/services/clerkSync.ts`).
-- **Gap to close before the Play submission:** add an owner-visible "Delete account" action (Clerk's prebuilt `UserProfile` screen offers it once enabled in the Clerk dashboard; this is the cheapest path since sign-in already uses Clerk prebuilt UI) and make sure it also deletes the data held by Nerova (account, conversations, voice transcripts if any). **(assumption: Nerova's delete API or a manual request process for Nerova-side data; confirm with Nerova.)**
-- Until the in-app path exists, internal testing can proceed, but production approval will not, and Play may flag the form.
+- Privacy policy URL: `https://getclovie.app/privacy`.
 
 What is deleted and when, to state in the form and policy:
 
@@ -169,10 +170,10 @@ Encryption at rest: Supabase encrypts disks by default **(assumption)**; Meta ac
 
 ## 7. Short crib sheet to tick in the console
 
-- Collected and not shared: Name, Email address, User IDs, Address, Phone number, Other in-app messages, Voice or sound recordings, Other user-generated content, Other actions, Device or other IDs.
-- Not collected: everything else (location, contacts, photos, files, calendar, health, financial, web browsing, crash logs, diagnostics, search history).
+- Collected and not shared: Name, Email address, User IDs, Address, Phone number, Other in-app messages, Voice or sound recordings, Other user-generated content, Other actions, Device or other IDs, App interactions (PostHog).
+- Not collected: everything else (location, contacts, photos, files, calendar, health, financial, web browsing, crash logs, diagnostics, search history (App interactions IS collected, via PostHog)).
 - Optional: Address, Other in-app messages, Voice or sound recordings, Device or other IDs (and the notes inside Other user-generated content). Required: Name, Email, User IDs, Phone number (for clients), Other actions.
-- Purposes: App functionality (all), Account management (Name, Email, User IDs), Communications (Phone number, Messages, Device IDs), Security and fraud prevention (User IDs, Other actions). Not: Analytics, Advertising or marketing, Personalisation, Developer communications.
+- Purposes: App functionality (all), Account management (Name, Email, User IDs), Communications (Phone number, Messages, Device IDs), Security and fraud prevention (User IDs, Other actions). Analytics (App interactions, User IDs). Not: Advertising or marketing, Personalisation, Developer communications.
 - Encrypted in transit: Yes for every type.
 - Deletion: Yes, with the web URL.
 

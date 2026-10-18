@@ -7,7 +7,7 @@ Companion files: `listing.md`, `data-safety.md`, `declarations.md`, `privacy-pol
 ## Phase 0: fix these in the repo first (they block everything)
 
 - [ ] **Application id.** `apps/mobile/app.json` has `android.package = "si.nerova.booking.dev"`. Change to `app.getclovie` before the first upload. It is permanent once Play sees it. Also update the Nerova native app registration (`NEROVA_APP_ID`, `register-nerova-native-app.mjs`, which use `si.nerova.booking.dev`) and the Clerk Android settings that reference the package.
-- [ ] **Account deletion** in the app plus `https://getclovie.app/delete-account` (see `declarations.md` section 9). Not needed to upload to internal testing, but needed before the form is complete and for production.
+- [x] **Account deletion** (done: Settings > Delete account) in the app plus `https://getclovie.app/delete-account` (see `declarations.md` section 9). Not needed to upload to internal testing, but needed before the form is complete and for production.
 - [ ] **Privacy policy URL.** The app links to `https://nerova.si/privacy` (`apps/mobile/src/lib/legal.ts`). Host `privacy-policy.html` at `https://getclovie.app/privacy` and update that constant.
 - [ ] **Voice demo check.** `docs/voice.md` says the Kotlin was never run on a device. Run it on a real phone before recording the foreground service video.
 - [ ] **Remove unused permissions** (`READ/WRITE_EXTERNAL_STORAGE`), see `declarations.md` section 1.
@@ -116,3 +116,46 @@ Go to **Policy and programs > App content** and complete each item. Reference fi
 4. Install Clovie and sign in with the email we invited.
 5. If you get stuck, message us on WhatsApp or email support@nerovasystems.com.
 ```
+
+## Appendix: EAS production build setup (Android)
+
+Run from `apps/mobile`. The founder does the account steps; nothing below is run by the repo tooling.
+
+```bash
+eas login
+eas init                      # writes the project id; also set it as EAS_PROJECT_ID below
+```
+
+### Production environment variables
+
+`src/lib/env.ts` requires the first four; with any missing the app shows a config-error screen. Everything else is optional. Use `--visibility plaintext` for values that are not secret (all `EXPO_PUBLIC_*` end up in the app bundle anyway) and `sensitive` for the rest. Placeholders in `<...>`; never commit real values.
+
+```bash
+# REQUIRED
+eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://hmpkeujudylyuorentld.supabase.co/functions/v1/api --visibility plaintext   # backend API (Supabase Edge Function `api`; pilot stays on this project)
+eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_URL --value https://hmpkeujudylyuorentld.supabase.co --visibility plaintext              # Supabase > Project settings > API
+eas env:create --environment production --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value <anon-key> --visibility sensitive                                          # same page; anon key only, NEVER service-role
+eas env:create --environment production --name EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY --value <pk_live_...> --visibility plaintext                                    # TODO founder: Clerk PRODUCTION instance > API keys (not pk_test_)
+
+# Recommended
+eas env:create --environment production --name EXPO_PUBLIC_ENV --value prod --visibility plaintext                          # informational
+eas env:create --environment production --name EAS_PROJECT_ID --value <expo-project-id> --visibility plaintext             # from `eas init`; needed for Expo push tokens
+eas env:create --environment production --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --visibility sensitive   # Firebase console > app.getclovie Android app > google-services.json (docs/push-setup.md)
+
+# Optional
+eas env:create --environment production --name EXPO_PUBLIC_POSTHOG_KEY --value <phc_...> --visibility plaintext            # PostHog project API key; empty = analytics off
+eas env:create --environment production --name EXPO_PUBLIC_POSTHOG_HOST --value https://us.i.posthog.com --visibility plaintext   # code default is the EU host, so set this
+eas env:create --environment production --name EXPO_PUBLIC_COMPANION_ORIGIN --value <https://origin> --visibility plaintext   # must equal backend NEROVA_EMBED_ORIGIN; defaults to the API origin
+eas env:create --environment production --name EXPO_PUBLIC_COMPANION_SDK --value 1 --visibility plaintext                   # 1 = Nerova native SDK sheet, else iframe sheet
+eas env:create --environment production --name EXPO_PUBLIC_NEROVA_API --value legacy --visibility plaintext                # legacy (default) or v1 (not live yet)
+eas env:create --environment production --name EXPO_PUBLIC_VOICE_CLOUD_STT --value 1 --visibility plaintext                # only with backend VOICE_CLOUD_STT=true; changes the mic disclosure text
+```
+
+### Build and submit
+
+```bash
+eas build -p android --profile production     # AAB, autoIncrement, first run generates the upload keystore
+eas submit -p android --profile production    # needs ./google-play-service-account.json (git-ignored); or upload the AAB by hand
+```
+
+Repo facts for this build: `@nerova/react-native` is vendored in `apps/mobile/vendor/` (see its README); `expo-dev-client` is only a dev-client launcher (the `developmentClient` flag is set only on the `development` profile, and the `(dev)` gallery/stories routes redirect to `/` when `!__DEV__`); R8 keep rules are added by `plugins/with-clovie-proguard.js`.
