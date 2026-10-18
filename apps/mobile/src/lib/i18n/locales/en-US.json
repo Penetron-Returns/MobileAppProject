@@ -589,6 +589,32 @@
     }
   },
   "settings": {
+    "explainers": {
+      "anyone": "Anyone",
+      "month": "DEC",
+      "closed": "CLOSED",
+      "minutesShort": "{{n}} min",
+      "hoursShort": "{{n}} h",
+      "secondsShort": "{{n}} s",
+      "daysShort_one": "{{count}} day",
+      "daysShort_other": "{{count}} days",
+      "help": {
+        "lead_time_minutes": "Clients can't book sooner than this.",
+        "booking_horizon_days": "How far ahead clients can book.",
+        "cancellation_window_minutes": "After this, clients message you.",
+        "slot_interval_minutes": "How often a new start time appears.",
+        "buffer_minutes": "Time kept free after each booking.",
+        "allow_staff_selection": "Clients pick a team member themselves.",
+        "hours": "Switch a day off to close the shop.",
+        "holidays": "Clients can't book on these dates.",
+        "holidaysCount_one": "{{count}} day closed",
+        "holidaysCount_other": "{{count}} days closed",
+        "reminders": "WhatsApp reminders sent before a booking.",
+        "status": "Clovie answers clients on WhatsApp.",
+        "attendance": "Who gets asked if the client came.",
+        "voice": "Say \"Hey Clovie\" to talk hands free."
+      }
+    },
     "preferences": "Preferences",
     "darkMode": "Dark mode",
     "darkModeHint": "Toggle appearance",

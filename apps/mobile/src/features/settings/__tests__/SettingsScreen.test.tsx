@@ -177,6 +177,15 @@ describe('Settings as owner', () => {
     expect(out).toContain('Clovie 1.0.0 (24)');
   });
 
+  it('keeps the menu free of explainer thumbnails (they live on the sub-pages)', () => {
+    const tree = mount();
+    expect(
+      tree.root.findAll((n) =>
+        String(n.props.testID ?? '').startsWith('explainer-'),
+      ),
+    ).toHaveLength(0);
+  });
+
   it('opens each row on its own route', () => {
     const tree = mount();
     act(() => pressable(tree, 'Team, 4')?.props.onPress());

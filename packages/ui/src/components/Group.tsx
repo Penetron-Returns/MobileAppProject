@@ -94,6 +94,13 @@ interface GroupRowBaseProps {
   reason?: string;
   /** Ring colour of the avatar (a team member's calendar colour). */
   avatarRing?: string | null;
+  /**
+   * Decorative explainer on the left (a 76pt stage thumbnail, 44pt for `visualSize="sm"`).
+   * Replaces the glyph or avatar, makes the row at least 96pt (64pt small), starts the
+   * separator after the thumbnail and lets the help line wrap. Hidden from screen readers.
+   */
+  visual?: React.ReactNode;
+  visualSize?: 'md' | 'sm';
 }
 
 /** A row leads with a plain glyph or a person's avatar, never both. */
@@ -124,24 +131,46 @@ export function GroupRow({
   destructive,
   disabled,
   reason,
+  visual,
+  visualSize = 'md',
 }: GroupRowProps) {
   const depth = useDepth();
   // Swipe / long-press actions of an enclosing SwipeableRow or ContextMenu.
   const rowActions = useRowActionProps();
-  const hasAvatar = avatarName !== undefined;
+  const hasVisual = visual != null;
+  const isSmallVisual = visualSize === 'sm';
+  const hasAvatar = !hasVisual && avatarName !== undefined;
+  const hasGlyph = !hasVisual && IconGlyph !== undefined;
+  const visualInset = isSmallVisual ? 70 : 104;
+  const dividerInset = hasVisual
+    ? visualInset
+    : hasAvatar
+      ? 72
+      : hasGlyph
+        ? 50
+        : 16;
   const body = (
     <>
-      {showSeparator ? (
-        <Divider inset={hasAvatar ? 72 : IconGlyph ? 50 : 16} />
+      {showSeparator ? <Divider inset={dividerInset} /> : null}
+      {hasVisual ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          className="shrink-0"
+        >
+          {visual}
+        </View>
       ) : null}
       {hasAvatar ? <Avatar name={avatarName} ring={avatarRing} /> : null}
-      {IconGlyph ? (
+      {hasGlyph && IconGlyph ? (
         <IconGlyph size={20} strokeWidth={1.8} color={depth.colors.secondary} />
       ) : null}
       {/* The title never truncates: a plain row lets the detail give way first. */}
       <View
         className={
-          subtitle || (disabled && reason) ? 'min-w-0 flex-1' : 'shrink-0 grow'
+          hasVisual || subtitle || (disabled && reason)
+            ? 'min-w-0 flex-1'
+            : 'shrink-0 grow'
         }
       >
         <Text className={cn('text-title', destructive && 'text-destructive')}>
@@ -149,7 +178,7 @@ export function GroupRow({
         </Text>
         {subtitle || (disabled && reason) ? (
           <Text
-            numberOfLines={1}
+            numberOfLines={hasVisual ? undefined : 1}
             style={{ fontVariant: ['tabular-nums'] }}
             className="text-subtitle text-muted-foreground"
           >
@@ -185,11 +214,14 @@ export function GroupRow({
 
   const className = cn(
     'relative flex-row items-center px-4',
+    hasVisual &&
+      (isSmallVisual ? 'min-h-16 gap-3 py-2.5' : 'min-h-24 gap-3.5 py-2.5'),
     hasAvatar && 'min-h-16 gap-3 py-1.5',
-    IconGlyph && 'min-h-14 gap-3.5 py-2',
-    !hasAvatar && !IconGlyph && 'gap-2.5 py-1.5',
-    !hasAvatar &&
-      !IconGlyph &&
+    hasGlyph && 'min-h-14 gap-3.5 py-2',
+    !hasVisual && !hasAvatar && !hasGlyph && 'gap-2.5 py-1.5',
+    !hasVisual &&
+      !hasAvatar &&
+      !hasGlyph &&
       (subtitle || (disabled && reason) ? 'min-h-[60px]' : 'min-h-14'),
   );
   if (disabled) {

@@ -15,6 +15,9 @@ import { View } from 'react-native';
 
 import { useMe } from '@/features/business/me';
 
+import { ExplainerStage } from '../explainers/ExplainerStage';
+import { shortSeconds } from '../explainers/labels';
+
 import {
   APPROVAL_POLICIES,
   DEFAULT_APPROVAL_POLICY,
@@ -99,14 +102,15 @@ function Controls({
     : [...UNDO_WINDOW_OPTIONS, undoSeconds].sort((a, b) => a - b);
   return (
     <>
-      <Text className="mx-5 mb-2 text-subtitle text-muted-foreground">
-        {t(`${ROOT}.askFirst`)}
-      </Text>
       <Group radius={26}>
-        {APPROVAL_POLICIES.map((value, index) => (
+        <GroupRow
+          title={t(`${ROOT}.askFirst`)}
+          visual={<ExplainerStage scene="cask" />}
+        />
+        {APPROVAL_POLICIES.map((value) => (
           <GroupRow
             key={value}
-            showSeparator={index > 0}
+            showSeparator
             title={t(`${ROOT}.policy.${value}.title`)}
             detail={
               value === DEFAULT_APPROVAL_POLICY
@@ -131,11 +135,20 @@ function Controls({
       >
         {t(`${ROOT}.policy.${policy}.hint`)}
       </Text>
-      <Text className="mx-5 mb-2 mt-5 text-subtitle text-muted-foreground">
-        {t(`${ROOT}.undoWindow`)}
-      </Text>
-      <Group radius={26}>
-        <GroupBlock>
+      <Group radius={26} className="mt-5">
+        <GroupRow
+          title={t(`${ROOT}.undoWindow`)}
+          subtitle={t(`${ROOT}.undoHint`)}
+          detail={shortSeconds(t, undoSeconds)}
+          visual={
+            <ExplainerStage
+              scene="cundo"
+              index={1}
+              label={shortSeconds(t, undoSeconds)}
+            />
+          }
+        />
+        <GroupBlock showSeparator>
           <View className="min-h-14 flex-row items-center px-4 py-2">
             <SegmentedControl<string>
               variant="choice"
@@ -156,9 +169,6 @@ function Controls({
           </View>
         </GroupBlock>
       </Group>
-      <Text className="mx-5 mt-2 text-subtitle text-muted-foreground">
-        {t(`${ROOT}.undoHint`)}
-      </Text>
     </>
   );
 }

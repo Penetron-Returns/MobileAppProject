@@ -14,6 +14,8 @@ import {
   UNDO_WINDOW_OPTIONS,
 } from '../companionSettings';
 
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined }));
+
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy({}, { get: () => View });

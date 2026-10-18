@@ -6,6 +6,8 @@ import { TextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import renderer, { act, type ReactTestInstance } from 'react-test-renderer';
 
+import { DayHoursRow } from '@/features/availability/components/DayHoursRow';
+
 import { OperatingHoursScreen } from '../components/OperatingHoursScreen';
 import { ServicesScreen } from '../components/ServicesScreen';
 
@@ -13,6 +15,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('expo-router', () => ({
+  useFocusEffect: () => undefined,
   router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn() },
 }));
 
@@ -162,6 +165,25 @@ describe('Operating hours screen', () => {
     expect(byLabel(tree, 'Tuesday closes at 17:00').length).toBeGreaterThan(0);
     expect(json).toContain('Closed');
     expect(json).toContain('Tap a time to change it.');
+  });
+
+  it('adds thumbnails only to the hours summary and holidays, never to the day rows', () => {
+    const tree = mount(<OperatingHoursScreen />);
+    const stages = tree.root.findAll((n) =>
+      String(n.props.testID ?? '').startsWith('explainer-'),
+    );
+    expect([...new Set(stages.map((n) => n.props.testID))]).toEqual([
+      'explainer-week',
+      'explainer-holiday',
+    ]);
+    for (const row of tree.root.findAllByType(DayHoursRow)) {
+      expect(
+        row.findAll((n) =>
+          String(n.props.testID ?? '').startsWith('explainer-'),
+        ),
+      ).toHaveLength(0);
+    }
+    expect(tree.root.findAllByType(DayHoursRow)).toHaveLength(7);
   });
 
   it('opens a day by its switch', () => {
