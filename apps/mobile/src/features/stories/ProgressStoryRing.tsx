@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -22,6 +23,11 @@ export interface ProgressStoryRingProps {
   total: number;
   onPress: () => void;
 }
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/** One glide to a new value, never a loop: nothing runs while the ring rests. */
+const GLIDE_MS = 600;
 
 const STROKE = (RING - GAP_NEW) / 2 + 1;
 const RADIUS = (RING - STROKE) / 2;
@@ -49,6 +55,15 @@ export function ProgressStoryRing({
   }));
   const fraction = total > 0 ? Math.min(done / total, 1) : 0;
   const arc = TONES.neutral.ring[1];
+  const progress = useSharedValue(fraction);
+  React.useEffect(() => {
+    progress.value = withTiming(fraction, { duration: GLIDE_MS });
+  }, [fraction, progress]);
+  const arcProps = useAnimatedProps(() => ({
+    strokeDasharray: `${CIRCUMFERENCE * progress.value} ${CIRCUMFERENCE}`,
+    // A round cap would draw a dot at zero.
+    strokeOpacity: progress.value > 0 ? 1 : 0,
+  }));
 
   return (
     <Pressable
@@ -81,18 +96,16 @@ export function ProgressStoryRing({
               strokeWidth={STROKE}
               fill="none"
             />
-            {fraction > 0 ? (
-              <Circle
-                cx={RING / 2}
-                cy={RING / 2}
-                r={RADIUS}
-                stroke={arc}
-                strokeWidth={STROKE}
-                strokeLinecap="round"
-                strokeDasharray={`${CIRCUMFERENCE * fraction} ${CIRCUMFERENCE}`}
-                fill="none"
-              />
-            ) : null}
+            <AnimatedCircle
+              cx={RING / 2}
+              cy={RING / 2}
+              r={RADIUS}
+              stroke={arc}
+              strokeWidth={STROKE}
+              strokeLinecap="round"
+              animatedProps={arcProps}
+              fill="none"
+            />
           </Svg>
           <View
             style={[
