@@ -5,7 +5,6 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import * as React from 'react';
-import { AppState } from 'react-native';
 
 import {
   appointmentsBetweenOptions,
@@ -17,8 +16,9 @@ import { useStaff, type StaffRow } from '@/features/catalog/hooks';
 import { api } from '@/lib/api';
 import { isFailed, loadError, type LoadStatus } from '@/lib/offline';
 import { qk } from '@/lib/query';
-import { addDays, todayISO, zonedTimeToUtc, type ISODate } from '@/lib/time';
+import { addDays, zonedTimeToUtc, type ISODate } from '@/lib/time';
 
+import { useToday } from './useToday';
 import { toCalendarSchedule, type CalendarSchedule } from './config';
 import {
   appointmentsOnDate,
@@ -51,27 +51,6 @@ const windowIso = (from: ISODate, lastDay: ISODate, tz: string) => ({
   from: zonedTimeToUtc(from, '00:00', tz).toISOString(),
   to: zonedTimeToUtc(addDays(lastDay, 1), '00:00', tz).toISOString(),
 });
-
-/** The business's today, re-checked each minute; it re-renders only when the date actually turns over. */
-export function useToday(tz: string | null): ISODate | null {
-  const [today, setToday] = React.useState<ISODate | null>(() =>
-    tz ? todayISO(tz) : null,
-  );
-  React.useEffect(() => {
-    if (!tz) return;
-    const sync = () => setToday(todayISO(tz));
-    sync();
-    const id = setInterval(sync, 60_000);
-    const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') sync();
-    });
-    return () => {
-      clearInterval(id);
-      sub.remove();
-    };
-  }, [tz]);
-  return today;
-}
 
 /**
  * Bookings and the schedule (hours, special days, breaks, time off) for the

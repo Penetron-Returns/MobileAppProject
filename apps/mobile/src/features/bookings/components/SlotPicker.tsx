@@ -52,7 +52,9 @@ function toSlotDay(date: ISODate): SlotDay {
 
 /**
  * Live availability: day chips from the availability API, then time chips for
- * the chosen day. Nothing is cached, so a slot taken meanwhile disappears.
+ * the chosen day. Browsing reuses results for ~20s and shows the previous
+ * ones dimmed (and untappable) while the next load; `create_appointment`
+ * re-validates, so a slot taken meanwhile is refused there.
  */
 export function SlotPicker({
   serviceId,
@@ -87,9 +89,12 @@ export function SlotPicker({
     staffId,
   });
   // Why a date is missing from the chips: a holiday that closes the business.
+  // A year of config is a heavy call and only feeds a footnote, so it waits
+  // until the chips are on screen.
   const config = useAvailabilityConfig(
     range.from,
     range.to < addDays(range.from, 365) ? range.to : addDays(range.from, 365),
+    Boolean(days.data),
   );
   const closed = closedDays(
     config.data?.special_days ?? [],
@@ -114,7 +119,14 @@ export function SlotPicker({
     if (shown && shown !== date) onDateChange(shown);
   }, [shown, date, onDateChange]);
 
-  const slots = useAvailableSlots({ serviceId, date: shown, staffId });
+  // While the days load, fetch the likeliest first day alongside them
+  // (the chosen date, else today) instead of waiting for them.
+  const slots = useAvailableSlots({
+    serviceId,
+    date: shown ?? date ?? today,
+    staffId,
+  });
+  const slotsStale = slots.isPlaceholderData;
   const times: SlotTime[] = React.useMemo(
     () =>
       (slots.data?.slots ?? []).map((slot) => ({
@@ -128,6 +140,7 @@ export function SlotPicker({
   const appliedPreferred = React.useRef(false);
   React.useEffect(() => {
     if (!preferredTime || appliedPreferred.current || selected) return;
+    if (slots.isPlaceholderData) return;
     const slot = slots.data?.slots.find(
       (s) =>
         minutesToTime(minutesSinceMidnight(s.starts_at, timezone)) ===
@@ -136,7 +149,14 @@ export function SlotPicker({
     if (!slot) return;
     appliedPreferred.current = true;
     onSelect({ startsAt: slot.starts_at, staffIds: slot.staff_ids });
-  }, [preferredTime, selected, slots.data, timezone, onSelect]);
+  }, [
+    preferredTime,
+    selected,
+    slots.data,
+    slots.isPlaceholderData,
+    timezone,
+    onSelect,
+  ]);
 
   if (!serviceId) {
     return (
@@ -171,12 +191,14 @@ export function SlotPicker({
 
   return (
     <View className="gap-4">
-      <DayChips
-        days={dayTiles}
-        selected={shown}
-        onSelect={(value) => onDateChange(value as ISODate)}
-        label={t('slots.days')}
-      />
+      <Dimmed dimmed={days.isPlaceholderData}>
+        <DayChips
+          days={dayTiles}
+          selected={shown}
+          onSelect={(value) => onDateChange(value as ISODate)}
+          label={t('slots.days')}
+        />
+      </Dimmed>
       {isFailed(slots) ? (
         <ErrorState
           variant="banner"
@@ -193,19 +215,40 @@ export function SlotPicker({
           {t('slots.noSlots')}
         </Text>
       ) : (
-        <TimeChips
-          times={times}
-          selected={selected}
-          label={t('slots.times')}
-          onSelect={(startsAt) => {
-            const slot = slots.data?.slots.find(
-              (s) => s.starts_at === startsAt,
-            );
-            if (slot) onSelect({ startsAt, staffIds: slot.staff_ids });
-          }}
-        />
+        <Dimmed dimmed={slotsStale}>
+          <TimeChips
+            times={times}
+            selected={selected}
+            label={t('slots.times')}
+            onSelect={(startsAt) => {
+              const slot = slots.data?.slots.find(
+                (s) => s.starts_at === startsAt,
+              );
+              if (slot) onSelect({ startsAt, staffIds: slot.staff_ids });
+            }}
+          />
+        </Dimmed>
       )}
       {closedNote}
+    </View>
+  );
+}
+
+/** Previous results shown while the next load: faded, and not tappable. */
+function Dimmed({
+  dimmed,
+  children,
+}: {
+  dimmed: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      pointerEvents={dimmed ? 'none' : 'auto'}
+      accessibilityState={{ busy: dimmed }}
+      className={dimmed ? 'opacity-50' : undefined}
+    >
+      {children}
     </View>
   );
 }

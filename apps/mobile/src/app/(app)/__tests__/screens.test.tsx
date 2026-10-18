@@ -113,6 +113,8 @@ jest.mock('@/features/appointments/hooks', () => ({
   useAvailableDays: mockHook('useAvailableDays'),
   useAppointmentEvents: mockHook('useAppointmentEvents'),
   useBookingRules: mockHook('useBookingRules'),
+  usePrefetchAvailability: () => jest.fn(),
+  usePrefetchAppointment: () => jest.fn(),
   useRescheduleAppointment: mockMutation,
   useSetAppointmentStatus: mockMutation,
 }));

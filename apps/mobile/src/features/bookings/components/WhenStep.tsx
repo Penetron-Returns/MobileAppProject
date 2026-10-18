@@ -149,10 +149,14 @@ function SlotTakenCard({
   const { t } = useTranslation();
   const day = businessDate(takenAt, timezone);
   const slots = useAvailableSlots({ serviceId, date: day, staffId });
-  const options = closestSlots(
-    (slots.data?.slots ?? []).filter((s) => s.starts_at !== takenAt),
-    takenAt,
-  );
+  // A previous day's slots (kept while this one loads) are not options.
+  const loading = slots.isPending || slots.isPlaceholderData;
+  const options = loading
+    ? []
+    : closestSlots(
+        (slots.data?.slots ?? []).filter((s) => s.starts_at !== takenAt),
+        takenAt,
+      );
   const when = `${formatDateShort(day)} ${formatTime(takenAt, timezone)}`;
   return (
     <Surface
@@ -164,7 +168,7 @@ function SlotTakenCard({
         {t('newBooking.taken.title', { when })}
       </Text>
       <Text className="text-subtitle text-muted-foreground">
-        {options.length > 0
+        {loading || options.length > 0
           ? t('newBooking.taken.closest')
           : t('newBooking.taken.none')}
       </Text>
