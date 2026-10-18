@@ -1,7 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
-import { haptics } from '../haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import {
+  getHapticsEnabled,
+  haptics,
+  resetHapticsForTests,
+  setHapticsEnabled,
+} from '../haptics';
 
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
@@ -18,7 +25,11 @@ jest.mock('expo-haptics', () => ({
 const mocked = Haptics as jest.Mocked<typeof Haptics>;
 
 describe('haptics', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+    resetHapticsForTests();
+  });
 
   it('maps selection to selectionAsync', () => {
     haptics.selection();
@@ -70,5 +81,21 @@ describe('haptics', () => {
     });
     expect(mocked.selectionAsync).not.toHaveBeenCalled();
     expect(mocked.notificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('plays nothing once the Settings switch is off, and saves the choice', async () => {
+    setHapticsEnabled(false);
+    haptics.light();
+    haptics.success();
+    expect(mocked.impactAsync).not.toHaveBeenCalled();
+    expect(mocked.notificationAsync).not.toHaveBeenCalled();
+    expect(await AsyncStorage.getItem('clovie.haptics.enabled')).toBe('false');
+  });
+
+  it('restores a saved off choice on the next launch', async () => {
+    await AsyncStorage.setItem('clovie.haptics.enabled', 'false');
+    expect(getHapticsEnabled()).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getHapticsEnabled()).toBe(false);
   });
 });
