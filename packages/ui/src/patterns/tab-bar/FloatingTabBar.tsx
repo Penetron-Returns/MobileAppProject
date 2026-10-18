@@ -13,10 +13,12 @@ import {
   Pressable,
   StyleSheet,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type ViewStyle,
 } from 'react-native';
 import Animated, {
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -29,12 +31,7 @@ import { haptics } from '../../lib/haptics';
 import { Text } from '../../primitives/Text';
 import { type DepthTokens } from '../../tokens/depth';
 import { useDepth } from '../../theme/useDepth';
-import {
-  DURATION,
-  SCALE,
-  springConfig,
-  timingConfig,
-} from '../../tokens/motion';
+import { DURATION, timingConfig } from '../../tokens/motion';
 
 import {
   INBOX_DOME_GAP,
@@ -76,6 +73,19 @@ interface TabFrame {
 
 /** Inset of the tabs inside the capsule (p-1): the pill sits within it. */
 const BAR_PAD = 4;
+
+/** Quick settle (~250ms) for the pill and the icon dip; instant under Reduce Motion. */
+const PILL_SPRING = {
+  duration: 280,
+  dampingRatio: 0.85,
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+/** A quiet, short dip: the icon acknowledges the tap without a visible jump. */
+const ICON_DIP = 0.94;
+
+/** Above this font scale the labels would overflow the capsule: show icons only. */
+export const LABEL_MAX_FONT_SCALE = 1.2;
 
 /**
  * The floating tab bar of the iPhone design: equal tabs in one raised
@@ -122,30 +132,50 @@ export function FloatingTabBar({
   const activeName = current.name as string;
   const activeFrame = frames[activeName as TabRouteName];
   const pillX = useSharedValue(0);
-  const pillW = useSharedValue(0);
+  const pillScale = useSharedValue(1);
   const pillOn = useSharedValue(0);
   const placed = React.useRef(false);
+  const framesRef = React.useRef(frames);
+  framesRef.current = frames;
+  // The pill is drawn at one base width and stretched with scaleX, so the
+  // slide runs on transforms only (no layout pass per frame).
+  const baseW = React.useMemo(
+    () => Math.max(1, ...Object.values(frames).map((f) => f.width)),
+    [frames],
+  );
+  const baseRef = React.useRef(baseW);
+  baseRef.current = baseW;
+  const moveTo = React.useCallback(
+    (frame: TabFrame, animate: boolean) => {
+      const base = baseRef.current;
+      const x = frame.x + frame.width / 2 - base / 2;
+      const scale = frame.width / base;
+      if (animate) {
+        pillX.value = withSpring(x, PILL_SPRING);
+        pillScale.value = withSpring(scale, PILL_SPRING);
+      } else {
+        pillX.value = x;
+        pillScale.value = scale;
+      }
+    },
+    [pillScale, pillX],
+  );
   React.useEffect(() => {
     if (!activeFrame) {
       pillOn.value = withTiming(0, timingConfig(DURATION.quick));
       return;
     }
-    if (!placed.current) {
-      // First placement lands without sliding in from the left edge.
-      placed.current = true;
-      pillX.value = activeFrame.x;
-      pillW.value = activeFrame.width;
-    } else {
-      pillX.value = withSpring(activeFrame.x, springConfig('snappy'));
-      pillW.value = withSpring(activeFrame.width, springConfig('snappy'));
-    }
+    // First placement lands without sliding in from the left edge.
+    moveTo(activeFrame, placed.current);
+    placed.current = true;
     pillOn.value = withTiming(1, timingConfig(DURATION.quick));
-  }, [activeFrame, pillOn, pillW, pillX]);
+  }, [activeFrame, baseW, moveTo, pillOn]);
   const pillStyle = useAnimatedStyle(() => ({
     opacity: pillOn.value,
-    width: pillW.value,
-    transform: [{ translateX: pillX.value }],
+    transform: [{ translateX: pillX.value }, { scaleX: pillScale.value }],
   }));
+  const { fontScale } = useWindowDimensions();
+  const iconOnly = fontScale > LABEL_MAX_FONT_SCALE;
 
   const currentStyle = StyleSheet.flatten(
     descriptors[current.key]?.options.tabBarStyle as ViewStyle | undefined,
@@ -161,7 +191,12 @@ export function FloatingTabBar({
         })
       : { defaultPrevented: false };
     if (!event.defaultPrevented) {
-      if (name !== activeName) haptics.selection();
+      if (name !== activeName) {
+        haptics.selection();
+        // Move the pill now; the screen mounts after.
+        const target = framesRef.current[name as TabRouteName];
+        if (target) moveTo(target, true);
+      }
       navigation.navigate(name);
     }
   };
@@ -191,6 +226,7 @@ export function FloatingTabBar({
         }
         isActive={activeName === name}
         depth={depth}
+        iconOnly={iconOnly}
         onPress={() => goTo(name, route.key)}
         onLayout={onFrame(name)}
       />
@@ -238,6 +274,7 @@ export function FloatingTabBar({
               top: BAR_PAD,
               bottom: BAR_PAD,
               left: 0,
+              width: baseW,
               borderRadius: 28,
             },
             pillStyle,
@@ -286,6 +323,7 @@ function TabItem({
   label,
   isActive,
   depth,
+  iconOnly,
   onPress,
   onLayout,
 }: {
@@ -294,17 +332,18 @@ function TabItem({
   label: string;
   isActive: boolean;
   depth: DepthTokens;
+  iconOnly: boolean;
   onPress: () => void;
   onLayout: (event: LayoutChangeEvent) => void;
 }) {
   const color = tabColor(depth, isActive);
-  // Every tap dips the icon (1, 0.86, 1) and springs it back, even on the
-  // tab that is already selected. Reduce motion makes both legs instant.
+  // Every tap dips the icon slightly (1, 0.94, 1) and springs it back, even on
+  // the tab that is already selected. Reduce motion makes both legs instant.
   const pop = useSharedValue(1);
   const bounce = () => {
     pop.value = withSequence(
-      withTiming(SCALE.tabDip, timingConfig(DURATION.press)),
-      withSpring(1, springConfig('snappy')),
+      withTiming(ICON_DIP, timingConfig(DURATION.press / 2)),
+      withSpring(1, PILL_SPRING),
     );
   };
   const popStyle = useAnimatedStyle(() => ({
@@ -338,17 +377,20 @@ function TabItem({
           />
         )}
       </Animated.View>
-      <Text
-        numberOfLines={1}
-        style={{ color }}
-        className={
-          isActive
-            ? 'text-[11px] font-semibold leading-[13px]'
-            : 'text-[11px] font-medium leading-[13px]'
-        }
-      >
-        {label}
-      </Text>
+      {iconOnly ? null : (
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+          style={{ color }}
+          className={
+            isActive
+              ? 'text-[11px] font-semibold leading-[13px]'
+              : 'text-[11px] font-medium leading-[13px]'
+          }
+        >
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
