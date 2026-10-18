@@ -183,6 +183,7 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
         display_phone_number: setup.whatsapp.displayPhoneNumber,
         business_verified: setup.whatsapp.businessVerified,
         business_verification_status: setup.whatsapp.businessVerificationStatus,
+        ...setup.whatsapp.health,
       },
       provisioned: setup.provisioned,
       booking_connection: setup.bookingConnection,

@@ -100,7 +100,7 @@ export function createFakeNerovaClient(
       if (!found) return null;
       return {
         nextStep: found.nextStep ?? null,
-        whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null, ...found.whatsapp },
+        whatsapp: { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null, health: {}, ...found.whatsapp },
         provisioned: found.provisioned ?? true,
         bookingConnection: found.bookingConnection ?? null,
         blockingReasons: found.blockingReasons ?? [],

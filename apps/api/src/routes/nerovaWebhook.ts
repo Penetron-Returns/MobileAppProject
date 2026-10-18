@@ -3,7 +3,9 @@
  * the raw body before parsing; a bad signature is 401, an unset secret is 503. Deliveries are deduplicated in
  * webhook_events (source 'nerova', event_key = webhook-id). It answers 200 at once and pushes in the background:
  * Nerova retries a non-2xx for ~21 hours, so a failed push is logged, not retried. `approval.requested` and
- * `action.executed` (act-then-undo) push the owners; `action.undone` is only logged. Everything else is ignored.
+ * `action.executed` (act-then-undo) push the owners; `action.undone` is only logged. `channel.health_changed` is
+ * acknowledged and logged (enum values only, no PII): nothing is stored and no push is sent, the app refetches
+ * the setup (which carries the health) on focus and pull-to-refresh. Everything else is ignored.
  */
 import { Hono } from 'hono';
 
@@ -15,6 +17,7 @@ import { notifyActionExecuted, type ActionExecutedObject, type ActionPushDeps } 
 import { createActionsClientFromEnv } from '@booking/companion/nerova/actions.ts';
 import { notifyApprovalRequested, type ApprovalPushDeps, type ApprovalRequestedObject } from '@booking/companion/approvals/approvalPush.ts';
 import { createApprovalsClientFromEnv } from '@booking/companion/nerova/approvals.ts';
+import { parseWhatsAppHealth } from '@booking/companion/nerova/whatsappHealth.ts';
 import { verifyStandardWebhook } from '@booking/companion/webhooks/verifyStandardWebhook.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
 import type { Container } from '../container.ts';
@@ -118,6 +121,18 @@ nerovaWebhookRoutes.post('/', async (c) => {
   if (envelope.type === 'action.undone') {
     // No push: the owner just undid it (or Nerova did). Only the id and kind are logged.
     logger.info('nerova_action_undone', { action_id: str(envelope.object.actionId), kind: str(envelope.object.kind) });
+  }
+  if (envelope.type === 'channel.health_changed') {
+    const health = parseWhatsAppHealth(envelope.object.whatsApp);
+    logger.info('nerova_channel_health_changed', {
+      phone_number_status: health.phone_number_status ?? null,
+      quality_rating: health.quality_rating ?? null,
+      messaging_limit_tier: health.messaging_limit_tier ?? null,
+      name_status: health.name_status ?? null,
+      has_last_error: Boolean(health.last_error),
+    });
+    await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });
+    return c.json({ data: { status: 'accepted' } });
   }
   if (!approval && !executed) {
     await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });

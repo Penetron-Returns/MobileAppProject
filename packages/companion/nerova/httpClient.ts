@@ -4,6 +4,7 @@ import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
 import type { CompanionSettingsPatch, NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
+import { parseWhatsAppHealth } from './whatsappHealth.ts';
 
 export const NEROVA_API_BASE_URL = 'https://api.nerova.si';
 /** Speech-to-text of a short clip is slower than a JSON call. */
@@ -207,6 +208,7 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
           displayPhoneNumber: text(whatsapp.displayPhoneNumber),
           businessVerified: whatsapp.businessVerified === true,
           businessVerificationStatus: text(whatsapp.businessVerificationStatus),
+          health: parseWhatsAppHealth(whatsapp),
         },
         provisioned: body.provisioned === true,
         bookingConnection: text(body.bookingConnection),
