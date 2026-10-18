@@ -2,6 +2,7 @@ import type { MomentAvatarProperties } from '@nerova/react-native';
 import { View } from 'react-native';
 
 import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+import { ClovieSprite } from '@/features/clovie-character/ClovieSprite';
 import { useMotionActive } from '@/hooks/useMotionActive';
 
 /** The hero (idle) slot is drawn larger than the SDK's box so he reads clearly. */
@@ -9,12 +10,13 @@ const HERO_SCALE = 1.4;
 const HERO_MIN_SIZE = 64;
 
 /**
- * The real animated Clovie (the same live renderer as the companion sheet and
- * the voice drawer) inside Nerova's `<CompanionMoment>` (`renderAvatar`): idle
- * looks around and blinks, `working` while the companion is busy. It is paused,
- * showing his still image with no WebView, whenever the tab is not focused,
- * the app is backgrounded or Reduce Motion is on. Decorative; the SDK's avatar
- * button carries the label.
+ * Clovie inside Nerova's `<CompanionMoment>` (`renderAvatar`). Idle is the
+ * pre-rendered sprite (a bitmap that blinks: no WebView, no per-frame cost);
+ * the live WebView renderer is kept only for `working`, where the companion is
+ * busy and he hops, and it mounts after the first content has settled. Both
+ * pause (still image, no blinking) whenever the tab is not focused, the app is
+ * backgrounded or Reduce Motion is on. Decorative; the SDK's avatar button
+ * carries the label.
  */
 export function MomentClovie({ state, size }: MomentAvatarProperties) {
   const isActive = useMotionActive();
@@ -30,11 +32,16 @@ export function MomentClovie({ state, size }: MomentAvatarProperties) {
       style={{ width: size, height: size, overflow: 'visible' }}
     >
       <View style={{ marginTop: offset }}>
-        <ClovieAnimated
-          state={state === 'working' ? 'working' : 'default'}
-          size={drawn}
-          isPaused={!isActive}
-        />
+        {state === 'working' ? (
+          <ClovieAnimated
+            state="working"
+            size={drawn}
+            isPaused={!isActive}
+            isDeferred
+          />
+        ) : (
+          <ClovieSprite size={drawn} isActive={isActive} />
+        )}
       </View>
     </View>
   );

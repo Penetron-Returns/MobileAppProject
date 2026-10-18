@@ -6,39 +6,61 @@ let mockActive = true;
 jest.mock('@/hooks/useMotionActive', () => ({
   useMotionActive: () => mockActive,
 }));
-let mockProps: Record<string, unknown> = {};
+let mockLive: Record<string, unknown> | null = null;
 jest.mock('@/features/brand/ClovieAnimated', () => ({
   ClovieAnimated: (props: Record<string, unknown>) => {
-    mockProps = props;
+    mockLive = props;
+    return null;
+  },
+}));
+let mockSprite: Record<string, unknown> | null = null;
+jest.mock('@/features/clovie-character/ClovieSprite', () => ({
+  ClovieSprite: (props: Record<string, unknown>) => {
+    mockSprite = props;
     return null;
   },
 }));
 
 const base = { placement: 'moment', blinkToken: 0 } as const;
 
+beforeEach(() => {
+  mockLive = null;
+  mockSprite = null;
+  mockActive = true;
+});
+
 describe('MomentClovie', () => {
-  it('runs the live Clovie while the tab is focused and in the foreground', () => {
-    mockActive = true;
+  it('draws idle as the blinking sprite, with no WebView renderer', () => {
     mount(<MomentClovie {...base} state="idle" size={64} />);
-    expect(mockProps).toMatchObject({ isPaused: false, state: 'default' });
+    expect(mockSprite).toMatchObject({ isActive: true });
+    expect(mockLive).toBeNull();
   });
 
-  it('pauses to the still image when motion is gated off', () => {
+  it('stops blinking when motion is gated off', () => {
     mockActive = false;
     mount(<MomentClovie {...base} state="idle" size={64} />);
-    expect(mockProps.isPaused).toBe(true);
+    expect(mockSprite?.isActive).toBe(false);
   });
 
-  it('works while the companion is busy and idles on the reply nod', () => {
-    mockActive = true;
+  it('keeps the live renderer for working only, mounted deferred', () => {
     mount(<MomentClovie {...base} state="working" size={44} />);
-    expect(mockProps).toMatchObject({ state: 'working', size: 44 });
+    expect(mockLive).toMatchObject({
+      state: 'working',
+      size: 44,
+      isDeferred: true,
+      isPaused: false,
+    });
+    expect(mockSprite).toBeNull();
+  });
+
+  it('idles on the sprite after the reply nod', () => {
     mount(<MomentClovie {...base} state="nod" size={44} />);
-    expect(mockProps.state).toBe('default');
+    expect(mockSprite).not.toBeNull();
+    expect(mockLive).toBeNull();
   });
 
   it('draws the hero slot larger than the SDK box', () => {
     mount(<MomentClovie {...base} state="idle" size={64} />);
-    expect(mockProps.size).toBeGreaterThan(64);
+    expect(mockSprite?.size).toBeGreaterThan(64);
   });
 });

@@ -14,16 +14,24 @@ const NO_REDUCED_MOTION_QUERY =
 /** The avatar is drawn this much larger (a bigger canvas is hop headroom) and scaled back down. */
 export const CLOVIE_RENDER_SCALE = 1.3;
 
+/** Built pages by state and size: the inlined bundle is ~331KB, so it is made once. */
+const htmlCache = new Map<string, string>();
+
 /**
  * The self-contained page the WebView loads: a transparent canvas page with
  * the bot-avatars bundle inlined, so nothing is fetched at runtime. Nothing
  * clips (overflow visible), and the avatar sits centred in the frame.
  */
 export function buildClovieHtml(state: ClovieState, size: number): string {
+  const key = `${state}:${size}`;
+  const cached = htmlCache.get(key);
+  if (cached) return cached;
   const config = JSON.stringify({
     state,
     size: `${size * CLOVIE_RENDER_SCALE}px`,
   });
   const scale = 1 / CLOVIE_RENDER_SCALE;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>html,body{margin:0;width:100%;height:100%;background:transparent;overflow:visible;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}#root{flex:none;transform:scale(${scale})}</style></head><body><div id="root"></div><script>${NO_REDUCED_MOTION_QUERY}window.__CLOVIE__=${config};</script><script>${CLOVIE_BUNDLE}</script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>html,body{margin:0;width:100%;height:100%;background:transparent;overflow:visible;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}#root{flex:none;transform:scale(${scale})}</style></head><body><div id="root"></div><script>${NO_REDUCED_MOTION_QUERY}window.__CLOVIE__=${config};</script><script>${CLOVIE_BUNDLE}</script></body></html>`;
+  htmlCache.set(key, html);
+  return html;
 }

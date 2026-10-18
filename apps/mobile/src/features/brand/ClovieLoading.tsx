@@ -9,7 +9,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ClovieAnimated } from './ClovieAnimated';
+import { ClovieSprite } from '@/features/clovie-character/ClovieSprite';
+
 import { hideNativeSplash } from './splash';
 import { useQuoteCycler } from './useQuoteCycler';
 
@@ -48,9 +49,9 @@ interface ClovieLoadingProps {
 /**
  * The full-screen loading state while auth, the session and /v1/me resolve.
  * It sits on the app's own ground (light or dark) and hides the native splash,
- * which is just the wordmark, once the still Clovie has loaded (or after a
- * safety timeout): the splash fades into this screen, and the still hands off
- * to the live Clovie with no empty frame. Quotes use the theme's primary label
+ * which is just the wordmark, once the Clovie sprite has loaded (or after a
+ * safety timeout): the splash fades into this screen, and the sprite (a bitmap
+ * that blinks, so no WebView starts during boot) takes over. Quotes use the theme's primary label
  * colour, which clears WCAG AA on both grounds. It shows only while loading
  * is pending: no minimum display time.
  */
@@ -79,10 +80,11 @@ export function ClovieLoading({
     >
       <View className="flex-1 items-center justify-center px-10">
         <View style={{ marginTop: -CLOVIE_SIZE * STILL_CENTRE_DROP * 2 }}>
-          <ClovieAnimated
-            state="working"
+          <ClovieSprite
+            testID="clovie-still"
             size={CLOVIE_SIZE}
-            onStillLoad={hideNativeSplash}
+            isActive={!reduceMotion}
+            onLoad={hideNativeSplash}
           />
         </View>
         {/* Quotes are decorative: hidden from screen readers so they are never re-announced. */}

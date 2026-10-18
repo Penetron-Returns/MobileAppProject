@@ -1,4 +1,4 @@
-import { TIMING, useAppColorScheme } from '@booking/ui';
+import { TIMING } from '@booking/ui';
 import * as React from 'react';
 import { Image, View } from 'react-native';
 import Animated, {
@@ -10,6 +10,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { useIdlePulse } from '@/hooks/useIdlePulse';
 import { useMotionActive } from '@/hooks/useMotionActive';
+import { whenIdle } from '@/lib/whenIdle';
 
 import { buildClovieHtml, type ClovieState } from './clovieHtml';
 
@@ -42,6 +43,9 @@ const BREATHE_SWELL = 0.03;
 /** Slack after the live layer's fade-in before the still beneath it is removed. */
 const HANDOFF_SLACK_MS = 40;
 
+/** One asset for both schemes: the character is the same on light and dark. */
+const STILL = require('@/assets/images/companion-default.png');
+
 interface ClovieAnimatedProps {
   /** `default` is idle (looks around, blinks, hops now and then); `working` hops and laughs. */
   state?: ClovieState;
@@ -64,6 +68,12 @@ interface ClovieAnimatedProps {
    * caller's own transforms. Unmounting it is what stops the WebView.
    */
   isAlwaysLive?: boolean;
+  /**
+   * Waits for the first content and running interactions before the WebView
+   * mounts, so the still paints first and the page load never competes with
+   * the first screen.
+   */
+  isDeferred?: boolean;
 }
 
 /**
@@ -90,17 +100,27 @@ export function ClovieAnimated({
   size,
   isPaused = false,
   isAlwaysLive = false,
+  isDeferred = false,
 }: ClovieAnimatedProps) {
   const isMotionActive = useMotionActive();
-  const { isDark } = useAppColorScheme();
+  const [isMountable, setIsMountable] = React.useState(!isDeferred);
+  React.useEffect(() => {
+    if (!isDeferred) return;
+    return whenIdle(() => setIsMountable(true));
+  }, [isDeferred]);
   const [ready, setReady] = React.useState(false);
   const [liveOpaque, setLiveOpaque] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   /** Bumped to remount the WebView after its process dies. */
   const [webKey, setWebKey] = React.useState(0);
-  const html = React.useMemo(() => buildClovieHtml(state, size), [state, size]);
+  // The page is cached per state and size, so a re-render never rebuilds the 331KB string.
+  const source = React.useMemo(
+    () => ({ html: buildClovieHtml(state, size) }),
+    [state, size],
+  );
   const [isResting, setIsResting] = React.useState(false);
   const live =
+    isMountable &&
     isMotionActive &&
     !failed &&
     !isPaused &&
@@ -205,11 +225,7 @@ export function ClovieAnimated({
               testID="clovie-still"
               onLoad={onStillLoad}
               fadeDuration={0}
-              source={
-                isDark
-                  ? require('@/assets/images/companion-default-dark.png')
-                  : require('@/assets/images/companion-default.png')
-              }
+              source={STILL}
               style={{
                 width: size * STILL_SCALE,
                 height: size * STILL_SCALE,
@@ -237,7 +253,7 @@ export function ClovieAnimated({
           >
             <WebView
               testID="clovie-webview"
-              source={{ html }}
+              source={source}
               originWhitelist={['*']}
               style={{ flex: 1, backgroundColor: 'transparent' }}
               backgroundColor="transparent"
