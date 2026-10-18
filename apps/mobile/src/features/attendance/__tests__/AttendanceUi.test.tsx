@@ -129,7 +129,7 @@ describe('useAttendance', () => {
   }
   type View = ReturnType<typeof useAttendance>;
 
-  it('confirms an answer for about 2 s, then clears it', async () => {
+  it('keeps the confirmation until the next answer replaces it', async () => {
     jest.useFakeTimers();
     const ref: { current: unknown } = { current: null };
     mount(<Host client={ref} />);
@@ -143,9 +143,9 @@ describe('useAttendance', () => {
       'attendance:c1:came',
     );
     act(() => {
-      jest.advanceTimersByTime(2100);
+      jest.advanceTimersByTime(60_000);
     });
-    expect((ref.current as View).confirmation).toBeNull();
+    expect((ref.current as View).confirmation).toBe('Marked Thandi as came');
     jest.useRealTimers();
   });
 
