@@ -130,4 +130,24 @@ describe('Settings > WhatsApp status', () => {
     expect(text(tree)).not.toContain('To go live');
     expect(press(tree, 'Connect WhatsApp')).toBeUndefined();
   });
+
+  it('owner sees the Health section only when health fields are present', () => {
+    mockData = setup({}, { connected: true, state: 'connected' });
+    expect(text(mount(<PaidWhatsAppSettings />))).not.toContain('Health');
+    mockData = setup(
+      {},
+      { connected: true, state: 'connected', quality_rating: 'green' },
+    );
+    expect(text(mount(<PaidWhatsAppSettings />))).toContain(
+      'Clients are happy with your messages',
+    );
+  });
+
+  it('staff get no Health section', () => {
+    mockRole = 'staff';
+    mockData = setup({}, { quality_rating: 'red' });
+    expect(text(mount(<PaidWhatsAppSettings />))).not.toContain(
+      'Meta may limit your number',
+    );
+  });
 });

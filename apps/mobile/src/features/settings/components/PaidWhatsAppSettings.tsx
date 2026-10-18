@@ -23,6 +23,7 @@ import { describeError, toast } from '@/lib/toast';
 import { goLiveSteps, verificationPill, whatsAppPill } from '../whatsappStatus';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { RemindersRow } from './RemindersRow';
+import { WhatsAppHealthSection } from './WhatsAppHealthSection';
 
 /**
  * Settings > WhatsApp on a paid plan: the number Clovie answers on, whether
@@ -105,6 +106,7 @@ export function PaidWhatsAppSettings() {
 
       {isOwner && data ? (
         <>
+          <WhatsAppHealthSection whatsapp={data.whatsapp} />
           <SectionTitle>{t('settings.whatsapp.toGoLive')}</SectionTitle>
           {steps.length === 0 ? (
             <Group radius={26}>

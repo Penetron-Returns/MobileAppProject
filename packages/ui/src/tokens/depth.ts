@@ -57,7 +57,7 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export type CapsuleToneKey = 'neutral' | 'amber' | 'green' | 'grey';
+export type CapsuleToneKey = 'neutral' | 'amber' | 'green' | 'grey' | 'red';
 
 /** Fill and text colour of a status capsule (`text: null` = the muted label colour). */
 export interface CapsuleColors {
@@ -243,6 +243,7 @@ const LIGHT = {
     amber: { fill: 'rgba(255,149,0,0.15)', text: '#C93400' },
     green: { fill: 'rgba(52,199,89,0.15)', text: '#248A3D' },
     grey: { fill: 'rgba(142,142,147,0.15)', text: 'rgba(60,60,67,0.72)' },
+    red: { fill: 'rgba(255,59,48,0.14)', text: '#C4271C' },
   },
   ground: { top: '#F7F7FA', bottom: '#ECEDF2' },
   raised: { top: '#FFFFFF', bottom: '#FAFAFC' },
@@ -325,6 +326,7 @@ const DARK = {
     amber: { fill: 'rgba(255,149,0,0.22)', text: '#FFB340' },
     green: { fill: 'rgba(52,199,89,0.22)', text: '#30DB5B' },
     grey: { fill: 'rgba(142,142,147,0.22)', text: 'rgba(235,235,245,0.72)' },
+    red: { fill: 'rgba(255,69,58,0.22)', text: '#FF6961' },
   },
   ground: { top: '#0B0C10', bottom: '#14151B' },
   raised: { top: '#1C1D23', bottom: '#18191E' },

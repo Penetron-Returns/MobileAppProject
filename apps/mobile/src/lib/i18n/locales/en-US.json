@@ -729,6 +729,73 @@
         "pending": "Pending",
         "not_connected": "Not connected"
       },
+      "health": {
+        "title": "Health",
+        "number": {
+          "title": "Number status",
+          "connected": "Connected",
+          "pending": "Pending",
+          "flagged": "Flagged",
+          "restricted": "Restricted",
+          "disconnected": "Disconnected"
+        },
+        "quality": {
+          "title": "Message quality",
+          "green": "Green",
+          "yellow": "Yellow",
+          "red": "Red",
+          "greenMeaning": "Clients are happy with your messages",
+          "yellowMeaning": "Some messages were blocked or reported",
+          "redMeaning": "Meta may limit your number"
+        },
+        "limit": {
+          "title": "Message limit",
+          "tier_250": "250 new conversations a day",
+          "tier_1k": "1,000 new conversations a day",
+          "tier_10k": "10,000 new conversations a day",
+          "tier_100k": "100,000 new conversations a day",
+          "unlimited": "Unlimited"
+        },
+        "name": {
+          "title": "Display name",
+          "approved": "Approved",
+          "pending_review": "In review",
+          "declined": "Declined",
+          "expired": "Expired",
+          "available_without_review": "Available"
+        },
+        "templates": {
+          "title": "Message templates",
+          "approved": "{{count}} approved",
+          "inReview": "{{count}} in review",
+          "rejected": "{{count}} rejected",
+          "paused": "{{count}} paused",
+          "open": "Show templates",
+          "close": "Hide templates",
+          "status": {
+            "approved": "Approved",
+            "pending": "In review",
+            "rejected": "Rejected",
+            "paused": "Paused",
+            "disabled": "Off",
+            "unknown": "Unknown"
+          }
+        },
+        "problem": {
+          "title": "Last problem",
+          "hint": "Fix it in Meta WhatsApp Manager, then pull down to refresh."
+        },
+        "checked": "Checked {{when}}",
+        "ago": {
+          "now": "just now",
+          "minutes_one": "{{count}} minute ago",
+          "minutes_other": "{{count}} minutes ago",
+          "hours_one": "{{count}} hour ago",
+          "hours_other": "{{count}} hours ago",
+          "days_one": "{{count}} day ago",
+          "days_other": "{{count}} days ago"
+        }
+      },
       "verification": {
         "title": "Business verification",
         "verified": "Verified",
