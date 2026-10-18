@@ -37,13 +37,15 @@ export function useEntitlements(): Entitlements {
   );
 }
 
+/** The plan catalogue changes with a release, not a session. */
+export const PLANS_STALE_MS = 10 * 60_000;
+
 /** Plans and prices for the Plan page, in catalogue order. */
 export function usePlans() {
-  // The catalogue changes with a release, not a session: keep it for 10 minutes.
   return useQuery({
     queryKey: qk.plans,
     queryFn: api.plans,
-    staleTime: 10 * 60_000,
+    staleTime: PLANS_STALE_MS,
   });
 }
 

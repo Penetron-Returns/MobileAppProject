@@ -97,7 +97,7 @@ export function BookingRulesScreen() {
             trailing={
               <Switch
                 checked={r.allow_staff_selection}
-                disabled={!canManage || save.isPending}
+                disabled={!canManage}
                 onCheckedChange={(v) => patch({ allow_staff_selection: v })}
                 accessibilityLabel={t('settings.rules.allow_staff_selection')}
               />
