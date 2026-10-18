@@ -176,6 +176,13 @@ export interface OnboardingRequest {
   services: { name: string; duration_minutes: number; price_cents: number }[];
   /** Extra team members besides the owner (may be empty) */
   team: { name: string; title?: string | null }[];
+  /**
+   * Re-run for a business that already finished onboarding (the owner went back
+   * from the plan screen). Honoured only while it is untouched (plan none/free,
+   * no appointments): then the name, hours and services follow this request.
+   * Otherwise the existing setup is returned unchanged. `team` is ignored.
+   */
+  revise?: boolean;
 }
 
 export interface MeDTO {

@@ -20,11 +20,14 @@ export function PayFailedScreen({
   onTryAgain,
   onCheckAgain,
   onPickAnother,
+  onBack,
 }: {
   phase: CheckoutProblem;
   onTryAgain: () => void;
   onCheckAgain: () => void;
   onPickAnother: () => void;
+  /** Back to the plan list (the same as picking another plan). */
+  onBack?: () => void;
 }) {
   const { t } = useTranslation();
   const isBoardCopy = phase.kind === 'cancelled' || phase.kind === 'failed';
@@ -38,6 +41,7 @@ export function PayFailedScreen({
   const isCheck = phase.kind === 'unconfirmed';
   return (
     <OnboardingShell
+      onBack={onBack}
       spoken={`${title} ${hint}`}
       footer={
         <>

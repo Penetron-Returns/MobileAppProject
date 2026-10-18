@@ -19,7 +19,7 @@ onboardingRoutes.post('/', async (c) => {
   const session = c.get('session');
   const repo = getBookingRepository(container);
   const body = await parseJson(c, onboardingSchema);
-  const business = await completeOnboarding(repo, session, body);
+  const business = await completeOnboarding(repo, session, body, async (id) => (await container.entitlements.getEntitlements(id)).plan);
   const entitlements = await container.entitlements.getEntitlements(business.id);
   const me = await getMe(repo, { userId: session.userId, businessId: business.id, role: 'owner' }, entitlements);
   c.get('logger').info('onboarding_completed', { business_id: business.id, user_id: session.userId });

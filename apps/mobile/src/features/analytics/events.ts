@@ -13,6 +13,8 @@ export interface AnalyticsEvents {
   onboarding_type_selected: { type: OnboardingBusinessType };
   /** Deliberately without the name. */
   onboarding_name_entered: Record<string, never>;
+  /** Back on any first-run step; deliberately without which one. */
+  onboarding_back: Record<string, never>;
   signin_started: Record<string, never>;
   signin_code_sent: Record<string, never>;
   signin_completed: Record<string, never>;

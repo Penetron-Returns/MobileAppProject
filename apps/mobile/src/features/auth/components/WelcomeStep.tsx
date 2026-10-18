@@ -1,4 +1,4 @@
-import { Button, DURATION, Text, useDepth } from '@booking/ui';
+import { BackPill, Button, DURATION, Text, useDepth } from '@booking/ui';
 import { Mail } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,8 @@ interface WelcomeStepProps {
   errorKey: AuthErrorKey | null;
   onGoogle: () => void;
   onEmail: () => void;
+  /** Back to the screen before (the business name when onboarding); omitted when there is none. */
+  onBack?: () => void;
 }
 
 /** A tappable legal page name, 44pt tall, opening in the system browser. */
@@ -66,6 +68,7 @@ export function WelcomeStep({
   errorKey,
   onGoogle,
   onEmail,
+  onBack,
 }: WelcomeStepProps) {
   const { t } = useTranslation();
   const depth = useDepth();
@@ -73,6 +76,18 @@ export function WelcomeStep({
 
   return (
     <View className="flex-1 justify-between">
+      {onBack ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: insets.top + 8,
+            left: 0,
+            zIndex: 1,
+          }}
+        >
+          <BackPill onPress={onBack} />
+        </View>
+      ) : null}
       <View
         className="items-center"
         style={{ paddingTop: Math.max(insets.top + 40, 96) }}

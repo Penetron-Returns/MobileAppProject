@@ -13,6 +13,7 @@ import { ClovieLoading } from '@/features/brand/ClovieLoading';
 
 import { useCompleteOnboarding } from '../hooks';
 import {
+  backTarget,
   buildOnboardingRequest,
   confirmName,
   goBack,
@@ -23,7 +24,7 @@ import {
   type OnboardingDraft,
   type OnboardingScreen,
 } from '../logic';
-import { clearDraft } from '../storage';
+import { clearDraft, saveBusinessType } from '../storage';
 import { useOnboardingDraft } from '../useOnboardingDraft';
 import { CreateFailedScreen } from './CreateFailedScreen';
 import { NameScreen } from './NameScreen';
@@ -84,6 +85,7 @@ export function OnboardingFlow({
       try {
         const me = await submit.mutateAsync(request);
         created.current = true;
+        if (from.typeId) await saveBusinessType(from.typeId);
         await clearDraft();
         analytics.track('business_created');
         analytics.group('business', me.business.id);
@@ -131,7 +133,14 @@ export function OnboardingFlow({
     body = (
       <TypeScreen
         selected={draft.typeId}
-        onBack={isSignedIn ? undefined : () => go('welcome', true)}
+        onBack={
+          backTarget('type', { isSignedIn, isRevising: false })
+            ? () => {
+                analytics.track('onboarding_back');
+                go('welcome', true);
+              }
+            : undefined
+        }
         onSelect={(id) => {
           update((d) => selectType(d, id));
           analytics.track('onboarding_type_selected', { type: id });
@@ -147,6 +156,7 @@ export function OnboardingFlow({
         isBusy={isBusy}
         onChangeName={(name) => update((d) => setName(d, name))}
         onBack={() => {
+          analytics.track('onboarding_back');
           update(goBack);
           go('type', true);
         }}

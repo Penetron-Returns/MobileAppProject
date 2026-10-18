@@ -7,7 +7,7 @@ import type { Env } from '../../src/env.ts';
 import type { Db } from '@booking/features/lib/db.ts';
 import type { Logger } from '@booking/features/lib/logger.ts';
 import type { ClerkClaims } from '../../src/middleware/auth.ts';
-import type { AccountEventsPort, AppointmentChangedEvent } from '@booking/features/ports.ts';
+import type { AccountEventsPort, AppointmentChangedEvent, EntitlementService } from '@booking/features/ports.ts';
 import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
 import { createMemoryDeviceTokenRepository, type MemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
 import { createFakeClerkAdmin, type FakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
@@ -60,7 +60,7 @@ export interface Harness extends Seed {
 
 let keySeq = 0;
 
-export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEventsPort } = {}): Harness {
+export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEventsPort; entitlements?: EntitlementService } = {}): Harness {
   const s = seed();
   const events: AppointmentChangedEvent[] = [];
   const clerk = createFakeClerkAdmin();
@@ -100,6 +100,7 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
       clock: () => NOW,
       env: { ...TEST_ENV, ...opts.env },
       ...(opts.nerovaEvents ? { nerovaEvents: opts.nerovaEvents } : {}),
+      ...(opts.entitlements ? { entitlements: opts.entitlements } : {}),
     }),
     bookingRepository: s.repo,
   };

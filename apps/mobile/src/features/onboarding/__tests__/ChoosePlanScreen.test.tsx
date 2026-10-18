@@ -171,3 +171,24 @@ describe('ChoosePlanScreen', () => {
     expect(text(tree)).toContain("Couldn't load the plans");
   });
 });
+
+describe('ChoosePlanScreen Back', () => {
+  it('has no Back unless the app gives one, and then calls it', () => {
+    const none = mount(<ChoosePlanScreen />);
+    expect(() => pressableByLabel(none, 'Back')).toThrow();
+    const onBack = jest.fn();
+    const tree = mount(<ChoosePlanScreen onBack={onBack} />);
+    act(() => pressableByLabel(tree, 'Back').props.onPress());
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('Back from the payment wait and from a failed payment returns to the plans', () => {
+    for (const kind of ['confirming', 'cancelled']) {
+      mockPhase = { kind };
+      const tree = mount(<ChoosePlanScreen />);
+      act(() => pressableByLabel(tree, 'Back').props.onPress());
+    }
+    expect(mockNotPaid).toHaveBeenCalledTimes(1);
+    expect(mockReset).toHaveBeenCalledTimes(1);
+  });
+});

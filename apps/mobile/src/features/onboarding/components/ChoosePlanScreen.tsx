@@ -30,7 +30,7 @@ const DEFAULT_PLAN: CheckoutPlanId = 'starter';
  * waits for the payment, and shows a calm "That didn't go through" with a way
  * on if it fails. The app routes on by itself once the plan is active.
  */
-export function ChoosePlanScreen() {
+export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
   const { t } = useTranslation();
   const c = useOnbColors();
   const plans = usePlans();
@@ -63,6 +63,7 @@ export function ChoosePlanScreen() {
       <PayingScreen
         isPaid={phase.kind === 'active'}
         onNotPaid={checkout.notPaid}
+        onBack={checkout.notPaid}
       />
     );
   }
@@ -77,6 +78,7 @@ export function ChoosePlanScreen() {
         onTryAgain={() => start(chosen)}
         onCheckAgain={() => void checkout.checkAgain()}
         onPickAnother={checkout.reset}
+        onBack={checkout.reset}
       />
     );
   }
@@ -140,6 +142,7 @@ export function ChoosePlanScreen() {
   return (
     <OnboardingShell
       stage={3}
+      onBack={isStarting ? undefined : onBack}
       spoken={spoken}
       footerBottom={24}
       footer={
