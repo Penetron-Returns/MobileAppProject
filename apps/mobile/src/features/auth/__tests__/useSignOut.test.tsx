@@ -15,6 +15,10 @@ jest.mock('@/features/notifications/pushDevice', () => ({
 jest.mock('@/features/voice/deviceToken', () => ({
   clearDeviceTokenOnSignOut: () => mockClearToken(),
 }));
+const mockClearStorage = jest.fn();
+jest.mock('@/features/onboarding/storage', () => ({
+  clearOnboardingStorage: () => mockClearStorage(),
+}));
 jest.mock('@clerk/expo', () => ({
   useClerk: () => ({ signOut: mockSignOut }),
   useAuth: jest.fn(),
@@ -36,6 +40,7 @@ beforeEach(() => {
   mockSignOut.mockReset();
   mockClearToken.mockReset().mockResolvedValue(undefined);
   mockUnregisterPush.mockReset().mockResolvedValue(undefined);
+  mockClearStorage.mockReset().mockResolvedValue(undefined);
   queryClient.clear();
   queryClient.setQueryData(['appointments', 'one', 'a-1'], {
     client: 'Olivia',
@@ -51,6 +56,24 @@ describe('useSignOut', () => {
     });
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it('forgets the onboarding draft and type once signed out', async () => {
+    mockSignOut.mockResolvedValue(undefined);
+    const signOut = mountSignOut();
+    await act(async () => {
+      await signOut.current();
+    });
+    expect(mockClearStorage).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the draft when sign-out fails', async () => {
+    mockSignOut.mockRejectedValue(new Error('network'));
+    const signOut = mountSignOut();
+    await act(async () => {
+      await signOut.current();
+    });
+    expect(mockClearStorage).not.toHaveBeenCalled();
   });
 
   it('revokes the device voice token before the session ends', async () => {

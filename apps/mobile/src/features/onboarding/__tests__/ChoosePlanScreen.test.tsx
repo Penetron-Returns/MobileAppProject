@@ -10,6 +10,11 @@ import { act, mount, pressableByLabel, text } from '@/testing/render';
 
 import { ChoosePlanScreen } from '../components/ChoosePlanScreen';
 
+jest.mock('@clerk/expo', () => ({ useAuth: () => ({ isSignedIn: true }) }));
+jest.mock('@/features/auth/useSignOut', () => ({
+  useSignOut: () => jest.fn(),
+}));
+
 jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 jest.mock('@/features/brand/ClovieAnimated', () => ({
   ClovieAnimated: () => null,

@@ -1,4 +1,10 @@
-import { Ground, KEYBOARD_AVOIDING_BEHAVIOR, Pressable } from '@booking/ui';
+import { useAuth } from '@clerk/expo';
+import {
+  Ground,
+  KEYBOARD_AVOIDING_BEHAVIOR,
+  Pressable,
+  Text,
+} from '@booking/ui';
 import { ChevronLeft } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +18,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSignOut } from '@/features/auth/useSignOut';
+
 import type { OnboardingStage } from '../logic';
 import { useOnbColors } from '../theme';
+import { useHardwareBack } from '../useHardwareBack';
 import { ProgressDots } from './ProgressDots';
 import { ReplayVoiceButton } from './ReplayVoiceButton';
 
@@ -49,6 +58,10 @@ export function OnboardingShell({
   const { t } = useTranslation();
   const c = useOnbColors();
   const insets = useSafeAreaInsets();
+  const { isSignedIn } = useAuth();
+  const signOut = useSignOut();
+  // Signed in, a screen without Back swallows hardware Back (no exit mid-setup); signed out, the default stands.
+  useHardwareBack(onBack ?? (isSignedIn ? null : undefined));
   const bottom = useSharedValue(footerBottom);
   React.useEffect(() => {
     bottom.value = withTiming(footerBottom, {
@@ -101,6 +114,24 @@ export function OnboardingShell({
           </View>
         </View>
         <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
+        {isSignedIn ? (
+          <Pressable
+            feedback="dim"
+            onPress={() => void signOut()}
+            accessibilityRole="button"
+            accessibilityLabel={t('onboarding.signOut')}
+            style={{
+              minHeight: 44,
+              alignSelf: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 16,
+            }}
+          >
+            <Text style={{ color: c.tint, fontSize: 15 }}>
+              {t('onboarding.signOut')}
+            </Text>
+          </Pressable>
+        ) : null}
         {footer ? (
           <Animated.View
             style={[

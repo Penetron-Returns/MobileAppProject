@@ -17,6 +17,11 @@ function completions(kinds: AppRoute['kind'][]): number {
   return n;
 }
 
+jest.mock('@clerk/expo', () => ({ useAuth: () => ({ isSignedIn: true }) }));
+jest.mock('@/features/auth/useSignOut', () => ({
+  useSignOut: () => jest.fn(),
+}));
+
 describe('onboarding completion', () => {
   it.each([
     [

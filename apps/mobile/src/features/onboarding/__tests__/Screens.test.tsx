@@ -18,6 +18,7 @@ import { ProgressDots } from '../components/ProgressDots';
 import { ReplayVoiceButton } from '../components/ReplayVoiceButton';
 import { TypeScreen } from '../components/TypeScreen';
 
+jest.mock('@clerk/expo', () => ({ useAuth: () => ({ isSignedIn: true }) }));
 jest.mock('expo-router', () => ({ useIsFocused: () => true }));
 jest.mock('@/features/brand/ClovieAnimated', () => ({
   ClovieAnimated: () => null,

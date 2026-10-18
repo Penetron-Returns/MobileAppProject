@@ -11,7 +11,13 @@ import { act, flush, mount, pressableByLabel, text } from '@/testing/render';
 import { OnboardingFlow } from '../components/OnboardingFlow';
 import { initialDraft, type OnboardingDraft } from '../logic';
 
+let mockSignedIn = false;
+const mockSignOut = jest.fn();
+jest.mock('@/features/auth/useSignOut', () => ({
+  useSignOut: () => mockSignOut,
+}));
 jest.mock('@clerk/expo', () => ({
+  useAuth: () => ({ isSignedIn: mockSignedIn }),
   useUser: () => ({ user: { fullName: 'Zoe Dlamini', firstName: 'Zoe' } }),
 }));
 const mockPush = jest.fn();
@@ -58,6 +64,7 @@ afterEach(() => {
 });
 
 async function open(props: { isSignedIn: boolean; onDone?: () => void }) {
+  mockSignedIn = props.isSignedIn;
   const tree = mount(<OnboardingFlow {...props} />);
   await flush();
   return tree;
@@ -235,5 +242,19 @@ describe('analytics privacy', () => {
     expect(fake.events[2].props).toEqual({});
     expect(JSON.stringify(fake.events)).not.toMatch(/Thandi|Hair|Studio/);
     expect(fake.identified).toEqual([]);
+  });
+});
+
+const hasLabel = (tree: ReturnType<typeof mount>, label: string) =>
+  tree.root.findAll((n) => n.props.accessibilityLabel === label).length > 0;
+
+describe('sign-out and hardware Back during first run', () => {
+  it('offers a quiet sign-out only once signed in', async () => {
+    const out = await open({ isSignedIn: false });
+    expect(hasLabel(out, 'Not you? Sign out')).toBe(false);
+    const inn = await open({ isSignedIn: true });
+    const control = pressableByLabel(inn, 'Not you? Sign out');
+    act(() => control.props.onPress());
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 });
