@@ -13,6 +13,8 @@
  * must include the Supabase API origin) plus `nativeApps: [{ appId, returnUrlSchemes, returnUrlOrigins? }]`, at most 10 apps.
  * It fails loudly, without a PUT, when GET returns no origins.
  */
+import { createHash } from 'node:crypto';
+
 const BASE_URL = (process.env.NEROVA_API_BASE_URL || 'https://api.nerova.si').replace(/\/+$/, '');
 /** One entry per build variant (apps/mobile/app.config.ts): the appId is the Android application id, the scheme its deep-link scheme. */
 const APPS = [
@@ -29,13 +31,18 @@ export function buildBody(current) {
   return { origins, nativeApps: [...others, ...APPS] };
 }
 
+/** Nerova requires an Idempotency-Key on PUT; deterministic so a retry of the same body replays instead of duplicating. */
+function idempotencyKey(body) {
+  return `register-native-apps-${createHash('sha256').update(JSON.stringify(body)).digest('hex').slice(0, 32)}`;
+}
+
 async function call(method, body) {
   const response = await fetch(`${BASE_URL}/v1/embed-origins`, {
     method,
     headers: {
       Authorization: `Bearer ${process.env.NEROVA_API_KEY}`,
       Accept: 'application/json',
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...(body ? { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey(body) } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });

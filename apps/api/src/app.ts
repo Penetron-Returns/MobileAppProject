@@ -51,7 +51,7 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.use('*', baseContext(options.getContainer ?? defaultGetContainer));
-  app.use('/v1/*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id', 'X-App-Version', 'X-Platform'], exposeHeaders: ['X-Request-Id'] }));
+  app.use('/v1/*', cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key', 'X-Request-Id', 'X-App-Version', 'X-Platform', 'X-Clovie-App-Id'], exposeHeaders: ['X-Request-Id'] }));
   // The checkout confirm route moves money state, so it gets an allowlist instead of the public wildcard.
   app.use(CHECKOUT_CONFIRM_PATH, checkoutConfirmCors);
   app.use('/public/*', skipPath(CHECKOUT_CONFIRM_PATH, cors({ origin: '*', allowHeaders: ['Content-Type', 'Idempotency-Key', 'X-Request-Id'], exposeHeaders: ['X-Request-Id'] })));

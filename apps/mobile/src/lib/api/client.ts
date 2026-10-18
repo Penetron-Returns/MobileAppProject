@@ -1,3 +1,4 @@
+import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 
 import type { ApiErrorBody, ApiErrorCode } from '@booking/types';
@@ -73,6 +74,20 @@ export interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+/**
+ * The running build's application id (`si.nerova.booking.dev`, `app.getclovie.preview`, `app.getclovie`). Companion calls send it as
+ * `X-Clovie-App-Id` so the API mints Nerova sessions and WhatsApp return URLs for this build; the API checks it against an allow-list.
+ */
+export const APP_ID_HEADER = 'X-Clovie-App-Id';
+
+function applicationId(): string | null {
+  try {
+    return Application.applicationId || null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildUrl(base: string, path: string, query?: Query) {
   const qs = query
     ? Object.entries(query)
@@ -146,6 +161,10 @@ export async function apiRequest<T>(
     ...opts.headers,
     Accept: 'application/json',
   };
+  if (path.startsWith('/v1/companion/')) {
+    const appId = applicationId();
+    if (appId) headers[APP_ID_HEADER] = appId;
+  }
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') {
     if (!opts.idempotencyKey) {

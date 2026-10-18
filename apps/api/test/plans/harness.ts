@@ -36,7 +36,7 @@ export interface PlansHarness {
   container: Container;
   nerova: FakeNerovaClient;
   plans: MemoryPlanRepository;
-  call(method: string, path: string, opts?: { token?: 'owner' | 'staff'; body?: unknown; key?: string }): Promise<{ status: number; body: any; text: string }>;
+  call(method: string, path: string, opts?: { token?: 'owner' | 'staff'; body?: unknown; key?: string; headers?: Record<string, string> }): Promise<{ status: number; body: any; text: string }>;
 }
 
 let keySeq = 0;
@@ -97,9 +97,9 @@ export function plansHarness(
     idempotencyStore: () => store,
   });
 
-  async function call(method: string, path: string, o: { token?: 'owner' | 'staff'; body?: unknown; key?: string } = {}) {
+  async function call(method: string, path: string, o: { token?: 'owner' | 'staff'; body?: unknown; key?: string; headers?: Record<string, string> } = {}) {
     keySeq += 1;
-    const headers: Record<string, string> = { 'content-type': 'application/json', authorization: `Bearer ${o.token ?? 'owner'}` };
+    const headers: Record<string, string> = { 'content-type': 'application/json', authorization: `Bearer ${o.token ?? 'owner'}`, ...o.headers };
     if (method !== 'GET') headers['idempotency-key'] = o.key ?? `plans-test-key-${String(keySeq).padStart(6, '0')}`;
     const res = await app.request(path, { method, headers, ...(o.body === undefined ? {} : { body: JSON.stringify(o.body) }) });
     const text = await res.text();
