@@ -114,6 +114,42 @@ export interface DayColumn<S, A> {
   appointments: A[];
 }
 
+export interface WeekFrame<S> {
+  staff: S[];
+  window: MinuteSpan;
+}
+
+/**
+ * The shape every day of a week shares: staff with work that week and the hour
+ * window covering all seven days. Paging between days then never reshapes the
+ * grid; it changes once, when the data (another week, new hours) really differs.
+ */
+export function buildWeekFrame<
+  S extends StaffLike,
+  A extends {
+    starts_at: string;
+    duration_minutes: number;
+    staff: { id: string };
+  },
+>(opts: {
+  anchor: ISODate;
+  timezone: string;
+  staff: S[];
+  appointments: A[];
+  schedule: CalendarSchedule;
+}): WeekFrame<S> {
+  const { anchor, timezone, appointments, schedule } = opts;
+  const staff = columnStaff(opts.staff, appointments);
+  const spans: MinuteSpan[] = [];
+  for (const date of weekDates(anchor)) {
+    for (const s of staff) {
+      spans.push(...staffWindows({ date, staffId: s.id, ...schedule }));
+    }
+  }
+  for (const a of appointments) spans.push(appointmentSpan(a, timezone));
+  return { staff, window: timelineWindow(spans) };
+}
+
 /** Everything the grid draws: the columns and the shared hour window. */
 export function buildDayColumns<
   S extends StaffLike,
@@ -128,6 +164,8 @@ export function buildDayColumns<
   staff: S[];
   appointments: A[];
   schedule: CalendarSchedule;
+  /** The week's shared columns and hour window; the day then keeps the week's shape. */
+  frame?: WeekFrame<S>;
 }): {
   columns: DayColumn<S, A>[];
   window: MinuteSpan;
@@ -135,7 +173,8 @@ export function buildDayColumns<
   closedDay: SpecialDayRow | null;
 } {
   const { date, timezone, appointments, schedule } = opts;
-  const columns = columnStaff(opts.staff, appointments).map((staff) => {
+  const people = opts.frame?.staff ?? columnStaff(opts.staff, appointments);
+  const columns = people.map((staff) => {
     const working = staffWindows({ date, staffId: staff.id, ...schedule });
     return {
       staff,
@@ -151,10 +190,12 @@ export function buildDayColumns<
     };
   });
   const special = specialDayOn(date, schedule.specialDays);
-  const window = timelineWindow([
-    ...columns.flatMap((c) => c.working),
-    ...appointments.map((a) => appointmentSpan(a, timezone)),
-  ]);
+  const window =
+    opts.frame?.window ??
+    timelineWindow([
+      ...columns.flatMap((c) => c.working),
+      ...appointments.map((a) => appointmentSpan(a, timezone)),
+    ]);
   return {
     columns,
     window,

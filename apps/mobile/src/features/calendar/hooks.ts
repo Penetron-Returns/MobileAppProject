@@ -23,6 +23,7 @@ import { toCalendarSchedule, type CalendarSchedule } from './config';
 import {
   appointmentsOnDate,
   buildDayColumns,
+  buildWeekFrame,
   weekDates,
   type DayColumn,
   type MinuteSpan,
@@ -154,12 +155,20 @@ export function useCalendarDay(date: ISODate): CalendarDayView {
 
   const built = React.useMemo(() => {
     if (!tz || !appointments.data || !config.data || !staff.data) return null;
+    const schedule = toCalendarSchedule(config.data);
     return buildDayColumns({
       date: shownDate,
       timezone: tz,
       staff: staff.data,
       appointments: appointmentsOnDate(appointments.data, shownDate, tz),
-      schedule: toCalendarSchedule(config.data),
+      schedule,
+      frame: buildWeekFrame({
+        anchor: shownDate,
+        timezone: tz,
+        staff: staff.data,
+        appointments: appointments.data,
+        schedule,
+      }),
     });
   }, [tz, shownDate, appointments.data, config.data, staff.data]);
 

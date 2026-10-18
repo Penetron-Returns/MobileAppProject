@@ -2,6 +2,7 @@ import {
   appointmentSpan,
   blockTone,
   buildDayColumns,
+  buildWeekFrame,
   businessWindows,
   columnStaff,
   columnWidth,
@@ -636,6 +637,57 @@ describe('buildDayColumns blocks and holidays', () => {
     });
     expect(closed.closedDay?.name).toBe('Christmas Day');
     expect(closed.columns[0].working).toEqual([]);
+  });
+});
+
+describe('a week keeps one grid shape', () => {
+  const staff = [
+    { id: 's1', is_active: true },
+    { id: 's2', is_active: false },
+  ];
+  const appt = (staffId: string, startsAt: string) => ({
+    starts_at: startsAt,
+    duration_minutes: 60,
+    staff: { id: staffId },
+  });
+  // Mon 09-18, Tue 09-17, Wed closed (no hours), plus a deactivated colleague booked on Tuesday.
+  const week = [appt('s2', '2026-10-13T08:00:00.000Z')];
+  const frame = buildWeekFrame({
+    anchor: '2026-10-14',
+    timezone: TZ,
+    staff,
+    appointments: week,
+    schedule: schedule(),
+  });
+
+  it.each(['2026-10-12', '2026-10-13', '2026-10-14'])(
+    'gives %s the same window and columns',
+    (date) => {
+      const day = buildDayColumns({
+        date,
+        timezone: TZ,
+        staff,
+        appointments: week.filter((a) => a.starts_at.startsWith(date)),
+        schedule: schedule(),
+        frame,
+      });
+      expect(day.window).toEqual({ startMin: 540, endMin: 1080 });
+      expect(day.columns.map((c) => c.staff.id)).toEqual(['s1', 's2']);
+    },
+  );
+
+  it('differs per day without the frame (the bug)', () => {
+    const windows = ['2026-10-12', '2026-10-13'].map(
+      (date) =>
+        buildDayColumns({
+          date,
+          timezone: TZ,
+          staff,
+          appointments: [],
+          schedule: schedule(),
+        }).window,
+    );
+    expect(windows[0]).not.toEqual(windows[1]);
   });
 });
 
