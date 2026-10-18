@@ -13,7 +13,7 @@ export type SettingsItem =
   | 'deleteAccount';
 
 export interface SettingsGroup {
-  id: 'business' | 'team' | 'assistant' | 'notifications' | 'plan' | 'account';
+  id: 'business' | 'assistant' | 'account';
   items: SettingsItem[];
 }
 
@@ -28,13 +28,19 @@ export function settingsGroups(): SettingsGroup[] {
   return [
     {
       id: 'business',
-      items: ['businessDetails', 'hours', 'services', 'rules'],
+      items: ['businessDetails', 'hours', 'services', 'rules', 'team'],
     },
-    { id: 'team', items: ['team'] },
     { id: 'assistant', items: ['clovie', 'whatsapp'] },
-    { id: 'notifications', items: ['notifications'] },
-    { id: 'plan', items: ['plan'] },
-    { id: 'account', items: ['appearance', 'haptics', 'deleteAccount'] },
+    {
+      id: 'account',
+      items: [
+        'plan',
+        'notifications',
+        'appearance',
+        'haptics',
+        'deleteAccount',
+      ],
+    },
   ];
 }
 
