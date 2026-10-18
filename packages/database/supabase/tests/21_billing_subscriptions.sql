@@ -27,6 +27,13 @@ begin
     '23514', null, 'the subscription tier is a paid plan');
   update public.billing_subscriptions set status = 'active', plan = 'growth', stripe_subscription_id = 'sub_test_1' where business_id = ba;
   perform tests.eq((select plan::text from public.billing_subscriptions where business_id = ba), 'growth', 'service role stores the tier');
+  perform tests.throws(format($q$update public.billing_subscriptions set scheduled_plan = 'starter' where business_id = %L$q$, ba),
+    '23514', null, 'a scheduled plan needs its date');
+  perform tests.throws(format($q$update public.billing_subscriptions set scheduled_plan = 'free', scheduled_at = now() where business_id = %L$q$, ba),
+    '23514', null, 'the scheduled tier is a paid plan');
+  update public.billing_subscriptions set scheduled_plan = 'starter', scheduled_at = '2031-04-01 00:00Z' where business_id = ba;
+  perform tests.eq((select scheduled_plan::text from public.billing_subscriptions where business_id = ba), 'starter', 'service role stores a scheduled downgrade');
+  update public.billing_subscriptions set scheduled_plan = null, scheduled_at = null where business_id = ba;
 
   insert into public.webhook_events (source, event_key, payload) values ('stripe', 'evt_test_1', '{}');
   perform tests.throws($q$insert into public.webhook_events (source, event_key, payload) values ('stripe', 'evt_test_1', '{}')$q$,

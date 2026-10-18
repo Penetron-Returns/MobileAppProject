@@ -1,6 +1,7 @@
 /**
  * GET /v1/billing/usage, GET /v1/plans (any member);
- * POST /v1/billing/checkout, POST /v1/billing/portal (owner only, Idempotency-Key enforced by the middleware).
+ * GET /v1/billing/plan/preview (owner only, read-only);
+ * POST /v1/billing/checkout, POST /v1/billing/plan, POST /v1/billing/portal (owner only, Idempotency-Key enforced by the middleware).
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -42,15 +43,24 @@ billingRoutes.post('/billing/checkout', requireOwner, async (c) => {
   return c.json({ data: checkout }, 201);
 });
 
+const ChangePlanSchema = PlanSchema.extend({ proration_date: z.number().int().positive().optional() }).strict();
+
+/** GET, not POST: it changes nothing, so it needs no Idempotency-Key (the middleware requires one on every POST). */
+billingRoutes.get('/billing/plan/preview', requireOwner, async (c) => {
+  const { plan } = parseQuery(c, PlanSchema);
+  return c.json({ data: await c.get('container').billing.previewPlanChange({ businessId: c.get('auth').businessId, plan }) });
+});
+
 billingRoutes.post('/billing/plan', requireOwner, async (c) => {
-  const { plan } = await parseJson(c, PlanSchema);
-  const subscription = await c.get('container').billing.changePlan({
+  const { plan, proration_date } = await parseJson(c, ChangePlanSchema);
+  const result = await c.get('container').billing.changePlan({
     businessId: c.get('auth').businessId,
     actorId: c.get('auth').userId,
     plan,
     idempotencyKey: c.req.header('Idempotency-Key') ?? '',
+    ...(proration_date !== undefined && { prorationDate: proration_date }),
   });
-  return c.json({ data: subscription });
+  return c.json({ data: result });
 });
 
 billingRoutes.post('/billing/portal', requireOwner, async (c) =>

@@ -83,6 +83,7 @@ export type ApiErrorCode =
   | 'TRANSCRIPTION_UNAVAILABLE'
   | 'BILLING_NOT_CONFIGURED'
   | 'UPSTREAM_BILLING_ERROR'
+  | 'PAYMENT_FAILED'
   | 'INTERNAL';
 
 /** POST /v1/voice/transcriptions response data (multipart request: field `audio`, optional `language`) */
@@ -805,6 +806,10 @@ export interface SubscriptionDTO {
   cancel_at_period_end: boolean;
   /** Payment failed: access is kept while Stripe retries, the app should warn the owner */
   is_past_due: boolean;
+  /** A downgrade that takes effect at the end of the paid period (the plan above stays until then); null when none. Additive. */
+  scheduled_plan?: PlanKey | null;
+  /** ISO-8601 UTC: when `scheduled_plan` takes effect (the current_period_end it was scheduled for) */
+  scheduled_at?: string | null;
 }
 
 /** POST /v1/billing/checkout (owner only, Idempotency-Key) */
@@ -813,8 +818,45 @@ export interface CreateCheckoutRequest {
   /** Where the checkout page sends the owner after paying: `<scheme>://checkout(/...)` (clovie, clovie-preview or bookingadmin) */
   return_url?: string;
 }
-/** POST /v1/billing/plan (owner only, Idempotency-Key): switch an existing subscription to another paid plan; answers a SubscriptionDTO */
-export type ChangePlanRequest = CreateCheckoutRequest;
+/**
+ * POST /v1/billing/plan (owner only, Idempotency-Key): switch an existing subscription to another paid plan.
+ * An upgrade is charged now (the proration invoice); a downgrade is scheduled for the end of the paid period.
+ * Answers a ChangePlanResultDTO.
+ */
+export interface ChangePlanRequest {
+  plan: 'starter' | 'growth' | 'pro';
+  /** The preview's `proration_date` (unix seconds): charges exactly the amount that was shown. Rejected (422 PRORATION_DATE_STALE) when older than 15 minutes. */
+  proration_date?: number;
+}
+/** GET /v1/billing/plan/preview?plan=pro (owner only): what changing to `plan` costs, without changing anything */
+export interface PlanChangePreviewDTO {
+  direction: 'upgrade' | 'downgrade' | 'same';
+  plan: PlanKey;
+  current_plan: PlanKey;
+  /** Charged immediately: the proration delta for an upgrade (Stripe invoice preview), 0 for a downgrade or the same plan */
+  amount_due_now_cents: number;
+  /** ISO 4217 in upper case, e.g. 'ZAR' */
+  currency: string;
+  /** The recurring monthly price of `plan` (base fee, excluding extra jobs) charged from the next renewal */
+  next_amount_cents: number;
+  /** ISO-8601 UTC: now for an upgrade (and 'same'), the end of the paid period for a downgrade */
+  effective_at: string;
+  /** ISO-8601 UTC: the next renewal (end of the paid period); null when unknown */
+  next_billing_at: string | null;
+  /** Unix seconds the amount was computed at: pass it back as ChangePlanRequest.proration_date. Null unless direction is 'upgrade'. */
+  proration_date: number | null;
+}
+/**
+ * Answer of POST /v1/billing/plan.
+ *  - active: the new plan is live (upgrade paid, or a scheduled downgrade cancelled by choosing the current plan)
+ *  - requires_action: the card needs authentication; open `hosted_invoice_url`, the plan flips when Stripe confirms (refetch /v1/plans)
+ *  - scheduled: a downgrade will take effect at `effective_at`; the current plan stays until then
+ * A declined card answers 402 PAYMENT_FAILED and changes nothing.
+ */
+export type ChangePlanResultDTO =
+  | { status: 'active'; plan: PlanKey }
+  | { status: 'requires_action'; plan: PlanKey; hosted_invoice_url: string }
+  | { status: 'scheduled'; plan: PlanKey; effective_at: string };
 /** Open it in the browser; the plan flips when Stripe's webhook arrives, so refetch /v1/plans after returning */
 export interface CheckoutSessionDTO {
   checkout_url: string;

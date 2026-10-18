@@ -1,12 +1,12 @@
 /**
  * StripeClient over the Stripe REST API with fetch (form-encoded, Bearer secret key). Used instead of the `stripe`
- * npm package: we need six calls, it keeps the Edge bundle and the pinned dependency list unchanged, and the port
+ * npm package: we need a handful of calls, it keeps the Edge bundle and the pinned dependency list unchanged, and the port
  * keeps the choice reversible. Never logs request or response bodies (customer emails live there).
  */
 import { AppError } from '../../lib/errors.ts';
 import type { UUID } from '@booking/types';
-import { asRecord, asString, parseSubscription, UUID_RE } from '../lib/stripeObjects.ts';
-import type { StripeCheckoutSession, StripeClient } from '../ports.ts';
+import { asRecord, asString, parseSubscription, refId, UUID_RE } from '../lib/stripeObjects.ts';
+import type { PlanChangeItem, StripeCheckoutSession, StripeClient } from '../ports.ts';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -22,6 +22,8 @@ export interface StripeHttpOptions {
 }
 
 type FormValue = string | number | boolean | null | undefined | FormValue[] | { [key: string]: FormValue };
+
+const formItems = (items: PlanChangeItem[]): { [key: string]: FormValue }[] => items.map(({ id, price, quantity }) => ({ id, price, quantity }));
 
 /** Stripe's nested form encoding: `a[b][0][c]=v`. Null and undefined are skipped. */
 export function encodeForm(params: { [key: string]: FormValue }): string {
@@ -82,6 +84,14 @@ export function createStripeHttpClient(options: StripeHttpOptions): StripeClient
         await sleep(backoff[tries] ?? 0);
       }
     }
+  }
+
+  /** The state of the payment on an open invoice: needs the customer (3DS) or was declined. Reads the invoice's payment intent. */
+  async function invoicePaymentState(invoiceId: string): Promise<'requires_action' | 'failed'> {
+    const body = await call('GET', `/invoice_payments?invoice=${encodeURIComponent(invoiceId)}&expand[0]=data.payment.payment_intent`);
+    const payments = Array.isArray(body.data) ? body.data.map(asRecord) : [];
+    const statuses = payments.map((payment) => asString(asRecord(asRecord(payment.payment).payment_intent).status));
+    return statuses.some((status) => status === 'requires_action' || status === 'processing') ? 'requires_action' : 'failed';
   }
 
   const need = (value: unknown, what: string): string => {
@@ -178,16 +188,73 @@ export function createStripeHttpClient(options: StripeHttpOptions): StripeClient
       if (!sub) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned an unreadable subscription');
       return sub;
     },
-    async changeSubscriptionPlan({ subscriptionId, items, idempotencyKey }) {
+    async previewUpgrade({ subscriptionId, items, prorationDate }) {
+      // The proration delta only: always_invoice at a pinned date makes the preview equal to what the update charges.
+      const body = await call('POST', '/invoices/create_preview', {
+        subscription: subscriptionId,
+        subscription_details: { items: formItems(items), proration_behavior: 'always_invoice', proration_date: prorationDate },
+      });
+      const due = body.amount_due;
+      if (typeof due !== 'number') throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned no invoice preview');
+      return { amountDueCents: due, currency: (asString(body.currency) ?? 'zar').toUpperCase() };
+    },
+    async upgradeSubscriptionPlan({ subscriptionId, items, prorationDate, idempotencyKey }) {
       const body = await call(
         'POST',
         `/subscriptions/${encodeURIComponent(subscriptionId)}`,
-        { items, proration_behavior: 'create_prorations' },
+        { items: formItems(items), proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete', proration_date: prorationDate, expand: ['latest_invoice'] },
         idempotencyKey,
       );
-      const sub = parseSubscription(body);
-      if (!sub) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned an unreadable subscription');
-      return sub;
+      const subscription = parseSubscription(body);
+      if (!subscription) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned an unreadable subscription');
+      // A paid invoice leaves no pending update; anything else (3DS, declined) keeps the old prices until the invoice is paid.
+      const invoice = asRecord(body.latest_invoice);
+      const invoiceId = asString(invoice.id);
+      const hostedInvoiceUrl = asString(invoice.hosted_invoice_url);
+      if (body.pending_update == null && (invoice.status === 'paid' || invoiceId === null)) {
+        return { subscription, payment: 'paid', invoiceId, hostedInvoiceUrl };
+      }
+      if (!invoiceId) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned a pending change without an invoice');
+      return { subscription, payment: await invoicePaymentState(invoiceId), invoiceId, hostedInvoiceUrl };
+    },
+    async voidInvoice(invoiceId) {
+      try {
+        await call('POST', `/invoices/${encodeURIComponent(invoiceId)}/void`, {});
+      } catch (error) {
+        // Paid or voided in the meantime: nothing to void.
+        if (!(error instanceof AppError && error.details?.status === 400)) throw error;
+      }
+    },
+    async scheduleDowngrade({ subscriptionId, items, idempotencyKey }) {
+      const created = await call('POST', '/subscription_schedules', { from_subscription: subscriptionId }, `${idempotencyKey}:create`);
+      const scheduleId = need(created.id, 'schedule id');
+      const phases = Array.isArray(created.phases) ? created.phases.map(asRecord) : [];
+      const current = phases[0];
+      if (!current) throw new AppError('UPSTREAM_BILLING_ERROR', 'The payment provider returned a schedule without a phase');
+      const currentItems = (Array.isArray(current.items) ? current.items.map(asRecord) : []).flatMap((item) => {
+        const price = refId(item.price);
+        return price ? [typeof item.quantity === 'number' ? { price, quantity: item.quantity } : { price }] : [];
+      });
+      // Phase 1 keeps today's prices to the period end; phase 2 (one cycle, then the schedule releases) carries the new plan.
+      await call(
+        'POST',
+        `/subscription_schedules/${encodeURIComponent(scheduleId)}`,
+        {
+          end_behavior: 'release',
+          proration_behavior: 'none',
+          phases: [{ items: currentItems, start_date: Number(current.start_date), end_date: Number(current.end_date) }, { items }],
+        },
+        `${idempotencyKey}:phases`,
+      );
+      return { scheduleId };
+    },
+    async releaseSchedule(scheduleId) {
+      try {
+        await call('POST', `/subscription_schedules/${encodeURIComponent(scheduleId)}/release`, {});
+      } catch (error) {
+        // Already released, completed or cancelled: the subscription is free of it either way.
+        if (!(error instanceof AppError && error.details?.status === 400)) throw error;
+      }
     },
     async setSubscriptionUsagePrice({ subscriptionId, itemId, priceId, idempotencyKey }) {
       await call(

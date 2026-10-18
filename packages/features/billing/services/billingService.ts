@@ -9,6 +9,7 @@ import { PLAN_CATALOG, PLAN_CURRENCY } from '../../plans/lib/planCatalog.ts';
 import { createLogger, type Logger } from '../../lib/logger.ts';
 import type { AccountEventsPort, ClerkAdmin } from '../../ports.ts';
 import { REPORT_HORIZON_MS, accessFor, isCompanionPlan, isPaidPlan, isUsagePrice, planForPrice, priceIdFor, usagePriceFor } from '../lib/policy.ts';
+import { createPlanChange } from './planChange.ts';
 import { asRecord, asString, parseSubscription, refId } from '../lib/stripeObjects.ts';
 import type {
   BillingAudit,
@@ -144,29 +145,18 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return { checkout_url: session.url, session_id: session.id };
   }
 
-  async function changePlan(input: { businessId: UUID; actorId: string; plan: PaidPlan; idempotencyKey: string }): Promise<SubscriptionDTO> {
-    const { stripe, config } = requireStripe();
-    const priceId = priceIdFor(config, input.plan, 'ZAR');
-    const usagePriceId = usagePriceFor(config, input.plan, 'ZAR');
-    if (!priceId || !usagePriceId) throw notConfigured(`no base or usage price for ${input.plan}`, { plan: input.plan });
-    const record = await repo.getByBusiness(input.businessId);
-    if (!record?.stripeSubscriptionId || !record.status || accessFor(record.status) !== 'entitled') {
-      throw ruleViolation('NO_SUBSCRIPTION', 'There is no active subscription to change: start one with checkout');
-    }
-    if (record.plan === input.plan) throw ruleViolation('SAME_PLAN', 'The subscription is already on this plan');
-    const current = await stripe.retrieveSubscription(record.stripeSubscriptionId);
-    const baseItem = current.items.find((item) => planForPrice(config, item.priceId) !== null);
-    if (!baseItem) throw new AppError('UPSTREAM_BILLING_ERROR', 'The subscription has no recognised plan line');
-    const usageItem = current.items.find((item) => isUsagePrice(config, item.priceId));
-    const updated = await stripe.changeSubscriptionPlan({
-      subscriptionId: current.id,
-      items: [{ id: baseItem.id, price: priceId }, { id: usageItem?.id ?? null, price: usagePriceId }],
-      idempotencyKey: `plan:${input.businessId}:${input.idempotencyKey}`,
-    });
-    // Apply Stripe's answer now so the app sees the new plan at once; the webhook that follows finds nothing to change.
-    await applySubscription({ ...updated, businessId: input.businessId }, Math.floor(clock().getTime() / 1000), { actorId: input.actorId, source: 'owner_api', ref: input.idempotencyKey });
-    return (await getSubscription(input.businessId)) as SubscriptionDTO;
-  }
+  const planChange = createPlanChange({
+    requireStripe,
+    repo,
+    clock,
+    logger,
+    audit,
+    notConfigured,
+    async applyOwnerChange(sub, input) {
+      // Apply Stripe's answer now so the app sees the new plan at once; the webhook that follows finds nothing to change.
+      await applySubscription({ ...sub, businessId: input.businessId }, input.at, { actorId: input.actorId, source: 'owner_api', ref: input.ref });
+    },
+  });
 
   async function createPortal(businessId: UUID) {
     const { stripe, config } = requireStripe();
@@ -241,7 +231,10 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
       return 'ignored';
     }
     await repo.saveCustomer(businessId, sub.customerId);
+    // A scheduled downgrade is over once the subscription moved to that tier or its schedule is gone (released or completed).
+    const scheduleDone = Boolean(record?.scheduledPlan) && (!sub.scheduleId || tier === record?.scheduledPlan);
     await repo.updateSubscription(businessId, {
+      ...(scheduleDone && { scheduledPlan: null, scheduledAt: null }),
       stripeSubscriptionId: sub.id,
       status: sub.status,
       plan: tier,
@@ -342,6 +335,8 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     const invoice = event.object;
     const parent = asRecord(asRecord(invoice.parent).subscription_details);
     const subscriptionId = refId(invoice.subscription) ?? refId(parent.subscription);
+    // The proration invoice of a plan change: if it fails the change is simply not applied and the subscription stays as it was.
+    if (invoice.billing_reason === 'subscription_update') return 'ignored';
     const record = subscriptionId ? await repo.getBySubscription(subscriptionId) : null;
     if (!record?.status || accessFor(record.status) !== 'entitled') return 'ignored';
     if (record.lastEventAt && event.created * 1000 < Date.parse(record.lastEventAt)) return 'ignored';
@@ -435,6 +430,8 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
       current_period_end: record.currentPeriodEnd,
       cancel_at_period_end: record.cancelAtPeriodEnd,
       is_past_due: record.status === 'past_due',
+      scheduled_plan: record.scheduledPlan,
+      scheduled_at: record.scheduledAt,
     };
   }
 
@@ -442,5 +439,5 @@ export function createBillingService(deps: BillingDeps): BillingService & Billin
     return deps.stripe !== null && deps.config !== null && isPaidPlan(plan) && priceIdFor(deps.config, plan, 'ZAR') !== null && usagePriceFor(deps.config, plan, 'ZAR') !== null;
   }
 
-  return { createCheckout, confirmCheckout, changePlan, createPortal, handleEvent, sweepUnreportedBookings, bookingCreated, getSubscription, isCheckoutAvailable };
+  return { createCheckout, confirmCheckout, changePlan: planChange.changePlan, previewPlanChange: planChange.previewPlanChange, createPortal, handleEvent, sweepUnreportedBookings, bookingCreated, getSubscription, isCheckoutAvailable };
 }

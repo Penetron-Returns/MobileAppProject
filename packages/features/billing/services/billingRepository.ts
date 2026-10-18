@@ -6,7 +6,7 @@ import { isPaidPlan } from '../lib/policy.ts';
 import type { BillingRecord, BillingRepository } from '../ports.ts';
 
 const COLUMNS =
-  'business_id, stripe_customer_id, stripe_subscription_id, status, plan, current_period_end, cancel_at_period_end, last_event_at, reporting_started_at';
+  'business_id, stripe_customer_id, stripe_subscription_id, status, plan, current_period_end, cancel_at_period_end, last_event_at, reporting_started_at, scheduled_plan, scheduled_at';
 
 interface Row {
   business_id: string;
@@ -18,6 +18,8 @@ interface Row {
   cancel_at_period_end: boolean;
   last_event_at: string | null;
   reporting_started_at: string | null;
+  scheduled_plan: string | null;
+  scheduled_at: string | null;
 }
 
 const toRecord = (row: Row): BillingRecord => ({
@@ -30,6 +32,8 @@ const toRecord = (row: Row): BillingRecord => ({
   cancelAtPeriodEnd: row.cancel_at_period_end,
   lastEventAt: row.last_event_at,
   reportingStartedAt: row.reporting_started_at,
+  scheduledPlan: isPaidPlan(row.scheduled_plan) ? row.scheduled_plan : null,
+  scheduledAt: row.scheduled_at,
 });
 
 export function createSupabaseBillingRepository(db: Db): BillingRepository {
@@ -62,6 +66,8 @@ export function createSupabaseBillingRepository(db: Db): BillingRepository {
         ...(patch.cancelAtPeriodEnd !== undefined && { cancel_at_period_end: patch.cancelAtPeriodEnd }),
         ...(patch.lastEventAt !== undefined && { last_event_at: patch.lastEventAt }),
         ...(patch.reportingStartedAt !== undefined && { reporting_started_at: patch.reportingStartedAt }),
+        ...(patch.scheduledPlan !== undefined && { scheduled_plan: patch.scheduledPlan }),
+        ...(patch.scheduledAt !== undefined && { scheduled_at: patch.scheduledAt }),
       };
       const { error } = await db.from('billing_subscriptions').update(values).eq('business_id', businessId);
       if (error) throw mapDbError(error);

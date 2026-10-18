@@ -447,6 +447,8 @@ export type Database = {
           last_event_at: string | null
           plan: Database["public"]["Enums"]["plan_key"] | null
           reporting_started_at: string | null
+          scheduled_at: string | null
+          scheduled_plan: Database["public"]["Enums"]["plan_key"] | null
           status: string | null
           stripe_customer_id: string
           stripe_subscription_id: string | null
@@ -460,6 +462,8 @@ export type Database = {
           last_event_at?: string | null
           plan?: Database["public"]["Enums"]["plan_key"] | null
           reporting_started_at?: string | null
+          scheduled_at?: string | null
+          scheduled_plan?: Database["public"]["Enums"]["plan_key"] | null
           status?: string | null
           stripe_customer_id: string
           stripe_subscription_id?: string | null
@@ -473,6 +477,8 @@ export type Database = {
           last_event_at?: string | null
           plan?: Database["public"]["Enums"]["plan_key"] | null
           reporting_started_at?: string | null
+          scheduled_at?: string | null
+          scheduled_plan?: Database["public"]["Enums"]["plan_key"] | null
           status?: string | null
           stripe_customer_id?: string
           stripe_subscription_id?: string | null

@@ -50,6 +50,7 @@ const CODE_MAP: Record<AppError['code'], ConnectorErrorCode> = {
   UNSUPPORTED_MEDIA_TYPE: 'provider_unavailable',
   BILLING_NOT_CONFIGURED: 'provider_unavailable',
   UPSTREAM_BILLING_ERROR: 'provider_unavailable',
+  PAYMENT_FAILED: 'provider_unavailable',
   TRANSCRIPTION_UNAVAILABLE: 'provider_unavailable',
   INTERNAL: 'provider_unavailable',
 };
