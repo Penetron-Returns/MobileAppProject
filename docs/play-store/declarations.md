@@ -184,14 +184,14 @@ Make the test account in the **production** Clerk instance with sign-in by passw
 
 **URL to submit:** `https://getclovie.app/delete-account`
 
-Status: **does not exist yet, and there is no in-app deletion path** (verified in `apps/mobile/src` and `apps/api/src`). Both are required for the form in Play Console > Policy > App content > Data safety > "Delete account URL". Create the page on getclovie.app with content like this (plain, no login needed):
+Status: the in-app path exists (Settings > Delete account); publish the web page at the URL above if not yet live. Both are required for the form in Play Console > Policy > App content > Data safety > "Delete account URL". Create the page on getclovie.app with content like this (plain, no login needed):
 
 ```
 Delete your Clovie account and data
 
 Owners can delete the whole business account, and staff can delete their own login.
 
-In the app: Settings > your name > Delete account. (To be added.)
+In the app: Settings > Delete account.
 
 By email: write to support@nerovasystems.com from the email address you signed up with,
 with the subject "Delete my Clovie account". Tell us the business name. We will confirm

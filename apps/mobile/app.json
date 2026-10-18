@@ -51,7 +51,8 @@
         }
       ],
       "./plugins/with-dev-menu-no-fab.js",
-      "./plugins/with-clovie-voice.js"
+      "./plugins/with-clovie-voice.js",
+      "./plugins/with-clovie-proguard.js"
     ],
     "experiments": {
       "typedRoutes": true

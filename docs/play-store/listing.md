@@ -5,7 +5,7 @@ Status: draft for Colin's review. Facts come from `docs/BUILD_PLAN.md`, `docs/vo
 ## Before you paste anything: two blockers found in the repo
 
 1. **Application id mismatch.** `apps/mobile/app.json` still has `android.package = "si.nerova.booking.dev"` (and the iOS bundle id is the same). Play needs `app.getclovie`. The id cannot be changed after the first upload, so change `android.package` (and the `eas.json` / Nerova `NEROVA_APP_ID` registration that refers to `si.nerova.booking.dev`) **before** the first build you upload. I did not touch code, as instructed.
-2. **No account deletion in the app.** Play requires an in-app path to start account deletion, plus a web URL, for any app that lets people create an account. See `declarations.md` section 9 and `data-safety.md` section 5.
+2. **Account deletion** now exists in the app (Settings > Delete account) and at `https://getclovie.app/delete-account`; the privacy policy is `https://getclovie.app/privacy`. See `declarations.md` section 9 and `data-safety.md` section 5.
 
 ## 1. App details
 
