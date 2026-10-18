@@ -1,20 +1,20 @@
-import { useAppColorScheme } from '@booking/ui';
 import { Image } from 'react-native';
 
-/** The companion character as a Settings row glyph (24pt, as on Settings.dc.html). */
-export function CompanionGlyph({ size = 24 }: { size?: number }) {
-  const { isDark } = useAppColorScheme();
+const COMPANION = require('@/assets/images/companion-120.png');
+
+/**
+ * The companion character as a Settings row glyph. One image for both schemes
+ * (the character is the same blue clover), with an explicit size so Android
+ * never lays out a 0x0 Image. Sized to the other row glyphs (20pt) by default.
+ */
+export function CompanionGlyph({ size = 20 }: { size?: number }) {
   return (
     <Image
-      source={
-        isDark
-          ? require('@/assets/images/companion-default-dark.png')
-          : require('@/assets/images/companion-default.png')
-      }
+      source={COMPANION}
       accessibilityElementsHidden
       importantForAccessibility="no"
       resizeMode="contain"
-      style={{ width: Math.max(size, 24), height: Math.max(size, 24) }}
+      style={{ width: size, height: size }}
     />
   );
 }
