@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * One-time: adds `action.executed` and `action.undone` (act-then-undo) to the webhook that register-approval-webhook.mjs
- * created. NEVER runs automatically.
+ * One-time: sets the webhook that register-approval-webhook.mjs created to approval.requested, action.executed,
+ * action.undone (act-then-undo) and channel.health_changed (WhatsApp health push). It was originally created with
+ * fewer events. NEVER runs automatically.
  *
  *   node scripts/nerova/update-webhook-events.mjs <api-key-file> <webhook-id whk_...> [--url <endpoint>] [--dry-run]
  *
@@ -14,11 +15,11 @@ import { readFileSync } from 'node:fs';
 
 const BASE_URL = (process.env.NEROVA_API_BASE_URL || 'https://api.nerova.si').replace(/\/+$/, '');
 export const DEFAULT_URL = 'https://hmpkeujudylyuorentld.supabase.co/functions/v1/api/webhooks/nerova';
-export const EVENT_FILTERS = ['approval.requested', 'action.executed', 'action.undone'];
-export const IDEMPOTENCY_KEY = 'clovie-webhook-events-v2';
+export const EVENT_FILTERS = ['approval.requested', 'action.executed', 'action.undone', 'channel.health_changed'];
+export const IDEMPOTENCY_KEY = 'clovie-webhook-events-v3';
 
 export function buildBody(url) {
-  return { url, description: 'Clovie approval and action push', eventFilters: EVENT_FILTERS };
+  return { url, description: 'Clovie approval, action and WhatsApp health push', eventFilters: EVENT_FILTERS };
 }
 
 async function main() {
