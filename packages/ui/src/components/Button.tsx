@@ -159,7 +159,7 @@ type ButtonProps = Omit<React.ComponentProps<typeof Pressable>, 'children'> &
     /** Shows a spinner before the label and blocks presses (an action in flight). */
     loading?: boolean;
     /**
-     * Light tap on press, for the primary button only. Pass `false` where the
+     * Light tap on press-in, for the primary button only. Pass `false` where the
      * action fires its own outcome haptic (success, warning, error), so one
      * user action never plays two.
      */
@@ -177,6 +177,7 @@ function Button({
   disabled,
   children,
   onPress,
+  onPressIn,
   ...props
 }: ButtonProps) {
   const depth = useDepth();
@@ -220,13 +221,15 @@ function Button({
             busy: Boolean(loading),
           }}
           disabled={disabled || loading}
-          onPress={
-            onPress
+          onPress={onPress}
+          // The tap is felt the moment the finger lands, not when it lifts.
+          onPressIn={
+            onPress && isTactile && haptic
               ? (event) => {
-                  if (isTactile && haptic) haptics.light();
-                  onPress(event);
+                  haptics.light();
+                  onPressIn?.(event);
                 }
-              : undefined
+              : onPressIn
           }
           // Small buttons are 36pt tall: the slop brings the touch target to 44pt.
           hitSlop={size === 'sm' ? { top: 4, bottom: 4 } : undefined}

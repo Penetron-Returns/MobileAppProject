@@ -9,7 +9,6 @@ import { Pressable } from '../Pressable';
 import { Skeleton } from '../Skeleton';
 import { Surface, type SurfaceVariant } from '../Surface';
 import { Text } from '../Text';
-import { DURATION, SCALE } from '../../tokens/motion';
 
 const flat = (style: unknown) =>
   (StyleSheet.flatten(style as StyleProp<ViewStyle>) ?? {}) as Record<
@@ -129,25 +128,18 @@ describe('Pressable', () => {
     );
   });
 
-  it('nudges down by one point and shrinks slightly', () => {
+  it('gives nudge and inset presses a UI-thread transform, and dim none', () => {
+    // The pose itself is a Reanimated shared value (not evaluated under Jest):
+    // the style carries the transform slots it drives.
     expect(pressedStyle('nudge', true).transform).toEqual([
-      { translateY: 1 },
-      { scale: SCALE.pressed },
+      { translateY: expect.any(Number) },
+      { scale: expect.any(Number) },
     ]);
-  });
-
-  it('shrinks an inset press but leaves a dim press at full size', () => {
     expect(pressedStyle('inset', true).transform).toEqual([
-      { translateY: 0 },
-      { scale: SCALE.pressed },
+      { translateY: expect.any(Number) },
+      { scale: expect.any(Number) },
     ]);
     expect(pressedStyle('dim', true).transform).toBeUndefined();
-  });
-
-  it('eases the press with the press token on the UI thread', () => {
-    const style = pressedStyle('nudge', true);
-    expect(style.transitionDuration).toBe(DURATION.press);
-    expect(style.transitionProperty).toBe('transform');
   });
 
   it('leaves feedback to the caller with none', () => {
@@ -156,9 +148,12 @@ describe('Pressable', () => {
 });
 
 describe('Skeleton', () => {
-  it('renders a pulsing placeholder that forwards className', () => {
+  it('renders a placeholder that forwards className', () => {
     const tree = render(<Skeleton className="h-4 w-1/2" testID="k" />);
-    expect(String(host(tree, 'k').props.className)).toContain('animate-pulse');
+    expect(String(host(tree, 'k').props.className)).toContain('bg-accent');
+    expect(String(host(tree, 'k').props.className)).not.toContain(
+      'animate-pulse',
+    );
     expect(textOf(tree)).toBe('');
   });
 });

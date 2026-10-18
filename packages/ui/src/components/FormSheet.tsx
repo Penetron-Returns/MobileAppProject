@@ -151,16 +151,18 @@ export function FormSheet({
                   },
                 ]}
               >
-                <BlurView
-                  intensity={30}
-                  tint={
-                    depth.scheme === 'dark'
-                      ? 'systemChromeMaterialDark'
-                      : 'systemChromeMaterialLight'
-                  }
-                  style={StyleSheet.absoluteFill}
-                  pointerEvents="none"
-                />
+                {Platform.OS === 'ios' ? (
+                  <BlurView
+                    intensity={30}
+                    tint={
+                      depth.scheme === 'dark'
+                        ? 'systemChromeMaterialDark'
+                        : 'systemChromeMaterialLight'
+                    }
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                  />
+                ) : null}
                 {footer}
               </View>
             ) : null}
