@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme as useNativewindColorScheme } from 'nativewind';
-import { useCallback, useContext, useEffect } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 
 import { THEME } from '../tokens/colors';
 import { SchemeContext } from './SchemeScope';
@@ -34,14 +34,27 @@ export function useAppColorScheme() {
   };
 }
 
-/** Restores the persisted preference once at startup. */
-export function useRestoreColorScheme() {
+/**
+ * Restores the persisted preference once at startup. Returns whether it has
+ * been applied (also true when nothing was saved or the read failed), so the
+ * app can hold its first frame and never flash the wrong theme.
+ */
+export function useRestoreColorScheme(): boolean {
   const { setColorScheme } = useNativewindColorScheme();
+  const [isRestored, setIsRestored] = useState(false);
   useEffect(() => {
+    let alive = true;
     AsyncStorage.getItem(STORAGE_KEY)
       .then((v) => {
         if (v === 'light' || v === 'dark') setColorScheme(v);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setIsRestored(true);
+      });
+    return () => {
+      alive = false;
+    };
   }, [setColorScheme]);
+  return isRestored;
 }

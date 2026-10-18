@@ -1,5 +1,3 @@
-import { AppRegistry, Platform } from 'react-native';
-
 import { fetchAppointmentsBetween } from '@/features/appointments/hooks';
 import { fetchBusiness } from '@/features/business/hooks';
 import { api, newIdempotencyKey } from '@/lib/api';
@@ -24,9 +22,7 @@ import { toCheckInCandidates } from './today';
 import { createPrefetcher } from './todayPrefetch';
 import { isCloudSttEnabled, transcribeClip } from './transcribe';
 
-const TASK_KEY = 'ClovieVoiceCommand';
-
-interface TaskData {
+export interface TaskData {
   id: string;
   /** A transcript from Android's recogniser, or... */
   transcript?: string;
@@ -128,41 +124,42 @@ export function createHeadlessDeps(): HeadlessDeps {
   };
 }
 
-/**
- * Android runs this when the Hey Clovie service hears a command, even with
- * the app in the background, and shows the outcome in its overlay. It only
- * has a signed-in session when the app's UI has run since launch (Clerk
- * registers its token getter then); otherwise it asks the owner to open the app.
- */
-export function registerVoiceHeadlessTask(): void {
-  if (Platform.OS !== 'android') return;
-  // The tile, widget and side key start the service without JS: keep its copy of the flag current.
+/** The tile, widget and side key start the service without JS: keep its copy of the cloud-STT flag current. */
+export function syncCloudSttFlag(): void {
   setCloudStt(isCloudSttEnabled);
-  AppRegistry.registerHeadlessTask(TASK_KEY, () => async (data: TaskData) => {
-    if (data.prefetch) {
-      await todayPrefetcher.prefetch();
-      return;
-    }
-    const startedAt = Number(data.startedAt);
-    if (Number.isFinite(startedAt)) {
-      recordTiming('headlessStartMs', Math.max(0, Date.now() - startedAt));
-    }
-    const deps = createHeadlessDeps();
-    // A follow-up turn carries the approval the service just read aloud, so a yes or no binds to that id.
-    const followUp = {
-      pendingApprovalId: data.pendingApprovalId || undefined,
-      pendingKind: data.pendingKind || undefined,
-      pendingQueue: data.pendingQueue || undefined,
-      pendingActionId: data.pendingActionId || undefined,
-      undoUntilMs: Number(data.undoUntilMs) || undefined,
-    };
-    const outcome = data.clipPath
-      ? await runVoiceClipHeadless(
-          data.clipPath,
-          { ...deps, transcribe: transcribeClip },
-          followUp,
-        )
-      : await runVoiceCommandHeadless(data.transcript ?? '', deps, followUp);
-    completeCommand(data.id, outcome);
-  });
+}
+
+/**
+ * Runs one Hey Clovie headless task (registered in `headlessRegistration.ts`):
+ * a prefetch at the wake word, or a spoken command whose outcome the service
+ * shows in its overlay. It only has a signed-in session when the app's UI has
+ * run since launch (Clerk registers its token getter then); otherwise it asks
+ * the owner to open the app.
+ */
+export async function runVoiceHeadlessTask(data: TaskData): Promise<void> {
+  if (data.prefetch) {
+    await todayPrefetcher.prefetch();
+    return;
+  }
+  const startedAt = Number(data.startedAt);
+  if (Number.isFinite(startedAt)) {
+    recordTiming('headlessStartMs', Math.max(0, Date.now() - startedAt));
+  }
+  const deps = createHeadlessDeps();
+  // A follow-up turn carries the approval the service just read aloud, so a yes or no binds to that id.
+  const followUp = {
+    pendingApprovalId: data.pendingApprovalId || undefined,
+    pendingKind: data.pendingKind || undefined,
+    pendingQueue: data.pendingQueue || undefined,
+    pendingActionId: data.pendingActionId || undefined,
+    undoUntilMs: Number(data.undoUntilMs) || undefined,
+  };
+  const outcome = data.clipPath
+    ? await runVoiceClipHeadless(
+        data.clipPath,
+        { ...deps, transcribe: transcribeClip },
+        followUp,
+      )
+    : await runVoiceCommandHeadless(data.transcript ?? '', deps, followUp);
+  completeCommand(data.id, outcome);
 }

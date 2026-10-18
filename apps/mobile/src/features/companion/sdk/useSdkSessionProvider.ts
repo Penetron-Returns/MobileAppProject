@@ -8,6 +8,7 @@ import * as React from 'react';
 
 import { api } from '@/lib/api';
 import { nerovaApi } from '@/lib/env';
+import { shellIdle } from '@/lib/idleGate';
 import { useApiMutation } from '@/lib/query';
 
 function sessionBody(mode: CompanionColorMode): CreateCompanionSessionRequest {
@@ -39,6 +40,8 @@ export function useSdkSessionProvider(
   modeRef.current = colorMode;
 
   return React.useCallback(async () => {
+    // Not on the first paint's critical path: wait for the shell to settle.
+    await shellIdle();
     const session = await mintRef.current(modeRef.current);
     if (nerovaApi !== 'v1') {
       return { url: session.url, expiresAt: session.expires_at };
