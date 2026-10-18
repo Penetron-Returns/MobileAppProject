@@ -12,6 +12,7 @@ import { useCallback, useRef } from 'react';
 import { isApiError } from './api';
 import { IdempotencyTracker } from './idempotency';
 import { offlineError } from './offline';
+import { applyPersistedGcTimes } from './queryPersist';
 import { toast } from './toast';
 
 export const queryClient = new QueryClient({
@@ -26,6 +27,8 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+applyPersistedGcTimes(queryClient);
 
 /** Central query keys so Realtime can invalidate precisely. */
 export const qk = {
