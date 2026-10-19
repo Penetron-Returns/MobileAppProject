@@ -211,9 +211,28 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
     { kind: 'choose-plan' },
   ],
   [
-    'a legacy free business with no companion also chooses a plan',
-    { billing: { ...paidOwner, plan: 'free', hasCompanion: false } },
-    { kind: 'choose-plan' },
+    'a free business: the owner goes straight to the tabs, no companion setup',
+    {
+      billing: {
+        ...paidOwner,
+        plan: 'free',
+        hasCompanion: false,
+        provisioning: 'pending',
+      },
+    },
+    { kind: 'tabs' },
+  ],
+  [
+    'a free business: staff go to the tabs too',
+    {
+      billing: {
+        ...paidOwner,
+        role: 'staff',
+        plan: 'free',
+        hasCompanion: false,
+      },
+    },
+    { kind: 'tabs' },
   ],
   [
     'staff of an inactive business see the inactive screen, not the plans',
@@ -308,7 +327,8 @@ describe('basicsStatus', () => {
 describe('isBusinessActive', () => {
   it.each([
     ['none', false, false],
-    ['free', false, false],
+    ['none', true, true],
+    ['free', false, true],
     ['starter', false, true],
     ['growth', true, true],
     ['free', true, true],
@@ -324,7 +344,7 @@ describe('provisioningStatus', () => {
       'staff never wait',
       {
         isOwner: false,
-        isActive: true,
+        hasClovie: true,
         setup: { isLoading: true, nextStep: null },
       },
       'ready',
@@ -333,7 +353,7 @@ describe('provisioningStatus', () => {
       'an inactive business does not ask',
       {
         isOwner: true,
-        isActive: false,
+        hasClovie: false,
         setup: { isLoading: true, nextStep: null },
       },
       'ready',
@@ -342,7 +362,7 @@ describe('provisioningStatus', () => {
       'loading waits',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         setup: { isLoading: true, nextStep: null },
       },
       'pending',
@@ -351,7 +371,7 @@ describe('provisioningStatus', () => {
       'loading does not block a returning owner with a cached /me',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         hasCachedMe: true,
         setup: { isLoading: true, nextStep: null },
       },
@@ -361,7 +381,7 @@ describe('provisioningStatus', () => {
       'provision_account still waits for a returning owner',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         hasCachedMe: true,
         setup: { isLoading: false, nextStep: 'provision_account' },
       },
@@ -371,21 +391,21 @@ describe('provisioningStatus', () => {
       'provision_account waits',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         setup: { isLoading: false, nextStep: 'provision_account' },
       },
       'pending',
     ],
     [
       'connect_whatsapp is ready',
-      { isOwner: true, isActive: true, setup: ready },
+      { isOwner: true, hasClovie: true, setup: ready },
       'ready',
     ],
     [
       'none is ready',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         setup: { isLoading: false, nextStep: 'none' },
       },
       'ready',
@@ -394,7 +414,7 @@ describe('provisioningStatus', () => {
       'a failed lookup never locks the owner out',
       {
         isOwner: true,
-        isActive: true,
+        hasClovie: true,
         setup: { isLoading: false, nextStep: null },
       },
       'ready',

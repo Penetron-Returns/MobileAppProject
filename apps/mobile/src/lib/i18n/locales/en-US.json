@@ -747,6 +747,28 @@
       },
       "reminders": "Reminders to clients",
       "remindersFooter": "WhatsApp reminders go to clients before their booking.",
+      "channel": {
+        "status": "Booking menu",
+        "number": "Number",
+        "verifiedName": "Verified name",
+        "none": "Not available",
+        "pause": "Pause booking menu",
+        "resume": "Resume booking menu",
+        "pill": {
+          "live": "Live",
+          "pending": "Pending",
+          "paused": "Paused",
+          "needs_reauth": "Needs reconnecting",
+          "not_connected": "Not connected"
+        },
+        "hint": {
+          "live": "Clients can book, reschedule and cancel on this number.",
+          "pending": "The number is being set up. This takes a few minutes.",
+          "paused": "Clients cannot book on WhatsApp while this is paused.",
+          "needs_reauth": "The connection expired. Ask your administrator to reconnect the number.",
+          "not_connected": "No WhatsApp number is connected yet. Your administrator connects it for you."
+        }
+      },
       "customersSeeLine": "Clients can choose: {{menu}}.",
       "connect": "Connect WhatsApp",
       "reconnect": "Reconnect WhatsApp",

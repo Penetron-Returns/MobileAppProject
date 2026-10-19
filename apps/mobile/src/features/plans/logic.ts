@@ -2,6 +2,7 @@ import type {
   BillingUsageDTO,
   FeatureEntitlementDTO,
   FeatureKey,
+  PlanKey,
   UsageState,
 } from '@booking/types';
 
@@ -13,6 +14,20 @@ export function hasFeature(
   feature: FeatureKey,
 ): boolean {
   return features?.some((f) => f.feature === feature) ?? false;
+}
+
+/**
+ * Whether the business uses Clovie, the AI companion: it carries the
+ * companion feature or is on a paid plan. Free (and no plan yet) runs the app
+ * without it. The one place this is decided.
+ */
+export function hasClovie(billing: {
+  plan: PlanKey | null;
+  hasCompanion: boolean;
+}): boolean {
+  const isPaid =
+    billing.plan !== null && billing.plan !== 'none' && billing.plan !== 'free';
+  return billing.hasCompanion || isPaid;
 }
 
 /** Monthly cap for a feature: null when uncapped, not in the plan, or unknown. */

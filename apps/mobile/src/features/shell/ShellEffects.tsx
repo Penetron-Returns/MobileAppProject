@@ -18,6 +18,8 @@ interface ShellEffectsProps {
   routeKind: AppRoute['kind'];
   /** Signed in with an active business. */
   hasOrg: boolean;
+  /** Clovie is part of the plan; Free has no voice or companion work to run. */
+  hasClovie: boolean;
   /** The Clerk user while signed in, else null. */
   userId: string | null;
   businessId: string | undefined;
@@ -31,12 +33,13 @@ interface ShellEffectsProps {
 export function ShellEffects({
   routeKind,
   hasOrg,
+  hasClovie,
   userId,
   businessId,
 }: ShellEffectsProps) {
   useAnalyticsIdentity(userId, businessId);
   useBusinessRealtime(hasOrg, useEntitlements().has('inbox'));
-  useVoiceScheduleSync(hasOrg);
+  useVoiceScheduleSync(hasOrg && hasClovie);
 
   // Once the business exists, the draft and the remembered type are spent. Back
   // from the plan screen still needs the type, so only the draft goes there.
@@ -58,6 +61,6 @@ export function ShellEffects({
   // Taps on attendance pushes navigate, so wait until the tabs are on screen.
   useAttendanceNotifications(routeKind === 'tabs');
   // Background voice and notification actions run without a live session: keep their device token fresh.
-  useVoiceDeviceToken(routeKind === 'tabs');
+  useVoiceDeviceToken(routeKind === 'tabs' && hasClovie);
   return null;
 }

@@ -16,6 +16,14 @@ describe('settingsGroups', () => {
     ]);
   });
 
+  it('drops only the Clovie row when the plan has no Clovie', () => {
+    const assistant = settingsGroups(false).find((g) => g.id === 'assistant');
+    expect(assistant?.items).toEqual(['whatsapp']);
+    expect(settingsGroups(false).flatMap((g) => g.items)).not.toContain(
+      'clovie',
+    );
+  });
+
   it('takes no role, platform or plan, so nothing can be dropped for them', () => {
     expect(settingsGroups.length).toBe(0);
   });

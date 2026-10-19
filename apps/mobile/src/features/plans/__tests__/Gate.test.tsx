@@ -19,6 +19,7 @@ function entitlements(
     plan: 'free',
     has: (f) => granted.includes(f),
     limitOf: () => null,
+    hasClovie: false,
     isLoading: false,
     isError: false,
     ...over,

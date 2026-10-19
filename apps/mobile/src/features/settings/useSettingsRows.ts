@@ -1,4 +1,4 @@
-import type { CompanionSetupDTO } from '@booking/types';
+import type { CompanionSetupDTO, WhatsAppChannelDTO } from '@booking/types';
 import type { TFunction } from 'i18next';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,8 @@ import { formatMinutes } from './format';
 import { useBookingRules } from './hooks';
 import type { SettingsItem } from './navigation';
 import { openDaysSummary } from './summaries';
+import { useWhatsAppChannel } from './useWhatsAppChannel';
+import { channelPill } from './whatsappChannel';
 import { goLiveSteps } from './whatsappStatus';
 
 /** What a Settings row shows beside its title; `disabled` rows stay visible and say why. */
@@ -55,6 +57,22 @@ function whatsappRow(setup: CompanionSetupDTO, t: TFunction): RowModel {
   };
 }
 
+/** The WhatsApp row on Free: the number when live, else the channel state. */
+function channelRow(channel: WhatsAppChannelDTO, t: TFunction): RowModel {
+  const pill = channelPill(channel);
+  const phone = formatPhone(channel.display_phone);
+  if (pill === 'live' && phone) {
+    return {
+      detail: t('settings.whatsapp.rowConnected', { phone }),
+      tone: 'success',
+    };
+  }
+  return {
+    detail: t(`settings.whatsapp.channel.pill.${pill}`),
+    tone: pill === 'live' ? 'success' : 'secondary',
+  };
+}
+
 /**
  * The value, state and reason of every Settings row. Rows are never dropped:
  * what a role, plan or platform cannot use is `disabled` with a reason, and a
@@ -70,7 +88,9 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
   const services = useServices();
   const staff = useStaff();
   const rules = useBookingRules();
-  const setup = useCompanionSetup({ enabled: isOwner });
+  const { hasClovie } = entitlements;
+  const setup = useCompanionSetup({ enabled: isOwner && hasClovie });
+  const channel = useWhatsAppChannel({ enabled: !hasClovie });
 
   return React.useMemo(() => {
     const none: RowModel = {};
@@ -87,7 +107,9 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
         }
       : none;
 
-    const whatsapp: RowModel = setup.data ? whatsappRow(setup.data, t) : none;
+    let whatsapp: RowModel = none;
+    if (!hasClovie && channel.data) whatsapp = channelRow(channel.data, t);
+    if (hasClovie && setup.data) whatsapp = whatsappRow(setup.data, t);
 
     return {
       businessDetails: { detail: details.data?.name },
@@ -120,6 +142,8 @@ export function useSettingsRows(): Record<SettingsItem, RowModel> {
   }, [
     t,
     setup.data,
+    channel.data,
+    hasClovie,
     entitlements,
     details.data,
     hours.data,

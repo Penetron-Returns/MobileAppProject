@@ -20,17 +20,20 @@ export interface SettingsGroup {
 /**
  * What Settings lists. One list for everyone: the role (and platform, plan)
  * decides whether a row can be changed, never whether it is shown, so
- * nothing is ever hidden. Rows an owner alone may change open read-only
+ * nothing is ever hidden (but Clovie's own row, on a plan without Clovie). Rows an owner alone may change open read-only
  * for staff; the API enforces the role. Attendance and Clovie voice live on the
  * Clovie screen, client reminders on the WhatsApp screen (two levels at most).
  */
-export function settingsGroups(): SettingsGroup[] {
+export function settingsGroups(hasClovie = true): SettingsGroup[] {
   return [
     {
       id: 'business',
       items: ['businessDetails', 'hours', 'services', 'rules', 'team'],
     },
-    { id: 'assistant', items: ['clovie', 'whatsapp'] },
+    {
+      id: 'assistant',
+      items: hasClovie ? ['clovie', 'whatsapp'] : ['whatsapp'],
+    },
     {
       id: 'account',
       items: [

@@ -15,6 +15,7 @@ import { ShellStack } from '@/features/shell/ShellStack';
 import { PushRegistration } from '@/features/notifications/components/PushRegistration';
 import { useCompanionSetup } from '@/features/companion/hooks';
 import { useMe } from '@/features/business/me';
+import { hasClovie } from '@/features/plans/logic';
 import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
 import { JoinScreen } from '@/features/join/components/JoinScreen';
 import { usePendingInvitations } from '@/features/join/hooks';
@@ -33,7 +34,6 @@ import { useUserScopedState } from '@/features/auth/useUserScopedState';
 import { useBusinessHours } from '@/features/business/hooks';
 import {
   basicsStatus,
-  isBusinessActive,
   provisioningStatus,
   resolveAppRoute,
   type AppRoute,
@@ -102,9 +102,9 @@ function useBilling(
   const hasCompanion = Boolean(
     me?.features.some((f) => f.feature === 'companion'),
   );
-  const isActive = isBusinessActive({ plan, hasCompanion });
+  const clovie = hasClovie({ plan, hasCompanion });
   const setup = useCompanionSetup({
-    enabled: Boolean(me) && isOwner && isActive,
+    enabled: Boolean(me) && isOwner && clovie,
   });
   // Only an owner without a plan can still be mid-onboarding.
   const hours = useBusinessHours({
@@ -123,7 +123,7 @@ function useBilling(
     provisioning: provisioningStatus({
       hasCachedMe,
       isOwner,
-      isActive,
+      hasClovie: clovie,
       setup: {
         isLoading: setup.isPending && setup.fetchStatus !== 'idle',
         nextStep: setup.data?.next_step ?? null,
@@ -189,6 +189,7 @@ export default function AppLayout() {
   const startedWithMe = React.useRef<boolean | null>(null);
   startedWithMe.current ??= Boolean(me.data);
   const billing = useBilling(me.data, startedWithMe.current);
+  const isClovieOn = billing ? hasClovie(billing) : false;
 
   const resolved = resolveAppRoute({
     authLoaded,
@@ -329,7 +330,7 @@ export default function AppLayout() {
 
     return (
       <CompanionSdkHost>
-        <ApprovalNotifications enabled />
+        <ApprovalNotifications enabled={isClovieOn} />
         <PushRegistration enabled />
         <ShellStack />
       </CompanionSdkHost>
@@ -341,6 +342,7 @@ export default function AppLayout() {
       <ShellEffects
         routeKind={route.kind}
         hasOrg={hasOrg}
+        hasClovie={isClovieOn}
         userId={userId}
         businessId={me.data?.business.id}
       />
