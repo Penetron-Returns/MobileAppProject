@@ -455,49 +455,11 @@ export function createMemoryRepository(opts: { now?: () => Date } = {}): MemoryR
       event(row.id, 'cancelled', a.actor, a.actorId, { reason: a.reason });
       return clone(row);
     },
-    async voidAppointment(a) {
-      const row = appointmentById(a.appointmentId);
-      if (row.status !== "confirmed") throw rule("INVALID_STATUS", "Only confirmed appointments can be voided");
-      Object.assign(row, { status: "cancelled", cancelled_at: now(), cancel_reason: "voided", voided_at: now(), client_notify_after: null });
-      event(row.id, "voided", a.actor, a.actorId, {});
-      return clone(row);
-    },
-    async holdClientNotification(businessId, appointmentId, untilIso) {
-      const row = appointmentById(appointmentId);
-      if (row.business_id !== businessId) throw notFound("Appointment");
-      row.client_notify_after = untilIso;
-    },
-    async claimDueClientNotifications(nowIso, limit) {
-      const due = tables.appointments
-        .filter((r) => !!r.client_notify_after && r.client_notify_after <= nowIso)
-        .sort((x, y) => (x.client_notify_after ?? "").localeCompare(y.client_notify_after ?? "") || x.id.localeCompare(y.id))
-        .slice(0, limit);
-      for (const r of due) r.client_notify_after = null;
-      return due.map((r) => ({ appointment_id: r.id, business_id: r.business_id, client_id: r.client_id, status: r.status, voided: !!r.voided_at }));
-    },
     async setAppointmentStatus(a) {
       const row = appointmentById(a.appointmentId);
       if (row.status !== 'confirmed') throw rule('INVALID_STATUS', 'Only confirmed appointments can change status');
       row.status = a.status;
       event(row.id, a.status, a.actor, a.actorId);
-      return clone(row);
-    },
-    async findLatestAppointmentEventId(appointmentId, type) {
-      const match = tables.appointment_events.filter((e) => e.appointment_id === appointmentId && e.type === type).at(-1);
-      return match?.id ?? null;
-    },
-    async confirmAppointmentByClient(a) {
-      const row = appointmentById(a.appointmentId);
-      if (row.business_id !== a.businessId) throw notFound('Appointment');
-      const replay =
-        !!a.idempotencyKey &&
-        tables.appointment_events.some(
-          (e) => e.appointment_id === row.id && e.type === 'client_confirmed' && (e.payload as { idempotency_key?: string }).idempotency_key === a.idempotencyKey,
-        );
-      if (row.status !== 'confirmed' || row.client_confirmed_at || replay) return clone(row);
-      row.client_confirmed_at = a.confirmedAt;
-      row.client_confirmed_via = a.via;
-      event(row.id, 'client_confirmed', a.actor, a.actorId, { via: a.via, confirmed_at: a.confirmedAt, idempotency_key: a.idempotencyKey });
       return clone(row);
     },
     async checkInAppointment(appointmentId, actorId) {

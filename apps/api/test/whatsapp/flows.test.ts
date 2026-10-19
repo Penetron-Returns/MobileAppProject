@@ -4,7 +4,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { decryptFlowRequest, encryptFlowResponse, FlowDecryptError, invertIv, loadFlowPrivateKey } from '@booking/app-store/whatsapp/flows/crypto.ts';
 import { FLOW_COPY, handleFlowRequest, type FlowRequest } from '@booking/app-store/whatsapp/flows/handler.ts';
-import { AppError, notFound } from '@booking/features/lib/errors.ts';
 import { signFlowToken, verifyFlowToken } from '@booking/app-store/whatsapp/flows/token.ts';
 import { signMetaBody } from '@booking/app-store/whatsapp/signature.ts';
 import {
@@ -445,25 +444,5 @@ describe('flows: HTTP endpoint', () => {
     const body = JSON.stringify(request);
     expect((await post(body, { 'x-hub-signature-256': 'sha256=00' })).status).toBe(432);
     expect((await post(body, { 'x-hub-signature-256': signMetaBody('app-secret', body) })).status).toBe(200);
-  });
-});
-
-describe('flow plan gate and entitlement errors', () => {
-  const failingEntitlements = (error: unknown) => ({
-    getEntitlements: async () => Promise.reject(error),
-    hasFeature: async () => Promise.reject(error),
-    listBusinessIdsWithFeature: async () => [],
-  });
-
-  it('closes the flow (427) when the business has no plan row: NOT_FOUND means "no feature"', async () => {
-    const { h, ask } = await setup();
-    h.deps.entitlements = failingEntitlements(notFound('Business plan'));
-    expect((await ask({ action: 'INIT' })).status).toBe(427);
-  });
-
-  it('lets a transient database error surface so the request is retried', async () => {
-    const { h, ask } = await setup();
-    h.deps.entitlements = failingEntitlements(new AppError('INTERNAL', 'db down'));
-    await expect(ask({ action: 'INIT' })).rejects.toMatchObject({ code: 'INTERNAL' });
   });
 });

@@ -3,7 +3,7 @@
  * Clerk webhook path: this service deletes the Clerk user (and, for the sole owner who confirms by typing the
  * business name, the Clerk organisation) and the `user.deleted` / `organization.deleted` webhooks cascade through
  * `handleClerkEvent` (users row, staff link, business and its data). What cannot wait for the webhook is done here:
- * device voice tokens and Expo push tokens are revoked at once, the linked staff row (kept because appointments
+ * Expo push tokens are revoked at once, the linked staff row (kept because appointments
  * reference it) is anonymised, and the deletion is audited in `audit_log` (entity `account`; history outlives the business).
  * Clerk goes first, so a failure leaves local data untouched and the owner can retry.
  */
@@ -11,7 +11,6 @@ import type { AccountDeletionPreviewDTO, DeleteAccountResultDTO, MemberRole, UUI
 import { notFound, ruleViolation } from '../../lib/errors.ts';
 import type { ClerkAdmin } from '../ports.ts';
 import type { BookingRepository } from '../../repositories/types.ts';
-import type { DeviceTokenService } from '../../voice/ports.ts';
 
 export interface AccountCaller {
   userId: string;
@@ -24,7 +23,6 @@ export interface AccountCaller {
 export interface AccountDeps {
   repo: BookingRepository;
   clerk: ClerkAdmin;
-  deviceTokens: DeviceTokenService;
 }
 
 /** What replaces a deleted person's name on the staff row that old appointments still point at. */
@@ -78,7 +76,6 @@ export async function deleteAccount(
     throw ruleViolation('BUSINESS_NAME_MISMATCH', 'Type the business name exactly to delete the business and your account');
   }
 
-  await deps.deviceTokens.revoke({ businessId: caller.businessId, userId: caller.userId });
   await deps.repo.deleteDeviceTokensForUser(caller.userId);
   if (preview.business_deleted) await deps.clerk.deleteOrganization(caller.orgId);
   await deps.clerk.deleteUser(caller.userId);

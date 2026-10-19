@@ -2,7 +2,7 @@
   "name": "@booking/features",
   "version": "0.0.0",
   "private": true,
-  "description": "Runtime-neutral booking domain: services, repositories and pure logic, one folder per feature. No Hono, no apps, no companion/app-store/extensions.",
+  "description": "Runtime-neutral booking domain: services, repositories and pure logic, one folder per feature. No Hono, no apps, no app-store/extensions.",
   "type": "module",
   "exports": {
     "./*": "./*"

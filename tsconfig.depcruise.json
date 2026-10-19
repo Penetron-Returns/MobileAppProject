@@ -13,7 +13,6 @@
       "@booking/types/*": ["packages/types/*"],
       "@booking/database": ["packages/database/database.types.ts"],
       "@booking/features/*": ["packages/features/*"],
-      "@booking/companion/*": ["packages/companion/*"],
       "@booking/app-store/*": ["packages/app-store/*"],
       "@booking/testing/*": ["packages/testing/*"],
       "@booking/ui": ["packages/ui/src/index.ts"],

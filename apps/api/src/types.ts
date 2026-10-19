@@ -17,8 +17,6 @@ export interface AppEnv {
     container: Container;
     /** Set by requireAuth() on /v1/** */
     auth: AuthContext;
-    /** Milliseconds the device-token credential check took (set by allowDeviceToken; reported as Server-Timing auth) */
-    authMs: number;
     /** Set by requireOrgOwnerSession() on /v1/onboarding (no business yet) */
     session: { userId: string; orgId: string };
   };

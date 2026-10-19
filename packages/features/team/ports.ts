@@ -42,8 +42,6 @@ export interface ClerkAdmin {
   removeMember(orgId: string, userId: string): Promise<void>;
   /** Permanently deletes the login (and so every membership). A user Clerk no longer knows counts as deleted. */
   deleteUser(userId: string): Promise<void>;
-  /** Merges keys into the organisation's publicMetadata (Clerk `PATCH /organizations/{id}/metadata`); other keys are kept. */
-  updateOrganizationPublicMetadata(orgId: string, publicMetadata: Record<string, unknown>): Promise<void>;
   /** Permanently deletes the organisation and its memberships. An organisation Clerk no longer knows counts as deleted. */
   deleteOrganization(orgId: string): Promise<void>;
 }

@@ -4,12 +4,6 @@ Deno.env.set('SUPABASE_URL', 'http://127.0.0.1:54321');
 Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
 Deno.env.set('CRON_SECRET', 'cron-secret');
 Deno.env.set('WHATSAPP_VERIFY_TOKEN', 'verify-token');
-// Nerova connector: only the SHA-256 of the bearer token is configured.
-const connectorToken = 'deno-smoke-connector-token';
-const connectorHash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(connectorToken)))]
-  .map((b) => b.toString(16).padStart(2, '0'))
-  .join('');
-Deno.env.set('NEROVA_CONNECTOR_TOKEN_HASHES', connectorHash);
 
 // Throwaway Flows key pair. The container caches env on first use, so it must be set before the import below.
 const flowKeys = await crypto.subtle.generateKey(
@@ -100,34 +94,14 @@ Deno.test('Flow definitions load under Deno: booking_v2 and reschedule_v2 end on
   }
 });
 
-Deno.test('nerova connector rejects a bad token and lists the published tools under Deno', async () => {
-  const rpc = (token: string | null) =>
-    server.request('/api/connector/nerova/mcp', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
-    });
-  assertEquals((await rpc(null)).status, 401, 'missing token status');
-  assertEquals((await rpc('wrong')).status, 401, 'wrong token status');
-  const ok = await rpc(connectorToken);
-  assertEquals(ok.status, 200, 'status');
-  const { result } = await ok.json();
-  assertEquals(result.tools.length, 14, 'tool count');
-  assertEquals(result.tools[0].name, 'accounts_list', 'first tool');
+Deno.test('reports route requires a Clerk bearer token under Deno', async () => {
+  const res = await server.request('/api/v1/reports/summary');
+  assertEquals(res.status, 401, 'status');
 });
 
-Deno.test('checkout confirm skips the idempotency key and wildcard CORS under the /api prefix', async () => {
-  const origin = 'http://localhost:3000';
-  const post = await server.request('/api/public/billing/checkout/confirm', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin },
-    body: JSON.stringify({ session_id: 'cs_test_missing' }),
-  });
-  const body = await post.json();
-  assertEquals(body?.error?.code === 'IDEMPOTENCY_KEY_REQUIRED', false, 'idempotency key not required');
-  const pre = await server.request('/api/public/billing/checkout/confirm', {
-    method: 'OPTIONS',
-    headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' },
-  });
-  assertEquals(pre.headers.get('access-control-allow-origin'), origin, 'preflight echoes the allowed origin');
+Deno.test('routes of the removed paid edition answer 404 NOT_FOUND', async () => {
+  for (const path of ['/api/connector/nerova/mcp', '/api/webhooks/stripe']) {
+    const res = await server.request(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assertEquals(res.status, 404, `${path} status`);
+  }
 });

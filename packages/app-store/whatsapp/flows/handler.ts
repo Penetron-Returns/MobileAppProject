@@ -8,8 +8,6 @@
  * Booking:    SERVICE → DATETIME → SUMMARY (`complete`; the engine books on the nfm_reply), see bookingFlow.ts
  * Reschedule: DATETIME → SUMMARY (`complete`; the engine moves the appointment on the nfm_reply), see rescheduleFlow.ts
  */
-import { hasFeatureOrNone } from '@booking/features/plans/services/entitlements.ts';
-import { whatsappApp } from '../_metadata.ts';
 import type { WaDeps } from '../deps.ts';
 import { escalate } from '../outbound.ts';
 import { bookingFlow } from './bookingFlow.ts';
@@ -42,8 +40,6 @@ export async function handleFlowRequest(deps: WaDeps, req: FlowRequest): Promise
   if (!check?.ok) return { status: 427 };
   const conv = await deps.repo.getConversation(check.claims.conversationId);
   if (!conv) return { status: 427 };
-  // Plan gate: a business without the whatsapp_menu feature has no live flows; close any stale one.
-  if (!(await hasFeatureOrNone(deps.entitlements, conv.business_id, whatsappApp.requiredFeature))) return { status: 427 };
   const client = await deps.repo.getClient(conv.business_id, conv.client_id);
   if (!client) return { status: 427 };
   const business = await deps.booking.getBusiness(conv.business_id);

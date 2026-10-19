@@ -134,9 +134,6 @@ export interface BusinessBrief {
   timezone: string;
 }
 
-/** A held appointment (act-then-undo) whose hold passed; the claim already cleared `client_notify_after`. */
-export type HeldNotificationClaim = Database['public']['Functions']['claim_due_client_notifications']['Returns'][number];
-
 export type ReminderClaim = Database['public']['Functions']['claim_due_reminders']['Returns'][number];
 
 /** Unfinished webhook events are retried at most this many times. */
@@ -213,8 +210,6 @@ export interface WaRepo {
   getAppointmentBrief(businessId: string, id: string): Promise<AppointmentBrief | null>;
   insertAppointmentEvent(e: { businessId: string; appointmentId: string; type: 'confirmation_sent'; payload: Record<string, unknown> }): Promise<void>;
   claimDueReminders(now: string, limit: number): Promise<ReminderClaim[]>;
-  /** Atomic claim (UPDATE ... RETURNING): each due hold is returned to exactly one caller */
-  claimDueClientNotifications(now: string, limit: number): Promise<HeldNotificationClaim[]>;
   /** Updates the claimed `reminder_sent` event, keeping offset_minutes and starts_at. */
   setReminderState(claim: Pick<ReminderClaim, 'appointment_id' | 'offset_minutes' | 'starts_at'>, extra: Record<string, unknown>): Promise<void>;
   getBusinessBrief(businessId: string): Promise<BusinessBrief | null>;

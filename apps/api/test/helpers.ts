@@ -3,18 +3,8 @@ import type { Env } from '../src/env.ts';
 import type { Db } from '@booking/features/lib/db.ts';
 import type { IdempotencyRecord, IdempotencyStore } from '../src/middleware/idempotency.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
-import type { AttendanceService, BookingService, NotificationService } from '@booking/features/ports.ts';
-import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
-import { createMemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
+import type { AttendanceService, BookingService, NotificationService, ReportService } from '@booking/features/ports.ts';
 import { createFakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
-import { createCompanionService } from '@booking/companion/nerova/companionService.ts';
-import { createCompanionSettingsService } from '@booking/companion/nerova/settings.ts';
-import { createUsageService } from '@booking/features/plans/services/usage.ts';
-import { createFakeNerovaClient } from '@booking/testing/nerova.ts';
-import { createMemoryPlanRepository } from '@booking/testing/plans.ts';
-import { createBillingService } from '@booking/features/billing/services/billingService.ts';
-import { createMemoryBillingRepository } from '@booking/testing/billing.ts';
-import { fakeEntitlements } from '@booking/testing/entitlements.ts';
 
 export const TEST_ENV: Env = {
   SUPABASE_URL: 'http://localhost:54321',
@@ -56,27 +46,14 @@ export function testContainer(overrides: Partial<Container> = {}): Container {
       throw new Error(`fake not configured: ${String(prop)}`);
     },
   });
-  // Plan usage and the companion over empty fakes; plan tests build their own with seeded data.
-  const planRepo = createMemoryPlanRepository();
-  const nerova = createFakeNerovaClient();
   return {
     env: TEST_ENV,
     db: unimplemented as Db,
     booking: unimplemented as BookingService,
     attendance: unimplemented as AttendanceService,
     notifications: { appointmentChanged: async () => {} } satisfies NotificationService,
-    // Free plan = the WhatsApp menu + inbox, which is what the existing suites exercise.
-    entitlements: fakeEntitlements('free'),
-    nerovaEvents: { accountChanged: async () => {} },
-    usage: createUsageService({ repo: planRepo, clock: () => new Date() }),
-    // Billing unconfigured (no Stripe client): billing tests build their own
-    billing: createBillingService({ stripe: null, config: null, repo: createMemoryBillingRepository(), events: { accountChanged: async () => {} }, }),
-    companion: createCompanionService({ nerova, plans: planRepo, embedOrigin: undefined, clock: () => new Date() }),
-    companionSettings: createCompanionSettingsService({ nerova, plans: planRepo, recordAudit: async () => {} }),
-    voiceAsk: unimplemented as Container['voiceAsk'],
-    stories: unimplemented as Container['stories'],
+    reports: unimplemented as ReportService,
     clerkAdmin: createFakeClerkAdmin(),
-    voiceTokens: createDeviceTokenService({ repo: createMemoryDeviceTokenRepository() }),
     clock: () => new Date(),
     ...overrides,
   };

@@ -2,7 +2,6 @@
 import type {
   AppointmentDTO,
   AppointmentSource,
-  ClientConfirmationChannel,
   AppointmentStatus,
   AvailableSlotsResponse,
   BusinessDTO,
@@ -71,11 +70,6 @@ export interface CreateAppointmentInput {
   allowOutsideHours?: boolean;
   /** Send the customer a WhatsApp confirmation */
   notifyCustomer?: boolean;
-  /**
-   * Act-then-undo: with `notifyCustomer`, the confirmation is NOT sent now but held until this instant (stored as
-   * `client_notify_after`); the hold job sends it then if the appointment is still confirmed. Reminders wait too.
-   */
-  holdClientNotificationUntil?: ISODateTime;
   now?: Date;
 }
 
@@ -88,8 +82,6 @@ export interface RescheduleAppointmentInput {
   notifyCustomer?: boolean;
   /** When the customer reschedules, availability + lead time + cancellation window are enforced */
   allowOutsideHours?: boolean;
-  /** Hold a non-customer actor (Nerova acting for a customer) to the cancellation window too */
-  enforceCancellationWindow?: boolean;
   now?: Date;
 }
 
@@ -99,23 +91,7 @@ export interface CancelAppointmentInput {
   actor: Actor;
   reason?: string | null;
   notifyCustomer?: boolean;
-  /**
-   * Act-then-undo VOID: cancel with no client message, no fee or late-cancel penalty, excluded from stats and the
-   * client-visible cancellation history (`voided_at`, event `voided`). Only confirmed appointments.
-   */
-  voided?: boolean;
-  /** Hold a non-customer actor (Nerova acting for a customer) to the cancellation window too */
-  enforceCancellationWindow?: boolean;
   now?: Date;
-}
-
-export interface ConfirmByClientInput {
-  businessId: UUID;
-  appointmentId: UUID;
-  confirmedAt: ISODateTime;
-  via: ClientConfirmationChannel;
-  actor: Actor;
-  idempotencyKey?: string | null;
 }
 
 export interface AppointmentWindowQuery {
@@ -165,11 +141,6 @@ export interface BookingService {
     status: 'completed' | 'no_show',
     actor: Actor,
   ): Promise<AppointmentDTO>;
-  /**
-   * The client confirmed attendance (reminder reply). Idempotent: an already confirmed appointment, a repeated key or a
-   * status other than confirmed returns the appointment unchanged. Writes the columns and a `client_confirmed` event.
-   */
-  confirmByClient(input: ConfirmByClientInput): Promise<AppointmentDTO>;
 }
 
 export type AppointmentChangeKind = 'created' | 'rescheduled' | 'cancelled';
@@ -181,31 +152,9 @@ export interface AppointmentChangedEvent {
   actor: Actor;
   /** Send the customer a WhatsApp message (session message in-window, template otherwise) */
   notifyCustomer: boolean;
-  /** Skip the staff push (the hold job re-sends the customer message of a change staff already heard about) */
-  skipStaffPush?: boolean;
 }
 
 export interface NotificationService {
   /** Must never throw for delivery failures; failures are logged + escalated. */
   appointmentChanged(event: AppointmentChangedEvent): Promise<void>;
-}
-
-export type AppointmentEventKind = 'created' | 'rescheduled' | 'cancelled' | 'completed' | 'no_show';
-
-export interface AppointmentLifecycleEvent {
-  businessId: UUID;
-  kind: AppointmentEventKind;
-  appointment: AppointmentDTO;
-  actor: Actor;
-  /** `appointment_events.id` of the row the change wrote: the basis of the idempotent outbound event id */
-  eventRowId: UUID;
-}
-
-/**
- * Tells an external platform (Nerova) about a committed appointment change. Called after commit, never
- * inline with the request; must never throw. `enabled` lets the booking service skip the event lookup.
- */
-export interface AppointmentEventsPort {
-  readonly enabled: boolean;
-  appointmentChanged(event: AppointmentLifecycleEvent): Promise<void>;
 }

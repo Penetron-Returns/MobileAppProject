@@ -17,33 +17,13 @@ export type UUID = string;
 export type MemberRole = 'owner' | 'staff';
 export type AppointmentStatus =
   'confirmed' | 'cancelled' | 'completed' | 'no_show';
+/** `nerova` is a legacy database enum value: it is kept so old rows still read, and nothing writes it. */
 export type AppointmentSource = 'whatsapp' | 'app' | 'web' | 'nerova';
 /** Where a client confirmed an appointment (reminder button, link, ...) */
 export type ClientConfirmationChannel = 'whatsapp' | 'sms' | 'web' | 'app';
+/** `nerova` is a legacy database enum value (see AppointmentSource); nothing writes it. */
 export type ActorType = 'customer' | 'staff' | 'system' | 'nerova';
 
-// ---------- plans / entitlements ----------
-/** Internal plan ids (display names and prices are not part of the contract). */
-/** 'none' = no active plan yet (new businesses; entitled to nothing, the app shows only the plan chooser). 'free' survives for existing rows only. */
-export type PlanKey = 'none' | 'free' | 'starter' | 'growth' | 'pro';
-/** Entitlement keys. Code gates on these, never on a plan name. */
-export type FeatureKey =
-  | 'whatsapp_menu'
-  | 'inbox'
-  | 'companion'
-  | 'desktop_app'
-  | 'extensions'
-  | 'assistant_bookings'
-  | 'reports';
-export interface FeatureEntitlementDTO {
-  feature: FeatureKey;
-  /** Monthly cap; null = unlimited / not capped */
-  monthly_limit: number | null;
-}
-export interface EntitlementsDTO {
-  plan: PlanKey;
-  features: FeatureEntitlementDTO[];
-}
 export type WhatsAppAccountStatus =
   'pending' | 'live' | 'needs_reauth' | 'disconnected' | 'paused';
 export type TemplateStatus =
@@ -72,33 +52,9 @@ export type ApiErrorCode =
   | 'WINDOW_CLOSED'
   | 'IDEMPOTENCY_KEY_REUSED'
   | 'RULE_VIOLATION'
-  | 'FEATURE_NOT_IN_PLAN'
   | 'RATE_LIMITED'
   | 'UPSTREAM_META_ERROR'
-  | 'COMPANION_NOT_READY'
-  | 'WHATSAPP_ALREADY_CONNECTED'
-  | 'UPSTREAM_COMPANION_ERROR'
-  | 'PAYLOAD_TOO_LARGE'
-  | 'UNSUPPORTED_MEDIA_TYPE'
-  | 'TRANSCRIPTION_UNAVAILABLE'
-  | 'BILLING_NOT_CONFIGURED'
-  | 'UPSTREAM_BILLING_ERROR'
-  | 'PAYMENT_FAILED'
   | 'INTERNAL';
-
-/** POST /v1/voice/transcriptions response data (multipart request: field `audio`, optional `language`) */
-export interface TranscriptionDTO {
-  text: string;
-  duration_ms: number;
-  /** Detected (or requested) language code; null when Nerova does not say */
-  language: string | null;
-}
-
-/** POST /v1/voice/device-token response data: shown once, only its hash is stored */
-export interface DeviceTokenDTO {
-  /** `cvt_` + 32 random bytes (base64url). Usable only on the voice upload and the attendance answer */
-  token: string;
-}
 
 export interface ApiErrorBody {
   error: {
@@ -183,13 +139,6 @@ export interface OnboardingRequest {
   services: { name: string; duration_minutes: number; price_cents: number }[];
   /** Extra team members besides the owner (may be empty) */
   team: { name: string; title?: string | null }[];
-  /**
-   * Re-run for a business that already finished onboarding (the owner went back
-   * from the plan screen). Honoured only while it is untouched (plan none/free,
-   * no appointments): then the name, hours and services follow this request.
-   * Otherwise the existing setup is returned unchanged. `team` is ignored.
-   */
-  revise?: boolean;
 }
 
 export interface MeDTO {
@@ -201,9 +150,6 @@ export interface MeDTO {
   };
   business: BusinessDTO;
   role: MemberRole;
-  /** The business's plan and the features it unlocks (see EntitlementsDTO) */
-  plan: PlanKey;
-  features: FeatureEntitlementDTO[];
 }
 
 // ---------- services & staff ----------
@@ -736,304 +682,13 @@ export interface UnregisterDeviceRequest {
   token: string;
 }
 
-// ---------- plans, usage, companion, reports ----------
+// ---------- reports ----------
 /** Month key in the business timezone, `YYYY-MM` */
 export type MonthKey = string;
 
-/** `normal` below 80% of the included jobs, `near` from 80% up to and including 100%, `over` beyond it. Never a cut-off. */
-export type UsageState = 'normal' | 'near' | 'over';
-
-/** GET /v1/billing/usage?month=YYYY-MM (member). Free plans have no allowance: included_jobs/usage_percent are null. */
-export interface BillingUsageDTO {
-  plan: PlanKey;
-  month: MonthKey;
-  /** Deprecated alias of `bookings` (kept so older app builds keep working) */
-  completed_jobs: number;
-  /** Every booking CREATED in the period, whatever its source or outcome (completed, no-show, cancelled). Each one is metered. Additive. */
-  bookings?: number;
-  /** The metering period, ISO-8601 UTC: the Stripe billing period when a subscription is known, else the calendar month. Additive. */
-  period_start?: string;
-  period_end?: string;
-  included_jobs: number | null;
-  /** Whole percent of the allowance used (floored), null without an allowance */
-  usage_percent: number | null;
-  usage_state: UsageState;
-  /** Completed jobs beyond the allowance, billed at month end */
-  extra_jobs: number;
-  extra_cost_cents: number;
-  /** First day of the next month: when the count resets */
-  resets_on: ISODate;
-}
-
-export interface PlanDTO {
-  id: PlanKey;
-  name: string;
-  price_cents: number;
-  currency: string;
-  /** Completed jobs per month; null on Free (no AI companion) */
-  included_jobs: number | null;
-  /** Price of each completed job beyond the allowance; null on Free */
-  extra_job_cents: number | null;
-  has_companion: boolean;
-  is_current: boolean;
-  /** Always null: Stripe Checkout sessions expire and need the owner, so they are created on demand by POST /v1/billing/checkout */
-  checkout_url: string | null;
-  /** True when POST /v1/billing/checkout can start this plan (billing configured, paid plan, not the current one). Additive. */
-  checkout_enabled?: boolean;
-}
-
-/** GET /v1/plans (member) */
-export interface PlansDTO {
-  current_plan: PlanKey;
-  plans: PlanDTO[];
-  /** The Stripe subscription behind the plan; null when there is none. Additive. */
-  subscription?: SubscriptionDTO | null;
-}
-
-/** Stripe subscription status, passed through */
-export type SubscriptionStatus =
-  | 'incomplete'
-  | 'incomplete_expired'
-  | 'trialing'
-  | 'active'
-  | 'past_due'
-  | 'canceled'
-  | 'unpaid'
-  | 'paused';
-
-/** What the app may show about billing. No Stripe ids. */
-export interface SubscriptionDTO {
-  status: SubscriptionStatus | null;
-  /** The paid tier the subscription is on */
-  plan: PlanKey | null;
-  /** ISO-8601 UTC end of the paid period (the next renewal) */
-  current_period_end: string | null;
-  /** True when the owner cancelled and access ends at current_period_end */
-  cancel_at_period_end: boolean;
-  /** Payment failed: access is kept while Stripe retries, the app should warn the owner */
-  is_past_due: boolean;
-  /** A downgrade that takes effect at the end of the paid period (the plan above stays until then); null when none. Additive. */
-  scheduled_plan?: PlanKey | null;
-  /** ISO-8601 UTC: when `scheduled_plan` takes effect (the current_period_end it was scheduled for) */
-  scheduled_at?: string | null;
-}
-
-/** POST /v1/billing/checkout (owner only, Idempotency-Key) */
-export interface CreateCheckoutRequest {
-  plan: 'starter' | 'growth' | 'pro';
-  /** Where the checkout page sends the owner after paying: `<scheme>://checkout(/...)` (clovie, clovie-preview or bookingadmin) */
-  return_url?: string;
-}
-/**
- * POST /v1/billing/plan (owner only, Idempotency-Key): switch an existing subscription to another paid plan.
- * An upgrade is charged now (the proration invoice); a downgrade is scheduled for the end of the paid period.
- * Answers a ChangePlanResultDTO.
- */
-export interface ChangePlanRequest {
-  plan: 'starter' | 'growth' | 'pro';
-  /** The preview's `proration_date` (unix seconds): charges exactly the amount that was shown. Rejected (422 PRORATION_DATE_STALE) when older than 15 minutes. */
-  proration_date?: number;
-}
-/** GET /v1/billing/plan/preview?plan=pro (owner only): what changing to `plan` costs, without changing anything */
-export interface PlanChangePreviewDTO {
-  direction: 'upgrade' | 'downgrade' | 'same';
-  plan: PlanKey;
-  current_plan: PlanKey;
-  /** Charged immediately: the proration delta for an upgrade (Stripe invoice preview), 0 for a downgrade or the same plan */
-  amount_due_now_cents: number;
-  /** ISO 4217 in upper case, e.g. 'ZAR' */
-  currency: string;
-  /** The recurring monthly price of `plan` (base fee, excluding extra jobs) charged from the next renewal */
-  next_amount_cents: number;
-  /** ISO-8601 UTC: now for an upgrade (and 'same'), the end of the paid period for a downgrade */
-  effective_at: string;
-  /** ISO-8601 UTC: the next renewal (end of the paid period); null when unknown */
-  next_billing_at: string | null;
-  /** Unix seconds the amount was computed at: pass it back as ChangePlanRequest.proration_date. Null unless direction is 'upgrade'. */
-  proration_date: number | null;
-}
-/**
- * Answer of POST /v1/billing/plan.
- *  - active: the new plan is live (upgrade paid, or a scheduled downgrade cancelled by choosing the current plan)
- *  - requires_action: the card needs authentication; open `hosted_invoice_url`, the plan flips when Stripe confirms (refetch /v1/plans)
- *  - scheduled: a downgrade will take effect at `effective_at`; the current plan stays until then
- * A declined card answers 402 PAYMENT_FAILED and changes nothing.
- */
-export type ChangePlanResultDTO =
-  | { status: 'active'; plan: PlanKey }
-  | { status: 'requires_action'; plan: PlanKey; hosted_invoice_url: string }
-  | { status: 'scheduled'; plan: PlanKey; effective_at: string };
-/** Open it in the browser; the plan flips when Stripe's webhook arrives, so refetch /v1/plans after returning */
-export interface CheckoutSessionDTO {
-  checkout_url: string;
-  session_id?: string;
-}
-/** POST /v1/billing/portal (owner only, Idempotency-Key): manage, change or cancel the subscription */
-export interface PortalSessionDTO {
-  portal_url: string;
-}
-
-export type CompanionColorMode = 'light' | 'dark';
-
-/** POST /v1/companion/session (member, feature `companion`) */
-export interface CreateCompanionSessionRequest {
-  color_mode: CompanionColorMode;
-  /** Default 'web'. 'native' only changes the Nerova request when the backend has NEROVA_NATIVE_SESSIONS=true. */
-  platform?: 'web' | 'native';
-}
-
-export interface CompanionSessionDTO {
-  /** Frame this URL; it carries the session secret and expires at expires_at (15 minutes) */
-  url: string;
-  expires_at: ISODateTime;
-  /** Native sessions only (platform 'native' with NEROVA_NATIVE_SESSIONS on): Nerova's session id */
-  session_id?: string;
-  /** Native sessions only: a secret the native widget needs with the url; never log it */
-  state?: string | null;
-}
-
-/** `details.reason` of COMPANION_NOT_READY (HTTP 409) */
-export type CompanionNotReadyReason =
-  | 'account_not_found'
-  | 'account_not_available'
-  | 'origin_not_registered'
-  | 'key_not_authorized'
-  | 'not_provisioned'
-  | 'setup_incomplete'
-  | 'unavailable';
-
-export interface CompanionNotReadyDetails {
-  reason: CompanionNotReadyReason;
-  /** Nerova's companion setup `nextStep` when known, e.g. `connect_whatsapp` */
-  next_step?: string;
-}
-
-/** `next_step` of GET /v1/companion/setup: what the owner does next, or `none` */
-export type CompanionSetupStep =
-  | 'connect_booking_system'
-  | 'verify_booking_connection'
-  | 'provision_account'
-  | 'connect_whatsapp'
-  | 'go_live'
-  | 'none';
-
-/** WhatsApp number health, as Nerova reports it. Unknown future values arrive as `unknown`. */
-export type WhatsAppPhoneNumberStatus =
-  | 'connected'
-  | 'pending'
-  | 'flagged'
-  | 'restricted'
-  | 'disconnected'
-  | 'unknown';
-export type WhatsAppQualityRating = 'green' | 'yellow' | 'red' | 'unknown';
-export type WhatsAppMessagingLimitTier =
-  'tier_250' | 'tier_1k' | 'tier_10k' | 'tier_100k' | 'unlimited' | 'unknown';
-export type WhatsAppNameStatus =
-  | 'approved'
-  | 'pending_review'
-  | 'declined'
-  | 'expired'
-  | 'available_without_review'
-  | 'none'
-  | 'unknown';
-export type WhatsAppHealthTemplateStatus =
-  'approved' | 'pending' | 'rejected' | 'paused' | 'disabled' | 'unknown';
-
-export interface WhatsAppHealthTemplateDTO {
-  name: string;
-  /** Meta category, passed through (e.g. `utility`, `marketing`); null when absent */
-  category: string | null;
-  status: WhatsAppHealthTemplateStatus;
-  rejected_reason: string | null;
-}
-
-export interface WhatsAppLastErrorDTO {
-  code: string | null;
-  message: string;
-  /** ISO-8601 instant, null when unknown */
-  at: string | null;
-}
-
-/** One kind of recent send failure Nerova reports (last 7 days, no message content or recipient) */
-export interface WhatsAppSendFailureDTO {
-  /** Meta error code as text (e.g. `131026`); null when Nerova sent none */
-  code: string | null;
-  /** Nerova's short title for the failure */
-  title: string | null;
-  count: number;
-  /** ISO-8601 instant of the latest occurrence, null when unknown */
-  last_at: string | null;
-}
-
-/** Whether Meta can bill the business for WhatsApp conversations */
-export interface WhatsAppBillingDTO {
-  /** null when Nerova does not know */
-  payment_method_attached: boolean | null;
-  /** ISO-4217 currency of the Meta billing account, null when unknown */
-  currency: string | null;
-}
-
-/** The health fields of CompanionSetupDTO.whatsapp: all optional, absent until Nerova reports them */
-export interface WhatsAppHealthDTO {
-  phone_number_status?: WhatsAppPhoneNumberStatus | null;
-  quality_rating?: WhatsAppQualityRating | null;
-  messaging_limit_tier?: WhatsAppMessagingLimitTier | null;
-  verified_name?: string | null;
-  name_status?: WhatsAppNameStatus | null;
-  templates?: WhatsAppHealthTemplateDTO[] | null;
-  last_error?: WhatsAppLastErrorDTO | null;
-  /** ISO-8601 instant of Nerova's last health check */
-  last_health_check_at?: string | null;
-  /** Meta billing state (payment method, currency); absent until Nerova ships it */
-  billing?: WhatsAppBillingDTO | null;
-  /** Send failures of the last 7 days grouped by Meta code; absent until Nerova ships it */
-  recent_send_failures?: WhatsAppSendFailureDTO[] | null;
-}
-
-/** GET /v1/companion/whatsapp-health (any member, feature `companion`): the number's current health, read live from Nerova */
-export interface CompanionWhatsAppHealthDTO extends WhatsAppHealthDTO {
-  connected: boolean;
-  display_phone_number: string | null;
-  business_verification_status: string | null;
-}
-
-/** GET /v1/companion/setup (owner) */
-export interface CompanionSetupDTO {
-  next_step: CompanionSetupStep;
-  whatsapp: {
-    connected: boolean;
-    state: string;
-    display_phone_number: string | null;
-    business_verified: boolean;
-    /** Nerova's verification status (e.g. `verified`, `pending`), null when unknown */
-    business_verification_status: string | null;
-  } & WhatsAppHealthDTO;
-  /** Nerova account provisioned */
-  provisioned: boolean;
-  /** Booking connection status as Nerova reports it, null when unknown */
-  booking_connection: string | null;
-  /** What still blocks going live, e.g. `activation.channel_not_ready`; empty when nothing blocks */
-  blocking_reasons: string[];
-  companion_live: boolean;
-}
-
-/** Optional body of POST /v1/companion/whatsapp/connect-session */
-export interface CompanionWhatsAppConnectSessionRequest {
-  /** Where the hosted page sends the owner afterwards. Accepted now; forwarded once Nerova supports `returnUrl`. */
-  return_url?: string;
-}
-
-/** POST /v1/companion/whatsapp/connect-session (owner), 201. Errors: 409 COMPANION_NOT_READY, 409 WHATSAPP_ALREADY_CONNECTED */
-export interface CompanionWhatsAppConnectSessionDTO {
-  /** Open in a browser tab; it carries a secret and expires at expires_at */
-  launch_url: string;
-  expires_at: ISODateTime;
-}
-
-/** Where a booking came from. The app's own bookings (walk-in, phone) are `manual`; `companion` is Nerova. */
+/** Where a booking came from. The app's own bookings (walk-in, phone) are `manual`. */
 export interface BookingsBySourceDTO {
   whatsapp: number;
-  companion: number;
   manual: number;
   web: number;
 }
@@ -1051,15 +706,7 @@ export interface WeeklyJobsDTO {
   completed_jobs: number;
 }
 
-/** What the companion did this (UTC) month, from Nerova's outcome summary. Counts only. */
-export interface CompanionOutcomesDTO {
-  bookings_created: number;
-  bookings_rescheduled: number;
-  bookings_cancelled: number;
-  conversations_handled: number;
-}
-
-/** GET /v1/reports/summary?month=YYYY-MM (member, feature `reports`) */
+/** GET /v1/reports/summary?month=YYYY-MM (member) */
 export interface ReportsSummaryDTO {
   month: MonthKey;
   currency: string;
@@ -1074,192 +721,4 @@ export interface ReportsSummaryDTO {
   /** Over the completed jobs; null when there are none */
   busiest: BusiestSlotDTO | null;
   weekly: WeeklyJobsDTO[];
-  /** null when Nerova is unavailable or the account is not linked; the rest of the report is still valid */
-  companion: CompanionOutcomesDTO | null;
-  usage: BillingUsageDTO;
-}
-
-/** GET /v1/voice/today: today's appointments for the voice check-in (also reachable with a device voice token) */
-export interface VoiceTodayDTO {
-  timezone: string;
-  appointments: {
-    id: UUID;
-    starts_at: string;
-    ends_at: string;
-    status: string;
-    checked_in_at: string | null;
-    staff_id: UUID;
-    /** First name only */
-    client_first_name: string | null;
-    service_name: string | null;
-  }[];
-}
-
-/** POST /v1/voice/ask request (Clerk or device voice token; feature `companion`) */
-export interface VoiceAskRequest {
-  /** 1 to 4000 characters */
-  text: string;
-}
-
-/** An owner approval the companion is waiting on (a booking, move or cancel). Decide it by id only. */
-export interface VoiceApprovalDTO {
-  /** `oapr_...` */
-  id: string;
-  /** e.g. `create_appointment`, `reschedule_appointment`, `cancel_appointment` */
-  kind: string;
-  /** One line, e.g. "Book Gel overlay for Thandi Ngwenya on Fri 16 Oct, 20:30-21:15?" */
-  title: string;
-  lines: { label: string; from: string | null; to: string }[];
-}
-
-/**
- * An action the companion already EXECUTED under act-then-undo (a low-risk booking). The owner hears `readBack`
- * and may undo until `undoUntil`; an undone action is re-sent with status `undone`.
- */
-export interface VoiceActionDTO {
-  /** `oact_...` */
-  id: string;
-  /** e.g. `create_appointment` */
-  kind: string;
-  status: 'executed' | 'undone';
-  title: string;
-  /** What to say aloud, e.g. "Done. Gel overlay for Thandi on Fri 16 Oct, 20:30. Say undo if that's wrong." */
-  readBack: string;
-  lines: { label: string; from: string | null; to: string }[];
-  /** ISO-8601 UTC */
-  executedAt: string | null;
-  undoUntil: string | null;
-  undoable: boolean;
-  /** Present when status is `undone` */
-  undoneAt?: string;
-}
-
-/** GET/PATCH /v1/companion/settings response data (Nerova companion settings) */
-export interface CompanionSettingsDTO {
-  approvalPolicy: 'always' | 'risky_only' | 'never';
-  /** 0 (no undo window) to 120 seconds */
-  undoWindowSeconds: number;
-  updatedAt: string | null;
-}
-
-/** POST /v1/voice/ask response data: the companion's whole reply, ready to speak */
-export interface VoiceAskDTO {
-  reply: string;
-  approvals: VoiceApprovalDTO[];
-  /** Actions executed in this turn (act-then-undo); an executed action does not set `awaitingReply`. Always sent by the API. */
-  actions?: VoiceActionDTO[];
-  suggestions: string[];
-  /** Nerova `done.awaitingReply` when present; overrides the app's question heuristic both ways */
-  awaitingReply?: boolean;
-}
-
-/**
- * Milliseconds for one streamed voice turn (`POST /v1/voice/ask/stream`, in the `done` event). `ttftMs`, `llmMs`,
- * `toolsMs` and `totalMs` are Nerova's own (absent until Nerova sends them); `nerovaPreMs` is its `Server-Timing: pre`.
- * `proxyPreMs` is our time to Nerova's response headers, `proxyFirstTextMs` to the first text delta, `proxyTotalMs` to `done`.
- */
-export interface VoiceAskTimingDTO {
-  ttftMs?: number;
-  llmMs?: number;
-  toolsMs?: number;
-  totalMs?: number;
-  nerovaPreMs?: number;
-  proxyPreMs: number;
-  proxyFirstTextMs?: number;
-  proxyTotalMs: number;
-}
-
-/** The `done` event of `POST /v1/voice/ask/stream`: exactly `POST /v1/voice/ask`'s data, plus timings */
-export interface VoiceAskStreamDoneDTO extends VoiceAskDTO {
-  timing: VoiceAskTimingDTO;
-}
-
-/** POST /v1/voice/approvals/:id/approve and /decline response data */
-export interface VoiceApprovalResultDTO {
-  id: string;
-  decision: 'approved' | 'declined';
-  kind: string | null;
-}
-
-// ---------------------------------------------------------------------------
-// Clovie stories (docs/stories.md)
-// ---------------------------------------------------------------------------
-
-export type StoryKind = 'brief' | 'clients' | 'business';
-export type StoryTone = 'positive' | 'neutral' | 'attention' | 'concern';
-export type StoryEmotion =
-  | 'delighted'
-  | 'proud'
-  | 'curious'
-  | 'thoughtful'
-  | 'sympathetic'
-  | 'presenter'
-  | 'sleepy';
-
-/** One card of a story. Every value comes from the business's own data and a fixed English template. */
-export interface StoryCardDTO {
-  id: string;
-  tone: StoryTone;
-  kicker: string;
-  headline: string;
-  body?: string;
-  /** `count` and `percent` are plain numbers; `money` is integer cents in the business currency */
-  number?: {
-    value: number;
-    format: 'count' | 'money' | 'percent';
-    unit?: string;
-  };
-  list?: { name: string; initials: string; detail: string }[];
-  /** `kind` is an in-app action the app handles (e.g. `invite_lapsed`); `deeplink` is a URL such as `clovie://voice` */
-  action?: { label: string; kind?: string; deeplink?: string };
-  emotion?: StoryEmotion;
-  /** Product updates only: the client-side demo id (e.g. `undo`, `names`) */
-  demo?: string;
-}
-
-export interface StoryDTO {
-  id: string;
-  kind: StoryKind;
-  title: string;
-  tone: StoryTone;
-  /** ISO-8601 UTC */
-  generatedAt: string;
-  /** True once the caller has opened this story (per person) */
-  viewed: boolean;
-  cards: StoryCardDTO[];
-}
-
-/** GET /v1/stories response data: Brief, Client updates, Business update, then Product updates. Empty stories are omitted. */
-export interface StoriesResponseDTO {
-  stories: StoryDTO[];
-  /** Unseen, approved product updates for this caller (at most 3, newest first); `viewed` is false whenever there are cards */
-  productUpdates: { viewed: boolean; cards: StoryCardDTO[] };
-}
-
-/** POST /v1/stories/:id/view body */
-export interface StoryViewRequest {
-  lastCardIndex: number;
-}
-
-/** POST /v1/product-updates/view body: product update ids (the same as the product update card ids) */
-export interface ProductUpdatesViewRequest {
-  ids: string[];
-}
-
-export type StoryEventName =
-  'open' | 'card_view' | 'complete' | 'skip' | 'close' | 'action';
-
-/** One analytics event; ids, kind and a card index only, never personal data */
-export interface StoryEventDTO {
-  storyKind: StoryKind | 'product';
-  storyId?: string | null;
-  cardIndex: number;
-  event: StoryEventName;
-  /** ISO-8601 UTC; defaults to the server time */
-  at?: string;
-}
-
-/** POST /v1/stories/events body: up to 50 events */
-export interface StoryEventsRequest {
-  events: StoryEventDTO[];
 }

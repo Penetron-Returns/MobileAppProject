@@ -1,7 +1,7 @@
 # @booking/features
 
 The booking domain as runtime-neutral TypeScript: business rules, services, repositories and pure logic. It
-runs unchanged on Deno (the API) and Node (tests). It never imports Hono, an app, `@booking/companion`,
+runs unchanged on Deno (the API) and Node (tests). It never imports Hono, an app,
 `@booking/app-store` or `@booking/extensions`; `dependency-cruiser` fails the build if it does. React Native UI
 does **not** live here (Metro would bundle server code): UI stays in `apps/mobile`.
 
@@ -17,12 +17,10 @@ One folder per feature. Each holds what it needs from `services/`, `lib/` and `p
 | `clients/`      | Client upsert, edit and notes                                                                                              |
 | `team/`         | Team and invitations, Clerk membership sync and webhooks, the `ClerkAdmin` client, device registration                     |
 | `onboarding/`   | First-run business creation                                                                                                |
-| `plans/`        | Entitlements: what a business's plan unlocks                                                                               |
+| `reports/`      | Monthly booking figures behind `GET /v1/reports/summary`                                                                   |
 | `repositories/` | Persistence for the booking schema: the interfaces (`types.ts`), the Supabase implementation (`supabase.ts`), row types    |
 | `lib/`          | Cross-feature helpers: `AppError`, logger, time, phone, crypto, the `Db` type                                              |
-| `ports.ts`      | Barrel for every feature's `ports.ts`, plus `AccountEventsPort`                                                            |
-
-`billing/` (how salons pay us) does not exist yet. It will be added here when subscriptions are built.
+| `ports.ts`      | Barrel for every feature's `ports.ts`                                                                                      |
 
 ## Rules
 

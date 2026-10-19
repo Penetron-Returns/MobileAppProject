@@ -1,9 +1,8 @@
-# WhatsApp (Free demo)
+# WhatsApp booking menu
 
 The structured, non-AI booking menu inside the customer's WhatsApp thread: lists, date and time pickers, a
-summary and a confirmation, backed by `BookingService`. It is the demo for the Free plan and is removed after
-launch (paid plans use `@booking/companion`), so nothing outside this folder, its registry line and its route
-shell may depend on it. Required plan feature: `whatsapp_menu` (see `_metadata.ts`).
+summary and a confirmation, backed by `BookingService`. It is always on for a business whose WhatsApp number is
+connected; there is no plan gating.
 
 | Path                                                                                                       | What                                                                                                                  |
 | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
