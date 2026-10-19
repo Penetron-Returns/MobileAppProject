@@ -2,6 +2,8 @@ import * as React from 'react';
 
 import { act, mount } from '@/testing/render';
 
+import { COUNT_MS } from '../countUp';
+import type { StoryCardNumber } from '../model';
 import { NumberLine } from '../NumberLine';
 import { SAMPLE_STORIES } from '../sampleStories';
 import { StoryRing } from '../StoryRing';
@@ -218,31 +220,68 @@ describe('StoryViewer', () => {
 });
 
 describe('NumberLine', () => {
-  const number = { value: 490200, format: 'money' } as const;
-  const line = (isCurrent: boolean) => (
-    <NumberLine
-      number={number}
-      accent="#fff"
-      hasPush={false}
-      isCurrent={isCurrent}
-    />
-  );
-  const field = (tree: ReturnType<typeof mount>) =>
-    tree.root.findAll(
-      (n) => n.props.defaultValue !== undefined && n.props.editable === false,
+  const number = { value: 490200, format: 'money', currency: 'ZAR' } as const;
+  /** Re-renders the same NumberLine in place, as a parent's state change does. */
+  let setCurrent: (isCurrent: boolean) => void = () => {};
+  function Harness({ first, n }: { first: boolean; n: StoryCardNumber }) {
+    const [isCurrent, set] = React.useState(first);
+    setCurrent = set;
+    return (
+      <NumberLine
+        number={n}
+        accent="#fff"
+        hasPush={false}
+        isCurrent={isCurrent}
+      />
     );
+  }
+  const line = (isCurrent: boolean, n: StoryCardNumber = number) => (
+    <Harness first={isCurrent} n={n} />
+  );
+  const big = (tree: ReturnType<typeof mount>) =>
+    tree.root.find(
+      (n) =>
+        (n.type as unknown) === 'Text' &&
+        n.props.accessibilityLabel !== undefined,
+    );
+  const run = (ms: number) =>
+    act(() => {
+      jest.advanceTimersByTime(ms);
+    });
 
-  it('mounts counting from zero and keeps its default after a re-render', () => {
+  it('counts up from zero to the final value', () => {
     const tree = mount(line(true));
-    expect(field(tree)[0].props.defaultValue).toBe('R 0');
-    act(() => tree.update(line(true)));
-    expect(field(tree)[0].props.defaultValue).toBe('R 0');
+    expect(texts(tree)).toContain('R 0');
+    run(COUNT_MS + 100);
+    expect(texts(tree)).toContain('R 4,902');
   });
 
-  it('keeps the final value once the card is leaving', () => {
+  it('keeps the final value when the parent re-renders after the count', () => {
     const tree = mount(line(true));
-    act(() => tree.update(line(false)));
-    expect(field(tree)).toHaveLength(0);
+    run(COUNT_MS + 100);
+    act(() => setCurrent(true));
+    act(() => setCurrent(false));
+    act(() => setCurrent(true));
+    run(COUNT_MS + 100);
+    expect(texts(tree)).toContain('R 4,902');
+    expect(texts(tree)).not.toContain('R 0');
+  });
+
+  it('does not restart at zero when a re-render lands mid-count', () => {
+    const tree = mount(line(true));
+    run(COUNT_MS / 2);
+    const mid = texts(tree).join('|');
+    expect(mid).not.toContain('R 0');
+    act(() => setCurrent(true));
+    act(() => setCurrent(false));
+    act(() => setCurrent(true));
+    expect(texts(tree).join('|')).toBe(mid);
+    run(COUNT_MS + 100);
+    expect(texts(tree)).toContain('R 4,902');
+  });
+
+  it('shows the final value for a card that is not current', () => {
+    const tree = mount(line(false));
     expect(texts(tree)).toContain('R 4,902');
   });
 
@@ -250,5 +289,16 @@ describe('NumberLine', () => {
     mockReduce = true;
     const tree = mount(line(true));
     expect(texts(tree)).toContain('R 4,902');
+  });
+
+  it('gives screen readers the final value while counting', () => {
+    const tree = mount(line(true));
+    expect(big(tree).props.accessibilityLabel).toBe('R 4,902');
+  });
+
+  it('formats money in the business currency', () => {
+    const tree = mount(line(true, { ...number, currency: 'USD' }));
+    run(COUNT_MS + 100);
+    expect(texts(tree)).toContain('$4,902');
   });
 });

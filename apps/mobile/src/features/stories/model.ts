@@ -16,6 +16,8 @@ export interface StoryCardNumber {
   value: number;
   format: CountFormat;
   unit?: string;
+  /** ISO 4217 code for `money`; the business's currency. Defaults to USD. */
+  currency?: string;
 }
 
 export interface StoryCardListItem {
