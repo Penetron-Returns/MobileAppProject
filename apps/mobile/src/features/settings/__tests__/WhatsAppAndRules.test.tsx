@@ -55,6 +55,16 @@ jest.mock('@/features/companion/hooks', () => ({
   useConnectWhatsApp: () => ({ start: mockStart }),
 }));
 
+jest.mock('@/features/companion/useWhatsAppHealth', () => ({
+  useWhatsAppHealth: () => ({
+    data: undefined,
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
 const mockSave = jest.fn();
 jest.mock('../hooks', () => ({
   useBookingRules: () => ({

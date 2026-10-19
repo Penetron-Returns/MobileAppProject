@@ -777,7 +777,7 @@
         "limit": {
           "title": "Message limit",
           "tier_250": "250 new conversations a day",
-          "tier_1k": "1,000 new conversations a day",
+          "tier_1k": "2,000 new conversations a day",
           "tier_10k": "10,000 new conversations a day",
           "tier_100k": "100,000 new conversations a day",
           "unlimited": "Unlimited"
@@ -811,6 +811,46 @@
           "title": "Last problem",
           "hint": "Fix it in Meta WhatsApp Manager, then pull down to refresh."
         },
+        "payment": {
+          "title": "Payment method",
+          "attached": "Added",
+          "attachedWithCurrency": "Added ({{currency}})",
+          "missing": "Missing",
+          "missingMeaning": "Without one, Meta can stop delivering your reminders and confirmations.",
+          "howTo": "How to add a payment method",
+          "howToHint": "Opens Meta's Billing hub. Easier on a computer."
+        },
+        "icon": {
+          "check": "Good",
+          "alert": "Needs attention",
+          "x": "Problem"
+        },
+        "failures": {
+          "title": "Recent send problems",
+          "count_one": "{{count}} time in the last 7 days",
+          "count_other": "{{count}} times in the last 7 days",
+          "countLatest": "{{count}} in the last 7 days, latest {{when}}",
+          "unknown": "Meta error {{code}}",
+          "unknownNoCode": "Meta reported a problem sending",
+          "titleOnly": "{{title}}",
+          "code": {
+            "130429": "Messages were sent too fast, so Meta slowed them down.",
+            "131026": "Some messages could not be delivered. The client may not use WhatsApp or has not accepted its terms.",
+            "131031": "Meta has locked your WhatsApp account.",
+            "131042": "Messages were blocked by a payment problem on your Meta billing account.",
+            "131047": "Messages sent more than 24 hours after the client's last reply need an approved template.",
+            "131048": "Meta limited your sending because too many messages were reported as spam.",
+            "131049": "Meta chose not to deliver some messages to protect clients from too many business messages.",
+            "131056": "Too many messages went to the same client in a short time.",
+            "132001": "A message template could not be found in the language you use.",
+            "132015": "A message template is paused because clients gave poor feedback.",
+            "132016": "A message template was turned off by Meta.",
+            "133010": "Your WhatsApp number is not registered."
+          }
+        },
+        "loadingRows": "Checking your WhatsApp number",
+        "empty": "Nothing reported yet",
+        "emptyHint": "Meta has not sent any health details for this number. Pull down to check again.",
         "checked": "Checked {{when}}",
         "ago": {
           "now": "just now",

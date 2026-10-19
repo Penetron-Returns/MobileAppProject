@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMe } from '@/features/business/me';
 import { useCompanionSetup } from '@/features/companion/hooks';
+import { useWhatsAppHealth } from '@/features/companion/useWhatsAppHealth';
 import { useWhatsAppSetupEntry } from '@/features/companion/useWhatsAppSetupEntry';
 import { formatPhone } from '@/lib/format';
 import { isFailed, loadError } from '@/lib/offline';
@@ -42,7 +43,9 @@ export function PaidWhatsAppSettings() {
     onFailed: (error) =>
       toast.failed(t('settings.companionSettings.connectFailed'), error),
   });
+  const health = useWhatsAppHealth({ enabled: isOwner });
   const { refetch } = setup;
+  const { refetch: refetchHealth } = health;
   useFocusEffect(
     React.useCallback(() => {
       if (isOwner) void refetch();
@@ -50,6 +53,13 @@ export function PaidWhatsAppSettings() {
   );
 
   const data = setup.data;
+  const healthLoad = health.data
+    ? 'loaded'
+    : health.isError
+      ? 'error'
+      : health.isPending
+        ? 'loading'
+        : 'idle';
   const steps = data ? goLiveSteps(data) : [];
   let status: React.ReactNode;
   if (!isOwner) {
@@ -98,7 +108,9 @@ export function PaidWhatsAppSettings() {
       title={t('settings.whatsapp.title')}
       backLabel={t('tabs.settings')}
       backFallback="/settings"
-      onRefresh={() => (isOwner ? refetch() : undefined)}
+      onRefresh={() =>
+        isOwner ? Promise.all([refetch(), refetchHealth()]) : undefined
+      }
     >
       <Group className="mt-5" radius={26}>
         {status}
@@ -106,7 +118,12 @@ export function PaidWhatsAppSettings() {
 
       {isOwner && data ? (
         <>
-          <WhatsAppHealthSection whatsapp={data.whatsapp} />
+          <WhatsAppHealthSection
+            whatsapp={{ ...data.whatsapp, ...health.data }}
+            load={healthLoad}
+            error={health.error}
+            onRetry={() => void refetchHealth()}
+          />
           <SectionTitle>{t('settings.whatsapp.toGoLive')}</SectionTitle>
           {steps.length === 0 ? (
             <Group radius={26}>

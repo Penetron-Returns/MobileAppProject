@@ -65,6 +65,7 @@ export const qk = {
   availabilitySlots: ['availability', 'slots'] as const,
   whatsapp: ['whatsapp'] as const,
   companionSetup: ['companion', 'setup'] as const,
+  companionWhatsAppHealth: ['companion', 'whatsapp-health'] as const,
   companionSettings: ['companion', 'settings'] as const,
   conversations: ['conversations'] as const,
   conversation: (id: string) => ['conversations', 'one', id] as const,

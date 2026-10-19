@@ -1,6 +1,7 @@
 import type {
   CompanionSetupDTO,
   WhatsAppHealthTemplateDTO,
+  WhatsAppSendFailureDTO,
 } from '@booking/types';
 
 import type { TFunction } from 'i18next';
@@ -18,7 +19,9 @@ export function hasHealth(w: Whatsapp): boolean {
     isKnown(w.name_status) ||
     (w.templates?.length ?? 0) > 0 ||
     !!w.last_error ||
-    !!w.last_health_check_at
+    !!w.last_health_check_at ||
+    w.billing != null ||
+    (w.recent_send_failures?.length ?? 0) > 0
   );
 }
 
@@ -97,3 +100,61 @@ export function agoLabel(t: TFunction, iso: string, now: Date): string | null {
     count: Math.floor(hours / 24),
   });
 }
+
+/** Meta's billing hub: where a payment method is added. Much easier on a computer. */
+export const META_BILLING_URL =
+  'https://business.facebook.com/latest/billing_hub/payment_methods/';
+
+/** Meta WhatsApp error codes we can explain in plain words (keys under `settings.whatsapp.health.failures.code`). */
+export const KNOWN_SEND_FAILURE_CODES = [
+  '130429',
+  '131026',
+  '131031',
+  '131042',
+  '131047',
+  '131048',
+  '131049',
+  '131056',
+  '132001',
+  '132015',
+  '132016',
+  '133010',
+] as const;
+
+const KNOWN_CODES: ReadonlySet<string> = new Set(KNOWN_SEND_FAILURE_CODES);
+
+/**
+ * The words for one send failure: an i18n key and its values. A known Meta code gets a plain sentence, an
+ * unknown one is "Meta error <code>", and a failure with no code at all falls back to Nerova's title.
+ */
+export function sendFailureWords(failure: WhatsAppSendFailureDTO): {
+  key: string;
+  values: Record<string, string>;
+} {
+  const base = 'settings.whatsapp.health.failures';
+  const code = failure.code?.trim() ?? '';
+  if (KNOWN_CODES.has(code)) return { key: `${base}.code.${code}`, values: {} };
+  if (code) return { key: `${base}.unknown`, values: { code } };
+  if (failure.title)
+    return { key: `${base}.titleOnly`, values: { title: failure.title } };
+  return { key: `${base}.unknownNoCode`, values: {} };
+}
+
+export type PaymentState = 'attached' | 'missing' | 'unknown';
+
+/** Payment method state from Nerova's billing object; `unknown` when Nerova has not said. */
+export function paymentState(w: Whatsapp): PaymentState {
+  const attached = w.billing?.payment_method_attached;
+  if (attached === true) return 'attached';
+  if (attached === false) return 'missing';
+  return 'unknown';
+}
+
+export type QualityRating = 'green' | 'yellow' | 'red';
+
+/** Never colour alone: every quality gets a distinct icon as well as a word and a colour. */
+export const QUALITY_ICON: Record<QualityRating, 'check' | 'alert' | 'x'> = {
+  green: 'check',
+  yellow: 'alert',
+  red: 'x',
+};

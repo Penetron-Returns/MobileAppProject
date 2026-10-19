@@ -35,6 +35,16 @@ jest.mock('@/features/companion/hooks', () => ({
     refetch: mockRefetch,
   }),
 }));
+let mockHealth: unknown;
+jest.mock('@/features/companion/useWhatsAppHealth', () => ({
+  useWhatsAppHealth: () => ({
+    data: mockHealth,
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
 jest.mock('../hooks', () => ({
   useBookingRules: () => ({
     isPending: false,
@@ -76,6 +86,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockRole = 'owner';
   mockData = undefined;
+  mockHealth = undefined;
 });
 
 describe('Settings > WhatsApp status', () => {
