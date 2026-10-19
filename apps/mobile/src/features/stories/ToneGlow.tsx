@@ -45,7 +45,12 @@ function GlowLayer({ tone, isActive, isInstant, fadeMs }: GlowLayerProps) {
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, style]}
     >
-      <LinearGradient colors={toneWash(tone)} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={toneWash(tone)}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <Image
         source={GLOWS[tone]}
         resizeMode="stretch"

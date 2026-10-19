@@ -54,15 +54,18 @@ describe('StoriesRow', () => {
     expect(scroll.props.style).toMatchObject({ flexGrow: 0 });
   });
 
-  it('puts Get set up first, before Brief, for an owner with items left', () => {
+  it('puts the unseen Guide first, then Get set up, then Brief, for an owner with items left', async () => {
     mockSetup = { done: 4, total: 7, open: mockOpen };
-    const all = labels(row());
-    expect(all[0]).toBe('Get set up, 4 of 7 done');
-    expect(all[1]).toMatch(/^Brief/);
+    const tree = row();
+    await settle();
+    const all = labels(tree);
+    expect(all[0]).toBe('Guide, new');
+    expect(all[1]).toBe('Get set up, 4 of 7 done');
+    expect(all[2]).toMatch(/^Brief/);
     expect(all.filter((l) => l.startsWith('Get set up'))).toHaveLength(1);
   });
 
-  it('keeps Get set up first when every story is viewed but setup is incomplete', () => {
+  it('keeps Get set up right after the Guide when every story is viewed but setup is incomplete', async () => {
     mockSetup = { done: 6, total: 7, open: mockOpen };
     const viewed = SAMPLE_STORIES.map((s) => ({ ...s, viewed: true }));
     const tree = mount(
@@ -75,14 +78,18 @@ describe('StoriesRow', () => {
         onClose={jest.fn()}
       />,
     );
-    expect(labels(tree)[0]).toBe('Get set up, 6 of 7 done');
+    await settle();
+    expect(labels(tree)[1]).toBe('Get set up, 6 of 7 done');
   });
 
-  it('removes Get set up, with no placeholder, once setup is complete', () => {
+  it('removes Get set up, with no placeholder, once setup is complete', async () => {
     mockSetup = null;
-    const all = labels(row());
+    const tree = row();
+    await settle();
+    const all = labels(tree);
     expect(all.some((l) => /set up/i.test(l))).toBe(false);
-    expect(all[0]).toMatch(/^Brief/);
+    expect(all[0]).toBe('Guide, new');
+    expect(all[1]).toMatch(/^Brief/);
   });
 
   it('opens the full checklist on tap', () => {
@@ -112,12 +119,12 @@ describe('StoriesRow', () => {
     );
     await settle();
     expect(labels(tree)).toEqual([
+      'Guide, new',
       'Get set up, 0 of 7 done',
       'Brief, viewed',
       'Client updates, viewed',
       'Business update, viewed',
       "What's new, viewed",
-      'Guide, new',
     ]);
   });
 
@@ -133,7 +140,8 @@ describe('StoriesRow', () => {
       />,
     );
     await settle();
-    expect(labels(tree).slice(0, 3)).toEqual([
+    expect(labels(tree).slice(0, 4)).toEqual([
+      'Guide, new',
       'Brief, viewed',
       'Client updates, viewed',
       'Business update, viewed',
@@ -157,19 +165,21 @@ describe('StoriesRow', () => {
     );
     await settle();
     const all = labels(tree);
-    expect(all[0]).toMatch(/^Brief/);
-    expect(all.slice(1, 4)).toEqual([
+    expect(all[0]).toBe('Guide, new');
+    expect(all[1]).toMatch(/^Brief/);
+    expect(all.slice(2, 5)).toEqual([
       'Client updates, viewed',
       'Business update, viewed',
       "What's new, viewed",
     ]);
   });
 
-  it('puts the Guide ring last, after product updates', async () => {
+  it('puts the Guide ring last, after product updates, once it was viewed', async () => {
+    await AsyncStorage.setItem('clovie.guide.viewed.v1', '1');
     const tree = row();
     await settle();
     const all = labels(tree);
-    expect(all[all.length - 1]).toBe('Guide, new');
+    expect(all[all.length - 1]).toBe('Guide, viewed');
     expect(all[all.length - 2]).toMatch(/^Product updates/);
   });
 

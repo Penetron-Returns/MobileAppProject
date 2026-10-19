@@ -77,14 +77,14 @@ describe('local stories', () => {
     press(tree, 'local:empty-clients');
     const stories = mockViewer?.stories as Story[];
     expect(stories.map((s) => s.kind)).toEqual([
+      'guide',
       'brief',
       'clients',
       'business',
       'product',
-      'guide',
     ]);
-    expect(stories[1].cards).toHaveLength(1);
-    expect(stories[1].cards[0]).toMatchObject({
+    expect(stories[2].cards).toHaveLength(1);
+    expect(stories[2].cards[0]).toMatchObject({
       headline: 'No new updates yet',
       body: "Check in later! I'll post here when a client books, cancels or comes back.",
       emotion: 'calm',
@@ -125,7 +125,7 @@ describe('local stories', () => {
     const tree = mountRow([]);
     await act(async () => {});
     press(tree, 'local:guide');
-    expect((mockViewer?.stories as Story[]).at(-1)?.cards).toHaveLength(6);
+    expect((mockViewer?.stories as Story[])[0].cards).toHaveLength(6);
     await act(async () => mockViewer?.onViewed('local:guide', 5));
     expect(await AsyncStorage.getItem(GUIDE_VIEWED_KEY)).toBe('1');
     expect(onViewed).not.toHaveBeenCalled();

@@ -105,12 +105,30 @@ export const KIND_GLYPHS: Record<StoryKind, KindGlyph> = {
   },
 };
 
+/** The viewer's dark navy base, top and bottom. */
+export const STORY_BASE: [string, string] = ['#0F2D42', '#0A1A28'];
+
+function mixHex(hex: string, rgb: string, amount: number) {
+  const n = parseInt(hex.slice(1), 16);
+  const tint = rgb.split(',').map(Number);
+  const base = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return `#${base
+    .map((c, k) => Math.round(c + (tint[k] - c) * amount))
+    .map((c) => c.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 /**
- * Stops of the full-page tone wash behind a story: the tone's two glow colours
- * run top to bottom over the whole viewer, so the page reads as washed in the
- * tone and not just two corner blobs. Static colours for a native gradient.
+ * Stops of the full-page tone backdrop: opaque colours (the navy base mixed
+ * with the tone) from the top edge to the bottom edge. Opaque on purpose: a
+ * translucent wash was too faint over the navy, so only the corner glows read
+ * and the page looked tinted on a quarter of the screen.
  */
 export function toneWash(tone: StoryTone): [string, string, string] {
   const { glow1, glow2 } = TONES[tone];
-  return [`rgba(${glow1},0.34)`, `rgba(${glow2},0.14)`, `rgba(${glow2},0.24)`];
+  return [
+    mixHex(STORY_BASE[0], glow1, 0.42),
+    mixHex(STORY_BASE[0], glow2, 0.2),
+    mixHex(STORY_BASE[1], glow2, 0.3),
+  ];
 }
