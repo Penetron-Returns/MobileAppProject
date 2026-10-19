@@ -26,6 +26,8 @@ class VoiceSpeaker(private val context: Context) {
   private var engine: TextToSpeech? = null
   private var isReady = false
   private var isFailed = false
+  /** True while the engine in use was requested by package name; its init failure gets one retry on the default engine. */
+  private var isUsingGoogleEngine = false
   private var queued: Pending? = null
   private var current: Pending? = null
   /** A reply that arrived while a filler was still speaking: it starts when the filler is done, never cutting it off. */
@@ -55,7 +57,8 @@ class VoiceSpeaker(private val context: Context) {
     if (engine != null || isFailed) return
     val listener = TextToSpeech.OnInitListener { status -> main.post { onInit(status) } }
     val app = context.applicationContext
-    engine = if (isGoogleEngineInstalled()) TextToSpeech(app, listener, GOOGLE_TTS_PACKAGE) else TextToSpeech(app, listener)
+    isUsingGoogleEngine = isGoogleEngineInstalled()
+    engine = if (isUsingGoogleEngine) TextToSpeech(app, listener, GOOGLE_TTS_PACKAGE) else TextToSpeech(app, listener)
   }
 
   /** Google's engine usually has the most natural voices; visible via the TTS_SERVICE <queries> entry. */
@@ -118,6 +121,14 @@ class VoiceSpeaker(private val context: Context) {
   private fun onInit(status: Int) {
     val tts = engine ?: return
     if (status != TextToSpeech.SUCCESS) {
+      if (isUsingGoogleEngine) {
+        // Never leave the owner in silence: retry once with the phone's default engine.
+        isUsingGoogleEngine = false
+        engine?.shutdown()
+        val listener = TextToSpeech.OnInitListener { s -> main.post { onInit(s) } }
+        engine = TextToSpeech(context.applicationContext, listener)
+        return
+      }
       isFailed = true
       engine = null
       queued?.let(::finish)
