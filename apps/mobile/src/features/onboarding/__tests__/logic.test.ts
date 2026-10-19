@@ -259,3 +259,18 @@ describe('revising a created business', () => {
     ).toBeNull();
   });
 });
+
+describe('buildOnboardingRequest locale', () => {
+  it.each([
+    [{ timezone: 'Africa/Johannesburg', currency: 'ZAR' }],
+    [{ timezone: 'America/New_York', currency: 'USD' }],
+    [{ timezone: 'Europe/London', currency: 'GBP' }],
+  ])('sends the device locale %j with the business', (locale) => {
+    const req = buildOnboardingRequest(
+      named('salon', 'Ashgrove'),
+      null,
+      locale,
+    );
+    expect(req?.business).toEqual({ name: 'Ashgrove', ...locale });
+  });
+});

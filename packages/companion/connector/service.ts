@@ -16,6 +16,7 @@ import type { ClientRow } from '@booking/features/repositories/rows.ts';
 import type { BookingRepository } from '@booking/features/repositories/types.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { tryNormalizePhone } from '@booking/features/lib/phone.ts';
+import { businessPhoneRegion } from '@booking/features/lib/region.ts';
 import { addDays, dateInZone } from '@booking/features/lib/time.ts';
 import type { Actor, BookingService, EntitlementService } from '@booking/features/ports.ts';
 import type { ToolArgs } from './args.ts';
@@ -226,7 +227,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
       return client.externalClientId;
     }
     if (!client.phone) throw invalidRequest('client.phone (E.164) or client.externalClientId is required');
-    if (!tryNormalizePhone(client.phone)) throw invalidRequest('client.phone is not a valid phone number');
+    if (!tryNormalizePhone(client.phone, await businessPhoneRegion(repo, businessId))) throw invalidRequest('client.phone is not a valid phone number');
     const row = await upsertClient(repo, businessId, { phone: client.phone, name: client.name, email: client.email }, { onlyFillBlank: true });
     return row.id;
   }
@@ -241,7 +242,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
 
     let clientId = args.clientId;
     if (args.clientPhone) {
-      const phone = tryNormalizePhone(args.clientPhone);
+      const phone = tryNormalizePhone(args.clientPhone, await businessPhoneRegion(repo, businessId));
       if (!phone) throw invalidRequest('clientPhone is not a valid phone number');
       clientId = (await repo.findClientByPhone(businessId, phone))?.id;
       if (!clientId) return { items: [] };
@@ -285,7 +286,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
     const email = args.email?.trim().toLowerCase();
     const rawPhone = args.phone?.trim();
     if (!name && !email && !rawPhone) throw invalidRequest('phone, email or name is required');
-    const phone = rawPhone ? tryNormalizePhone(rawPhone) : null;
+    const phone = rawPhone ? tryNormalizePhone(rawPhone, await businessPhoneRegion(repo, businessId)) : null;
     if (rawPhone && !phone) throw invalidRequest('phone is not a valid phone number');
     if (name && nameWords(name).length === 0) throw invalidRequest('name must contain letters or digits');
 
@@ -312,7 +313,7 @@ export function createNerovaConnectorService(deps: NerovaConnectorDeps) {
    */
   async function createClient(businessId: UUID, args: ToolArgs<'clients_create'>) {
     const rawPhone = args.phone?.trim();
-    const phone = rawPhone ? tryNormalizePhone(rawPhone) : null;
+    const phone = rawPhone ? tryNormalizePhone(rawPhone, await businessPhoneRegion(repo, businessId)) : null;
     if (rawPhone && !phone) throw invalidRequest('phone is not a valid phone number');
     const email = args.email?.trim().toLowerCase() || undefined;
     if (!phone && !email) throw invalidRequest('phone or email is required');

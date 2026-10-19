@@ -19,7 +19,9 @@ import {
   type BusinessDetails,
 } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
+import { readDeviceLocale } from '@/lib/device-locale';
 import { applyApiFieldErrors } from '@/lib/form-errors';
+import { currencyChoices } from '@/lib/region';
 import { toast } from '@/lib/toast';
 
 import {
@@ -29,7 +31,6 @@ import {
 } from '../schemas';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
 
-const CURRENCIES = ['ZAR', 'USD', 'EUR', 'GBP', 'BWP', 'NAD', 'KES', 'NGN'];
 const API_FIELDS = {
   name: 'name',
   email: 'email',
@@ -44,7 +45,7 @@ function toValues(d: BusinessDetails | undefined): BusinessDetailsValues {
     email: d?.email ?? '',
     phone: d?.phone ?? '',
     address: d?.address ?? '',
-    currency: d?.currency ?? 'ZAR',
+    currency: d?.currency ?? readDeviceLocale().currency,
   };
 }
 
@@ -88,6 +89,10 @@ export function BusinessDetailsForm({
   const currencyLabel = (code: string) =>
     t(`businessDetails.currencies.${code}`, { defaultValue: code });
   const currency = form.watch('currency');
+  const currencies = React.useMemo(
+    () => currencyChoices(initial?.currency, readDeviceLocale().currency),
+    [initial?.currency],
+  );
 
   return (
     <Page
@@ -173,7 +178,7 @@ export function BusinessDetailsForm({
             onOpenChange={setCurrencyOpen}
             title={t('businessDetails.currency')}
             selected={currency}
-            options={CURRENCIES.map((code) => ({
+            options={currencies.map((code) => ({
               value: code,
               label: currencyLabel(code),
             }))}

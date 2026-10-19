@@ -95,7 +95,7 @@ describe('signed out: welcome, type, name, then sign-in', () => {
     const tree = await open({ isSignedIn: false });
     act(() => pressableByLabel(tree, 'Start').props.onPress());
     expect(text(tree)).toContain('What kind of business?');
-    for (const label of ['Barbershop', 'Salon', 'Beauty parlour', 'A mix']) {
+    for (const label of ['Barbershop', 'Salon', 'Beauty parlor', 'A mix']) {
       expect(text(tree)).toContain(label);
     }
 
@@ -146,7 +146,7 @@ describe('signed out: welcome, type, name, then sign-in', () => {
   it('resumes a killed app on the name with what was typed', async () => {
     mockStored = { step: 2, typeId: 'beauty', businessName: 'Glow' };
     const tree = await open({ isSignedIn: false });
-    expect(text(tree)).toContain('Beauty parlour. Lovely!');
+    expect(text(tree)).toContain('Beauty parlor. Lovely!');
     expect(tree.root.findByType(TextInput).props.value).toBe('Glow');
     expect(fake.names()).not.toContain('onboarding_started');
   });
@@ -169,7 +169,11 @@ describe('after sign-in', () => {
     await flush();
     expect(mockCreate).toHaveBeenCalledTimes(1);
     const request = mockCreate.mock.calls[0][0];
-    expect(request.business).toEqual({ name: 'Cuts & Co' });
+    expect(request.business).toEqual({
+      name: 'Cuts & Co',
+      timezone: expect.any(String),
+      currency: expect.stringMatching(/^[A-Z]{3}$/),
+    });
     expect(request.owner_name).toBe('Zoe Dlamini');
     expect(request.services.length).toBeGreaterThan(0);
     expect(mockClear).toHaveBeenCalledTimes(1);

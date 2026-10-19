@@ -224,7 +224,7 @@ export function SettingsKitGallery() {
         </Specimen>
         <Specimen label="DestructiveRow in a GroupBlock (Remove from team, Delete service)">
           <Group radius={26} className="mx-0">
-            <GroupRow title="Calendar colour" subtitle={depth.scheme} />
+            <GroupRow title="Calendar color" subtitle={depth.scheme} />
             <GroupBlock showSeparator>
               <DestructiveRow label="Remove from team" onPress={() => {}} />
             </GroupBlock>

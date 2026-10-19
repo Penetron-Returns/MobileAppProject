@@ -1,6 +1,6 @@
 import type { PlanDTO } from '@booking/types';
 
-import { formatRand } from './logic';
+import { formatPrice } from '@/lib/format';
 
 export type CellTone = 'text' | 'yes' | 'no';
 export interface CompareCell {
@@ -27,7 +27,10 @@ export function comparisonRows(plans: readonly PlanDTO[]): CompareRow[] {
   const each = (fn: (p: PlanDTO) => CompareCell): CompareCell[] =>
     plans.map(fn);
   return [
-    { key: 'price', cells: each((p) => text(formatRand(p.price_cents))) },
+    {
+      key: 'price',
+      cells: each((p) => text(formatPrice(p.price_cents, p.currency))),
+    },
     {
       key: 'jobs',
       cells: each((p) =>
@@ -37,7 +40,9 @@ export function comparisonRows(plans: readonly PlanDTO[]): CompareRow[] {
     {
       key: 'extra',
       cells: each((p) =>
-        p.extra_job_cents === null ? NO : text(formatRand(p.extra_job_cents)),
+        p.extra_job_cents === null
+          ? NO
+          : text(formatPrice(p.extra_job_cents, p.currency)),
       ),
     },
     { key: 'companion', cells: each((p) => (p.has_companion ? YES : NO)) },

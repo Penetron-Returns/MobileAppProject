@@ -24,16 +24,17 @@ export function monthlyLimit(
 }
 
 /**
- * Rand from integer cents, as the plan boards write it: "R200", "R16",
- * "R1,250", and "R4.50" only when there are cents.
+ * The currency the plan catalogue is priced in (the server's PLAN_CURRENCY,
+ * ZAR today). Plans carry their own `currency`; this is only the fallback
+ * for a screen that has no plan to read it from.
  */
-export function formatRand(cents: number): string {
-  const sign = cents < 0 ? '-' : '';
-  const abs = Math.abs(Math.round(cents));
-  const rand = Math.floor(abs / 100);
-  const rest = abs % 100;
-  const grouped = String(rand).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${sign}R${grouped}${rest ? `.${String(rest).padStart(2, '0')}` : ''}`;
+export const CATALOG_CURRENCY = 'ZAR';
+
+/** The catalogue currency from any plan in the list (they share one). */
+export function planCurrency(
+  plans: readonly { currency: string }[] | undefined,
+): string {
+  return plans?.[0]?.currency ?? CATALOG_CURRENCY;
 }
 
 /** What the usage card needs, with the arithmetic done once. */

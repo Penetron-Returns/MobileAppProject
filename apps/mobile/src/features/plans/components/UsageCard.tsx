@@ -11,9 +11,11 @@ import { ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { formatPrice } from '@/lib/format';
+
 import {
+  CATALOG_CURRENCY,
   extraJobRateCents,
-  formatRand,
   resetsLabel,
   usageView,
 } from '../logic';
@@ -27,10 +29,13 @@ import {
 export function UsageCard({
   usage,
   planName,
+  currency = CATALOG_CURRENCY,
   onPress,
 }: {
   usage: BillingUsageDTO;
   planName: string;
+  /** The catalogue currency (the plans' own `currency`) */
+  currency?: string;
   onPress?: () => void;
 }) {
   const { t } = useTranslation();
@@ -41,7 +46,7 @@ export function UsageCard({
   const fill = warn
     ? SYSTEM_COLORS.orange[isDark ? 'dark' : 'light']
     : depth.colors.tint;
-  const rate = formatRand(extraJobRateCents(usage));
+  const rate = formatPrice(extraJobRateCents(usage), currency);
   const resets = resetsLabel(usage.resets_on);
 
   const line =
@@ -50,7 +55,7 @@ export function UsageCard({
           used: view.used,
           limit: view.limit,
           extra: t('plans.usage.extraJobs', { count: view.extraJobs }),
-          amount: formatRand(view.extraCostCents),
+          amount: formatPrice(view.extraCostCents, currency),
         })
       : t('plans.usage.line', {
           used: view.used,

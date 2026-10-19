@@ -3,11 +3,11 @@ import type { BillingUsageDTO, FeatureEntitlementDTO } from '@booking/types';
 import {
   DEFAULT_EXTRA_JOB_CENTS,
   extraJobRateCents,
-  formatRand,
   hasFeature,
   monthlyLimit,
   resetsLabel,
   usageView,
+  planCurrency,
 } from '../logic';
 
 const growth: FeatureEntitlementDTO[] = [
@@ -39,20 +39,6 @@ describe('monthlyLimit', () => {
     expect(monthlyLimit(growth, 'companion')).toBeNull();
     expect(monthlyLimit(growth, 'inbox')).toBeNull();
     expect(monthlyLimit(undefined, 'companion')).toBeNull();
-  });
-});
-
-describe('formatRand', () => {
-  it.each([
-    [0, 'R0'],
-    [20000, 'R200'],
-    [1600, 'R16'],
-    [125000, 'R1,250'],
-    [450, 'R4.50'],
-    [405, 'R4.05'],
-    [-1600, '-R16'],
-  ])('writes %i cents as %s', (cents, expected) => {
-    expect(formatRand(cents)).toBe(expected);
   });
 });
 
@@ -120,4 +106,18 @@ describe('resetsLabel', () => {
   it('writes the reset day as day and month', () => {
     expect(resetsLabel('2026-11-01')).toBe('1 Nov');
   });
+});
+
+describe('planCurrency', () => {
+  it.each([
+    [[{ currency: 'ZAR' }], 'ZAR'],
+    [[{ currency: 'USD' }, { currency: 'USD' }], 'USD'],
+    [[], 'ZAR'],
+    [undefined, 'ZAR'],
+  ])(
+    'reads %j as %s (the catalogue currency when there is no plan)',
+    (plans, expected) => {
+      expect(planCurrency(plans)).toBe(expected);
+    },
+  );
 });

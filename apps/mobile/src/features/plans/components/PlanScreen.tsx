@@ -16,13 +16,15 @@ import { useBusiness } from '@/features/business/hooks';
 import { SavedCopyBanner } from '@/components/SavedCopyBanner';
 import { useCanManage } from '@/features/business/me';
 import { OwnerOnlyNote } from '@/features/settings/components/OwnerOnlyNote';
+import { readDeviceLocale } from '@/lib/device-locale';
 import { isFailed, loadError } from '@/lib/offline';
 import { describeError, toast } from '@/lib/toast';
 
 import { isCheckoutPlan, type CheckoutPlanId } from '../checkout';
 import { paidPlans } from '../compare';
 import { useBillingUsage, usePlans } from '../hooks';
-import { formatRand } from '../logic';
+import { formatPrice } from '@/lib/format';
+import { planCurrency } from '../logic';
 import { formatEffectiveDate } from '../planChange';
 import { useManageSubscription } from '../useBillingActions';
 import { useKeepPlan, useScheduledChange } from '../usePlanChange';
@@ -93,7 +95,7 @@ function PlanBody({
   const tiers = paidPlans(plans);
   const current = plans.find((p) => p.id === currentPlan);
   const isPaid = Boolean(current?.has_companion);
-  const rate = formatRand(tiers[0]?.extra_job_cents ?? 0);
+  const rate = formatPrice(tiers[0]?.extra_job_cents ?? 0, planCurrency(tiers));
   const canManage = useCanManage();
   // Staff see the plans; choosing one is the owner's call (the API refuses it too).
   const checkout = useCheckout();
@@ -139,6 +141,7 @@ function PlanBody({
         {isPaid && usage.data ? (
           <UsageCard
             usage={usage.data}
+            currency={planCurrency(plans)}
             planName={current?.name ?? t(`plans.names.${currentPlan}`)}
           />
         ) : isPaid ? (
@@ -173,7 +176,7 @@ function PlanBody({
           }
           date={formatEffectiveDate(
             scheduled.effective_at,
-            business.data?.timezone ?? 'Africa/Johannesburg',
+            business.data?.timezone ?? readDeviceLocale().timezone,
           )}
           currentName={current?.name ?? t(`plans.names.${currentPlan}`)}
           isPending={keepPlan.isPending}

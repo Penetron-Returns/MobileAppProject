@@ -16,6 +16,7 @@ import type { WhatsAppChannelDTO, WhatsAppTemplateDTO } from '@booking/types';
 import { encryptSecret } from '@booking/features/lib/crypto.ts';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { normalizePhone } from '@booking/features/lib/phone.ts';
+import { regionForBusiness } from '@booking/features/lib/region.ts';
 import { FLOW_DEFINITIONS, TEMPLATE_DEFINITIONS, type FlowKind } from './assets.ts';
 import { accountGraph, type OutboundDeps } from './deps.ts';
 import { flowPublicKeyPem, loadFlowPrivateKey } from './flows/crypto.ts';
@@ -194,7 +195,8 @@ export async function sendTestMessage(deps: OnboardingDeps, businessId: string, 
   if (!graph || account.status === 'disconnected') {
     throw new AppError('RULE_VIOLATION', 'WhatsApp is not connected', { rule: 'CHANNEL_DISCONNECTED' });
   }
-  const phone = normalizePhone(to);
+  const brief = await deps.repo.getBusinessBrief(businessId);
+  const phone = normalizePhone(to, brief ? regionForBusiness(brief) : null);
   const { wamid } = await metaCall('test_message', () =>
     graph.sendMessage(account.phone_number_id, {
       to: phone.slice(1),

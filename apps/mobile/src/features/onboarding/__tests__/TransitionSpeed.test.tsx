@@ -63,14 +63,14 @@ describe('TypeScreen', () => {
   it('reads the four option names aloud', () => {
     const tree = mount(<TypeScreen selected={null} onSelect={jest.fn()} />);
     const spoken: string = tree.root.findByType(OnboardingShell).props.spoken;
-    for (const label of ['Barbershop', 'Salon', 'Beauty parlour', 'A mix']) {
+    for (const label of ['Barbershop', 'Salon', 'Beauty parlor', 'A mix']) {
       expect(spoken).toContain(label);
     }
   });
 
   it('lets tile labels wrap to two lines inside a minimum-height tile', () => {
     const tree = mount(<TypeScreen selected={null} onSelect={jest.fn()} />);
-    for (const label of ['Beauty parlour', 'A mix']) {
+    for (const label of ['Beauty parlor', 'A mix']) {
       const texts = tree.root.findAll(
         (n) => n.props.numberOfLines === 2 && n.props.children === label,
       );

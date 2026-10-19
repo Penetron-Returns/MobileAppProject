@@ -63,7 +63,7 @@ const SERVICES_BY_TYPE: Record<BusinessTypeId, ServiceTemplate[]> = {
   salon: [
     { name: 'Wash, cut & blow-dry', durationMinutes: 60, price: 420 },
     { name: 'Silk press', durationMinutes: 75, price: 550 },
-    { name: 'Full-head colour', durationMinutes: 120, price: 950 },
+    { name: 'Full-head color', durationMinutes: 120, price: 950 },
     { name: 'Knotless braids', durationMinutes: 240, price: 1200 },
   ],
   beauty: [
@@ -167,14 +167,22 @@ export const shouldAutoSubmit = (draft: OnboardingDraft, isSignedIn: boolean) =>
  * The whole business in one request: the type's hours and services at template
  * prices, the API's default booking rules, and the owner as the only staff.
  * Returns null until the draft can be submitted.
+ * `locale` is the owner's own timezone and currency (from the device) so the
+ * business is not created with a country default.
  */
 export function buildOnboardingRequest(
   draft: OnboardingDraft,
   ownerName: string | null,
+  locale?: { timezone: string; currency: string },
 ): OnboardingRequest | null {
   if (!canSubmit(draft) || draft.typeId === null) return null;
   return {
-    business: { name: draft.businessName.trim() },
+    business: {
+      name: draft.businessName.trim(),
+      ...(locale
+        ? { timezone: locale.timezone, currency: locale.currency }
+        : {}),
+    },
     owner_name: ownerName?.trim() || null,
     hours: defaultHours(draft.typeId),
     services: SERVICES_BY_TYPE[draft.typeId].map((s) => ({

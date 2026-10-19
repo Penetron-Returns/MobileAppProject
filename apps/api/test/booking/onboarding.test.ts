@@ -30,6 +30,22 @@ const post = (body: unknown, opts: { token?: 'newowner' | 'otherowner' | 'newsta
 const mine = () => h.repo.tables.businesses.find((b) => b.clerk_org_id === 'org_new');
 
 describe('POST /v1/onboarding', () => {
+  it.each([
+    [{ timezone: 'America/New_York', currency: 'USD' }, 'America/New_York', 'USD'],
+    [{ timezone: 'Europe/London', currency: 'GBP' }, 'Europe/London', 'GBP'],
+    [{ timezone: 'Africa/Johannesburg', currency: 'ZAR' }, 'Africa/Johannesburg', 'ZAR'],
+    [{}, 'UTC', 'USD'],
+  ])('gives the new business the owner locale %j (fallback UTC and USD)', async (locale, timezone, currency) => {
+    const res = await post(payload({ business: { name: 'Locale Test', ...locale } }));
+    expect(res.status).toBe(200);
+    expect(mine()).toMatchObject({ timezone, currency });
+  });
+
+  it('rejects an unknown timezone or malformed currency', async () => {
+    expect((await post(payload({ business: { name: 'X', timezone: 'Mars/Base' } }))).status).toBe(400);
+    expect((await post(payload({ business: { name: 'X', currency: 'dollars' } }))).status).toBe(400);
+  });
+
   it('creates the business, owner user, owner staff, hours, services and team from the verified org', async () => {
     const res = await post(payload());
     expect(res.status).toBe(200);

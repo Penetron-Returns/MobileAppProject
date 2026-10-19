@@ -19,13 +19,13 @@ import { useTranslation } from 'react-i18next';
 import { AccessibilityInfo, findNodeHandle, View } from 'react-native';
 
 import { useBusiness } from '@/features/business/hooks';
+import { readDeviceLocale } from '@/lib/device-locale';
 
 import { isCheckoutPlan } from '../checkout';
 import { planChangeAmounts } from '../planChange';
 import { useManageSubscription } from '../useBillingActions';
 import { usePlanChange, usePlanPreview } from '../usePlanChange';
 
-const DEFAULT_TZ = 'Africa/Johannesburg';
 /** The sheet body keeps this height from skeleton to copy, so nothing jumps. */
 const BODY_MIN_HEIGHT = 96;
 const SUCCESS_CLOSE_MS = 900;
@@ -72,7 +72,7 @@ function PlanChangeBody({
   const depth = useDepth();
   const reduceMotion = useReduceMotion();
   const business = useBusiness();
-  const timezone = business.data?.timezone ?? DEFAULT_TZ;
+  const timezone = business.data?.timezone ?? readDeviceLocale().timezone;
   const preview = usePlanPreview(isCheckoutPlan(plan.id) ? plan.id : null);
   const { phase, confirm } = usePlanChange(onClose);
   const manage = useManageSubscription();

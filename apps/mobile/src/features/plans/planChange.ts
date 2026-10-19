@@ -2,7 +2,7 @@ import type { PlanChangePreviewDTO, PlanKey } from '@booking/types';
 
 import { businessDate, formatDayMonth } from '@/lib/time';
 
-import { formatRand } from './logic';
+import { formatPrice } from '@/lib/format';
 
 /** A downgrade the owner has booked for the end of the period. */
 export interface ScheduledChange {
@@ -28,8 +28,8 @@ export function planChangeAmounts(
   timezone: string,
 ): PlanChangeAmounts {
   return {
-    due: formatRand(preview.amount_due_now_cents),
-    next: formatRand(preview.next_amount_cents),
+    due: formatPrice(preview.amount_due_now_cents, preview.currency),
+    next: formatPrice(preview.next_amount_cents, preview.currency),
     date: formatEffectiveDate(
       (preview.direction === 'upgrade'
         ? preview.next_billing_at

@@ -205,7 +205,11 @@ export const publicBookingSchema = z.object({
 // ---------- onboarding ----------
 
 export const onboardingSchema = z.object({
-  business: z.object({ name: text(120).min(1) }),
+  business: z.object({
+    name: text(120).min(1),
+    timezone: z.string().refine(isValidTimeZone, 'Unknown IANA timezone').optional(),
+    currency: z.string().regex(/^[A-Z]{3}$/, 'ISO 4217 code').optional(),
+  }),
   owner_name: nullableText(120),
   hours: z.array(hoursRow).min(1).max(7).refine(oneRangePerWeekday, ONE_RANGE_MESSAGE),
   services: z

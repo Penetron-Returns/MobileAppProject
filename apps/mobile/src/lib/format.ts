@@ -1,7 +1,7 @@
 /**
- * Money is integer cents in the business currency (default ZAR).
- * We always render the symbol + en-US grouping (`R 1,250.00`) so amounts
- * look the same on every device regardless of Intl support.
+ * Money is integer cents in the business currency, always passed in (there is
+ * no default currency). We render the symbol + en-US grouping (`R 1,250.00`)
+ * so amounts look the same on every device regardless of Intl support.
  */
 const SYMBOLS: Record<string, string> = {
   ZAR: 'R',
@@ -19,14 +19,27 @@ const SYMBOLS: Record<string, string> = {
 };
 
 /** Symbols that are letters get a space after them (`R 10.00`, `KSh 5.00`). */
-function joinSymbol(symbol: string, amount: string) {
-  return /[A-Za-z]$/.test(symbol)
+function joinSymbol(symbol: string, amount: string, tight: boolean) {
+  return !tight && /[A-Za-z]$/.test(symbol)
     ? `${symbol} ${amount}`
     : `${symbol}${amount}`;
 }
 
-export function currencySymbol(currency = 'ZAR') {
-  return SYMBOLS[currency.toUpperCase()] ?? currency.toUpperCase();
+/** The symbol for any ISO 4217 code: our table, then Intl's narrow symbol, then the code itself. */
+export function currencySymbol(currency: string) {
+  const code = currency.toUpperCase();
+  const known = SYMBOLS[code];
+  if (known) return known;
+  try {
+    const parts = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+    }).formatToParts(0);
+    return parts.find((p) => p.type === 'currency')?.value ?? code;
+  } catch {
+    return code;
+  }
 }
 
 function groupThousands(intPart: string) {
@@ -46,16 +59,31 @@ function formatNumber(value: number, decimals: number) {
   }
 }
 
+export interface MoneyOptions {
+  /** `false`: whole units only. `'auto'`: cents only when there are some (`$200`, `$4.50`). Default: always two */
+  decimals?: boolean | 'auto';
+  /** No space after a letter symbol (`R200` rather than `R 200`), as the plan boards write prices */
+  tight?: boolean;
+}
+
 export function formatMoney(
   cents: number | null | undefined,
-  currency = 'ZAR',
-  opts: { decimals?: boolean } = {},
+  currency: string,
+  opts: MoneyOptions = {},
 ) {
-  const value = (cents ?? 0) / 100;
-  const decimals = opts.decimals === false ? 0 : 2;
+  const rounded = Math.round(cents ?? 0);
+  const value = rounded / 100;
+  const hasCents = rounded % 100 !== 0;
+  const decimals =
+    opts.decimals === false || (opts.decimals === 'auto' && !hasCents) ? 0 : 2;
   const num = formatNumber(Math.abs(value), decimals);
-  const out = joinSymbol(currencySymbol(currency), num);
+  const out = joinSymbol(currencySymbol(currency), num, opts.tight === true);
   return value < 0 ? `-${out}` : out;
+}
+
+/** A plan price as the plan boards write it: `R200`, `$16`, `£4.50`. */
+export function formatPrice(cents: number, currency: string) {
+  return formatMoney(cents, currency, { decimals: 'auto', tight: true });
 }
 
 /** Parses user input like "1 250,50" or "R85" into cents. Returns null if invalid. */
