@@ -1,6 +1,7 @@
 // One import point for the native module, so tests mock a single path.
 export {
   addStatusListener,
+  addVoiceLatencyListener,
   addVoiceOutcomeListener,
   addVoiceStateListener,
   addVoiceTranscriptListener,
@@ -44,6 +45,7 @@ export type {
   ClovieVoiceError,
   ClovieVoiceHandsFree,
   ClovieVoiceHandsFreeConfig,
+  ClovieVoiceLatencyEvent,
   ClovieVoiceOutcomeEvent,
   ClovieVoiceState,
   ClovieVoiceStateEvent,

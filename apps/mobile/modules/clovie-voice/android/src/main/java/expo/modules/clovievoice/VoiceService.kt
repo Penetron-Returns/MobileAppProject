@@ -83,6 +83,8 @@ class VoiceService : Service() {
   private var followUp = FollowUpState.NONE
   private var followUpsDone = 0
   private var isFollowUpTurn = false
+  private var latencyEndpoint = "none"
+  private var latencyPath = "device"
   private val dismiss = Runnable {
     Log.i(TAG, "overlay dismissed reason=$dismissReason")
     stopSpeech()
@@ -103,7 +105,12 @@ class VoiceService : Service() {
     feedback = VoiceFeedback(this)
     speaker = VoiceSpeaker(this)
     instance = this
-    speech = SpeechCapture(this, onModelDownload = notifications::speechDownloading) { surface.pushRms(it) }
+    speech = SpeechCapture(
+      this,
+      onModelDownload = notifications::speechDownloading,
+      onPartial = ::onPartialTranscript,
+      onSpeechEnd = { endpoint -> onSpeechEnd(endpoint, "device") },
+    ) { surface.pushRms(it) }
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -233,6 +240,26 @@ class VoiceService : Service() {
 
   // ---- one interaction ----
 
+  /** Words as they are recognised, shown live in the overlay or the in-app drawer. Never logged. */
+  private fun onPartialTranscript(text: String) {
+    if (isDestroyed || !isInteracting || !hasSurface) return
+    surface.setTranscript(text)
+  }
+
+  /**
+   * The owner has stopped speaking (recogniser, endpointer or clip VAD): zero for the latency timings, and an
+   * instant "heard you" cue and tick before the transcript or the request exist. `enterProcessing` repeats this later
+   * and does nothing twice.
+   */
+  private fun onSpeechEnd(endpoint: String, path: String) {
+    if (isDestroyed || !isInteracting) return
+    VoiceTimings.speechEnded()
+    latencyEndpoint = endpoint
+    latencyPath = path
+    if (hasSurface) surface.setState("processing")
+    feedback.acknowledge()
+  }
+
   private fun startInteraction() {
     isInteracting = true
     epoch += 1
@@ -272,15 +299,17 @@ class VoiceService : Service() {
   /**
    * While the owner is still speaking, opens the connection to our API (DNS, TLS, the Edge Function and its
    * token lookup) and has the app's JS load today's bookings, so neither is on the path after the clip ends.
-   * Both are best effort and only when the cloud path is on.
+   * Both are best effort. Only while listening: nothing runs at rest.
    */
   private fun warmUpBackend() {
-    if (!CloudStt.isEnabled(this)) return
     warmUpConnection()
     try {
+      // Also on the recogniser path: the app's JS runtime starts and pings our API (TLS and the Edge isolate) while the
+      // owner is still speaking, so neither is on the path after the end of speech.
       startService(
         Intent(this, VoiceCommandTaskService::class.java)
-          .putExtra(VoiceCommandTaskService.EXTRA_PREFETCH, true),
+          .putExtra(VoiceCommandTaskService.EXTRA_PREFETCH, true)
+          .putExtra(VoiceCommandTaskService.EXTRA_WARM, true),
       )
     } catch (_: Exception) {
       // The headless task starts again for the command itself.
@@ -325,6 +354,7 @@ class VoiceService : Service() {
         startRecogniser()
       }
       is ClipResult.Captured -> {
+        onSpeechEnd("clip", "cloud")
         // With a device token the service uploads by itself, so it works with no JS runtime running.
         val credentials = VoiceTokenStore.forContext(this).read()
         if (credentials != null) uploadClip(result.file, credentials) else transcribeClip(result.file)
@@ -436,6 +466,7 @@ class VoiceService : Service() {
 
   /** Hands a transcript to the app's JS (headless task); without JS it times out into "Open Clovie". */
   private fun runCommand(text: String) {
+    VoiceTimings.finalTranscript()
     lastTranscript = text
     if (hasSurface) surface.setTranscript(text)
     enterProcessing()
@@ -539,8 +570,18 @@ class VoiceService : Service() {
   fun speakInterim(text: String) {
     main.post {
       if (isDestroyed || !isInteracting || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return@post
-      speaker.speakInterim(text)
+      speaker.speakInterim(text, onStart = VoiceTimings::interimStarted)
     }
+  }
+
+  /** Sends this turn's latency numbers (once) to the app for PostHog, and to logcat. No text, no names. */
+  private fun reportLatency() {
+    val offsets = VoiceTimings.latencyOffsets() ?: return
+    val values = HashMap<String, Any>(offsets)
+    values["endpoint"] = latencyEndpoint
+    values["sttPath"] = latencyPath
+    Log.i(TAG, "latency $values")
+    VoiceUiBus.latency(values)
   }
 
   /** The soft wake cue, then one more clip with the same capture and VAD; 6 s without speech gives up quietly. */
@@ -550,6 +591,7 @@ class VoiceService : Service() {
     if (followUp.hasPendingAction && !UndoWindow.isOpen(System.currentTimeMillis(), followUp.undoUntilMs)) {
       return endFollowUpQuietly()
     }
+    VoiceTimings.resetTurn()
     warmUpConnection() // a follow-up comes ~30 s after the last upload: the pooled socket may be dead by now
     followUpsDone += 1
     isFollowUpTurn = true
@@ -706,14 +748,21 @@ class VoiceService : Service() {
    * It is cleared before `onDone` runs.
    */
   private fun speakAfterCue(cue: Cue, text: String?, watch: Boolean = false, onDone: () -> Unit) {
-    if (text == null || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return onDone()
-    val lead = feedback.leadInMs(cue)
+    if (text == null || !VoiceFeedbackSettings.isReadAloudEnabled(this)) {
+      reportLatency()
+      return onDone()
+    }
+    // The engine needs a moment between speak() and sound: ask it a little early so the first word follows the cue
+    // instead of waiting for it to finish.
+    val lead = maxOf(0L, feedback.leadInMs(cue) - TTS_PREROLL_MS)
     if (watch) main.postDelayed(dismiss, lead + SpeechWatchdog.START_WAIT_MS)
     val task = Runnable {
       speakTask = null
       speaker.speak(
         text,
         onStart = {
+          VoiceTimings.ttsStarted()
+          reportLatency()
           if (watch && !isDestroyed) {
             main.removeCallbacks(dismiss)
             main.postDelayed(dismiss, SpeechWatchdog.doneBoundMs(text.length))
@@ -874,6 +923,8 @@ class VoiceService : Service() {
     private const val NOT_HEARD = "Didn't catch that"
 
     /** Sent to the overlay page as the error message; it maps it to text. Notifications use the plain text below. */
+    /** Speech is requested this long before the cue ends (the engine's own start-up). */
+    private const val TTS_PREROLL_MS = 250L
     private const val SPEECH_UNAVAILABLE = "speech_unavailable"
     private const val SPEECH_UNAVAILABLE_TEXT = "Speech isn't set up on this phone. Install English in the phone's speech settings."
     private const val OPEN_LABEL = "Open Clovie"

@@ -30,6 +30,8 @@ export interface TaskData {
   clipPath?: string;
   /** The wake word just fired: load today's bookings now and finish; no command follows in this task. */
   prefetch?: boolean;
+  /** With `prefetch`: also ping the API so TLS and the Edge isolate are warm before the request. */
+  warm?: boolean;
   /** Epoch ms (as a string) when the service asked for this task: how long the JS runtime took to start. */
   startedAt?: string;
   /** Follow-up turns only: the approval the service just read aloud, its kind and the ones still queued (JSON). */
@@ -112,7 +114,17 @@ export function createHeadlessDeps(): HeadlessDeps {
     speakInterim,
     nextTurn: () => companionTurns++,
     rememberAction,
-    ask: async (text: string) => api.voiceAsk({ text }, newIdempotencyKey()),
+    ask: async (text: string) => {
+      // Wall-clock stamps the service turns into offsets from the end of speech (the `voice_latency` event).
+      const sent = Date.now();
+      recordTiming('requestSentAt', sent);
+      const reply = await api.voiceAsk({ text }, newIdempotencyKey());
+      // The reply arrives whole today (the API reads Nerova's stream to its end), so this is also its first byte.
+      const received = Date.now();
+      recordTiming('firstReplyByteAt', received);
+      recordTiming('askMs', received - sent);
+      return reply;
+    },
     decide: async (id: string, decision: 'approve' | 'decline') =>
       api.voiceDecideApproval(id, decision, newIdempotencyKey()),
     undo: async (id: string) => api.voiceUndoAction(id, `action:${id}:undo`),
@@ -138,6 +150,7 @@ export function syncCloudSttFlag(): void {
  */
 export async function runVoiceHeadlessTask(data: TaskData): Promise<void> {
   if (data.prefetch) {
+    if (data.warm) void api.voicePing().catch(() => undefined);
     await todayPrefetcher.prefetch();
     return;
   }

@@ -8,7 +8,11 @@ import android.util.Log
  * did not happen (no overlay, STT never started, no command ran) is -1. Pure apart from the injected
  * clock and sink, so it is unit tested.
  */
-class TimingRecorder(private val clock: () -> Long, private val sink: (String, Long) -> Unit) {
+class TimingRecorder(
+  private val clock: () -> Long,
+  private val wallClock: () -> Long = System::currentTimeMillis,
+  private val sink: (String, Long) -> Unit,
+) {
   var values: Map<String, Long> = emptyMap()
     private set
 
@@ -17,6 +21,14 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
   private var commandStartAt = UNSET
   private var clipEndAt = UNSET
   private var uploadStartAt = UNSET
+  private var speechEndAt = UNSET
+  private var speechEndWall = UNSET
+  private var finalAt = UNSET
+  private var ttsAt = UNSET
+  private var interimAt = UNSET
+  private var requestSentWall = UNSET
+  private var firstByteWall = UNSET
+  private var isLatencyReported = false
   private val current = HashMap<String, Long>()
 
   @Synchronized
@@ -26,8 +38,72 @@ class TimingRecorder(private val clock: () -> Long, private val sink: (String, L
     commandStartAt = UNSET
     clipEndAt = UNSET
     uploadStartAt = UNSET
+    resetTurn()
     current.clear()
     values = emptyMap()
+  }
+
+  /** A new listen (the first, or a follow-up): the end-of-speech marks start over. */
+  @Synchronized
+  fun resetTurn() {
+    speechEndAt = UNSET
+    speechEndWall = UNSET
+    finalAt = UNSET
+    ttsAt = UNSET
+    interimAt = UNSET
+    requestSentWall = UNSET
+    firstByteWall = UNSET
+    isLatencyReported = false
+  }
+
+  /** The owner stopped speaking (recogniser, endpointer or VAD): the zero of the latency the owner feels. First call wins. */
+  @Synchronized
+  fun speechEnded() {
+    if (speechEndAt != UNSET) return
+    speechEndAt = clock()
+    speechEndWall = wallClock()
+  }
+
+  @Synchronized
+  fun finalTranscript() {
+    if (speechEndAt == UNSET) speechEnded()
+    if (finalAt == UNSET) finalAt = clock()
+  }
+
+  @Synchronized
+  fun ttsStarted() {
+    if (ttsAt == UNSET) ttsAt = clock()
+  }
+
+  /** The short filler ("One sec") began: usually the first word the owner hears after speaking. */
+  @Synchronized
+  fun interimStarted() {
+    if (interimAt == UNSET) interimAt = clock()
+  }
+
+  /**
+   * Whole milliseconds after the end of speech for each step that happened (a missing step is left out), or null when
+   * there is nothing to report or it was already reported this turn. The request and first reply byte are stamped by
+   * the app's JS in wall-clock ms, so they are converted against the wall-clock time of the speech end.
+   * Numbers only: never a transcript or a name.
+   */
+  @Synchronized
+  fun latencyOffsets(): Map<String, Long>? {
+    if (speechEndAt == UNSET || isLatencyReported) return null
+    isLatencyReported = true
+    val out = LinkedHashMap<String, Long>()
+    if (finalAt != UNSET) out["finalTranscriptMs"] = maxOf(0L, finalAt - speechEndAt)
+    if (requestSentWall != UNSET) out["requestSentMs"] = maxOf(0L, requestSentWall - speechEndWall)
+    if (firstByteWall != UNSET) out["firstReplyByteMs"] = maxOf(0L, firstByteWall - speechEndWall)
+    if (interimAt != UNSET) out["interimStartMs"] = maxOf(0L, interimAt - speechEndAt)
+    if (ttsAt != UNSET) out["ttsStartMs"] = maxOf(0L, ttsAt - speechEndAt)
+    return out
+  }
+
+  /** Wall-clock stamps from the app's JS (see [VoiceTimings.EXTERNAL_KEYS]). */
+  @Synchronized
+  fun wallMark(key: String, epochMs: Long) {
+    if (key == "requestSentAt") requestSentWall = epochMs else firstByteWall = epochMs
   }
 
   /** Wake word detected to the overlay window being on screen. */
@@ -117,6 +193,19 @@ object VoiceTimings {
 
   fun wake() = recorder.wake()
 
+  fun resetTurn() = recorder.resetTurn()
+
+  fun speechEnded() = recorder.speechEnded()
+
+  fun finalTranscript() = recorder.finalTranscript()
+
+  fun ttsStarted() = recorder.ttsStarted()
+
+  fun interimStarted() = recorder.interimStarted()
+
+  /** The offsets for the turn's latency event, once; see [TimingRecorder.latencyOffsets]. */
+  fun latencyOffsets(): Map<String, Long>? = recorder.latencyOffsets()
+
   fun overlayShown() = recorder.overlayShown()
 
   fun sttStarted() = recorder.sttStarted()
@@ -137,8 +226,11 @@ object VoiceTimings {
 
   /** Timings the app's JS reports (see [EXTERNAL_KEYS]); anything else is ignored so the log stays a fixed vocabulary. */
   fun external(key: String, ms: Long) {
-    if (key in EXTERNAL_KEYS) recorder.external(key, ms)
+    when (key) {
+      "requestSentAt", "firstReplyByteAt" -> recorder.wallMark(key, ms)
+      in EXTERNAL_KEYS -> recorder.external(key, ms)
+    }
   }
 
-  val EXTERNAL_KEYS = setOf("headlessStartMs", "todayMs", "todayPrefetched", "pingMs")
+  val EXTERNAL_KEYS = setOf("headlessStartMs", "todayMs", "todayPrefetched", "pingMs", "askMs")
 }

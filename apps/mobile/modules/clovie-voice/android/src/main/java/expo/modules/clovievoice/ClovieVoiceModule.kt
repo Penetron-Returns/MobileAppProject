@@ -67,6 +67,10 @@ class ClovieVoiceModule : Module() {
       sendEvent("onVoiceTranscript", mapOf("text" to text))
     }
 
+    override fun onVoiceLatency(values: Map<String, Any>) {
+      sendEvent("onVoiceLatency", values)
+    }
+
     override fun onVoiceOutcome(outcome: CommandOutcome) {
       sendEvent(
         "onVoiceOutcome",
@@ -92,7 +96,7 @@ class ClovieVoiceModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("ClovieVoice")
-    Events("onStatusChange", "onVoiceState", "onVoiceTranscript", "onVoiceOutcome")
+    Events("onStatusChange", "onVoiceState", "onVoiceTranscript", "onVoiceOutcome", "onVoiceLatency")
 
     OnCreate {
       VoiceState.addListener(onStatus)

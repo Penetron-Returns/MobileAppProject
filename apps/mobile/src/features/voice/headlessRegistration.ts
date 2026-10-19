@@ -8,6 +8,8 @@ import type { TaskData } from './headlessTask';
 const loadTask = () =>
   require('./headlessTask') as typeof import('./headlessTask');
 
+const loadLatency = () => require('./latency') as typeof import('./latency');
+
 const TASK_KEY = 'ClovieVoiceCommand';
 
 /**
@@ -24,5 +26,7 @@ export function registerVoiceHeadlessTask(): void {
   // Once the first screen is up, mirror the cloud-STT flag for the native service.
   whenIdle(() => {
     loadTask().syncCloudSttFlag();
+    // The UI runtime reports each turn's latency numbers to analytics (once; the listener lives for the app's life).
+    loadLatency().startVoiceLatencyReporting();
   }, 5000);
 }

@@ -60,6 +60,16 @@ class VoiceFeedback(private val context: Context) {
     main.postDelayed(pulse, CuePolicy.PULSE_AFTER_MS)
   }
 
+  /**
+   * The owner has stopped speaking: the same soft "got it" cue as [processing], at once, plus a light tick when touch
+   * feedback is on, so she knows she was heard before the transcript and the request are even done.
+   */
+  fun acknowledge() {
+    if (isProcessing) return
+    processing()
+    tick(strong = false)
+  }
+
   /** The result is here: the pulse stops at once, and the success or failure cue plays. */
   fun result(cue: Cue) {
     stopPulse()

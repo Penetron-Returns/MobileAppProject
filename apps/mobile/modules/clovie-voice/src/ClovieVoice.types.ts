@@ -110,13 +110,31 @@ export type ClovieVoiceUiState =
 export interface ClovieVoiceStateEvent {
   state: ClovieVoiceUiState;
   level?: number;
-  /** Reserved for a recogniser that streams words; the cloud path never sets it (no faked partials). */
+  /** Reserved; partial words arrive as `onVoiceTranscript` events while the owner speaks (on-device recogniser). */
   partialTranscript?: string;
 }
 
-/** `onVoiceTranscript`: what was heard. Arrives once per command, before the thinking state. */
+/** `onVoiceTranscript`: what was heard so far (partials while speaking, on-device) and finally the whole command. */
 export interface ClovieVoiceTranscriptEvent {
   text: string;
+}
+
+/**
+ * `onVoiceLatency`: once per turn, milliseconds after the owner stopped speaking for each step that happened (a step
+ * that did not happen is absent), plus how it ended. Numbers and short labels only: never a transcript or a name.
+ */
+export interface ClovieVoiceLatencyEvent {
+  finalTranscriptMs?: number;
+  requestSentMs?: number;
+  firstReplyByteMs?: number;
+  /** The short filler ("One sec"), usually the first word heard. */
+  interimStartMs?: number;
+  /** The reply's first word. */
+  ttsStartMs?: number;
+  /** What ended the speech: our endpointer on a stable partial, the recogniser, or the clip VAD. */
+  endpoint?: string;
+  /** `device` (Android recogniser) or `cloud` (clip transcribed by the backend). */
+  sttPath?: string;
 }
 
 /** `onVoiceOutcome`: the finished command, with the approval the service now holds (if any). */
