@@ -2,7 +2,7 @@ import { useAppColorScheme, useDepth } from '@booking/ui';
 import {
   CompanionProvider,
   CompanionSheet,
-  type AppointmentContext,
+  type ChatContext,
   type CompanionSheetHandle,
   type CompanionTransport,
   useCompanion,
@@ -78,7 +78,7 @@ const SdkShell = React.forwardRef<
   const { top, bottom } = useSafeAreaInsets();
   const insets = React.useMemo(() => ({ top, bottom }), [top, bottom]);
   const sheetRef = React.useRef<CompanionSheetHandle>(null);
-  const [context, setContext] = React.useState<AppointmentContext | null>(null);
+  const [context, setContext] = React.useState<ChatContext | null>(null);
 
   React.useImperativeHandle(
     ref,
