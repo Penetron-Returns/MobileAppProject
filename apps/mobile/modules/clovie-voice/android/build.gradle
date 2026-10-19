@@ -14,9 +14,29 @@ android {
   }
 }
 
+// sherpa-onnx is not on Maven Central; its official release assets are consumed straight from GitHub (pinned).
+// The app also needs android.packagingOptions.pickFirsts for libonnxruntime.so (app.json, expo-build-properties):
+// onnxruntime-android and the sherpa AAR (x86 only) both ship it.
+// Added to every project so the app module can resolve the AAR this library depends on.
+rootProject.allprojects {
+  repositories {
+    ivy {
+    url "https://github.com/k2-fsa/sherpa-onnx/releases/download"
+    patternLayout { artifact "v[revision]/[module]-[revision].[ext]" }
+    metadataSources { artifact() }
+    content { includeGroup "com.k2fsa.github" }
+    }
+  }
+}
+
 dependencies {
   // Runs the three wake-word models. Stable, more than two weeks old.
   implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
+  // On-device neural TTS (Kokoro). Static-link variant: ONNX Runtime is built into libsherpa-onnx-jni.so, so it does
+  // not clash with onnxruntime-android above. Pinned release v1.13.8 (SHA-256 b22c3fc1…).
+  implementation "com.k2fsa.github:sherpa-onnx-static-link-onnxruntime:1.13.8@aar"
+  // Unpacks the downloaded model archive (.tar.bz2).
+  implementation "org.apache.commons:commons-compress:1.27.1"
   implementation 'androidx.core:core-ktx:1.13.1'
   implementation 'com.facebook.react:react-android'
 
