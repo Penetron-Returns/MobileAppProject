@@ -54,6 +54,7 @@ export const StoryCardFace = React.memo(function StoryCardFace({
           number={card.number}
           accent={accent}
           hasPush={layout.hasNumberPush}
+          isCurrent={isCurrent}
         />
       ) : null}
       <Rise index={1} style={styles.headline}>
