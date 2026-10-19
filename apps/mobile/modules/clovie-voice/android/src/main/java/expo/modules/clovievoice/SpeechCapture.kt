@@ -43,6 +43,7 @@ class SpeechCapture(
 ) {
   private val main = Handler(Looper.getMainLooper())
   private var recognizer: SpeechRecognizer? = null
+  private val startOnce = StartOnce()
   private var onDone: ((SttOutcome) -> Unit)? = null
 
   /** True while a command is being listened for. */
@@ -141,9 +142,11 @@ class SpeechCapture(
   /** Learns what the recogniser supports (API 33+), picks the language, then starts. */
   @RequiresApi(33)
   private fun chooseLanguage(created: SpeechRecognizer, step: SttStep) {
+    // Google's recogniser can call back several times (onError then onSupportResult, sometimes twice): only the first counts.
+    val once = OnceGuard()
     val callback = object : RecognitionSupportCallback {
       override fun onSupportResult(support: RecognitionSupport) {
-        if (recognizer !== created || onDone == null) return
+        if (recognizer !== created || onDone == null || !once.tryFire()) return
         val installed = support.installedOnDeviceLanguages.toList()
         val online = support.onlineLanguages.toList()
         val supported = support.supportedOnDeviceLanguages.toList()
@@ -161,7 +164,7 @@ class SpeechCapture(
       }
 
       override fun onError(error: Int) {
-        if (recognizer !== created || onDone == null) return
+        if (recognizer !== created || onDone == null || !once.tryFire()) return
         Log.w(TAG, "stt languages check failed code=$error step=$step")
         start(created, FALLBACK_LOCALE)
       }
@@ -190,6 +193,10 @@ class SpeechCapture(
   }
 
   private fun start(created: SpeechRecognizer, locale: String?) {
+    if (recognizer !== created || !startOnce.claim(created)) {
+      Log.i(TAG, "stt start ignored duplicate attempt=${attempt.number}")
+      return
+    }
     val step = attempt.step
     try {
       created.startListening(recognitionIntent(locale))
@@ -274,7 +281,8 @@ class SpeechCapture(
     }
 
   private fun handleError(code: Int) {
-    if (onDone == null) return
+    // No current recogniser means a retry is pending: this error belongs to a torn-down one.
+    if (onDone == null || recognizer == null) return
     val sinceStart = elapsed()
     // The owner spoke and a partial exists: a "no match" is the recogniser giving up on a result we already have.
     if ((code == SttErrors.NO_MATCH || code == SttErrors.SPEECH_TIMEOUT) && endpoint.text.isNotBlank()) {
