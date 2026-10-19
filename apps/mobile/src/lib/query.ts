@@ -35,8 +35,6 @@ applyPersistedGcTimes(queryClient);
 export const qk = {
   me: ['me'] as const,
   business: ['business'] as const,
-  dashboardAll: ['dashboard'] as const,
-  dashboard: (date: string) => ['dashboard', date] as const,
   appointments: ['appointments'] as const,
   appointmentsRange: (from: string, to: string, staffId?: string | null) =>
     ['appointments', 'range', from, to, staffId ?? 'all'] as const,
@@ -65,23 +63,13 @@ export const qk = {
   availabilitySlots: ['availability', 'slots'] as const,
   whatsapp: ['whatsapp'] as const,
   whatsappChannel: ['whatsapp', 'channel'] as const,
-  companionSetup: ['companion', 'setup'] as const,
-  companionWhatsAppHealth: ['companion', 'whatsapp-health'] as const,
-  companionSettings: ['companion', 'settings'] as const,
   conversations: ['conversations'] as const,
   conversation: (id: string) => ['conversations', 'one', id] as const,
   messages: (conversationId: string) => ['messages', conversationId] as const,
-  plans: ['plans'] as const,
-  planPreview: (plan: string) => ['plans', 'preview', plan] as const,
-  /** A downgrade booked for the end of the period (set from the change response). */
-  planScheduled: ['plans', 'scheduled'] as const,
-  billingUsage: (month: string | null) =>
-    ['billing-usage', month ?? 'current'] as const,
   /** Appointments (and the clients created in the window) behind the Reports screen; under `appointments` so Realtime refreshes them. */
   reportRows: (from: string, to: string) =>
     ['appointments', 'report', from, to] as const,
   attendance: ['attendance'] as const,
-  stories: ['stories'] as const,
   accountDeletionPreview: ['account', 'deletion-preview'] as const,
   openEscalations: ['escalations', 'open-count'] as const,
 };
