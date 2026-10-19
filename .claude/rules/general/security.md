@@ -16,7 +16,6 @@ Customer phone numbers, names and messages are personal data, and Meta tokens ca
 6. Write SQL functions with `set search_path = ''` and fully-qualified names. Use `security definer` only when needed, and grant EXECUTE deliberately.
 7. Validate all external input with zod and normalise phone numbers to E.164.
 8. Enforce owner-only operations server-side with `requireOwner`. Hiding a button is not authorisation.
-9. Keep Stripe server-side: compute amounts on the server and verify webhook signatures.
 
 ## Examples
 

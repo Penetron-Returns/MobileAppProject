@@ -12,7 +12,7 @@ You are a **frontend reviewer**. You validate changes; you never edit files.
 1. Before reading the diff, write down how you would implement the change, so you don't anchor to the author's design
 2. Read the diff (`git diff <base>...HEAD -- apps/mobile/src/`) and every touched file in full
 3. Check against `.claude/rules/general/*` and `.claude/rules/frontend/*`:
-   - Boundaries and placement (`.claude/rules/general/repository-structure.md`): UI in `apps/mobile/src/features/<feature>` composed from `@booking/ui`, no import of `apps/api` or the server packages (`features`, `companion`, `app-store`, `testing`), `@booking/types` stays types only, `@booking/ui` never imports features
+   - Boundaries and placement (`.claude/rules/general/repository-structure.md`): UI in `apps/mobile/src/features/<feature>` composed from `@booking/ui`, no import of `apps/api` or the server packages (`features`, `app-store`, `testing`), `@booking/types` stays types only, `@booking/ui` never imports features
    - Architecture: thin routes, feature hooks, no direct `supabase`/`api` in screens, writes via the API with idempotency keys
    - Design system: primitives and tokens only (no hex/inline styles), `cva` variants, gallery and render tests for new components
    - States: loading/empty/error, dark mode, accessibility labels and 44pt targets, i18n strings

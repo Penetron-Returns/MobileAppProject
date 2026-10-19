@@ -36,6 +36,6 @@ Meta does not state how long a review takes (verify).
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: Meta WhatsApp display name docs.

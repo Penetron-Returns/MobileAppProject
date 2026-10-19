@@ -157,13 +157,7 @@ The `RULE` codes in use are:
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
 - Updates that only touch `updated_at` (or `clients.last_seen_at`) are not audited.
 
-**Nerova attribution** (migration `20261015000001_nerova_actor_source`): `appointment_source` and `actor_type` gain the label `nerova` (additive `ADD VALUE IF NOT EXISTS`). Appointments booked through the Nerova connector carry `source = nerova`, and their `appointment_events` carry `actor = nerova`. Asserted in `packages/database/supabase/tests/12_nerova_actor.sql`.
-
-**Plans and entitlements** (migration `20261014000001_plan_flags`)
-- `businesses.plan` (`plan_key`, default `free`) says which plan a business is on. Only the service role writes it (future billing webhook). Clients have SELECT only and there is no API route for it.
-- `plan_features(plan, feature, monthly_limit)` is the catalogue, seeded in the migration. RLS is on, `authenticated` can SELECT it and only the service role writes. Feature keys: `whatsapp_menu`, `inbox`, `companion`, `desktop_app`, `extensions`, `assistant_bookings`. `monthly_limit` is null (uncapped) everywhere until the paid-tier caps are decided.
-- `business_features(p_business_id default null)` returns `(plan, feature, monthly_limit)` rows. It is SECURITY INVOKER, so RLS limits an `authenticated` caller to their own business.
-- Tests: `packages/database/supabase/tests/11_plan_flags.sql`. Demo seed: Ashgrove is on `free`, Harbour Barbers (`10000000-0000-4000-8000-000000000002`) is a bare `growth` business.
+**Legacy objects from the paid edition.** This free edition does not use them, but the migrations were left untouched, so they still exist: the `nerova` label on `appointment_source` and `actor_type`, `businesses.plan` and the `plan_key` enum, `plan_features` and `business_features()`, plus the billing, voice, stories and support tables. The full list and the cleanup plan are in `docs/BUILD_PLAN.md` ("Free edition: leftovers"). The SQL tests for them (for example `11_plan_flags.sql`, `12_nerova_actor.sql`) still run against the migrations.
 
 **`dashboard_summary(p_date)`**
 - The month is the calendar month containing `p_date`, in `businesses.timezone`.

@@ -1,58 +1,39 @@
-# v1 build scope
+# Free edition scope
 
-v1 is the first version friends can use on Android, and it is also the ITMDA3 showcase. It covers the Free tier:
-deterministic WhatsApp booking plus the owner app. AI (Pip) screens wait for Nerova's host-integration work. The
-approved designs are the iPhone artboards on the design canvas
-(https://claude.ai/artifact/Bwzwj7MMaPrBcoiwGrXqbF). Anything not listed here stays on the canvas as roadmap.
+This branch is the free edition of the booking app: the owner app plus deterministic, menu-based WhatsApp booking
+and a web booking comparator, for the ITMDA3 research project. The full contract is [BUILD_PLAN.md](BUILD_PLAN.md).
+This file only records what is in and out, and a few product decisions the code relies on.
 
-## Screens in v1
+## In scope
 
-| # | Screen | Design board | Notes |
-| - | ------ | ------------ | ----- |
-| 1 | Sign in | SignIn | Clerk prebuilt UI (already wired) |
-| 2 | Create business | Onboarding | Name, hours, services, staff; creates the Clerk org + business |
-| 3 | Today | Main, MainEmpty | Done in PR #4 (live data, check-in) |
-| 4 | Calendar: day | CalendarDay | Staff columns, now line, tap a booking → detail. **No drag/resize/sweep in v1** |
-| 5 | Calendar: week | CalendarWeek | Read-only overview, tap a day → day view |
-| 6 | Booking detail | BookingDetail | Check in, Message (WhatsApp deep link), Reschedule, Cancel |
-| 7 | Reschedule | Reschedule | Day + time chips from live availability |
-| 8 | Cancel | CancelBooking | Reason, optional WhatsApp message |
-| 9 | New booking | NewBooking | Client (search or new), service, staff or "Any", date, live time chips, confirm |
-| 10 | Clients | Clients, ClientsEmpty | Search, All / Recent / Regulars |
-| 11 | Client profile | ClientProfile | Contact, upcoming, history, notes |
-| 12 | Inbox | Inbox, InboxEmpty | Conversations + escalations (Free plan only, gated by `inbox`) |
-| 13 | Conversation | Conversation | Reply / release to bot |
-| 14 | Settings | Settings | Business, Hours, Services, Team, Booking rules, WhatsApp, Notifications, Sign out |
-| 15 | States | OfflineToday, OfflineBlocked, ErrorScreen, SlotTaken | Shared components, used by every screen |
+- Sign-in (Clerk prebuilt UI) and onboarding: welcome, business type, business name. The app opens right after.
+- Tabs: Calendar (day, week, month), Reports, Clients, Settings, plus an Inbox bubble. New booking is reached from
+  the Calendar.
+- Booking detail: check in, message, reschedule, cancel, status. Attendance checks ("did the client come?").
+- Clients: search, All / Recent / Regulars, client profile with notes and history.
+- Settings: business details, operating hours, services, team and staff, booking rules, WhatsApp (status,
+  pause/resume, reminder offsets), notifications, delete account.
+- Inbox: conversations and escalations from the WhatsApp menu flow, staff reply, release to the bot.
+- WhatsApp: deterministic menus, lists and Flows. Reminders, confirmations, rescheduling and cancelling.
+- Web booking page `/book/[slug]` as the research comparator, with step counts and timings in `booking_attempts`.
 
-Settings sub-screens in v1: BusinessDetails, HoursSettings, ServicesSettings, StaffSettings, BookingRules,
-WhatsAppSettings + WhatsAppDetail, NotificationSettings.
+## Out of scope (removed from this edition)
 
-## Not in v1 (stays on the canvas)
-- **AI and plans:** Pip / companion screens, Pip report and goals, approve-all.
-- **Calendar extras:** month view, Staff | Chairs lens, drag / resize / sweep-to-create.
-- **System surfaces:** widgets, Live Activity.
-- **Settings extras:** extensions, connected apps, checkout / payments, reports, chairs & rooms, intake forms, plan & billing.
-- **Platforms and input:** tablet, voice.
+- Any AI: no companion chat, no free-text understanding, no voice or wake word, no stories.
+- Payments, plans and billing: there is one (free) plan and nothing is gated.
+- Calendar extras (drag, resize, sweep-to-create), widgets, tablet layouts, extensions (intake forms, deposits).
 
-## Schema-gap decisions (no schema change in v1)
-| Design shows | Database today | v1 decision |
-| ------------ | -------------- | ----------- |
-| "Needs confirming" capsule | `appointment_status` has no `pending` | **Drop in v1.** Every booking is confirmed atomically. Revisit if owners want approval for WhatsApp bookings. |
-| Check-in / check-out | `appointments.checked_in_at`, status `completed` | Check-in uses `check_in_appointment`. Check-out = set status `completed`. |
-| Chairs & rooms, Chairs lens | No resources table | **Drop in v1.** |
-| Intake forms | No table | **Drop in v1** (it is an extension). |
-| "Regular" badge / filter | No column | **Derive it:** 3 or more completed visits in the last 180 days. Pure function, no schema change. |
-| "N open slots" on Today | Not computed | **Omit in v1.** Today's summary shows only the expected total. |
-| Deposits | Not modelled | **Drop in v1** (needs a payment app). |
-| Reports | `dashboard_summary` RPC exists | Not a v1 screen. Keep the RPC. |
+## Schema-gap decisions
 
-## Design-to-code rules for v1
+| Design shows | Database today | Decision |
+| ------------ | -------------- | -------- |
+| "Needs confirming" capsule | `appointment_status` has no `pending` | Dropped. Every booking is confirmed atomically |
+| Check-in / check-out | `appointments.checked_in_at`, status `completed` | Check-in uses `check_in_appointment`; check-out sets status `completed` |
+| "Regular" badge / filter | No column | Derived: 3 or more completed visits in the last 180 days. Pure function, no schema change |
+| Chairs and rooms | No resources table | Dropped |
+
+## Design-to-code rules
+
 - Depth tokens come from `packages/ui/src/tokens/depth.ts` (`@booking/ui`); never hand-roll shadows.
-- Android is the first test device. Check each screen on an Android build, not just the iOS artboards.
-- **Accessibility:**
-  - Every pressable has an accessible label.
-  - Text scales with system font size (no fixed heights on text containers).
-  - Respect reduced motion.
-  - Touch targets are 44pt or larger.
-- Placeholders: the app name is "Booking" (`app.json` name) and the tint is iOS blue until a brand is chosen.
+- Every pressable has an accessible label, text scales with the system font size, reduced motion is respected and
+  touch targets are 44pt or larger.

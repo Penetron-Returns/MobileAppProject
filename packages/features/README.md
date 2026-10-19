@@ -2,7 +2,7 @@
 
 The booking domain as runtime-neutral TypeScript: business rules, services, repositories and pure logic. It
 runs unchanged on Deno (the API) and Node (tests). It never imports Hono, an app,
-`@booking/app-store` or `@booking/extensions`; `dependency-cruiser` fails the build if it does. React Native UI
+or `@booking/app-store`; `dependency-cruiser` fails the build if it does. React Native UI
 does **not** live here (Metro would bundle server code): UI stays in `apps/mobile`.
 
 ## Layout

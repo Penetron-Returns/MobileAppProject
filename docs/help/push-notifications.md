@@ -31,6 +31,6 @@ tags: [app, notifications, android]
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: app Notifications strings, docs/push-setup.md.

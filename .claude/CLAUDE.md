@@ -3,6 +3,11 @@
 Deterministic, WhatsApp-first appointment booking for small service businesses (salons, barbers,
 repair shops, wellness practices). Built by ITMDA3 group S14.
 
+**Free edition.** This branch has no AI and nothing paid: no companion/chat, no voice, no stories, no Stripe
+billing, no plans or entitlements. The only customer-facing logic is the deterministic WhatsApp menu flow, with
+a web booking page as the research comparator. Every feature is available to every business. A few unused
+database objects remain from the paid edition (`docs/BUILD_PLAN.md`, "Free edition: leftovers").
+
 **Full contract:** `docs/BUILD_PLAN.md` (schema, RPCs, API, conversation engine, ownership) is binding.
 Change it in the same PR as any contract change. Per-area design notes are in `docs/*.md`.
 
@@ -64,18 +69,20 @@ per business type · timestamped audit log of actions.
 
 ### Out of scope
 
-Generative AI, NLU or voice · enterprise logistics, inventory, dynamic pricing · in-flow payments,
-loyalty, marketing (possible later extensions; Stripe is planned as the first).
+Generative AI, NLU or voice (removed from this edition on purpose: the research premise is structured,
+non-AI booking) · payments, plans and billing · enterprise logistics, inventory, dynamic pricing · loyalty,
+marketing.
 
 ### App screens (from the mockups)
 
-Sign-in (Clerk UI) · Dashboard (monthly revenue, today's bookings by status, next appointment +
-check-in, today's schedule) · Calendar (day/week/month) · Booking detail (message, reschedule,
-cancel) · Add booking (existing/new client, service, date, live slot, staff, notes, WhatsApp
-confirmation) · Clients list (search, All/Recent/VIP) · Client profile (contact, notes, history) ·
-Settings (business details, operating hours, services, staff, WhatsApp integration) · Inbox
-(conversations, escalations) · Public web booking `/book/[slug]` (comparator).
-Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
+Sign-in (Clerk) · Onboarding (welcome, business type, business name) · Calendar (day/week/month, with
+today's schedule) · Booking detail (message, reschedule, cancel, check-in, attendance) · New booking
+(existing/new client, service, date, live slot, staff, notes, WhatsApp confirmation), reached from the
+Calendar · Clients list (search, All/Recent/Regulars) · Client profile (contact, notes, history) · Reports
+(monthly figures) · Settings (business details, operating hours, services, team and staff, booking rules,
+notifications, WhatsApp channel) · Inbox (conversations, escalations) · Public web booking `/book/[slug]`
+(comparator).
+Tabs: **Calendar · Reports · Clients · Settings**, plus an **Inbox** bubble.
 
 ---
 
@@ -90,7 +97,6 @@ Tabs: **Dashboard · Calendar · Add · Clients · Settings.**
 | API            | Hono on Supabase Edge Functions (Deno), one function `api`, TypeScript, zod v4, luxon                                                                                           | source in `apps/api/`, entry in `packages/database/supabase/functions/api/`, tests with Vitest + Deno smoke tests |
 | Database       | Supabase Postgres + RLS, Realtime, Storage, pg_cron + pg_net                                                                                                                    | `packages/database/supabase/` migrations, seed, SQL tests                                                         |
 | Channel        | Meta WhatsApp Cloud API, WhatsApp Flows (encrypted), message templates                                                                                                          | `packages/app-store/whatsapp/`                                                                                    |
-| Payments       | Stripe (planned)                                                                                                                                                                | server-side only                                                                                                  |
 | Builds         | EAS (development / preview / production channels), `supabase --workdir packages/database functions deploy api`                                                                  |                                                                                                                   |
 | Tooling        | ESLint, Prettier, Husky, Jest (app), Vitest (api), GitHub Actions                                                                                                               |                                                                                                                   |
 
@@ -108,7 +114,7 @@ Owner/staff ──Expo app──▶ Clerk (JWT) ──────────�
       │                                                     ▼
       └──── reads + Realtime (RLS) ──────────────▶ Supabase Postgres (single source of truth)
 Web comparator /book/[slug] ──▶ backend /public/** ─────────┘
-pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA health, token refresh, cleanup)
+pg_cron ──pg_net──▶ backend /cron/* (reminders, attendance, window expiry, WABA health, token refresh, cleanup)
 ```
 
 - **Booking integrity:** `create_appointment` RPC plus the exclusion constraint on
@@ -122,23 +128,22 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 
 ## 4. Repository map
 
-| Path                                                                   | What                                                                                                                                          |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/mobile/src/app/`                                                 | Expo Router routes (thin)                                                                                                                     |
-| `apps/mobile/src/features/<feature>/`                                  | hooks, components, pure logic per feature                                                                                                     |
-| `packages/ui/` (`@booking/ui`), `apps/mobile/src/components/`          | design system (tokens, primitives, components, patterns) / app-only pieces                                                                    |
-| `apps/mobile/src/lib/`                                                 | Supabase, API client, query client, env, formatters                                                                                           |
-| `apps/api/src/{routes,middleware,lib}`, `env.ts`, `container.ts`       | thin Hono shell: HTTP, env, composition root (DI wiring)                                                                                      |
-| `packages/features/<feature>/` (`@booking/features`)                   | runtime-neutral domain: services, repositories, `ports.ts`, pure logic (no Hono, no apps)                                                     |
-| `packages/companion/` (`@booking/companion`)                           | Booking connector (MCP) and account events; the part other platforms study                                                                    |
-| `packages/app-store/` (`@booking/app-store`)                           | optional apps, one folder each, plus `_registry.ts`; the WhatsApp Free demo is `whatsapp/`                                                    |
-| `packages/testing/` (`@booking/testing`)                               | shared in-memory fakes                                                                                                                        |
-| `packages/database/supabase/{migrations,tests,seed.sql,functions/api}` | schema, SQL tests, demo data, Edge Function entry stub                                                                                        |
-| `packages/database/` (`@booking/database`)                             | Supabase project; generated `database.types.ts` lives beside `supabase/`                                                                      |
-| `packages/types/` (`@booking/types`)                                   | types-only API contracts (`api.ts`)                                                                                                           |
-| `packages/config/` (`@booking/config`)                                 | shared presets: Prettier, API tsconfig, ESLint base                                                                                           |
-| `docs/`                                                                | `architecture` (binding), `BUILD_PLAN`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-language` (binding), `design-system`, `clerk-setup`, `mcp`, `skills` |
-| `.claude/rules/`, `.claude/skills/`, `.mcp.json`                       | AI tooling: rules, skills, MCP servers                                                                                                        |
+| Path                                                                   | What                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/mobile/src/app/`                                                 | Expo Router routes (thin)                                                                                                                                                                              |
+| `apps/mobile/src/features/<feature>/`                                  | hooks, components, pure logic per feature                                                                                                                                                              |
+| `packages/ui/` (`@booking/ui`), `apps/mobile/src/components/`          | design system (tokens, primitives, components, patterns) / app-only pieces                                                                                                                             |
+| `apps/mobile/src/lib/`                                                 | Supabase, API client, query client, env, formatters                                                                                                                                                    |
+| `apps/api/src/{routes,middleware,lib}`, `env.ts`, `container.ts`       | thin Hono shell: HTTP, env, composition root (DI wiring)                                                                                                                                               |
+| `packages/features/<feature>/` (`@booking/features`)                   | runtime-neutral domain: services, repositories, `ports.ts`, pure logic (no Hono, no apps)                                                                                                              |
+| `packages/app-store/` (`@booking/app-store`)                           | optional apps, one folder each, plus `_registry.ts`; the WhatsApp deterministic menu booking is `whatsapp/`                                                                                            |
+| `packages/testing/` (`@booking/testing`)                               | shared in-memory fakes                                                                                                                                                                                 |
+| `packages/database/supabase/{migrations,tests,seed.sql,functions/api}` | schema, SQL tests, demo data, Edge Function entry stub                                                                                                                                                 |
+| `packages/database/` (`@booking/database`)                             | Supabase project; generated `database.types.ts` lives beside `supabase/`                                                                                                                               |
+| `packages/types/` (`@booking/types`)                                   | types-only API contracts (`api.ts`)                                                                                                                                                                    |
+| `packages/config/` (`@booking/config`)                                 | shared presets: Prettier, API tsconfig, ESLint base                                                                                                                                                    |
+| `docs/`                                                                | `architecture` (binding), `BUILD_PLAN`, `v1-scope`, `database`, `booking-core`, `whatsapp`, `mobile-app`, `design-language` (binding), `design-system`, `clerk-setup`, `environments`, `mcp`, `skills` |
+| `.claude/rules/`, `.claude/skills/`, `.mcp.json`                       | AI tooling: rules, skills, MCP servers                                                                                                                                                                 |
 
 ---
 
@@ -180,5 +185,5 @@ pg_cron ──pg_net──▶ backend /cron/* (reminders, window expiry, WABA he
 | `.claude/agents/`                                          | `frontend`, `backend`, `frontend-reviewer`, `backend-reviewer`                                                                               |
 | `.claude/skills/`                                          | vetted third-party + project skills (`docs/skills.md`)                                                                                       |
 | `.claude/hooks/` + `settings.json`                         | block pushes to master, force-push, `--no-verify`, edits to merged migrations/generated types/.env                                           |
-| `.mcp.json`                                                | Meta dev tools, Clerk, shadcn, Stripe, Supabase (`docs/mcp.md`)                                                                              |
+| `.mcp.json`                                                | Meta dev tools, Clerk, shadcn, Supabase (`docs/mcp.md`; a Stripe entry may remain in the config but is unused)                               |
 | `AGENTS.md`                                                | mirror of this file for other AI tools (`node scripts/sync-ai-rules.mjs`)                                                                    |
