@@ -169,7 +169,8 @@ export default function AppLayout() {
     () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
     [user?.organizationMemberships],
   );
-  const hasOrg = Boolean(isSignedIn && orgId);
+  // No authenticated query before Clerk has an active session to mint a token.
+  const hasOrg = Boolean(isSignedIn && orgId && session?.status === 'active');
   // Clerk's cached memberships are empty right after a fresh sign-in, so with
   // no active org and nothing cached, ask Clerk before deciding anything.
   const asksMemberships = Boolean(

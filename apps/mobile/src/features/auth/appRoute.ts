@@ -102,7 +102,10 @@ export type AppRoute =
 export function resolveAppRoute(input: AppRouteInput): AppRoute {
   if (!input.authLoaded) return { kind: 'splash' };
   if (!input.isSignedIn) return { kind: 'signed-out' };
-  if (!input.userLoaded) return { kind: 'splash' };
+  // Clerk reports signed in a beat before the session (and its token) exists.
+  if (!input.userLoaded || input.sessionStatus === null) {
+    return { kind: 'splash' };
+  }
 
   // Tasks other than choosing an organisation need Clerk UI we do not ship
   // (accounts are issued), so say so instead of spinning.
