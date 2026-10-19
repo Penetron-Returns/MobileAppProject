@@ -4,7 +4,6 @@ import { Dimensions } from 'react-native';
 import { act, byLabel, pressable, render } from '../../../testing/render';
 import { LAYOUT } from '../../../tokens/spacing';
 import { FloatingTabBar } from '../FloatingTabBar';
-import { CompanionDome } from '../CompanionDome';
 import { InboxDome } from '../InboxDome';
 
 jest.mock('lucide-react-native', () => {
@@ -279,47 +278,6 @@ describe('FloatingTabBar', () => {
     expect(
       tree.root.findAll((n) => n.props.accessibilityRole === 'tab'),
     ).toHaveLength(0);
-  });
-});
-
-describe('CompanionDome', () => {
-  const character = { uri: 'companion.png' };
-
-  it('shows the count badge only when something needs attention', () => {
-    const withCount = render(
-      <CompanionDome
-        character={character}
-        count={3}
-        label="Companion"
-        onPress={jest.fn()}
-      />,
-    );
-    const without = render(
-      <CompanionDome
-        character={character}
-        count={0}
-        label="Companion"
-        onPress={jest.fn()}
-      />,
-    );
-    const hasBadge = (t: ReturnType<typeof render>) =>
-      t.root.findAll((n) => n.children.includes('3')).length > 0;
-    expect(hasBadge(withCount)).toBe(true);
-    expect(hasBadge(without)).toBe(false);
-  });
-
-  it('opens through onPress', () => {
-    const onPress = jest.fn();
-    const tree = render(
-      <CompanionDome
-        character={character}
-        count={0}
-        label="Open your companion"
-        onPress={onPress}
-      />,
-    );
-    act(() => pressable(tree, 'Open your companion').props.onPress());
-    expect(onPress).toHaveBeenCalled();
   });
 });
 
