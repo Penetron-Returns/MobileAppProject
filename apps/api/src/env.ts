@@ -67,6 +67,8 @@ const EnvSchema = z.object({
   NEROVA_EMBED_ORIGIN: optional,
   /** "true" lets platform:'native' session requests use Nerova's native sessions (needs Nerova PR #946 live and the app registered). Off = always web. */
   NEROVA_NATIVE_SESSIONS: optional,
+  /** "false" stops voice streams sending `mode: "voice"` to Nerova (default on; a 400 for it already falls back to a plain turn). */
+  NEROVA_VOICE_MODE: optional,
   /** Nerova nativeApps appId used for native sessions (default si.nerova.booking.dev) */
   NEROVA_APP_ID: optional,
   /** "true" forwards the allowlisted return_url to Nerova connection-sessions as returnUrl (needs #946 live). Off = dropped. */

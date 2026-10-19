@@ -85,6 +85,8 @@ class VoiceService : Service() {
   private var isFollowUpTurn = false
   private var latencyEndpoint = "none"
   private var latencyPath = "device"
+  private val streamedReply = StreamedReply()
+  private val streamQueue = SpeechQueue { text, onStart, onDone -> speaker.speak(text, onStart, onDone) }
   private val dismiss = Runnable {
     Log.i(TAG, "overlay dismissed reason=$dismissReason")
     stopSpeech()
@@ -503,6 +505,7 @@ class VoiceService : Service() {
 
   /** Listening has ended and the words are being understood: the overlay's processing state and its soft cue. */
   private fun enterProcessing() {
+    resetStreamedSpeech()
     if (hasSurface) surface.setState("processing")
     feedback.processing()
   }
@@ -514,7 +517,8 @@ class VoiceService : Service() {
     // The sound for the state (the processing pulse stops here), then the spoken reply after it.
     val cue = CuePolicy.cueFor(if (isFinished) outcome.status else "request") ?: Cue.FAILURE
     feedback.result(cue)
-    val spoken = SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE, outcome.spoken)
+    // What already played while the reply streamed in is not said again.
+    val spoken = streamedReply.remainder(SpokenReply.forOutcome(outcome.status, outcome.message, NOT_HEARD, SPEECH_UNAVAILABLE, outcome.spoken))
     // What JS says is pending (an approval just read aloud) is echoed back with the next turn; cleared otherwise.
     followUp = FollowUpState.after(outcome)
     pendingApprovalId = followUp.pendingApprovalId
@@ -572,6 +576,33 @@ class VoiceService : Service() {
       if (isDestroyed || !isInteracting || !VoiceFeedbackSettings.isReadAloudEnabled(this)) return@post
       speaker.speakInterim(text, onStart = VoiceTimings::interimStarted)
     }
+  }
+
+  /**
+   * Text of the reply as the app's JS reads it from the stream. Each completed sentence is spoken at once, queued behind
+   * the one before. Ignored once the command is no longer wanted (cancelled, timed out) or reading aloud is off.
+   */
+  fun streamReplyDelta(commandId: String, delta: String) {
+    main.post {
+      if (isStreamedSpeechWanted(commandId)) streamedReply.append(delta).forEach(::speakStreamed)
+    }
+  }
+
+  /** The stream ended: the last held sentence is spoken too. */
+  fun endStreamedReply(commandId: String) {
+    main.post {
+      if (isStreamedSpeechWanted(commandId)) streamedReply.finish().forEach(::speakStreamed)
+    }
+  }
+
+  private fun isStreamedSpeechWanted(commandId: String) =
+    !isDestroyed && isInteracting && VoiceFeedbackSettings.isReadAloudEnabled(this) && VoiceCommandBridge.isPending(commandId)
+
+  private fun speakStreamed(sentence: String) = streamQueue.enqueue(sentence, VoiceTimings::streamedAudioStarted)
+
+  private fun resetStreamedSpeech() {
+    streamQueue.clear()
+    streamedReply.reset()
   }
 
   /** Sends this turn's latency numbers (once) to the app for PostHog, and to logcat. No text, no names. */
@@ -748,6 +779,11 @@ class VoiceService : Service() {
    * It is cleared before `onDone` runs.
    */
   private fun speakAfterCue(cue: Cue, text: String?, watch: Boolean = false, onDone: () -> Unit) {
+    // Streamed sentences may still be playing: the rest of the reply (or the end) follows them.
+    streamQueue.whenIdle { speakAfterCueNow(cue, text, watch, onDone) }
+  }
+
+  private fun speakAfterCueNow(cue: Cue, text: String?, watch: Boolean, onDone: () -> Unit) {
     if (text == null || !VoiceFeedbackSettings.isReadAloudEnabled(this)) {
       reportLatency()
       return onDone()
@@ -778,6 +814,7 @@ class VoiceService : Service() {
   }
 
   private fun stopSpeech() {
+    streamQueue.clear()
     speakTask?.let { main.removeCallbacks(it) }
     speakTask = null
     speaker.stop()

@@ -68,6 +68,10 @@ declare class ClovieVoiceNative extends NativeModule<Events> {
   getTimings(): Record<string, number | null>;
   // Optional: a dev build made before this existed has no such function.
   recordTiming?(key: string, ms: number): void;
+  // Optional: a dev build made before streamed replies has none of these three.
+  streamReplyDelta?(commandId: string, delta: string): void;
+  endStreamedReply?(commandId: string): void;
+  isCommandActive?(commandId: string): boolean;
   // Optional: a dev build made before the in-app voice drawer has none of these.
   setAppForeground?(isForeground: boolean): void;
   setVoiceUiAttached?(isAttached: boolean): void;
@@ -143,6 +147,26 @@ export function getTimings(): Record<string, number | null> {
 /** Logs a step the app's JS measured next to the native timings (ClovieVoice logcat tag). Timings only. */
 export function recordTiming(key: string, ms: number): void {
   native?.recordTiming?.(key, ms);
+}
+
+/** Whether this build speaks a reply sentence by sentence while it streams in (older dev builds do not). */
+export function supportsStreamedSpeech(): boolean {
+  return typeof native?.streamReplyDelta === 'function';
+}
+
+/** Hands the service the next piece of the reply text; each completed sentence is spoken at once. */
+export function streamReplyDelta(commandId: string, delta: string): void {
+  native?.streamReplyDelta?.(commandId, delta);
+}
+
+/** The reply stream ended: the service speaks the last held sentence. */
+export function endStreamedReply(commandId: string): void {
+  native?.endStreamedReply?.(commandId);
+}
+
+/** False once the command was cancelled, timed out or finished: the app should stop reading the stream. True when unknown. */
+export function isCommandActive(commandId: string): boolean {
+  return native?.isCommandActive?.(commandId) ?? true;
 }
 
 /** Reports a headless command's outcome to the service (shown in the overlay). */

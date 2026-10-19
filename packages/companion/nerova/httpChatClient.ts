@@ -1,7 +1,7 @@
 /** fetch implementation of CompanionChatClient. Per-call timeout, every failure mapped to an AppError. */
 import { AppError } from '@booking/features/lib/errors.ts';
-import type { ApprovalDecision, ApprovalOutcome, CompanionChatClient, CompanionChatSession } from './chatClient.ts';
-import { parseAction, parseChatStream, type ChatAction, type ChatTurn } from './chatStream.ts';
+import type { ApprovalDecision, ApprovalOutcome, ChatStreamHandle, ChatStreamOptions, CompanionChatClient, CompanionChatSession } from './chatClient.ts';
+import { createSseDecoder, parseAction, parseChatStream, toChatStreamEvent, type ChatAction, type ChatStreamEvent, type ChatTurn } from './chatStream.ts';
 import { NEROVA_API_BASE_URL } from './httpClient.ts';
 
 /** The whole turn runs before the first byte, so this is longer than a JSON call. */
@@ -12,6 +12,8 @@ export interface HttpChatClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /** Send `mode: "voice"` on voice streams (default true). Off = never send it (Nerova without PR 1002). */
+  voiceMode?: boolean;
 }
 
 type Json = Record<string, unknown>;
@@ -54,7 +56,7 @@ export function createHttpCompanionChatClient(options: HttpChatClientOptions = {
   const doFetch = options.fetch ?? fetch;
   const base = (options.baseUrl ?? NEROVA_API_BASE_URL).replace(/\/+$/, '');
 
-  async function send(path: string, session: CompanionChatSession, body: unknown, timeoutMs: number, extra: Record<string, string> = {}, method: 'GET' | 'POST' = 'POST'): Promise<Response> {
+  async function send(path: string, session: CompanionChatSession, body: unknown, timeoutMs: number, extra: Record<string, string> = {}, method: 'GET' | 'POST' = 'POST', signal?: AbortSignal): Promise<Response> {
     let response: Response;
     try {
       response = await doFetch(`${base}${path}`, {
@@ -67,7 +69,7 @@ export function createHttpCompanionChatClient(options: HttpChatClientOptions = {
           ...extra,
         },
         body: method === 'POST' ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
@@ -88,6 +90,58 @@ export function createHttpCompanionChatClient(options: HttpChatClientOptions = {
       throw new AppError(mapped.code, mapped.message, { ...mapped.details, nerova_code: turn.error.code, retryable: turn.error.retryable });
     }
     return turn;
+  }
+
+  /** `pre;dur=N` from a Server-Timing header, in whole ms. */
+  const preMsOf = (response: Response): number | null => {
+    const match = /(?:^|[,\s])pre;(?:[^,]*;)?dur=(\d+(?:\.\d+)?)/.exec(response.headers.get('server-timing') ?? '');
+    return match ? Math.round(Number(match[1])) : null;
+  };
+
+  async function* readEvents(response: Response): AsyncGenerator<ChatStreamEvent> {
+    const reader = response.body?.getReader();
+    if (!reader) return;
+    const text = new TextDecoder();
+    const sse = createSseDecoder();
+    try {
+      for (;;) {
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch (error) {
+          const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+          throw new AppError('UPSTREAM_COMPANION_ERROR', timedOut ? 'The companion timed out' : 'The companion connection dropped', { reason: timedOut ? 'timeout' : 'network' });
+        }
+        const frames = chunk.done ? sse.flush() : sse.push(text.decode(chunk.value, { stream: true }));
+        for (const frame of frames) {
+          const event = toChatStreamEvent(frame);
+          if (!event) continue;
+          yield event;
+          if (event.type === 'done' || event.type === 'error') return;
+        }
+        if (chunk.done) return;
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined);
+    }
+  }
+
+  // Set once Nerova answered 400 to `mode` and then accepted the same message without it (PR 1002 not deployed yet).
+  let isVoiceModeUnsupported = false;
+
+  async function streamChat(session: CompanionChatSession, message: string, opts: ChatStreamOptions = {}): Promise<ChatStreamHandle> {
+    const timeout = options.timeoutMs ?? CHAT_TIMEOUT_MS;
+    const wantsVoice = opts.mode === 'voice' && options.voiceMode !== false && !isVoiceModeUnsupported;
+    let response: Response;
+    try {
+      response = await send('/v1/companion/chat', session, wantsVoice ? { message, mode: 'voice' } : { message }, timeout, {}, 'POST', opts.signal);
+    } catch (error) {
+      // Nerova rejects an unknown `mode` with 400: try the same message once without it, and remember the answer.
+      if (!wantsVoice || !(error instanceof AppError) || error.code !== 'VALIDATION_FAILED') throw error;
+      response = await send('/v1/companion/chat', session, { message }, timeout, {}, 'POST', opts.signal);
+      isVoiceModeUnsupported = true;
+    }
+    return { events: readEvents(response), preMs: preMsOf(response) };
   }
 
   async function decide(session: CompanionChatSession, approvalId: string, decision: ApprovalDecision, idempotencyKey: string): Promise<ApprovalOutcome> {
@@ -119,5 +173,5 @@ export function createHttpCompanionChatClient(options: HttpChatClientOptions = {
     return items.map((i) => (typeof i === 'object' && i !== null ? parseAction(i as Json) : null)).filter((a): a is ChatAction => a !== null);
   }
 
-  return { chat, decide, undoAction, listActions };
+  return { chat, streamChat, decide, undoAction, listActions };
 }

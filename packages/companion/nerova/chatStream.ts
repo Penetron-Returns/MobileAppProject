@@ -153,3 +153,97 @@ export function parseChatStream(body: string): ChatTurn {
   turn.reply = reply.trim();
   return turn;
 }
+
+// ---- incremental parsing (voice streaming) ----
+
+/** What the Nerova stream carries, one item per SSE frame we care about. Text arrives first; cards come after it. */
+export type ChatStreamEvent =
+  | { type: 'text-delta'; delta: string }
+  | { type: 'approval'; approval: ChatApproval }
+  | { type: 'action'; action: ChatAction }
+  | { type: 'done'; suggestions: string[]; awaitingReply?: boolean; timing?: NerovaTurnTiming }
+  | { type: 'error'; error: ChatStreamError };
+
+/** `done.timing` from Nerova's voice mode; every entry is null when Nerova did not send it. */
+export interface NerovaTurnTiming {
+  ttftMs: number | null;
+  llmMs: number | null;
+  toolsMs: number | null;
+  totalMs: number | null;
+}
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
+
+function parseTiming(raw: unknown): NerovaTurnTiming | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const o = raw as Json;
+  const timing = { ttftMs: num(o.ttftMs), llmMs: num(o.llmMs), toolsMs: num(o.toolsMs), totalMs: num(o.totalMs) };
+  return Object.values(timing).some((v) => v !== null) ? timing : undefined;
+}
+
+/** One SSE frame to an event; null for frames we do not need (tool, widget, unknown) or that are malformed. */
+export function toChatStreamEvent(frame: { event: string; data: string }): ChatStreamEvent | null {
+  let data: Json;
+  try {
+    const parsed: unknown = JSON.parse(frame.data);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    data = parsed as Json;
+  } catch {
+    return null;
+  }
+  switch (frame.event) {
+    case 'text-delta':
+      return typeof data.delta === 'string' && data.delta.length > 0 ? { type: 'text-delta', delta: data.delta } : null;
+    case 'approval': {
+      const approval = parseApproval(data);
+      return approval ? { type: 'approval', approval } : null;
+    }
+    case 'action': {
+      const action = parseAction(data);
+      return action ? { type: 'action', action } : null;
+    }
+    case 'done': {
+      const suggestions = Array.isArray(data.suggestions) ? data.suggestions.filter((s): s is string => typeof s === 'string') : [];
+      const timing = parseTiming(data.timing);
+      return {
+        type: 'done',
+        suggestions,
+        ...(typeof data.awaitingReply === 'boolean' ? { awaitingReply: data.awaitingReply } : {}),
+        ...(timing ? { timing } : {}),
+      };
+    }
+    case 'error':
+      return { type: 'error', error: { code: str(data.code) ?? 'companion.turn_failed', message: str(data.message) ?? '', retryable: data.retryable === true } };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Feeds SSE text in arbitrary chunks and returns the complete frames each chunk finished. A frame ends at a blank
+ * line, so a chunk that stops mid-frame (or mid-line, or between CR and LF) is held until the rest arrives.
+ */
+export function createSseDecoder(): { push(chunk: string): { event: string; data: string }[]; flush(): { event: string; data: string }[] } {
+  let buffer = '';
+  const drain = (final: boolean) => {
+    const normalised = buffer.replace(/\r\n?/g, '\n');
+    // A trailing lone CR may be the first half of CRLF: keep it until the next chunk unless the stream ended.
+    const hold = !final && buffer.endsWith('\r');
+    const text = hold ? normalised.slice(0, -1) : normalised;
+    const boundary = text.lastIndexOf('\n\n');
+    if (!final && boundary < 0) return [];
+    const cut = final ? text.length : boundary + 2;
+    const ready = text.slice(0, cut);
+    buffer = text.slice(cut) + (hold ? '\r' : '');
+    return frames(ready);
+  };
+  return {
+    push(chunk) {
+      buffer += chunk;
+      return drain(false);
+    },
+    flush() {
+      return drain(true);
+    },
+  };
+}

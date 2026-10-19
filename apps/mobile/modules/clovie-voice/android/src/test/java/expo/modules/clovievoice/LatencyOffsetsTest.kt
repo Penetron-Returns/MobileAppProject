@@ -28,7 +28,7 @@ class LatencyOffsetsTest {
     advance(400)
     recorder.ttsStarted()
     assertEquals(
-      mapOf("finalTranscriptMs" to 120L, "requestSentMs" to 150L, "firstReplyByteMs" to 1_050L, "ttsStartMs" to 1_450L),
+      mapOf("finalTranscriptMs" to 120L, "requestSentMs" to 150L, "firstReplyByteMs" to 1_050L, "firstAudioMs" to 1_450L, "ttsStartMs" to 1_450L),
       recorder.latencyOffsets(),
     )
   }
@@ -60,5 +60,36 @@ class LatencyOffsetsTest {
   fun nothingToReportBeforeSpeechEnds() {
     recorder.wake()
     assertNull(recorder.latencyOffsets())
+  }
+
+  @Test
+  fun reportsFirstTokenAndTheAnswersFirstAudioWhichIsTheStreamedSentenceNotTheFiller() {
+    recorder.wake()
+    advance(1_000)
+    recorder.speechEnded()
+    advance(100)
+    recorder.wallMark("requestSentAt", wall)
+    advance(250)
+    recorder.interimStarted()
+    advance(150)
+    recorder.wallMark("firstTokenAt", wall)
+    advance(200)
+    recorder.streamedAudioStarted()
+    advance(900)
+    recorder.ttsStarted()
+    val offsets = recorder.latencyOffsets()
+    assertEquals(500L, offsets?.get("firstTokenMs"))
+    assertEquals(700L, offsets?.get("firstAudioMs"))
+    assertEquals(350L, offsets?.get("interimStartMs"))
+    assertEquals(1_600L, offsets?.get("ttsStartMs"))
+  }
+
+  @Test
+  fun firstAudioFallsBackToTheFinalReplyWhenNothingStreamed() {
+    recorder.wake()
+    recorder.speechEnded()
+    advance(1_200)
+    recorder.ttsStarted()
+    assertEquals(1_200L, recorder.latencyOffsets()?.get("firstAudioMs"))
   }
 }

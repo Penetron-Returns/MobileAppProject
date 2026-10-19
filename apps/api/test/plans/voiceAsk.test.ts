@@ -143,6 +143,9 @@ function serviceHarness(chatImpl?: (session: CompanionChatSession, message: stri
       return { id, kind: 'create_appointment', status: 'undone', title: 'T', readBack: '', lines: [], executedAt: null, undoUntil: null, undoable: false, undoneAt: '2026-10-26T08:00:00.000Z' };
     },
     listActions: async () => [],
+    streamChat: async () => {
+      throw new Error('not used here');
+    },
   };
   const service = createVoiceAskService({ companion, chat, clock: () => new Date(now) });
   return { service, companion, calls, decisions, undos, setUndo: (fn: () => Promise<ChatAction>) => (undoImpl = fn), advance: (ms: number) => (now += ms), minted: () => minted };
@@ -265,6 +268,7 @@ function fakeVoiceAsk() {
       asked.push(text);
       return { reply: 'Sure.', approvals: [], suggestions: [] };
     },
+    askStream: async () => ({ events: (async function* () {})(), nerovaPreMs: null }),
     decide: async (_c, id, decision, key) => {
       decided.push({ id, decision, key });
       return { id, decision: decision === 'approve' ? 'approved' : 'declined', kind: null };
@@ -359,6 +363,9 @@ describe('device voice token scope for the ask routes', () => {
   it.each([
     ['POST', '/v1/voice/ask', true],
     ['POST', '/api/v1/voice/ask', true],
+    ['POST', '/v1/voice/ask/stream', true],
+    ['POST', '/api/v1/voice/ask/stream', true],
+    ['POST', '/v1/voice/ask/other', false],
     ['POST', '/v1/voice/approvals/oapr_1/approve', true],
     ['POST', '/v1/voice/approvals/oapr_1/decline', true],
     ['GET', '/v1/voice/ask', false],

@@ -7,10 +7,19 @@ import { qk, queryClient } from '@/lib/query';
 import { dayRangeUtc, todayISO } from '@/lib/time';
 
 import {
+  createFillerGate,
+  isStreamUnavailable,
+  streamVoiceAsk,
+} from './askStream';
+import {
   completeCommand,
+  endStreamedReply,
+  isCommandActive,
   recordTiming,
   setCloudStt,
   speakInterim,
+  streamReplyDelta,
+  supportsStreamedSpeech,
 } from './clovieVoice';
 import {
   runVoiceClipHeadless,
@@ -102,8 +111,16 @@ async function loadToday() {
 
 let companionTurns = 0;
 
-/** What a spoken command needs with no screen: the app's clock, strings and API client. */
-export function createHeadlessDeps(): HeadlessDeps {
+/** The "One sec" filler waits this long for a streamed reply's first sentence before it speaks. */
+export const FILLER_DELAY_MS = 1200;
+
+/**
+ * What a spoken command needs with no screen: the app's clock, strings and API client. With a `commandId` (the headless
+ * task's), a build that can speak streamed text reads the reply as a stream and speaks each sentence as it completes.
+ */
+export function createHeadlessDeps(commandId?: string): HeadlessDeps {
+  const isStreaming = commandId !== undefined && supportsStreamedSpeech();
+  const filler = createFillerGate(speakInterim, FILLER_DELAY_MS);
   const now = () => new Date();
   const t = (key: string, values?: Record<string, unknown>) =>
     i18n.t(key, values) as string;
@@ -115,17 +132,27 @@ export function createHeadlessDeps(): HeadlessDeps {
     isSignedIn: async () =>
       (await resolveBearer({ allowDeviceToken: true })) !== null,
     loadToday,
-    speakInterim,
+    speakInterim: (text: string) => filler.schedule(text, isStreaming),
     nextTurn: () => companionTurns++,
     rememberAction,
     ask: async (text: string) => {
       // Wall-clock stamps the service turns into offsets from the end of speech (the `voice_latency` event).
       const sent = Date.now();
       recordTiming('requestSentAt', sent);
+      if (isStreaming) {
+        const streamed = await askStreamed(
+          commandId,
+          text,
+          sent,
+          filler.cancel,
+        );
+        if (streamed) return streamed;
+      }
       const reply = await api.voiceAsk({ text }, newIdempotencyKey());
-      // The reply arrives whole today (the API reads Nerova's stream to its end), so this is also its first byte.
+      // The whole reply arrives at once, so this is also its first byte (and its first token).
       const received = Date.now();
       recordTiming('firstReplyByteAt', received);
+      recordTiming('firstTokenAt', received);
       recordTiming('askMs', received - sent);
       return reply;
     },
@@ -138,6 +165,43 @@ export function createHeadlessDeps(): HeadlessDeps {
       void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
     },
   };
+}
+
+/**
+ * One streamed ask: every text delta goes to the service as it arrives (it speaks each completed sentence), the stamps
+ * for first byte and first token are recorded, and the reply is returned at `done`. Null when the API has no stream route
+ * yet and nothing was spoken, so the caller uses the whole-reply call.
+ */
+async function askStreamed(
+  commandId: string,
+  text: string,
+  sent: number,
+  onFirstText: () => void,
+) {
+  let hasText = false;
+  try {
+    const reply = await streamVoiceAsk(text, newIdempotencyKey(), {
+      onFirstByte: () => recordTiming('firstReplyByteAt', Date.now()),
+      onText: (delta) => {
+        if (!hasText) {
+          hasText = true;
+          recordTiming('firstTokenAt', Date.now());
+          onFirstText();
+        }
+        streamReplyDelta(commandId, delta);
+      },
+      isActive: () => isCommandActive(commandId),
+    });
+    // The last held sentence is spoken now; the outcome then adds whatever the sentences did not cover.
+    endStreamedReply(commandId);
+    recordTiming('askMs', Date.now() - sent);
+    return reply;
+  } catch (error) {
+    if (!hasText && isStreamUnavailable(error)) return null;
+    throw error;
+  } finally {
+    onFirstText();
+  }
 }
 
 /** The tile, widget and side key start the service without JS: keep its copy of the cloud-STT flag current. */
@@ -162,7 +226,7 @@ export async function runVoiceHeadlessTask(data: TaskData): Promise<void> {
   if (Number.isFinite(startedAt)) {
     recordTiming('headlessStartMs', Math.max(0, Date.now() - startedAt));
   }
-  const deps = createHeadlessDeps();
+  const deps = createHeadlessDeps(data.id);
   // A follow-up turn carries the approval the service just read aloud, so a yes or no binds to that id.
   const followUp = {
     pendingApprovalId: data.pendingApprovalId || undefined,

@@ -216,6 +216,12 @@ class ClovieVoiceModule : Module() {
     Function("speakInterim") { text: String -> VoiceService.instance?.speakInterim(text) }
     Function("setReadAloudEnabled") { enabled: Boolean -> VoiceFeedbackSettings.setReadAloudEnabled(context, enabled) }
 
+    // The reply text as the app's JS reads it from the stream: each completed sentence is spoken at once. `id` is the
+    // command id; once that command is cancelled or has finished these are ignored, and `isCommandActive` says so to JS.
+    Function("streamReplyDelta") { id: String, delta: String -> VoiceService.instance?.streamReplyDelta(id, delta) }
+    Function("endStreamedReply") { id: String -> VoiceService.instance?.endStreamedReply(id) }
+    Function("isCommandActive") { id: String -> VoiceCommandBridge.isPending(id) }
+
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
 

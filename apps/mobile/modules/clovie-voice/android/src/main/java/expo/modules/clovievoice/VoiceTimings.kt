@@ -28,6 +28,8 @@ class TimingRecorder(
   private var interimAt = UNSET
   private var requestSentWall = UNSET
   private var firstByteWall = UNSET
+  private var firstTokenWall = UNSET
+  private var streamAudioAt = UNSET
   private var isLatencyReported = false
   private val current = HashMap<String, Long>()
 
@@ -53,6 +55,8 @@ class TimingRecorder(
     interimAt = UNSET
     requestSentWall = UNSET
     firstByteWall = UNSET
+    firstTokenWall = UNSET
+    streamAudioAt = UNSET
     isLatencyReported = false
   }
 
@@ -75,6 +79,12 @@ class TimingRecorder(
     if (ttsAt == UNSET) ttsAt = clock()
   }
 
+  /** The first streamed sentence of the answer began: the answer's first audio when the reply streams. */
+  @Synchronized
+  fun streamedAudioStarted() {
+    if (streamAudioAt == UNSET) streamAudioAt = clock()
+  }
+
   /** The short filler ("One sec") began: usually the first word the owner hears after speaking. */
   @Synchronized
   fun interimStarted() {
@@ -95,6 +105,10 @@ class TimingRecorder(
     if (finalAt != UNSET) out["finalTranscriptMs"] = maxOf(0L, finalAt - speechEndAt)
     if (requestSentWall != UNSET) out["requestSentMs"] = maxOf(0L, requestSentWall - speechEndWall)
     if (firstByteWall != UNSET) out["firstReplyByteMs"] = maxOf(0L, firstByteWall - speechEndWall)
+    if (firstTokenWall != UNSET) out["firstTokenMs"] = maxOf(0L, firstTokenWall - speechEndWall)
+    // The answer's first audio (not the filler): a streamed sentence, else the final reply's first word.
+    val firstAudioAt = listOf(streamAudioAt, ttsAt).filter { it != UNSET }.minOrNull()
+    if (firstAudioAt != null) out["firstAudioMs"] = maxOf(0L, firstAudioAt - speechEndAt)
     if (interimAt != UNSET) out["interimStartMs"] = maxOf(0L, interimAt - speechEndAt)
     if (ttsAt != UNSET) out["ttsStartMs"] = maxOf(0L, ttsAt - speechEndAt)
     return out
@@ -103,7 +117,11 @@ class TimingRecorder(
   /** Wall-clock stamps from the app's JS (see [VoiceTimings.EXTERNAL_KEYS]). */
   @Synchronized
   fun wallMark(key: String, epochMs: Long) {
-    if (key == "requestSentAt") requestSentWall = epochMs else firstByteWall = epochMs
+    when (key) {
+      "requestSentAt" -> requestSentWall = epochMs
+      "firstTokenAt" -> firstTokenWall = epochMs
+      else -> firstByteWall = epochMs
+    }
   }
 
   /** Wake word detected to the overlay window being on screen. */
@@ -203,6 +221,8 @@ object VoiceTimings {
 
   fun interimStarted() = recorder.interimStarted()
 
+  fun streamedAudioStarted() = recorder.streamedAudioStarted()
+
   /** The offsets for the turn's latency event, once; see [TimingRecorder.latencyOffsets]. */
   fun latencyOffsets(): Map<String, Long>? = recorder.latencyOffsets()
 
@@ -227,7 +247,7 @@ object VoiceTimings {
   /** Timings the app's JS reports (see [EXTERNAL_KEYS]); anything else is ignored so the log stays a fixed vocabulary. */
   fun external(key: String, ms: Long) {
     when (key) {
-      "requestSentAt", "firstReplyByteAt" -> recorder.wallMark(key, ms)
+      "requestSentAt", "firstReplyByteAt", "firstTokenAt" -> recorder.wallMark(key, ms)
       in EXTERNAL_KEYS -> recorder.external(key, ms)
     }
   }

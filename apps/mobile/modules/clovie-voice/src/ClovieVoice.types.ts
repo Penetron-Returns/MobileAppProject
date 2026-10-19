@@ -156,3 +156,10 @@ export interface ClovieVoiceOutcomeEvent {
 
 /** A yes or no on the approval in the drawer. */
 export type ClovieVoiceAnswer = 'yes' | 'no';
+
+/** The on-device neural voice model: downloaded once, then used instead of the phone's own voice. */
+export interface ClovieNeuralVoiceStatus {
+  state: 'absent' | 'downloading' | 'ready' | 'failed';
+  /** 0..1 while downloading. */
+  progress: number;
+}

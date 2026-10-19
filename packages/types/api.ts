@@ -1153,6 +1153,27 @@ export interface VoiceAskDTO {
   awaitingReply?: boolean;
 }
 
+/**
+ * Milliseconds for one streamed voice turn (`POST /v1/voice/ask/stream`, in the `done` event). `ttftMs`, `llmMs`,
+ * `toolsMs` and `totalMs` are Nerova's own (absent until Nerova sends them); `nerovaPreMs` is its `Server-Timing: pre`.
+ * `proxyPreMs` is our time to Nerova's response headers, `proxyFirstTextMs` to the first text delta, `proxyTotalMs` to `done`.
+ */
+export interface VoiceAskTimingDTO {
+  ttftMs?: number;
+  llmMs?: number;
+  toolsMs?: number;
+  totalMs?: number;
+  nerovaPreMs?: number;
+  proxyPreMs: number;
+  proxyFirstTextMs?: number;
+  proxyTotalMs: number;
+}
+
+/** The `done` event of `POST /v1/voice/ask/stream`: exactly `POST /v1/voice/ask`'s data, plus timings */
+export interface VoiceAskStreamDoneDTO extends VoiceAskDTO {
+  timing: VoiceAskTimingDTO;
+}
+
 /** POST /v1/voice/approvals/:id/approve and /decline response data */
 export interface VoiceApprovalResultDTO {
   id: string;
