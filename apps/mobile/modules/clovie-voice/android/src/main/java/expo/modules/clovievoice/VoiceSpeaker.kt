@@ -8,6 +8,8 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
+import java.util.Locale
 import java.util.UUID
 
 /**
@@ -51,7 +53,17 @@ class VoiceSpeaker(private val context: Context) {
   /** Starts the engine early, so it is ready when the answer arrives. */
   fun warmUp() {
     if (engine != null || isFailed) return
-    engine = TextToSpeech(context.applicationContext) { status -> main.post { onInit(status) } }
+    val listener = TextToSpeech.OnInitListener { status -> main.post { onInit(status) } }
+    val app = context.applicationContext
+    engine = if (isGoogleEngineInstalled()) TextToSpeech(app, listener, GOOGLE_TTS_PACKAGE) else TextToSpeech(app, listener)
+  }
+
+  /** Google's engine usually has the most natural voices; visible via the TTS_SERVICE <queries> entry. */
+  private fun isGoogleEngineInstalled(): Boolean = try {
+    context.packageManager.getPackageInfo(GOOGLE_TTS_PACKAGE, 0)
+    true
+  } catch (_: Exception) {
+    false
   }
 
   /** A short filler ("One sec, checking."): spoken at once; a later [speak] queues behind it. */
@@ -142,6 +154,17 @@ class VoiceSpeaker(private val context: Context) {
   private fun chooseVoice(tts: TextToSpeech) {
     val locale = SpeechLocalePolicy.pick { tts.isLanguageAvailable(it) >= TextToSpeech.LANG_AVAILABLE }
     if (locale != null) tts.language = locale
+    val voices = try { tts.voices.orEmpty() } catch (_: Exception) { emptySet() }
+    val candidates = voices.map {
+      VoiceCandidate(it.name, it.locale, it.quality, it.latency, it.isNetworkConnectionRequired, it.features.orEmpty())
+    }
+    val best = VoiceRanking.pick(candidates, locale ?: Locale.getDefault())
+    val chosen = voices.firstOrNull { it.name == best?.name }
+    if (chosen != null) tts.voice = chosen
+    tts.setSpeechRate(SPEECH_RATE)
+    tts.setPitch(PITCH)
+    // Engine and voice names only; never any message text.
+    Log.i(TAG, "tts engine=${tts.defaultEngine} voice=${chosen?.name ?: "default"} rate=$SPEECH_RATE pitch=$PITCH")
   }
 
   private fun start(pending: Pending) {
@@ -205,5 +228,14 @@ class VoiceSpeaker(private val context: Context) {
     val request = focus ?: return
     audio?.abandonAudioFocusRequest(request)
     focus = null
+  }
+
+  private companion object {
+    const val TAG = "ClovieVoice"
+    const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+
+    /** Slightly brisker than 1.0 so replies sound alive; kept small so speech stays clear. */
+    const val SPEECH_RATE = 1.05f
+    const val PITCH = 1.0f
   }
 }
