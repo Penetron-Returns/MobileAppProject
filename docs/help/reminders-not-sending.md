@@ -17,7 +17,7 @@ Check these in order. Stop when you find the problem.
 
 ## 2. Is a payment method added?
 
-Reminders are business-started messages, so Meta needs a card on file. See "Add a payment method to your WhatsApp Business account". Do this on a computer.
+Reminders are business-started messages, so Meta needs a card on file. In Meta Business Suite, open WhatsApp Manager, then Payment methods, and add a card to the WhatsApp Business account. Do this on a computer.
 
 ## 3. Are the message templates approved?
 
@@ -26,7 +26,7 @@ Reminders are business-started messages, so Meta needs a card on file. See "Add 
 3. Tap "Show templates".
 4. Each one should say Approved.
 5. "In review" means wait for Meta.
-6. "Rejected" or "Paused" means Meta stopped it. Ask Clovie to send this to support.
+6. "Rejected" or "Paused" means Meta stopped it. Send what you see on screen to whoever set up the app for you.
 
 ## 4. Is the number healthy?
 
@@ -59,6 +59,6 @@ A reminder only sends if its time is still ahead. A booking made 1 hour ahead ge
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: app screens (WhatsApp settings, Reminders to clients, Health), Meta pricing docs.

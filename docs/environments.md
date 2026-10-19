@@ -1,5 +1,7 @@
 # Environments and the shared dev setup
 
+This is the free edition: no AI, payment or billing services need configuring.
+
 Three environments. Only `local` and the shared `dev` exist today.
 
 | | local | `dev` (shared, hosted) | `prod` (later) |
@@ -8,7 +10,6 @@ Three environments. Only `local` and the shared `dev` exist today.
 | Supabase | `supabase --workdir packages/database start` (Docker) | one hosted project | separate hosted project |
 | API | `npm run dev:api` | `api` Edge Function on the dev project | same, prod project |
 | Clerk | dev instance (shared) | dev instance | separate production instance |
-| Stripe | none | test mode, keys only | live |
 | WhatsApp | none | Meta test number (optional) | real numbers |
 | App | `npm run dev:mobile` (dev client) | EAS `preview` Android APK | EAS `production` |
 | Secrets | `.env` files or Doppler `dev` | Doppler `dev` + Supabase secrets + EAS env | Doppler `prod` (to be created) |
@@ -75,53 +76,14 @@ Full detail in `docs/clerk-setup.md`. Summary:
    `CLERK_AUTHORIZED_PARTIES` should contain the app scheme (`bookingadmin://`) and any web origin (comma-separated).
 8. Allowed web origins: add `http://localhost:8081` and any Expo web preview URL.
 
-### 3. Stripe (test mode first)
+### 3. Meta WhatsApp test number (optional)
 
-Billing code: `packages/features/billing/` (see BUILD_PLAN "Billing (Stripe)"). Keys stay server-side only (Doppler and Supabase secrets, never in the app).
-
-**Dedicated Clovie account** (under the Nerova AI Inc org): `acct_1UR9NbDmmHEHPsxW` (test mode). This id is for reference only: nothing in code or env uses it, the secret key identifies the account.
-
-**Sandbox ids (test mode, set these as the env values; they are not secrets, and `.env.example` keeps empty values):**
-
-| Env var | Value | What |
-| --- | --- | --- |
-| `STRIPE_PRICE_STARTER` | `price_1URd9IDmmHEHPsxWLH97SXX7` | R200 / month, 50 included |
-| `STRIPE_PRICE_GROWTH` | `price_1URd9JDmmHEHPsxW3HzVZFxV` | R400 / month, 100 included |
-| `STRIPE_PRICE_PRO` | `price_1URd9KDmmHEHPsxWmRDgJPWi` | R800 / month, 200 included |
-| `STRIPE_PRICE_STARTER_USAGE` | `price_1URdWGDmmHEHPsxWvavSPWJ5` | metered, graduated: first 50 at R0, then R4 each |
-| `STRIPE_PRICE_GROWTH_USAGE` | `price_1URdWHDmmHEHPsxWKsKqK3kn` | first 100 at R0, then R4 each |
-| `STRIPE_PRICE_PRO_USAGE` | `price_1URdWJDmmHEHPsxWWcaJW3hZ` | first 200 at R0, then R4 each |
-| `STRIPE_METER_EVENT_NAME` | `booking_made` | the meter `mtr_test_61Vb1TQtX7405J6hU41DmmHEHPsxWDHU`: sum of payload `value`, customer from payload key `stripe_customer_id` |
-
-The earlier one-time overage price (`price_1URd9KDmmHEHPsxWB6u1W3Zh`, R4 per unit) is **not used**: extras are billed by the meter.
-
-**Dashboard setup Colin does (test mode, then repeat in live):**
-1. Developers, API keys: copy the secret key to `STRIPE_SECRET_KEY` (a restricted key needs write on Customers, Checkout Sessions, Billing portal sessions, Subscriptions and Billing meter events, read on Subscriptions).
-2. Billing, Meters: the meter `booking_made` exists in the sandbox (aggregation: sum, value key `value`, customer mapping key `stripe_customer_id`); create it again in live.
-3. Product catalogue: per plan, the metered price (graduated tiers: first 50 / 100 / 200 units at R0, then R4 each; ZAR; monthly; metered on the meter above). Sandbox ids are in the table; copy the live ones to `STRIPE_PRICE_*_USAGE`.
-4. Developers, Webhooks: add the endpoint `<API_BASE_URL>/webhooks/stripe` listening to exactly: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`. Copy its signing secret (`whsec_...`) to `STRIPE_WEBHOOK_SECRET`.
-5. Settings, Billing, Customer portal (sandbox default configuration `bpc_1URdWTDmmHEHPsxWFcWZYCzf`): payment method, invoices, customer details and cancel at period end. **Plan switching is NOT enabled in the portal** (Stripe does not support it for subscriptions with a metered item); plan changes go through `POST /v1/billing/plan`, which swaps the base and usage items together with proration. Turn trials off.
-6. `BILLING_SUCCESS_URL` / `BILLING_CANCEL_URL` (and optionally `BILLING_RETURN_URL`): the app deep link (`bookingadmin://billing/success`, `clovie-preview://...`, `clovie://billing/success` per build) or an https page that opens it. Stripe Checkout may reject a custom scheme; if it does, host a one-line https redirect page and use that.
-   - `CHECKOUT_PAGE_URL` (e.g. `https://checkout.getclovie.app`): our embedded Checkout page. Required when Managed Payments is on (only `embedded_page` works). When set it replaces the hosted success/cancel URLs. `CHECKOUT_ALLOWED_ORIGINS` (optional csv) is the CORS allowlist of `POST /public/billing/checkout/confirm`; default the page origin + `http://localhost:3000`.
-7. Test: Stripe CLI `stripe listen --forward-to <API_BASE_URL>/webhooks/stripe`, a test checkout with card `4242 4242 4242 4242`, then check the business plan flipped and a meter event arrived after a booking.
-
-### 3b. Nerova companion (paid plans)
-
-The AI companion and the Reports outcome counts call Nerova's REST API (`https://api.nerova.si`) from the server only.
-
-- `NEROVA_API_KEY`: Live API key with `accounts:read` and `usage:read`. Doppler `dev`/`prod` and Supabase secrets; never in the app, logs or responses. Empty = the companion reports `COMPANION_NOT_READY` (`reason: unavailable`) and Reports omit Nerova's counts.
-- `NEROVA_WEBHOOK_SECRET`: the `whsec_` signing secret returned once when the approval webhook is registered (`scripts/nerova/register-approval-webhook.mjs`). Doppler and Supabase secrets; never logged. Empty = `POST /webhooks/nerova` answers 503 and nothing is pushed.
-- `NEROVA_EMBED_ORIGIN`: the exact origin (`https://host[:port]`) of the owner web app that frames the companion. It must be on the Nerova embed allowlist (Settings, Security, Domain allowlist, or `set_embed_origins`), otherwise Nerova answers `422 widget.origin_not_registered`.
-- The imported Nerova account's `externalReference` is our business id; the API resolves and caches the `acct_` id in `businesses.nerova_account_id`.
-
-### 4. Meta WhatsApp test number (optional)
-
-Only needed to try the Free-tier deterministic WhatsApp engine; the app, web flow and API work without it.
+Only needed to try the deterministic WhatsApp engine; the app, web flow and API work without it.
 Create a Meta app with a WhatsApp test number, then follow `docs/whatsapp.md`: `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`,
 Flow keys via `node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs`, `WHATSAPP_REGISTRATION_PIN`, and a system-user token passed to
 `POST /v1/whatsapp/connect` (stored encrypted, never in Doppler). Webhook callback: `<API_BASE_URL>/webhooks/whatsapp`.
 
-### 5. EAS and the Android build
+### 4. EAS and the Android build
 
 1. `npm i -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init` (writes the project id into `app.json`; commit it).
 2. Change the Android package name **before the first build** (see below).
@@ -142,7 +104,7 @@ Flow keys via `node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs`,
 6. iOS device builds need an Apple Developer account. Until then iOS developers use the iOS simulator and testers can use the Expo web build
    (`cd apps/mobile && npm run export:web`; host it anywhere and add its origin in Clerk, step 2.8).
 
-### 6. Inviting friends
+### 5. Inviting friends
 
 - **Clerk**: Dashboard, Organizations, the shared dev business org, Invite members (`org:admin` for owner-like testers, `org:member` for staff).
   They sign in with the invited email; sign-up is closed otherwise. Their user rows appear through the Clerk webhook.

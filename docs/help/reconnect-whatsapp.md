@@ -39,6 +39,6 @@ The Meta pages can be cramped on a phone. A computer is easier if you get stuck 
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: app screens (WhatsApp settings: Reconnect WhatsApp, Connect WhatsApp, To go live).

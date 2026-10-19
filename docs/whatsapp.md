@@ -298,9 +298,9 @@ update public.whatsapp_accounts set flow_ids = '{"booking":"<BOOKING_FLOW_ID>","
 
 With no `flow_ids.booking` (or without the key, secret or URL), Book uses the interactive-list path. The booking Flow is named `booking_v2` and the reschedule Flow `reschedule_v2`: an existing published `booking_v1` or `reschedule_v1` is no longer reused, and `sync` creates the v2 Flow and replaces the matching `flow_ids` entry.
 
-## Plan gating
+## Always on, never AI
 
-The engine, `/v1/whatsapp/**` and the inbox are the **Free-plan** features `whatsapp_menu` and `inbox` (BUILD_PLAN §4, *Plans and entitlements*). Paid plans run on Nerova's WhatsApp, so for a business without `whatsapp_menu` the webhook records the inbound message in `webhook_events` (note `feature_not_in_plan`) and does nothing else, and the Flows endpoint answers 427. The REST routes answer `403 FEATURE_NOT_IN_PLAN`.
+The menu engine, `/v1/whatsapp/**` and the inbox are always on for every business: nothing is gated by plan in the free edition. The engine is deterministic by design (structured reply IDs, fixed messages, no NLU and no free-text interpretation), which is the premise of the ITMDA3 research comparison against the web booking page.
 
 ## Webhook
 

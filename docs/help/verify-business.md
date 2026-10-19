@@ -54,6 +54,6 @@ In the app, check Settings > WhatsApp > Business verification. It shows Verified
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: Meta Business Help Center (verification and troubleshooting articles), Meta messaging limits docs.

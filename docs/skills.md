@@ -42,12 +42,11 @@ exfiltration path — and is noted per-skill below.
 | `clerk-expo` | `@clerk/expo` setup, prebuilt/custom sign-in flows, protected Expo Router routes — the app's actual auth surface | clerk/skills (`skills/mobile/clerk-expo`) | `417e478` | MIT |
 | `clerk-orgs` | Organizations = businesses, roles (owner/staff), member management — maps directly onto `businesses`/`users`/`member_role` | clerk/skills (`skills/features/clerk-orgs`) | `417e478` | MIT |
 | `clerk-webhooks` | Verifying and handling the Clerk webhook (`apps/api/src/routes/clerk.ts`, org/user/membership mirror) | clerk/skills (`skills/features/clerk-webhooks`) | `417e478` | MIT |
-| `stripe-best-practices` | Stripe integration guidance for when payments land: API selection, webhooks-are-required, key/security best practices, mobile/client-side key handling | [stripe/ai](https://github.com/stripe/ai) (`skills/stripe-best-practices`) | `a682cd5` | MIT |
 | `hono` | Inline Hono API reference (routing, middleware, validation, testing) for the single `apps/api/api/index.ts` function | [honojs/skills](https://github.com/honojs/skills) (`skills/hono`) | `8b1938b` | MIT |
 | `whatsapp-cloud-api` | Comprehensive Cloud API reference — all message types, webhooks, templates, media, interactive messages, Coexistence, error codes | [bellopushon/whatsapp-cloud-api](https://github.com/bellopushon/whatsapp-cloud-api) (`skills/whatsapp-cloud-api`) | `8cd0934` | MIT |
 | `whatsapp-cloud-api-fieldguide` | Field notes on the *silent-failure* traps the reference above doesn't cover (missing `subscribed_apps`, webhook field subscriptions, Embedded Signup creating a second WABA, the 2026-10-01 pricing change) plus a bundled `diagnose.py` that checks a live setup against `graph.facebook.com` using the project's own `WHATSAPP_*` env vars | [guisa17/whatsapp-cloud-api-skill](https://github.com/guisa17/whatsapp-cloud-api-skill) (repo root) | `23b691d` | MIT |
 
-**Total on disk:** ~5.6 MB across 28 skills (`du -sh .claude/skills`).
+**Total on disk:** about 27 skills (`du -sh .claude/skills`).
 
 The two WhatsApp skills are complementary by design: `whatsapp-cloud-api` is the API surface
 reference (what to send), `whatsapp-cloud-api-fieldguide` is the operational war-story guide (what
@@ -117,13 +116,10 @@ Specific things checked and cleared:
 | expo-experiments plugin | `expo-migrate-module` | One-off migration helper (old Swift definition DSL → Modules API 2.0 macros); not applicable, nothing to migrate yet. |
 | clerk/skills | `clerk-cli` | Heavy interactive terminal-management skill (impersonation, instance config, feature toggles) — more than this project's coding tasks need; revisit if the team wants Claude driving `clerk` CLI admin tasks directly. |
 | clerk/skills | `clerk-custom-ui` | Web-focused custom auth UI/theming; superseded here by `clerk-expo`, which covers the app's actual (React Native) custom flows. |
-| clerk/skills | `clerk-billing` | Clerk's own subscription/billing UI. The project uses Stripe directly for payments, not Clerk Billing. |
+| clerk/skills | `clerk-billing` | Clerk's own subscription/billing UI. This edition has no billing. |
 | clerk/skills | `clerk-testing` | Playwright/Cypress E2E patterns — the app is Expo/React Native, not a Playwright-testable web app. |
 | clerk/skills | `clerk-android`, `clerk-swift` | Native Android (Kotlin) / native iOS (Swift) auth — this is an Expo/React Native app, not a native Android or Swift project. |
 | clerk/skills | `clerk-astro-patterns`, `clerk-chrome-extension-patterns`, `clerk-nextjs-patterns`, `clerk-nuxt-patterns`, `clerk-react-patterns`, `clerk-react-router-patterns`, `clerk-tanstack-patterns`, `clerk-vue-patterns` | Web-framework-specific integration patterns for frameworks not in this stack. `clerk-expo` covers the client; `clerk-backend-api`/`clerk-orgs` already document the framework-agnostic `@clerk/backend` `verifyToken` pattern a Hono server needs. |
-| stripe/ai | `stripe-directory`, `stripe-pay` | Let the *agent itself* look up and pay a Stripe business/handle on the user's behalf — inappropriate to vendor into a coding-assistant skill set regardless of relevance. |
-| stripe/ai | `stripe-projects`, `stripe-apps`, `metronome`, `connect-recommend`, `connect-required-verification-information` | Infra-provisioning, Stripe Apps (Dashboard extensions), usage-based billing, and Connect/marketplace onboarding — none apply to a single-business booking app taking direct payments. |
-| stripe/ai | `upgrade-stripe`, `stripe-docs` | Version-migration guide (nothing to migrate yet) and a CLI-docs-browser that needs the `stripe` CLI logged in; `stripe-best-practices` already covers what's needed pre-integration. |
 | honojs/skills | `hono-jsx` | Server-rendered JSX helper; the backend is a JSON API only (single Hono function per `BUILD_PLAN.md`), no HTML rendering. |
 | (searched, none found) | Official Meta/WhatsApp Business skill | No official Meta-published Claude/agent skill exists as of 2026-09-24 (checked officialskills.sh and Meta's GitHub orgs); used the two best community repos instead (see above), only after reading every file in both. |
 | (searched, none found) | Official react-native-reusables / shadcn-for-RN skill | Doesn't exist; only community forks (e.g. `maikotrindade/awesome-react-native-skills`) bundle an "RN Reusables" skill, unverified as official — not vendored. `react-native-skills` (Vercel) and `composition-patterns` cover the component-architecture guidance instead. |

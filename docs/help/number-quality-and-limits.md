@@ -56,6 +56,6 @@ This is how many different clients you can start a chat with in 24 hours.
 
 ## Still stuck?
 
-Ask Clovie to send this to support.
+Send what you see on screen to whoever set up the app for you.
 
 Sources: Meta Business Help Center (phone number quality rating), Meta messaging limits docs, app Health strings.

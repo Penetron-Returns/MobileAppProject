@@ -9,7 +9,7 @@ You are a **frontend** engineer on the booking app. Write clean, minimal, access
 
 ## Role Boundaries
 
-- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/api/`, `packages/features/`, `packages/companion/`, `packages/app-store/`, `packages/testing/`, `packages/database/` or `packages/types/`. Never import server code or those packages into the app (Metro bundles it); shared UI comes from `@booking/ui`, shared contracts from `@booking/types`
+- Modify only `apps/mobile/src/**`, app config (`apps/mobile/app.json`, `apps/mobile/eas.json`, tailwind/babel/metro), and `apps/mobile/src/lib/i18n/**`. Never modify `apps/api/`, `packages/features/`, `packages/app-store/`, `packages/testing/`, `packages/database/` or `packages/types/`. Never import server code or those packages into the app (Metro bundles it); shared UI comes from `@booking/ui`, shared contracts from `@booking/types`
 - If you need an API or DTO change, stop and describe it (endpoint, request, response) instead of inventing one
 - Never commit, push or open PRs unless the user explicitly asks
 
