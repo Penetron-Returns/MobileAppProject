@@ -19,8 +19,18 @@ jest.mock('expo-router', () => ({
 }));
 
 let mockHas: (feature: string) => boolean = () => false;
+let mockHasClovie = true;
 jest.mock('@/features/plans/hooks', () => ({
-  useEntitlements: () => ({ has: (f: string) => mockHas(f) }),
+  useEntitlements: () => ({
+    has: (f: string) => mockHas(f),
+    hasClovie: mockHasClovie,
+  }),
+}));
+jest.mock('@/lib/supabase', () => ({ supabase: {} }));
+const mockUseQuery = jest.fn();
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQuery: (opts: unknown) => mockUseQuery(opts),
 }));
 
 const NAMES = ['index', 'calendar', 'reports', 'clients', 'settings'];
@@ -51,6 +61,8 @@ const labels = (tree: ReturnType<typeof mount>) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockHasClovie = true;
+  mockUseQuery.mockReturnValue({ data: 0 });
 });
 
 describe('AppTabBar', () => {
@@ -78,6 +90,25 @@ describe('AppTabBar', () => {
     expect(mockPush).not.toHaveBeenCalled();
     act(() => pressableByLabel(tree, 'Open your companion').props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/companion');
+  });
+
+  it('Free has no Clovie tab and no companion bubble, and the Inbox bubble opens the Inbox', () => {
+    mockHasClovie = false;
+    mockHas = (f) => f === 'inbox' || f === 'whatsapp_menu';
+    mockUseQuery.mockReturnValue({ data: 2 });
+    const tree = bar();
+    const tabs = tree.root
+      .findAll((n) => n.props.accessibilityRole === 'tab')
+      .map((n) => n.props.accessibilityLabel as string);
+    expect([...new Set(tabs)]).toEqual(['Calendar', 'Clients', 'Settings']);
+    expect(
+      tree.root.findAllByProps({ testID: 'clovie-tab-icon' }),
+    ).toHaveLength(0);
+    const all = labels(tree);
+    expect(all).not.toContain('Open your companion');
+    expect(all).toContain('Inbox, 2 need a reply');
+    act(() => pressableByLabel(tree, 'Inbox, 2 need a reply').props.onPress());
+    expect(mockPush).toHaveBeenCalledWith('/inbox');
   });
 
   it('the companion bubble is hidden on the Clovie tab', () => {

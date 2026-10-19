@@ -83,8 +83,23 @@ const mockSetup = {
     },
   },
 };
+const mockSetupEnabled = jest.fn();
 jest.mock('@/features/companion/hooks', () => ({
-  useCompanionSetup: () => mockSetup,
+  useCompanionSetup: (opts: { enabled: boolean }) => {
+    mockSetupEnabled(opts.enabled);
+    return mockSetup;
+  },
+}));
+
+let mockChannel: { data: Record<string, unknown> | undefined } = {
+  data: undefined,
+};
+const mockChannelEnabled = jest.fn();
+jest.mock('../useWhatsAppChannel', () => ({
+  useWhatsAppChannel: (opts: { enabled: boolean }) => {
+    mockChannelEnabled(opts.enabled);
+    return mockChannel;
+  },
 }));
 
 jest.mock('@/features/auth/useSignOut', () => ({
@@ -157,7 +172,40 @@ const asOwner = (plan: string, features: string[] = []) => {
 beforeEach(() => {
   jest.clearAllMocks();
   asOwner('growth', ['companion']);
+  mockChannel = { data: undefined };
   mockSetup.data.whatsapp.connected = false;
+});
+
+describe('Settings on Free (no Clovie)', () => {
+  beforeEach(() => {
+    asOwner('free', ['inbox', 'whatsapp_menu']);
+    mockChannel = { data: undefined };
+  });
+
+  it('hides Clovie and does not ask Nerova for the companion setup', () => {
+    const out = text(mount());
+    expect(out).not.toContain('Clovie |');
+    expect(out).not.toContain('Clovie and WhatsApp');
+    expect(mockSetupEnabled).toHaveBeenCalledWith(false);
+    expect(mockSetupEnabled).not.toHaveBeenCalledWith(true);
+    expect(mockChannelEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it.each([
+    [{ status: 'live', display_phone: '+27821234567' }, 'Connected · +27 82 123 4567'],
+    [{ status: 'paused', display_phone: '+27821234567' }, 'Paused'],
+    [{ status: 'pending', display_phone: null }, 'Pending'],
+    [{ status: 'needs_reauth', display_phone: null }, 'Needs reconnecting'],
+    [{ status: 'disconnected', display_phone: null }, 'Not connected'],
+    [{ status: null, display_phone: null }, 'Not connected'],
+  ])('shows the WhatsApp row for %j as %s', (channel, detail) => {
+    mockChannel = { data: channel };
+    expect(text(mount())).toContain(`WhatsApp | ${detail}`);
+  });
+
+  it('leaves the WhatsApp row bare until the channel status has loaded', () => {
+    expect(text(mount())).not.toContain('WhatsApp |');
+  });
 });
 
 describe('Settings as owner', () => {
@@ -277,12 +325,27 @@ describe('No row ever disappears', () => {
   };
 
   it.each([
-    ['an owner with no plan yet', () => asOwner('none')],
     ['owner on a paid plan', () => asOwner('growth', ['companion'])],
     [
-      'staff',
+      'staff of a paid business',
       () => {
-        mockMe.data = { role: 'staff' };
+        mockMe.data = {
+          role: 'staff',
+          plan: 'growth',
+          features: [{ feature: 'companion' }],
+        };
+      },
+    ],
+  ])('keeps all rows for %s', (_name, setup) => {
+    expect(rowsFor(setup)).toEqual(ALL_ROWS);
+  });
+
+  it.each([
+    ['an owner on Free', () => asOwner('free', ['inbox', 'whatsapp_menu'])],
+    [
+      'staff on Free',
+      () => {
+        mockMe.data = { role: 'staff', plan: 'free', features: [] };
       },
     ],
     [
@@ -291,8 +354,8 @@ describe('No row ever disappears', () => {
         mockMe.data = undefined;
       },
     ],
-  ])('keeps all rows for %s', (_name, setup) => {
-    expect(rowsFor(setup)).toEqual(ALL_ROWS);
+  ])('drops only the Clovie row for %s', (_name, setup) => {
+    expect(rowsFor(setup)).toEqual(ALL_ROWS.filter((r) => r !== 'Clovie'));
   });
 
   it('is one list whatever the role, platform or plan', () => {

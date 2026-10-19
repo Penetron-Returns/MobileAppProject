@@ -24,6 +24,7 @@ import { View } from 'react-native';
 
 import { useSignOut } from '@/features/auth/useSignOut';
 import { useMe } from '@/features/business/me';
+import { useEntitlements } from '@/features/plans/hooks';
 import { GetSetUpRow } from '@/features/setup-checklist/components/GetSetUpRow';
 
 import {
@@ -141,6 +142,7 @@ export function SettingsScreen() {
   const { organization } = useOrganization();
   const me = useMe();
   const rows = useSettingsRows();
+  const { hasClovie } = useEntitlements();
   usePrefetchSettingsScreens();
   const userName =
     user?.fullName || user?.primaryEmailAddress?.emailAddress || '';
@@ -173,9 +175,9 @@ export function SettingsScreen() {
         </View>
       </Pressable>
 
-      <GetSetUpRow />
+      {hasClovie ? <GetSetUpRow /> : null}
 
-      {settingsGroups().map((group, index) => (
+      {settingsGroups(hasClovie).map((group, index) => (
         <Reveal key={group.id} scope="settings" index={index}>
           <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
           <Group radius={26}>

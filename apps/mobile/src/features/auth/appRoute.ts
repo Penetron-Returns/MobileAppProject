@@ -6,6 +6,8 @@
 
 import type { CompanionSetupStep, MemberRole, PlanKey } from '@booking/types';
 
+import { hasClovie } from '@/features/plans/logic';
+
 export type SessionStatus = 'active' | 'pending';
 /** Clerk session task keys (`session.currentTask.key`). */
 export type SessionTaskKey =
@@ -89,7 +91,7 @@ export type AppRoute =
   | { kind: 'activate-org'; orgId: string }
   | { kind: 'join' }
   | { kind: 'onboarding' }
-  /** The business exists but has no active plan: the owner chooses one. */
+  /** The business exists but has no plan yet: the owner chooses one. */
   | { kind: 'choose-plan' }
   /** A member who is not the owner of a business with no active plan. */
   | { kind: 'inactive-business' }
@@ -142,13 +144,11 @@ export function resolveAppRoute(input: AppRouteInput): AppRoute {
   return resolveBilling(input.billing);
 }
 
-/** Paid plans (or anything carrying the companion) are active; `none` and `free` are not. */
+/** Any plan, Free included (the app then runs without Clovie), is active; only `none` is not. */
 export function isBusinessActive(
   billing: Pick<BillingInput, 'plan' | 'hasCompanion'>,
 ): boolean {
-  return (
-    billing.hasCompanion || (billing.plan !== 'none' && billing.plan !== 'free')
-  );
+  return billing.hasCompanion || billing.plan !== 'none';
 }
 
 function resolveBilling(billing: BillingInput): AppRoute {
@@ -161,7 +161,7 @@ function resolveBilling(billing: BillingInput): AppRoute {
       kind: billing.basics === 'incomplete' ? 'onboarding' : 'choose-plan',
     };
   }
-  if (isOwner && billing.provisioning === 'pending') {
+  if (isOwner && hasClovie(billing) && billing.provisioning === 'pending') {
     return { kind: 'companion-setup' };
   }
   return { kind: 'tabs' };
@@ -174,7 +174,8 @@ function resolveBilling(billing: BillingInput): AppRoute {
  */
 export function provisioningStatus(input: {
   isOwner: boolean;
-  isActive: boolean;
+  /** The business has Clovie; Free has no companion account to wait for. */
+  hasClovie: boolean;
   setup: { isLoading: boolean; nextStep: CompanionSetupStep | null };
   /**
    * `/v1/me` was already known from the saved cache at launch, so this is a
@@ -183,7 +184,7 @@ export function provisioningStatus(input: {
    */
   hasCachedMe?: boolean;
 }): ProvisioningStatus {
-  if (!input.isOwner || !input.isActive) return 'ready';
+  if (!input.isOwner || !input.hasClovie) return 'ready';
   if (input.setup.isLoading) return input.hasCachedMe ? 'ready' : 'pending';
   return input.setup.nextStep === 'provision_account' ? 'pending' : 'ready';
 }

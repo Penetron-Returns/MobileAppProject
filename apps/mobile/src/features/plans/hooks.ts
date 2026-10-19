@@ -6,7 +6,7 @@ import { useMe } from '@/features/business/me';
 import { api } from '@/lib/api';
 import { qk } from '@/lib/query';
 
-import { hasFeature, monthlyLimit } from './logic';
+import { hasClovie, hasFeature, monthlyLimit } from './logic';
 
 export interface Entitlements {
   /** null until the session is loaded or if loading failed */
@@ -14,6 +14,8 @@ export interface Entitlements {
   /** Fails closed: false while loading or on error */
   has: (feature: FeatureKey) => boolean;
   limitOf: (feature: FeatureKey) => number | null;
+  /** Clovie is part of the plan (false on Free, and while loading). */
+  hasClovie: boolean;
   isLoading: boolean;
   isError: boolean;
 }
@@ -30,6 +32,10 @@ export function useEntitlements(): Entitlements {
       plan: me.data?.plan ?? null,
       has: (feature) => hasFeature(features, feature),
       limitOf: (feature) => monthlyLimit(features, feature),
+      hasClovie: hasClovie({
+        plan: me.data?.plan ?? null,
+        hasCompanion: hasFeature(features, 'companion'),
+      }),
       isLoading: me.isPending,
       isError: me.isError,
     }),

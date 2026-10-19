@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppTabBar } from '@/components/AppTabBar';
+import { useEntitlements } from '@/features/plans/hooks';
 import { useIdleReady } from '@/lib/useIdleReady';
 
 // The bar draws itself (icons, labels and the companion bubble).
@@ -17,6 +18,7 @@ const renderTabBar: React.ComponentProps<typeof Tabs>['tabBar'] = (props) => (
  */
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const { hasClovie } = useEntitlements();
   const ground = useDepth().ground.backgroundColor as string;
   // The first tab draws alone; the others mount once the thread is idle, so a
   // tap on them shows a ready screen instead of building it on press.
@@ -40,10 +42,15 @@ export default function TabsLayout() {
   return (
     <Tabs
       backBehavior="history"
+      // Free has no Clovie tab, so it opens on the Calendar.
+      initialRouteName={hasClovie ? 'index' : 'calendar'}
       tabBar={renderTabBar}
       screenOptions={screenOptions}
     >
-      <Tabs.Screen name="index" options={{ title: t('tabs.clovie') }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: t('tabs.clovie'), href: hasClovie ? undefined : null }}
+      />
       <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
       <Tabs.Screen name="reports" options={{ title: t('tabs.reports') }} />
       <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
