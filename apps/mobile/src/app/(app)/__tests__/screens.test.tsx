@@ -3,9 +3,6 @@ import '@/lib/i18n';
 import * as React from 'react';
 import renderer, { act } from 'react-test-renderer';
 
-jest.mock('@/features/setup-checklist/components/GetSetUpRow', () => ({
-  GetSetUpRow: () => null,
-}));
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
@@ -99,10 +96,6 @@ jest.mock('@/features/business/me', () => ({
   useMe: mockHook('useMe'),
   useCanManage: () => true,
 }));
-jest.mock('@/features/dashboard/hooks', () => ({
-  useDashboardSummary: mockHook('useDashboardSummary'),
-  useDaySchedule: mockHook('useDaySchedule'),
-}));
 jest.mock('@/features/appointments/hooks', () => ({
   useAppointmentsBetween: mockHook('useAppointmentsBetween'),
   useAppointment: mockHook('useAppointment'),
@@ -183,44 +176,6 @@ const BUSINESS = {
   name: 'Ashgrove',
   timezone: 'Africa/Johannesburg',
   currency: 'ZAR',
-};
-
-const SCHEDULE = [
-  {
-    id: 'appt-1',
-    starts_at: '2026-10-12T07:00:00.000Z',
-    duration_minutes: 60,
-    status: 'completed',
-    checked_in_at: '2026-10-12T06:55:00.000Z',
-    client: { name: 'Emma Thompson', phone_e164: '+27825550100' },
-    service: { name: 'Signature Facial' },
-  },
-  {
-    id: 'appt-2',
-    starts_at: '2026-10-12T08:30:00.000Z',
-    duration_minutes: 60,
-    status: 'confirmed',
-    checked_in_at: null,
-    client: { name: 'Sarah Jenkins', phone_e164: '+27825550101' },
-    service: { name: 'Deep Tissue Massage' },
-  },
-];
-
-const SUMMARY = {
-  month_revenue_cents: 1245000,
-  revenue_by_day: [
-    { date: '2026-10-01', cents: 0 },
-    { date: '2026-10-02', cents: 85000 },
-  ],
-  today: {
-    total: 2,
-    confirmed: 1,
-    completed: 1,
-    cancelled: 0,
-    no_show: 0,
-    checked_in: 1,
-  },
-  next_appointment_id: 'appt-2',
 };
 
 const APPOINTMENTS = [
@@ -456,13 +411,7 @@ beforeEach(() => {
       display_phone: '+27215550199',
       verified_name: 'Ashgrove',
     }),
-    useMe: success({
-      role: 'owner',
-      plan: 'growth',
-      features: [{ feature: 'companion', monthly_limit: null }],
-    }),
-    useDashboardSummary: success(SUMMARY),
-    useDaySchedule: success(SCHEDULE),
+    useMe: success({ role: 'owner' }),
     useAppointmentsBetween: success(APPOINTMENTS),
     useAppointment: success(APPOINTMENT_DETAIL),
     useAvailableSlots: { ...success(undefined), isPending: true },

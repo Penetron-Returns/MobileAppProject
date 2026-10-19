@@ -1,20 +1,12 @@
 import {
   basicsStatus,
-  isBusinessActive,
-  provisioningStatus,
   resolveAppRoute,
-  type BillingInput,
   type AppRoute,
   type AppRouteInput,
+  type BusinessInput,
 } from '../appRoute';
 
-const paidOwner: BillingInput = {
-  plan: 'growth',
-  hasCompanion: true,
-  role: 'owner',
-  provisioning: 'ready',
-  basics: 'complete',
-};
+const owner: BusinessInput = { role: 'owner', basics: 'complete' };
 
 const base: AppRouteInput = {
   authLoaded: true,
@@ -26,7 +18,7 @@ const base: AppRouteInput = {
   membershipOrgIds: ['org_1'],
   membershipsStatus: 'idle',
   me: 'ok',
-  billing: paidOwner,
+  business: owner,
   invitations: { status: 'idle', count: 0 },
   joinDeclined: false,
   inOnboarding: false,
@@ -206,63 +198,14 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
   ],
   ['active with org and /me ok shows tabs', {}, { kind: 'tabs' }],
   [
-    'a new business with plan none: the owner chooses a plan',
-    { billing: { ...paidOwner, plan: 'none', hasCompanion: false } },
-    { kind: 'choose-plan' },
-  ],
-  [
-    'a free business: the owner goes straight to the tabs, no companion setup',
-    {
-      billing: {
-        ...paidOwner,
-        plan: 'free',
-        hasCompanion: false,
-        provisioning: 'pending',
-      },
-    },
+    'staff go straight to the tabs',
+    { business: { role: 'staff', basics: 'incomplete' } },
     { kind: 'tabs' },
   ],
+  ['business not loaded yet waits', { business: null }, { kind: 'splash' }],
   [
-    'a free business: staff go to the tabs too',
-    {
-      billing: {
-        ...paidOwner,
-        role: 'staff',
-        plan: 'free',
-        hasCompanion: false,
-      },
-    },
-    { kind: 'tabs' },
-  ],
-  [
-    'staff of an inactive business see the inactive screen, not the plans',
-    {
-      billing: {
-        ...paidOwner,
-        role: 'staff',
-        plan: 'none',
-        hasCompanion: false,
-      },
-    },
-    { kind: 'inactive-business' },
-  ],
-  [
-    'a paid owner whose companion account is still being provisioned waits',
-    { billing: { ...paidOwner, provisioning: 'pending' } },
-    { kind: 'companion-setup' },
-  ],
-  [
-    'staff never wait for provisioning',
-    { billing: { ...paidOwner, role: 'staff', provisioning: 'pending' } },
-    { kind: 'tabs' },
-  ],
-  ['billing not loaded yet waits', { billing: null }, { kind: 'splash' }],
-  [
-    'onboarding still wins while it is mounted, even for an inactive business',
-    {
-      inOnboarding: true,
-      billing: { ...paidOwner, plan: 'none', hasCompanion: false },
-    },
+    'onboarding still wins while it is mounted',
+    { inOnboarding: true },
     { kind: 'onboarding' },
   ],
 ];
@@ -274,40 +217,26 @@ describe('resolveAppRoute', () => {
 });
 
 describe('onboarding is derived from the business, not from how the user signed in', () => {
-  const inactive: BillingInput = {
-    ...paidOwner,
-    plan: 'none',
-    hasCompanion: false,
-  };
-  const route = (billing: BillingInput) =>
-    resolveAppRoute({ ...base, billing }).kind;
+  const route = (business: BusinessInput) =>
+    resolveAppRoute({ ...base, business }).kind;
 
   it.each([
     [
       'org never named or set up',
-      { ...inactive, basics: 'incomplete' },
+      { role: 'owner', basics: 'incomplete' },
       'onboarding',
     ],
-    ['basics still loading', { ...inactive, basics: 'loading' }, 'splash'],
-    [
-      'named and set up, plan none',
-      { ...inactive, basics: 'complete' },
-      'choose-plan',
-    ],
-    [
-      'an active plan skips the check',
-      { ...paidOwner, basics: 'incomplete' },
-      'tabs',
-    ],
+    ['basics still loading', { role: 'owner', basics: 'loading' }, 'splash'],
+    ['named and set up', { role: 'owner', basics: 'complete' }, 'tabs'],
     [
       'staff of an unfinished business',
-      { ...inactive, role: 'staff', basics: 'incomplete' },
-      'inactive-business',
+      { role: 'staff', basics: 'incomplete' },
+      'tabs',
     ],
-  ] as [string, BillingInput, AppRoute['kind']][])(
+  ] as [string, BusinessInput, AppRoute['kind']][])(
     '%s',
-    (_l, billing, kind) => {
-      expect(route(billing)).toBe(kind);
+    (_l, business, kind) => {
+      expect(route(business)).toBe(kind);
     },
   );
 });
@@ -321,152 +250,5 @@ describe('basicsStatus', () => {
     ['blank name beats loading', { name: '', hours: undefined }, 'incomplete'],
   ] as const)('%s', (_l, input, expected) => {
     expect(basicsStatus(input)).toBe(expected);
-  });
-});
-
-describe('isBusinessActive', () => {
-  it.each([
-    ['none', false, false],
-    ['none', true, true],
-    ['free', false, true],
-    ['starter', false, true],
-    ['growth', true, true],
-    ['free', true, true],
-  ] as const)('plan %s, companion %s -> %s', (plan, hasCompanion, expected) => {
-    expect(isBusinessActive({ plan, hasCompanion })).toBe(expected);
-  });
-});
-
-describe('provisioningStatus', () => {
-  const ready = { isLoading: false, nextStep: 'connect_whatsapp' } as const;
-  it.each([
-    [
-      'staff never wait',
-      {
-        isOwner: false,
-        hasClovie: true,
-        setup: { isLoading: true, nextStep: null },
-      },
-      'ready',
-    ],
-    [
-      'an inactive business does not ask',
-      {
-        isOwner: true,
-        hasClovie: false,
-        setup: { isLoading: true, nextStep: null },
-      },
-      'ready',
-    ],
-    [
-      'loading waits',
-      {
-        isOwner: true,
-        hasClovie: true,
-        setup: { isLoading: true, nextStep: null },
-      },
-      'pending',
-    ],
-    [
-      'loading does not block a returning owner with a cached /me',
-      {
-        isOwner: true,
-        hasClovie: true,
-        hasCachedMe: true,
-        setup: { isLoading: true, nextStep: null },
-      },
-      'ready',
-    ],
-    [
-      'provision_account still waits for a returning owner',
-      {
-        isOwner: true,
-        hasClovie: true,
-        hasCachedMe: true,
-        setup: { isLoading: false, nextStep: 'provision_account' },
-      },
-      'pending',
-    ],
-    [
-      'provision_account waits',
-      {
-        isOwner: true,
-        hasClovie: true,
-        setup: { isLoading: false, nextStep: 'provision_account' },
-      },
-      'pending',
-    ],
-    [
-      'connect_whatsapp is ready',
-      { isOwner: true, hasClovie: true, setup: ready },
-      'ready',
-    ],
-    [
-      'none is ready',
-      {
-        isOwner: true,
-        hasClovie: true,
-        setup: { isLoading: false, nextStep: 'none' },
-      },
-      'ready',
-    ],
-    [
-      'a failed lookup never locks the owner out',
-      {
-        isOwner: true,
-        hasClovie: true,
-        setup: { isLoading: false, nextStep: null },
-      },
-      'ready',
-    ],
-  ] as const)('%s', (_name, input, expected) => {
-    expect(provisioningStatus(input)).toBe(expected);
-  });
-});
-
-describe('a signed-in user with a business never sees onboarding', () => {
-  const route = (extra: Partial<AppRouteInput>) =>
-    resolveAppRoute({ ...base, ...extra }).kind;
-
-  it.each([
-    ['an owner with a paid plan', {}, 'tabs'],
-    [
-      'an owner whose org is cached but not yet active',
-      { activeOrgId: null, membershipOrgIds: ['org_1'] },
-      'activate-org',
-    ],
-    [
-      'an owner with no plan yet (picks one, answers no questions)',
-      { billing: { ...paidOwner, plan: 'none', hasCompanion: false } },
-      'choose-plan',
-    ],
-    [
-      'staff of a business with no plan',
-      {
-        billing: {
-          ...paidOwner,
-          plan: 'none',
-          hasCompanion: false,
-          role: 'staff',
-        },
-      },
-      'inactive-business',
-    ],
-    ['an owner while /v1/me loads', { me: 'loading', billing: null }, 'splash'],
-  ] as [string, Partial<AppRouteInput>, AppRoute['kind']][])(
-    '%s',
-    (_label, extra, expected) => {
-      expect(route(extra)).toBe(expected);
-    },
-  );
-
-  it('only a user with no organisation at all is sent to onboarding', () => {
-    expect(
-      route({
-        ...noOrg,
-        membershipsStatus: 'ready',
-        invitations: { status: 'ready', count: 0 },
-      }),
-    ).toBe('onboarding');
   });
 });

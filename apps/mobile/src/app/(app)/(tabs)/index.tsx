@@ -1,5 +1,6 @@
-import { TodayHome } from '@/features/today/components/TodayHome';
+import { Redirect } from 'expo-router';
 
-export default function TodayRoute() {
-  return <TodayHome />;
+/** The app opens on the Calendar. */
+export default function IndexRoute() {
+  return <Redirect href="/calendar" />;
 }

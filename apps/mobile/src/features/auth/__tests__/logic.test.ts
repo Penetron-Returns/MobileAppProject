@@ -11,12 +11,12 @@ import {
 
 describe('isValidEmail', () => {
   it.each([
-    ['colin@nerovasystems.com', true],
-    ['  Colin+bk1@NerovaSystems.com ', true],
+    ['colin@example.com', true],
+    ['  Colin+bk1@example.com ', true],
     ['', false],
     ['colin', false],
     ['colin@', false],
-    ['colin@nerova', false],
+    ['colin@example', false],
     ['a b@c.com', false],
   ])('%j -> %s', (input, expected) => {
     expect(isValidEmail(input)).toBe(expected);
@@ -24,8 +24,8 @@ describe('isValidEmail', () => {
 });
 
 it('normalizes email to trimmed lowercase', () => {
-  expect(normalizeEmail('  Colin+BK1@Nerova.com ')).toBe(
-    'colin+bk1@nerova.com',
+  expect(normalizeEmail('  Colin+BK1@example.com ')).toBe(
+    'colin+bk1@example.com',
   );
 });
 
@@ -67,8 +67,8 @@ describe('resendSecondsLeft', () => {
 describe('parseIdentifier', () => {
   it.each([
     [
-      ' Colin@Nerova.com ',
-      { strategy: 'email_code', value: 'colin@nerova.com' },
+      ' Colin@example.com ',
+      { strategy: 'email_code', value: 'colin@example.com' },
     ],
     ['+27 82 555 0100', { strategy: 'phone_code', value: '+27825550100' }],
     ['+27 (82) 555-0100', { strategy: 'phone_code', value: '+27825550100' }],

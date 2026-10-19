@@ -102,7 +102,7 @@ export function InboxScreen() {
   return (
     <Page
       title={t('inbox.title')}
-      backLabel={t('tabs.today')}
+      backLabel={t('tabs.calendar')}
       backFallback="/"
       onRefresh={() =>
         queryClient.refetchQueries({ queryKey: ['conversations'] })

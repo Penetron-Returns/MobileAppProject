@@ -24,7 +24,7 @@ jest.mock('@/hooks/useNow', () => ({ useNow: () => new Date(0) }));
 function Harness({ onVerify }: { onVerify: (code: string) => void }) {
   return (
     <CodeStep
-      identifier="colin@nerova.com"
+      identifier="colin@example.com"
       strategy="email_code"
       isBusy={false}
       errorKey={null}

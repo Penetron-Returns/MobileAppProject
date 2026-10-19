@@ -17,14 +17,14 @@ import {
 
 /**
  * The app's single Realtime channel (RLS scopes the rows to the business):
- * bookings, attendance and, with an inbox plan, conversations. It only exists
+ * bookings, attendance and conversations. It only exists
  * while the app is in the foreground, so a backgrounded app holds no socket
  * traffic. Events are coalesced per table, echoes of this device's own writes
  * are skipped, and only mounted screens refetch. Coming back to the foreground
  * is handled by TanStack's focusManager (stale queries refetch), so there is no
  * second refresh here. This also replaces polling.
  */
-export function useBusinessRealtime(isEnabled: boolean, hasInbox: boolean) {
+export function useBusinessRealtime(isEnabled: boolean) {
   const queryClient = useQueryClient();
   React.useEffect(() => {
     if (!isEnabled) return;
@@ -45,7 +45,7 @@ export function useBusinessRealtime(isEnabled: boolean, hasInbox: boolean) {
     const open = () => {
       if (channel) return;
       let next = supabase.channel('business-changes');
-      for (const table of realtimeTables(hasInbox)) {
+      for (const table of realtimeTables(true)) {
         next = next.on(
           'postgres_changes',
           { event: '*', schema: 'public', table },
@@ -71,5 +71,5 @@ export function useBusinessRealtime(isEnabled: boolean, hasInbox: boolean) {
       sub.remove();
       close();
     };
-  }, [isEnabled, hasInbox, queryClient]);
+  }, [isEnabled, queryClient]);
 }

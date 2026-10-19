@@ -17,8 +17,6 @@ import { holdNativeSplash, hideNativeSplash } from '@/features/brand/splash';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { initAnalytics } from '@/features/analytics';
 import { analyticsConfig, env, validateEnv } from '@/lib/env';
-import { registerDeviceTokenSource } from '@/features/voice/deviceToken';
-import { registerVoiceHeadlessTask } from '@/features/voice/headlessRegistration';
 import { startFocusSync, startOnlineSync } from '@/lib/online';
 import { whenIdle } from '@/lib/whenIdle';
 import { queryClient } from '@/lib/query';
@@ -40,10 +38,6 @@ const SPLASH_SAFETY_MS = 5000;
 const envState = validateEnv();
 startOnlineSync();
 startFocusSync();
-// Hey Clovie (Android): lets the voice service run a command with the app in the background.
-// Only the registration runs here; the task's code loads when a command arrives.
-registerDeviceTokenSource();
-registerVoiceHeadlessTask();
 // Keep the native splash until a screen has drawn: the loading screen hides it on
 // its first layout, other first screens through useHideSplashWhen.
 holdNativeSplash();
