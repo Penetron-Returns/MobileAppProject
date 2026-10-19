@@ -14,7 +14,7 @@ import {
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { api, newIdempotencyKey } from '@/lib/api';
+import { api, isApiError, newIdempotencyKey } from '@/lib/api';
 import { offlineError } from '@/lib/offline';
 import { qk } from '@/lib/query';
 import { toast } from '@/lib/toast';
@@ -51,6 +51,10 @@ export function useAnswerAttendance() {
     { previous?: AttendancePendingResponse }
   >({
     networkMode: 'always',
+    // The key is deterministic per (check, answer) and the API treats a repeat as a no-op,
+    // so a dropped or timed-out request is safe to resend: it settles whether it was saved.
+    retry: (count, err) => count < 2 && isApiError(err) && err.isRetryable,
+    retryDelay: (attempt) => 600 * (attempt + 1),
     mutationFn: ({ checkId, outcome }) =>
       api.answerAttendance(
         checkId,
@@ -74,7 +78,8 @@ export function useAnswerAttendance() {
       if (context?.previous) {
         queryClient.setQueryData(qk.attendance, context.previous);
       }
-      toast.failed(t('attendance.answerFailed'), error);
+      // The reason (no connection, signed out, already answered) says whether to just try again.
+      toast.error(error, t('attendance.answerFailed'));
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: qk.attendance });

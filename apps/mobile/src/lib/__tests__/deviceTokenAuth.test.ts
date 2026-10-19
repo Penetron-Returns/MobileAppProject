@@ -1,6 +1,7 @@
 import { apiRequest, isApiError } from '@/lib/api';
 import {
   acceptsDeviceToken,
+  SESSION_TOKEN_WAIT_MS,
   setAuthTokenGetter,
   setDeviceTokenSource,
 } from '@/lib/auth-token';
@@ -40,6 +41,21 @@ describe('device voice token fallback in apiRequest', () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(
       'Bearer cvt_device',
     );
+  });
+
+  it('stops waiting for a Clerk token that never settles and uses the device token', async () => {
+    jest.useFakeTimers();
+    try {
+      setAuthTokenGetter(() => new Promise<string | null>(() => {}));
+      const call = apiRequest('POST', ANSWER, { idempotencyKey: 'k1' });
+      await jest.advanceTimersByTimeAsync(SESSION_TOKEN_WAIT_MS);
+      await call;
+      expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(
+        'Bearer cvt_device',
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('prefers the Clerk session token when there is one', async () => {
