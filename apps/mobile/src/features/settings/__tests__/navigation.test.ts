@@ -8,23 +8,12 @@ describe('settingsGroups', () => {
   it('lists the groups in the agreed order, one row set for everyone', () => {
     expect(settingsGroups().map((g) => [g.id, g.items])).toEqual([
       ['business', ['businessDetails', 'hours', 'services', 'rules', 'team']],
-      ['assistant', ['clovie', 'whatsapp']],
-      [
-        'account',
-        ['plan', 'notifications', 'appearance', 'haptics', 'deleteAccount'],
-      ],
+      ['channel', ['whatsapp']],
+      ['account', ['notifications', 'appearance', 'haptics', 'deleteAccount']],
     ]);
   });
 
-  it('drops only the Clovie row when the plan has no Clovie', () => {
-    const assistant = settingsGroups(false).find((g) => g.id === 'assistant');
-    expect(assistant?.items).toEqual(['whatsapp']);
-    expect(settingsGroups(false).flatMap((g) => g.items)).not.toContain(
-      'clovie',
-    );
-  });
-
-  it('takes no role, platform or plan, so nothing can be dropped for them', () => {
+  it('takes no role or platform, so nothing can be dropped for them', () => {
     expect(settingsGroups.length).toBe(0);
   });
 

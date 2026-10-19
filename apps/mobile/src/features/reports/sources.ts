@@ -5,12 +5,9 @@ export const REPORT_SOURCES: readonly ReportSourceKey[] = [
 ];
 
 /**
- * Maps `appointments.source` (`whatsapp | app | web | nerova`) to the two
- * report sources. Customers booking through WhatsApp are "WhatsApp"; the
- * owner or staff booking in the app (`app`) or through the companion
- * (`nerova`) are "Clovie". `web` is the retired comparator booking page: no
- * product surface creates it any more, so any legacy row counts as Clovie
- * rather than adding a third category.
+ * Maps `appointments.source` to the two report sources. Customers booking
+ * through WhatsApp are "WhatsApp"; everything else (the owner or staff booking
+ * in the app, or a legacy row from another source) counts as the app.
  */
 export function reportSource(source: string): ReportSourceKey {
   return source === 'whatsapp' ? 'whatsapp' : 'clovie';

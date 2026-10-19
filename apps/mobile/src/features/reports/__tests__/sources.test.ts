@@ -5,7 +5,7 @@ describe('reportSource', () => {
     // Every value of the appointment_source enum, plus a future one.
     ['whatsapp', 'whatsapp'],
     ['app', 'clovie'],
-    ['nerova', 'clovie'],
+    ['legacy', 'clovie'],
     // Legacy: the web comparator page is retired, so old rows count as Clovie.
     ['web', 'clovie'],
     ['something_new', 'clovie'],

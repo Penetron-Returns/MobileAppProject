@@ -84,7 +84,6 @@ export function useAnswerAttendance() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: qk.attendance });
       void queryClient.invalidateQueries({ queryKey: qk.appointments });
-      void queryClient.invalidateQueries({ queryKey: qk.dashboardAll });
     },
   });
 }

@@ -19,7 +19,7 @@ describe('analytics port', () => {
   });
 
   it('is a no-op until an adapter is installed', () => {
-    expect(() => analytics.track('plan_viewed')).not.toThrow();
+    expect(() => analytics.track('business_created')).not.toThrow();
   });
 
   it('forwards to the installed adapter and back to no-op when cleared', () => {
@@ -34,19 +34,15 @@ describe('analytics port', () => {
     expect(fake.identified).toEqual(['user_1']);
     expect(fake.groups).toEqual([{ type: 'business', id: 'b_1' }]);
     setAnalytics();
-    analytics.track('plan_viewed');
+    analytics.track('business_created');
     expect(fake.names()).toEqual(['onboarding_type_selected']);
   });
 });
 
 describe('safeProperties', () => {
-  it('keeps enum-like type, plan and outcome only', () => {
-    expect(
-      safeProperties({ type: 'salon', plan: 'pro', outcome: 'timeout' }),
-    ).toEqual({
+  it('keeps the enum-like type only', () => {
+    expect(safeProperties({ type: 'salon', plan: 'pro' })).toEqual({
       type: 'salon',
-      plan: 'pro',
-      outcome: 'timeout',
     });
   });
 
@@ -58,42 +54,11 @@ describe('safeProperties', () => {
         phone: '+27821234567',
         business_name: 'Studio',
         type: 'Thandi@x.com',
-        plan: 42,
       }),
     ).toEqual({});
   });
 
   it('handles no properties', () => {
     expect(safeProperties(undefined)).toEqual({});
-  });
-});
-
-describe('safeProperties durations', () => {
-  it('keeps whole-number millisecond durations and voice labels', () => {
-    expect(
-      safeProperties({
-        stt_path: 'device',
-        endpoint: 'partial',
-        tts_start_ms: 1450,
-        first_reply_byte_ms: 1050,
-      }),
-    ).toEqual({
-      stt_path: 'device',
-      endpoint: 'partial',
-      tts_start_ms: 1450,
-      first_reply_byte_ms: 1050,
-    });
-  });
-
-  it('drops negative, fractional, huge and non-numeric durations', () => {
-    expect(
-      safeProperties({
-        tts_start_ms: -1,
-        request_sent_ms: 1.5,
-        final_transcript_ms: 9_999_999,
-        interim_start_ms: '300',
-        transcript: 'book Thandi',
-      }),
-    ).toEqual({});
   });
 });

@@ -9,7 +9,7 @@ import renderer, {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BookingRulesScreen } from '../components/BookingRulesScreen';
-import { PaidWhatsAppSettings as WhatsAppSettingsScreen } from '../components/PaidWhatsAppSettings';
+import { FreeWhatsAppSettings as WhatsAppSettingsScreen } from '../components/FreeWhatsAppSettings';
 
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
@@ -32,37 +32,14 @@ jest.mock('@/features/business/me', () => ({
   useMe: () => ({ data: { role: mockRole } }),
   useCanManage: () => mockRole !== 'staff',
 }));
-jest.mock('@/features/plans/hooks', () => ({
-  useEntitlements: () => ({ has: () => false, isLoading: false }),
-}));
-
-const mockStart = jest.fn();
-const mockSetup = {
-  isPending: false,
-  isError: false,
-  refetch: jest.fn(),
-  data: {
-    companion_live: true,
-    whatsapp: {
-      connected: false,
-      state: 'not_connected',
-      display_phone_number: null as string | null,
-    },
-  },
-};
-jest.mock('@/features/companion/hooks', () => ({
-  useCompanionSetup: () => mockSetup,
-  useConnectWhatsApp: () => ({ start: mockStart }),
-}));
-
-jest.mock('@/features/companion/useWhatsAppHealth', () => ({
-  useWhatsAppHealth: () => ({
-    data: undefined,
+jest.mock('../useWhatsAppChannel', () => ({
+  useWhatsAppChannel: () => ({
+    data: { status: 'live', display_phone: null, verified_name: null },
     isPending: false,
     isError: false,
-    error: null,
     refetch: jest.fn(),
   }),
+  useWhatsAppChannelAction: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
 const mockSave = jest.fn();
@@ -116,11 +93,6 @@ const pressable = (tree: ReactTestRenderer, label: string) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockRole = 'owner';
-  mockSetup.data.whatsapp = {
-    connected: false,
-    state: 'not_connected',
-    display_phone_number: null,
-  };
 });
 
 describe('Reminders to clients', () => {

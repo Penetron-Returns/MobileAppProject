@@ -22,13 +22,15 @@ import {
 } from '../useWhatsAppChannel';
 import { channelAction, channelPill } from '../whatsappChannel';
 import { OwnerOnlyNote } from './OwnerOnlyNote';
+import { RemindersRow } from './RemindersRow';
 
 const K = 'settings.whatsapp.channel';
 
 /**
  * Settings > WhatsApp on Free: the booking menu's number, its verified name
  * and whether it is live, read from the channel status. The owner can pause
- * and resume it. Connecting a number is not done in the app.
+ * and resume it, and choose when clients are reminded. Connecting a number
+ * is not done in the app.
  */
 export function FreeWhatsAppSettings() {
   const { t } = useTranslation();
@@ -103,6 +105,12 @@ export function FreeWhatsAppSettings() {
           {t(`${K}.hint.${pill}`)}
         </Text>
       ) : null}
+      <Group className="mt-5" radius={26}>
+        <RemindersRow />
+      </Group>
+      <Text className="mx-5 mt-3 text-meta text-muted-foreground">
+        {t('settings.whatsapp.remindersFooter')}
+      </Text>
       <OwnerOnlyNote />
     </Page>
   );

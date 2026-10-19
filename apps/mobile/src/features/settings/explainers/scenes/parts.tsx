@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {
-  Image,
   Text,
   View,
   type StyleProp,
@@ -10,8 +9,6 @@ import {
 import { type SharedValue } from 'react-native-reanimated';
 
 import { type StagePalette } from '../palette';
-
-const COMPANION = require('@/assets/images/companion-120.png');
 
 /** What every scene receives: the run, the colours and the few live values. */
 export interface SceneProps {
@@ -110,27 +107,6 @@ export function Label({
     >
       {children}
     </Text>
-  );
-}
-
-/** The companion art. Never given eyes or lids: it is drawn as shipped. */
-export function ClovieArt({
-  x,
-  y,
-  size,
-  style,
-}: {
-  x: number;
-  y: number;
-  size: number;
-  style?: object;
-}) {
-  return (
-    <Image
-      source={COMPANION}
-      resizeMode="contain"
-      style={[boxStyle(x, y, size, size), style]}
-    />
   );
 }
 
