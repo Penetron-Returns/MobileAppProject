@@ -19,7 +19,7 @@ import {
   countText,
   fitFontSize,
   formatCount,
-  valueAtStep,
+  countDefaultText,
 } from './countUp';
 import { EASE_SPRING } from './motion';
 import type { StoryCardNumber } from './model';
@@ -36,6 +36,8 @@ interface NumberLineProps {
   accent: string;
   /** Slides in from the right beside Clovie instead of rising. */
   hasPush: boolean;
+  /** False once the card is leaving: it keeps its final value. */
+  isCurrent: boolean;
 }
 
 /**
@@ -44,7 +46,12 @@ interface NumberLineProps {
  * renders React. Screen readers always get the final value. Reduce Motion
  * shows the final value at once, as plain text.
  */
-export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
+export function NumberLine({
+  number,
+  accent,
+  hasPush,
+  isCurrent,
+}: NumberLineProps) {
   const isReduced = useReduceMotion();
   const { width } = useWindowDimensions();
 
@@ -78,11 +85,7 @@ export function NumberLine({ number, accent, hasPush }: NumberLineProps) {
   });
 
   const final = formatCount(number.value, number.format, number.unit);
-  const first = formatCount(
-    valueAtStep(number.value, 0),
-    number.format,
-    number.unit,
-  );
+  const first = countDefaultText(number, { isCurrent, isReduced });
   const fontSize = fitFontSize(final, width - 2 * SIDE_MARGIN, FONT_SIZE);
   const textStyle = [styles.number, { color: accent, fontSize }];
   return (

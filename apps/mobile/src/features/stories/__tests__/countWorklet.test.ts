@@ -1,6 +1,6 @@
 import { formatMoney } from '@/lib/format';
 
-import { fitFontSize, formatCount } from '../countUp';
+import { countDefaultText, fitFontSize, formatCount } from '../countUp';
 import { fpsLabel, framesPerSecond } from '../fps';
 
 describe('the worklet money formatter', () => {
@@ -42,5 +42,27 @@ describe('fps meter maths', () => {
 
   it('formats one line', () => {
     expect(fpsLabel(60, 58)).toBe('UI 60  JS 58');
+  });
+});
+
+describe('countDefaultText', () => {
+  const revenue = { value: 490200, format: 'money' } as const;
+
+  it('starts an entering card from 0', () => {
+    expect(
+      countDefaultText(revenue, { isCurrent: true, isReduced: false }),
+    ).toBe('R 0');
+  });
+
+  it('keeps the final value on a card that is leaving', () => {
+    expect(
+      countDefaultText(revenue, { isCurrent: false, isReduced: false }),
+    ).toBe('R 4,902');
+  });
+
+  it('shows the final value at once under reduce motion', () => {
+    expect(
+      countDefaultText(revenue, { isCurrent: true, isReduced: true }),
+    ).toBe('R 4,902');
   });
 });

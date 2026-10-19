@@ -87,3 +87,21 @@ export function fitFontSize(text: string, available: number, base: number) {
   const width = em * base;
   return width <= available ? base : Math.floor((base * available) / width);
 }
+
+/**
+ * The text React hands the number field on each render. Only a card that is
+ * entering starts from 0 (and counts up); a card that is leaving, or any card
+ * under Reduce Motion, keeps its final value, so a re-render when the card
+ * stops being current can never drop the number back to 0.
+ */
+export function countDefaultText(
+  number: StoryCardNumber,
+  { isCurrent, isReduced }: { isCurrent: boolean; isReduced: boolean },
+) {
+  const step = isCurrent && !isReduced ? 0 : COUNT_STEPS;
+  return formatCount(
+    valueAtStep(number.value, step),
+    number.format,
+    number.unit,
+  );
+}
