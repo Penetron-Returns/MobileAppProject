@@ -31,6 +31,11 @@ describe('shapeVoiceLatency', () => {
       },
     ],
     [
+      'a streamed turn: first token and first audio',
+      { firstTokenMs: 520, firstAudioMs: 840 },
+      { first_token_ms: 520, first_audio_ms: 840 },
+    ],
+    [
       'a turn with no spoken reply keeps the steps that happened',
       { sttPath: 'cloud', endpoint: 'clip', finalTranscriptMs: 900 },
       { stt_path: 'cloud', endpoint: 'clip', final_transcript_ms: 900 },

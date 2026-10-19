@@ -71,6 +71,9 @@ object VoiceCommandBridge {
     return true
   }
 
+  /** Whether JS is still wanted for this command: false once it completed, timed out or was cancelled. */
+  fun isPending(id: String): Boolean = pending.containsKey(id)
+
   fun cancelAll() {
     pending.clear()
   }

@@ -2,7 +2,7 @@
  * Port for the Nerova companion chat API (native session headers). Implementations throw `AppError` only and never
  * put the session secret, the message or the reply in a message or detail. The fetch implementation is `httpChatClient.ts`.
  */
-import type { ChatAction, ChatTurn } from './chatStream.ts';
+import type { ChatAction, ChatStreamEvent, ChatTurn } from './chatStream.ts';
 
 /** A native companion session: both values are secrets. */
 export interface CompanionChatSession {
@@ -17,6 +17,20 @@ export interface ApprovalOutcome {
   kind: string | null;
 }
 
+export interface ChatStreamOptions {
+  /** `voice` asks Nerova for a 1-2 sentence spoken reply (when the client's voice mode is on and Nerova supports it) */
+  mode?: 'voice';
+  /** Aborting closes the upstream connection (the phone hung up or the owner barged in) */
+  signal?: AbortSignal;
+}
+
+export interface ChatStreamHandle {
+  /** Ends after `done` or `error`. A failure mid-stream throws `UPSTREAM_COMPANION_ERROR` (reason `network` or `timeout`). */
+  events: AsyncIterable<ChatStreamEvent>;
+  /** Nerova's `Server-Timing: pre;dur=N` (ms before it started the turn); null when absent */
+  preMs: number | null;
+}
+
 export interface CompanionChatClient {
   /**
    * Runs one turn. Throws `UPSTREAM_COMPANION_ERROR` with `details.nerova_code` (`companion.session_expired`,
@@ -24,6 +38,11 @@ export interface CompanionChatClient {
    * An `error` event inside the stream is thrown the same way.
    */
   chat(session: CompanionChatSession, message: string): Promise<ChatTurn>;
+  /**
+   * Like `chat`, but returns as soon as Nerova's response headers arrive and yields events as they come, so the text
+   * can be spoken before the turn ends. Throws before returning with the same errors as `chat`.
+   */
+  streamChat(session: CompanionChatSession, message: string, options?: ChatStreamOptions): Promise<ChatStreamHandle>;
   /** Approve or decline exactly this approval id. Repeating it returns the stored outcome. */
   decide(session: CompanionChatSession, approvalId: string, decision: ApprovalDecision, idempotencyKey: string): Promise<ApprovalOutcome>;
   /**

@@ -4,9 +4,10 @@
  * Never logs the text, the reply or any name.
  */
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
-import type { VoiceActionDTO, VoiceApprovalResultDTO, VoiceAskDTO } from '@booking/types';
+import type { VoiceActionDTO, VoiceApprovalResultDTO, VoiceAskDTO, VoiceAskStreamDoneDTO, VoiceAskTimingDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { parseJson } from '../../lib/validation.ts';
 import { requireFeature } from '../../middleware/feature.ts';
@@ -26,6 +27,58 @@ voiceAskRoutes.post('/voice/ask', requireFeature('companion'), async (c) => {
   // Sizes and timings only.
   c.get('logger').info('voice_ask', { reply_length: data.reply.length, approvals: data.approvals.length, actions: data.actions?.length ?? 0, duration_ms: Date.now() - started });
   return c.json({ data });
+});
+
+/**
+ * Streamed variant of /voice/ask for the Hey Clovie service: server-sent events, so the phone can speak the first
+ * sentence while the rest is still being written. Events: `text-delta` {delta}; `done` = VoiceAskStreamDoneDTO (the
+ * whole-reply data plus timing); `error` {code, retryable}. Failures before the first byte are the usual JSON error.
+ * The client disconnecting aborts the upstream Nerova request. Never logs the text or the reply.
+ */
+voiceAskRoutes.post('/voice/ask/stream', requireFeature('companion'), async (c) => {
+  const { text } = await parseJson(c, askSchema);
+  const { businessId, userId } = c.get('auth');
+  const started = Date.now();
+  const abort = new AbortController();
+  c.req.raw.signal.addEventListener('abort', () => abort.abort(), { once: true });
+  const { events, nerovaPreMs } = await c.get('container').voiceAsk.askStream({ businessId, userId }, text, abort.signal);
+  const proxyPreMs = Date.now() - started;
+  const authMs = c.get('authMs');
+  c.header('Server-Timing', [...(typeof authMs === 'number' ? [`auth;dur=${Math.round(authMs)}`] : []), `proxy-pre;dur=${proxyPreMs}`, ...(nerovaPreMs === null ? [] : [`nerova-pre;dur=${nerovaPreMs}`])].join(', '));
+  const log = c.get('logger');
+  return streamSSE(c, async (stream) => {
+    stream.onAbort(() => abort.abort());
+    let firstTextMs: number | undefined;
+    let outcome = 'closed';
+    try {
+      for await (const item of events) {
+        if (item.type === 'text-delta') {
+          firstTextMs ??= Date.now() - started;
+          await stream.writeSSE({ event: 'text-delta', data: JSON.stringify({ delta: item.delta }) });
+        } else if (item.type === 'done') {
+          const timing: VoiceAskTimingDTO = {
+            ...item.timing && Object.fromEntries(Object.entries(item.timing).filter(([, v]) => v !== null)),
+            ...(nerovaPreMs === null ? {} : { nerovaPreMs }),
+            proxyPreMs,
+            ...(firstTextMs === undefined ? {} : { proxyFirstTextMs: firstTextMs }),
+            proxyTotalMs: Date.now() - started,
+          };
+          const data: VoiceAskStreamDoneDTO = { ...item.data, timing };
+          await stream.writeSSE({ event: 'done', data: JSON.stringify(data) });
+          // Sizes and timings only.
+          log.info('voice_ask_stream', { reply_length: data.reply.length, approvals: data.approvals.length, actions: data.actions?.length ?? 0, ...timing });
+          outcome = 'done';
+        } else {
+          await stream.writeSSE({ event: 'error', data: JSON.stringify({ code: item.code, retryable: item.retryable }) });
+          log.warn('voice_ask_stream_error', { code: item.code, duration_ms: Date.now() - started });
+          outcome = 'error';
+        }
+      }
+    } finally {
+      abort.abort();
+      if (outcome === 'closed') log.info('voice_ask_stream_closed', { duration_ms: Date.now() - started });
+    }
+  });
 });
 
 const ACTION_STATUS = z.enum(['executed', 'undone']).default('executed');

@@ -46,6 +46,8 @@ export type VoiceLatencyProps = {
   first_reply_byte_ms?: number;
   interim_start_ms?: number;
   tts_start_ms?: number;
+  first_token_ms?: number;
+  first_audio_ms?: number;
 };
 
 export type VoiceInstantAnswerProps = {
@@ -74,6 +76,8 @@ export const ALLOWED_NUMBER_KEYS: readonly string[] = [
   'first_reply_byte_ms',
   'interim_start_ms',
   'tts_start_ms',
+  'first_token_ms',
+  'first_audio_ms',
   'ms',
 ];
 const MAX_DURATION_MS = 300_000;

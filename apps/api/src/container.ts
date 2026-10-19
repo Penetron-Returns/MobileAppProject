@@ -123,7 +123,7 @@ export function createContainer(env: Env, db: Db = getDb(env)): Container {
     defer: (task) => runInBackground(task, createLogger({ module: 'voice_tokens' }), 'voice_token_touch_failed'),
   });
   const stories = createStoriesService({ db, entitlements, clock, voiceEnabled: env.VOICE_CLOUD_STT === 'true' });
-  const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient(), clock });
+  const voiceAsk = createVoiceAskService({ companion, chat: createHttpCompanionChatClient({ voiceMode: env.NEROVA_VOICE_MODE !== 'false' }), clock });
   return { env, db, booking, attendance, notifications, entitlements, nerovaEvents, usage, billing, companion, companionSettings, voiceAsk, clerkAdmin, voiceTokens, stories, nerovaChannel, clock };
 }
 

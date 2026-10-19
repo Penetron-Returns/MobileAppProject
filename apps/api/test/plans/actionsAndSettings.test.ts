@@ -128,6 +128,7 @@ describe('voice action routes', () => {
     const listed: string[] = [];
     const voiceAsk: VoiceAskService = {
       ask: async () => ({ reply: '', approvals: [], suggestions: [] }),
+      askStream: async () => ({ events: (async function* () {})(), nerovaPreMs: null }),
       decide: async () => ({ id: 'x', decision: 'approved', kind: null }),
       undo,
       listActions: async (_c, status) => {

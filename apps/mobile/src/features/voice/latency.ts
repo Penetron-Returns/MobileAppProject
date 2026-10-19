@@ -20,6 +20,8 @@ const NUMBER_KEYS = [
   ['firstReplyByteMs', 'first_reply_byte_ms'],
   ['interimStartMs', 'interim_start_ms'],
   ['ttsStartMs', 'tts_start_ms'],
+  ['firstTokenMs', 'first_token_ms'],
+  ['firstAudioMs', 'first_audio_ms'],
 ] as const;
 
 const MAX_MS = 300_000;

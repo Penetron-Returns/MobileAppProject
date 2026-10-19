@@ -69,6 +69,10 @@ export function idempotency(
     // hash the same, and a stored response would hold the transcript. The key is still required and validated.
     if ((c.req.header('content-type') ?? '').toLowerCase().startsWith('multipart/form-data')) return next();
 
+    // The voice stream must reach the phone as it is written: storing it would mean reading it to the end first.
+    // The key is still required and validated; a retry simply asks again.
+    if (/^(\/api)?\/v1\/voice\/ask\/stream$/.test(c.req.path)) return next();
+
     // The device-token mint answers with a secret: never persist that response for replay.
     if (/^(\/api)?\/v1\/voice\/device-token$/.test(c.req.path)) return next();
 
