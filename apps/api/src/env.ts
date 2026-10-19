@@ -75,6 +75,13 @@ const EnvSchema = z.object({
   /** whsec_... signing secret returned once by POST /v1/webhooks (scripts/nerova/register-approval-webhook.mjs). Verifies POST /webhooks/nerova. Empty = route answers 503 */
   NEROVA_WEBHOOK_SECRET: optional,
 
+  /** Support inbox alert for new owner support requests (Resend). All three set = emails sent; any empty = log only */
+  RESEND_API_KEY: optional,
+  /** Clovie support inbox that receives the alert */
+  SUPPORT_ALERT_EMAIL: optional,
+  /** Verified Resend sender, e.g. "Clovie alerts <alerts@getclovie.app>" */
+  SUPPORT_ALERT_FROM: optional,
+
   /** "true" enables POST /v1/voice/transcriptions (proxy to Nerova speech-to-text). Off = 503 TRANSCRIPTION_UNAVAILABLE. */
   VOICE_CLOUD_STT: optional,
 
