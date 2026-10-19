@@ -13,13 +13,6 @@ jest.mock('lucide-react-native', () => {
   return new Proxy({}, { get: () => View });
 });
 
-function styleOf(tree: ReturnType<typeof render>) {
-  const node = tree.root.find(
-    (n) => n.props.testID === 'p' && typeof n.props.style === 'object',
-  );
-  return node.props.style as Record<string, unknown>;
-}
-
 describe('Pressable press feedback', () => {
   const flatStyle = (tree: ReturnType<typeof render>) => {
     return (StyleSheet.flatten(node(tree).props.style) ?? {}) as Record<
