@@ -12,6 +12,8 @@ const RULES = `${MARKER}
 # Kotlin metadata for reflection-based Expo module definitions
 -keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod, RuntimeVisibleAnnotations
 -keep class kotlin.Metadata { *; }
+# kotlinx-io (pulled in by Clerk) references a Kotlin annotation absent from our stdlib version
+-dontwarn kotlin.MustUseReturnValues
 # --- end clovie keep rules ---
 `;
 

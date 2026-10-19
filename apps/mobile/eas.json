@@ -17,14 +17,20 @@
       "channel": "preview",
       "environment": "preview",
       "env": { "APP_VARIANT": "preview" },
-      "android": { "buildType": "apk" }
+      "android": { "buildType": "apk" },
+      "buildArtifactPaths": [
+        "android/app/build/outputs/mapping/release/mapping.txt"
+      ]
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "environment": "production",
       "env": { "APP_VARIANT": "production" },
-      "android": { "buildType": "app-bundle" }
+      "android": { "buildType": "app-bundle" },
+      "buildArtifactPaths": [
+        "android/app/build/outputs/mapping/release/mapping.txt"
+      ]
     }
   },
   "submit": {

@@ -50,6 +50,15 @@
           "appleSignIn": false
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
       "./plugins/with-dev-menu-no-fab.cjs",
       "./plugins/with-clovie-voice.cjs",
       "./plugins/with-clovie-proguard.cjs"
