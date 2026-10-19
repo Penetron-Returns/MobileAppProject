@@ -148,8 +148,8 @@ interface StoriesRowProps {
  * The stories row: skeleton rings while loading, an inline retry on failure,
  * otherwise a ring per story. It reserves one fixed height from the first
  * frame, so nothing below it shifts when the stories arrive; it never collapses:
- * a kind with nothing to show keeps a quiet placeholder story saying so. The Guide story
- * always closes the row. Client-side stories (`local:` ids) never reach the
+ * a kind with nothing to show keeps a quiet placeholder story saying so. "Get set up"
+ * leads the row until setup is complete; the Guide story always closes it. Client-side stories (`local:` ids) never reach the
  * backend callbacks. A press
  * opens the viewer at once from the frame measured as the finger landed.
  */
@@ -221,9 +221,8 @@ export const StoriesRow = React.memo(function StoriesRow({
   } else if (isFailed) {
     body = <LoadErrorRow onRetry={onRetry ?? noop} />;
   } else {
-    // "Get set up" sits right after Business update, i.e. before Product updates.
-    const productAt = base.findIndex((s) => s.kind === 'product');
-    const setupAt = productAt === -1 ? base.length : productAt;
+    // "Get set up" leads the row while setup is incomplete; useSetupStory is
+    // the single source of truth and renders nothing once every step is done.
     const setupRing = isSettled ? <SetupRing key="get-set-up" /> : null;
     body = (
       <ScrollView
@@ -234,13 +233,10 @@ export const StoriesRow = React.memo(function StoriesRow({
         accessibilityLabel={t('stories.listLabel')}
         contentContainerClassName="gap-2 px-4"
       >
-        {base.map((story, index) => (
-          <React.Fragment key={story.id}>
-            {index === setupAt ? setupRing : null}
-            <StoryRing story={story} onPress={onOpen} />
-          </React.Fragment>
+        {setupRing}
+        {base.map((story) => (
+          <StoryRing key={story.id} story={story} onPress={onOpen} />
         ))}
-        {setupAt === base.length ? setupRing : null}
         {guide.isLoaded ? (
           <StoryRing key={GUIDE_STORY_ID} story={guideStory} onPress={onOpen} />
         ) : null}

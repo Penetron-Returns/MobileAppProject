@@ -54,12 +54,35 @@ describe('StoriesRow', () => {
     expect(scroll.props.style).toMatchObject({ flexGrow: 0 });
   });
 
-  it('puts Get set up right after Business update for an owner with items left', () => {
+  it('puts Get set up first, before Brief, for an owner with items left', () => {
     mockSetup = { done: 4, total: 7, open: mockOpen };
     const all = labels(row());
-    const business = all.findIndex((l) => l.startsWith('Business update'));
-    expect(all[business + 1]).toBe('Get set up, 4 of 7 done');
-    expect(all[business + 2]).toMatch(/^Product updates/);
+    expect(all[0]).toBe('Get set up, 4 of 7 done');
+    expect(all[1]).toMatch(/^Brief/);
+    expect(all.filter((l) => l.startsWith('Get set up'))).toHaveLength(1);
+  });
+
+  it('keeps Get set up first when every story is viewed but setup is incomplete', () => {
+    mockSetup = { done: 6, total: 7, open: mockOpen };
+    const viewed = SAMPLE_STORIES.map((s) => ({ ...s, viewed: true }));
+    const tree = mount(
+      <StoriesRow
+        stories={viewed}
+        isLoading={false}
+        onViewed={jest.fn()}
+        onEvent={jest.fn()}
+        onAction={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+    expect(labels(tree)[0]).toBe('Get set up, 6 of 7 done');
+  });
+
+  it('removes Get set up, with no placeholder, once setup is complete', () => {
+    mockSetup = null;
+    const all = labels(row());
+    expect(all.some((l) => /set up/i.test(l))).toBe(false);
+    expect(all[0]).toMatch(/^Brief/);
   });
 
   it('opens the full checklist on tap', () => {
@@ -89,10 +112,10 @@ describe('StoriesRow', () => {
     );
     await settle();
     expect(labels(tree)).toEqual([
+      'Get set up, 0 of 7 done',
       'Brief, viewed',
       'Client updates, viewed',
       'Business update, viewed',
-      'Get set up, 0 of 7 done',
       "What's new, viewed",
       'Guide, new',
     ]);
