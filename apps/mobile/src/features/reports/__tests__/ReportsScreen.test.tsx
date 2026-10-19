@@ -63,7 +63,7 @@ function result(rows: ReportRow[], over: Record<string, unknown> = {}) {
 const SAMPLE = [
   row({ price_cents: 250_000, source: 'whatsapp', client_id: 'a' }),
   row({ price_cents: 150_000, source: 'app', client_id: 'b' }),
-  row({ source: 'nerova', status: 'no_show', client_id: 'c' }),
+  row({ source: 'legacy', status: 'no_show', client_id: 'c' }),
   row({ source: 'web', status: 'cancelled', client_id: 'd' }),
   // Previous month, same span: gives the delta something to compare with.
   row({ starts_at: '2026-09-10T08:00:00Z', price_cents: 200_000 }),

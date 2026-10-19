@@ -24,8 +24,6 @@ import { View } from 'react-native';
 
 import { useSignOut } from '@/features/auth/useSignOut';
 import { useMe } from '@/features/business/me';
-import { useEntitlements } from '@/features/plans/hooks';
-import { GetSetUpRow } from '@/features/setup-checklist/components/GetSetUpRow';
 
 import {
   appVersionLabel,
@@ -33,9 +31,7 @@ import {
   settingsGroups,
   type SettingsItem,
 } from '../navigation';
-import { usePrefetchSettingsScreens } from '../usePrefetchSettingsScreens';
 import { useSettingsRows, type RowModel } from '../useSettingsRows';
-import { CompanionGlyph } from './CompanionGlyph';
 
 const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   businessDetails: GLYPHS.store,
@@ -43,10 +39,8 @@ const GLYPH_FOR: Record<SettingsItem, GlyphComponent> = {
   services: GLYPHS.scissors,
   rules: GLYPHS.sliders,
   team: GLYPHS.team,
-  clovie: CompanionGlyph,
   whatsapp: GLYPHS.chat,
   notifications: GLYPHS.bell,
-  plan: GLYPHS.card,
   appearance: GLYPHS.moon,
   haptics: GLYPHS.sliders,
   deleteAccount: GLYPHS.trash,
@@ -142,8 +136,6 @@ export function SettingsScreen() {
   const { organization } = useOrganization();
   const me = useMe();
   const rows = useSettingsRows();
-  const { hasClovie } = useEntitlements();
-  usePrefetchSettingsScreens();
   const userName =
     user?.fullName || user?.primaryEmailAddress?.emailAddress || '';
   const title = organization?.name ?? userName;
@@ -175,9 +167,7 @@ export function SettingsScreen() {
         </View>
       </Pressable>
 
-      {hasClovie ? <GetSetUpRow /> : null}
-
-      {settingsGroups(hasClovie).map((group, index) => (
+      {settingsGroups().map((group, index) => (
         <Reveal key={group.id} scope="settings" index={index}>
           <SectionTitle>{t(`settings.groups.${group.id}`)}</SectionTitle>
           <Group radius={26}>

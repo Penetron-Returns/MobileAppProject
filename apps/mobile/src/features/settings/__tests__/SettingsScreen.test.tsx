@@ -11,9 +11,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SettingsScreen } from '../components/SettingsScreen';
 import { settingsGroups } from '../navigation';
 
-jest.mock('@/features/setup-checklist/components/GetSetUpRow', () => ({
-  GetSetUpRow: () => null,
-}));
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy({}, { get: () => View });
@@ -43,14 +40,10 @@ jest.mock('@clerk/expo', () => ({
 
 type Role = 'owner' | 'staff';
 interface MockMe {
-  data:
-    { role: Role; plan?: string; features?: { feature: string }[] } | undefined;
+  data: { role: Role } | undefined;
   isPending: boolean;
 }
-const mockMe: MockMe = {
-  data: { role: 'owner', plan: 'free', features: [] },
-  isPending: false,
-};
+const mockMe: MockMe = { data: { role: 'owner' }, isPending: false };
 jest.mock('@/features/business/me', () => ({
   useMe: () => mockMe,
   useCanManage: () => mockMe.data?.role !== 'staff',
@@ -73,33 +66,11 @@ jest.mock('../hooks', () => ({
   useBookingRules: () => ({ data: { lead_time_minutes: 60 } }),
 }));
 
-const mockSetup = {
-  data: {
-    companion_live: true,
-    whatsapp: {
-      connected: false,
-      state: 'not_connected',
-      display_phone_number: null,
-    },
-  },
-};
-const mockSetupEnabled = jest.fn();
-jest.mock('@/features/companion/hooks', () => ({
-  useCompanionSetup: (opts: { enabled: boolean }) => {
-    mockSetupEnabled(opts.enabled);
-    return mockSetup;
-  },
-}));
-
 let mockChannel: { data: Record<string, unknown> | undefined } = {
   data: undefined,
 };
-const mockChannelEnabled = jest.fn();
 jest.mock('../useWhatsAppChannel', () => ({
-  useWhatsAppChannel: (opts: { enabled: boolean }) => {
-    mockChannelEnabled(opts.enabled);
-    return mockChannel;
-  },
+  useWhatsAppChannel: () => mockChannel,
 }));
 
 jest.mock('@/features/auth/useSignOut', () => ({
@@ -151,48 +122,26 @@ const ALL_ROWS = [
   'Services',
   'Booking rules',
   'Team',
-  'Clovie',
   'WhatsApp',
-  'Plan',
   'Notifications',
   'Appearance',
   'Haptic feedback',
   'Delete account',
 ];
-const HEADINGS = ['Your business', 'Clovie and WhatsApp', 'Account'];
-
-const asOwner = (plan: string, features: string[] = []) => {
-  mockMe.data = {
-    role: 'owner',
-    plan,
-    features: features.map((feature) => ({ feature })),
-  };
-};
+const HEADINGS = ['Your business', 'WhatsApp', 'Account'];
 
 beforeEach(() => {
   jest.clearAllMocks();
-  asOwner('growth', ['companion']);
+  mockMe.data = { role: 'owner' };
   mockChannel = { data: undefined };
-  mockSetup.data.whatsapp.connected = false;
 });
 
-describe('Settings on Free (no Clovie)', () => {
-  beforeEach(() => {
-    asOwner('free', ['inbox', 'whatsapp_menu']);
-    mockChannel = { data: undefined };
-  });
-
-  it('hides Clovie and does not ask Nerova for the companion setup', () => {
-    const out = text(mount());
-    expect(out).not.toContain('Clovie |');
-    expect(out).not.toContain('Clovie and WhatsApp');
-    expect(mockSetupEnabled).toHaveBeenCalledWith(false);
-    expect(mockSetupEnabled).not.toHaveBeenCalledWith(true);
-    expect(mockChannelEnabled).toHaveBeenCalledWith(true);
-  });
-
+describe('The WhatsApp row', () => {
   it.each([
-    [{ status: 'live', display_phone: '+27821234567' }, 'Connected · +27 82 123 4567'],
+    [
+      { status: 'live', display_phone: '+27821234567' },
+      'Connected · +27 82 123 4567',
+    ],
     [{ status: 'paused', display_phone: '+27821234567' }, 'Paused'],
     [{ status: 'pending', display_phone: null }, 'Pending'],
     [{ status: 'needs_reauth', display_phone: null }, 'Needs reconnecting'],
@@ -204,7 +153,9 @@ describe('Settings on Free (no Clovie)', () => {
   });
 
   it('leaves the WhatsApp row bare until the channel status has loaded', () => {
-    expect(text(mount())).not.toContain('WhatsApp |');
+    expect(text(mount())).not.toMatch(
+      /WhatsApp | (Connected|Paused|Pending|Needs|Not connected)/,
+    );
   });
 });
 
@@ -219,8 +170,6 @@ describe('Settings as owner', () => {
     expect(out).toContain('Services | 14');
     expect(out).toContain('Booking rules | 1 hour notice');
     expect(out).toContain('Team | 4');
-    expect(out).toContain('WhatsApp | Not connected');
-    expect(out).toContain('Plan | Growth');
     expect(out).toContain('Sign out');
     expect(out).toContain('Clovie 1.0.0 (24)');
   });
@@ -238,8 +187,6 @@ describe('Settings as owner', () => {
     const tree = mount();
     act(() => pressable(tree, 'Team, 4')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/team');
-    act(() => pressable(tree, 'Plan, Growth')?.props.onPress());
-    expect(mockPush).toHaveBeenCalledWith('/settings/plan');
     act(() => pressable(tree, 'Delete account')?.props.onPress());
     expect(mockPush).toHaveBeenCalledWith('/settings/delete-account');
   });
@@ -259,29 +206,6 @@ describe('Settings as owner', () => {
   it('has a haptic feedback switch', () => {
     expect(hasSwitch(mount(), 'Haptic feedback')).toBe(true);
   });
-});
-
-describe('Settings as owner of a business with a plan', () => {
-  it('shows Clovie as Live and WhatsApp from the companion setup', () => {
-    const tree = mount();
-    act(() => pressable(tree, 'Clovie, Live')?.props.onPress());
-    expect(text(tree)).toContain('Clovie | Live');
-    expect(mockPush).toHaveBeenCalledWith('/settings/companion');
-    expect(mockPush).not.toHaveBeenCalledWith('/companion');
-  });
-
-  it('reads Connected once the number is connected', () => {
-    mockSetup.data.whatsapp.connected = true;
-    expect(text(mount())).toContain('WhatsApp | Connected');
-  });
-
-  it.each(['none', 'free'])(
-    'never says Free, even for a leftover %s plan',
-    (plan) => {
-      asOwner(plan);
-      expect(text(mount())).not.toMatch(/free/i);
-    },
-  );
 });
 
 describe('Settings as staff', () => {
@@ -325,40 +249,14 @@ describe('No row ever disappears', () => {
   };
 
   it.each([
-    ['owner on a paid plan', () => asOwner('growth', ['companion'])],
-    [
-      'staff of a paid business',
-      () => {
-        mockMe.data = {
-          role: 'staff',
-          plan: 'growth',
-          features: [{ feature: 'companion' }],
-        };
-      },
-    ],
+    ['an owner', () => (mockMe.data = { role: 'owner' })],
+    ['staff', () => (mockMe.data = { role: 'staff' })],
+    ['a role that has not loaded', () => (mockMe.data = undefined)],
   ])('keeps all rows for %s', (_name, setup) => {
     expect(rowsFor(setup)).toEqual(ALL_ROWS);
   });
 
-  it.each([
-    ['an owner on Free', () => asOwner('free', ['inbox', 'whatsapp_menu'])],
-    [
-      'staff on Free',
-      () => {
-        mockMe.data = { role: 'staff', plan: 'free', features: [] };
-      },
-    ],
-    [
-      'a role that has not loaded',
-      () => {
-        mockMe.data = undefined;
-      },
-    ],
-  ])('drops only the Clovie row for %s', (_name, setup) => {
-    expect(rowsFor(setup)).toEqual(ALL_ROWS.filter((r) => r !== 'Clovie'));
-  });
-
-  it('is one list whatever the role, platform or plan', () => {
+  it('is one list whatever the role', () => {
     expect(settingsGroups().flatMap((g) => g.items)).toHaveLength(
       ALL_ROWS.length,
     );

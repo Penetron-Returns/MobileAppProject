@@ -1,9 +1,7 @@
 import type { AttendanceCheckDTO } from '@booking/types';
-import type { Approval } from '@nerova/react-native';
 
 import {
   attendanceIdempotencyKey,
-  mergeNeedsYou,
   parseAttendancePush,
   questionValues,
   withoutCheck,
@@ -25,8 +23,6 @@ function check(id: string, createdAt: string): AttendanceCheckDTO {
     ends_at: '2026-10-14T13:00:00.000Z',
   };
 }
-
-const approval = { id: 'ap1', title: 'Cancel Sam' } as Approval;
 
 describe('attendanceIdempotencyKey', () => {
   it('is deterministic per question and answer', () => {
@@ -70,27 +66,6 @@ describe('parseAttendancePush', () => {
     ],
   ])('rejects %s', (_label, input) => {
     expect(parseAttendancePush(input)).toBeNull();
-  });
-});
-
-describe('mergeNeedsYou', () => {
-  it('puts attendance first, oldest first, then approvals', () => {
-    const merged = mergeNeedsYou(
-      [approval],
-      [
-        check('c2', '2026-10-14T15:00:00Z'),
-        check('c1', '2026-10-14T14:00:00Z'),
-      ],
-    );
-    expect(merged.map((i) => `${i.kind}:${i.id}`)).toEqual([
-      'attendance:c1',
-      'attendance:c2',
-      'approval:ap1',
-    ]);
-  });
-
-  it('is empty when nothing needs the owner', () => {
-    expect(mergeNeedsYou([], [])).toEqual([]);
   });
 });
 

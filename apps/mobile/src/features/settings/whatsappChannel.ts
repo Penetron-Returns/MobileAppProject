@@ -2,11 +2,7 @@ import type { WhatsAppChannelDTO } from '@booking/types';
 
 /** What the owner sees for the WhatsApp number of the booking menu. */
 export type ChannelPill =
-  | 'live'
-  | 'pending'
-  | 'paused'
-  | 'needs_reauth'
-  | 'not_connected';
+  'live' | 'pending' | 'paused' | 'needs_reauth' | 'not_connected';
 
 /** `disconnected` and no account at all read the same: nothing is connected. */
 export function channelPill(

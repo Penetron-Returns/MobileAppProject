@@ -9,13 +9,6 @@ import {
   StaffScene,
 } from './bookingRules';
 import {
-  AskScene,
-  AttendanceScene,
-  StatusScene,
-  UndoScene,
-  VoiceScene,
-} from './clovie';
-import {
   HolidayScene,
   PushScene,
   RemindScene,
@@ -35,11 +28,6 @@ export const SCENES = {
   holiday: HolidayScene,
   push: PushScene,
   remind: RemindScene,
-  cstatus: StatusScene,
-  cask: AskScene,
-  cundo: UndoScene,
-  catt: AttendanceScene,
-  cvoice: VoiceScene,
 } satisfies Record<string, ComponentType<SceneProps>>;
 
 export type SceneId = keyof typeof SCENES;

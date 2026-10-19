@@ -188,11 +188,11 @@ describe('staff, sources and busiest times', () => {
     ]);
   });
 
-  it('merges app, companion and legacy web bookings into Clovie', () => {
+  it('merges app and legacy bookings into Clovie', () => {
     const r = report([
       row({ source: 'whatsapp' }),
       row({ source: 'app' }),
-      row({ source: 'nerova' }),
+      row({ source: 'legacy' }),
       row({ source: 'web' }),
       row({ source: 'whatsapp', status: 'cancelled' }),
     ]);

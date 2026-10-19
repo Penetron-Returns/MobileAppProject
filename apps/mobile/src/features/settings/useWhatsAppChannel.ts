@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { qk, useApiMutation } from '@/lib/query';
 
-/** The channel status from `GET /v1/whatsapp`: the booking menu's own number, no companion involved. */
+/** The channel status from `GET /v1/whatsapp`: the booking menu's own number. */
 export function useWhatsAppChannel(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: qk.whatsappChannel,

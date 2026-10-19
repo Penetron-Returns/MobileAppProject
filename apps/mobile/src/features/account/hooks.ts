@@ -3,10 +3,6 @@ import { useClerk } from '@clerk/expo';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 
-import {
-  clearDeviceToken,
-  defaultDeviceTokenDeps,
-} from '@/features/voice/deviceToken';
 import { api } from '@/lib/api';
 import { qk, queryClient, useApiMutation } from '@/lib/query';
 
@@ -35,9 +31,6 @@ export function useDeleteAccount(onDone: () => void) {
       ),
     onSuccess: () => {
       void (async () => {
-        await clearDeviceToken(defaultDeviceTokenDeps(), {
-          revokeRemote: false,
-        }).catch(() => undefined);
         await signOut().catch(() => undefined);
         queryClient.clear();
         onDone();

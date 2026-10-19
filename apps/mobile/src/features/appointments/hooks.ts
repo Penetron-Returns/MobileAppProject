@@ -117,7 +117,7 @@ export function usePrefetchAppointment() {
   );
 }
 
-const APPOINTMENT_KEYS = [qk.appointments, qk.dashboardAll, qk.clients];
+const APPOINTMENT_KEYS = [qk.appointments, qk.clients];
 
 export function useCheckInAppointment(opts: { onSuccess?: () => void } = {}) {
   return useApiMutation<string>({

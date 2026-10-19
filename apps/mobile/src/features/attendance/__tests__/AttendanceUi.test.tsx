@@ -1,8 +1,6 @@
 import type { AttendanceCheckDTO, MeDTO } from '@booking/types';
-import type { Approval } from '@nerova/react-native';
 import * as React from 'react';
 
-import { NeedsYou } from '@/features/today/components/ai/NeedsYou';
 import { ApiError } from '@/lib/api';
 import { act, flush, mount, pressableByLabel, text } from '@/testing/render';
 
@@ -39,8 +37,6 @@ jest.mock('@/features/business/me', () => ({
   useCanManage: () => mockCanManage,
 }));
 
-const TZ = 'Africa/Johannesburg';
-
 function check(id: string, name: string, startsAt: string): AttendanceCheckDTO {
   return {
     id,
@@ -59,74 +55,12 @@ function check(id: string, name: string, startsAt: string): AttendanceCheckDTO {
 }
 
 const thandi = check('c1', 'Thandi', '2026-10-14T12:00:00.000Z'); // 14:00
-const sam = check('c2', 'Sam', '2026-10-14T13:00:00.000Z');
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockAnswer.mockResolvedValue({});
   mockCanManage = true;
   mockMe = {};
-});
-
-describe('NeedsYou with attendance', () => {
-  function render(
-    attendance: AttendanceCheckDTO[],
-    onAnswer = jest.fn(),
-    onOpen = jest.fn(),
-    pending: Approval[] = [],
-  ) {
-    return mount(
-      <NeedsYou
-        pending={pending}
-        attendance={attendance}
-        timezone={TZ}
-        busyId={null}
-        onApprove={jest.fn()}
-        onAnswerAttendance={onAnswer}
-        onOpenAttendance={onOpen}
-        onOpenClovie={jest.fn()}
-      />,
-    );
-  }
-
-  it('shows the question as the amber Needs you card', () => {
-    const tree = render([thandi]);
-    const out = text(tree);
-    expect(out).toContain('Needs you · 1');
-    expect(out).toContain('Did Thandi make it to their 14:00 cut?');
-    expect(out).not.toContain('Approve');
-  });
-
-  it('answers Came and No-show with the question that was shown', () => {
-    const onAnswer = jest.fn();
-    const tree = render([thandi], onAnswer);
-    act(() => pressableByLabel(tree, 'Mark Thandi as came').props.onPress());
-    act(() =>
-      pressableByLabel(tree, 'Mark Thandi as a no-show').props.onPress(),
-    );
-    expect(onAnswer).toHaveBeenNthCalledWith(1, thandi, 'came');
-    expect(onAnswer).toHaveBeenNthCalledWith(2, thandi, 'no_show');
-  });
-
-  it('counts approvals and offers the grouped list when several clients wait', () => {
-    const onOpen = jest.fn();
-    const tree = render([sam, thandi], jest.fn(), onOpen, [
-      { id: 'ap1', title: 'Cancel Lee' } as Approval,
-    ]);
-    expect(text(tree)).toContain('Needs you · 3');
-    expect(text(tree)).toContain('Thandi make it'); // oldest first
-    act(() => pressableByLabel(tree, '2 clients to confirm').props.onPress());
-    expect(onOpen).toHaveBeenCalled();
-  });
-
-  it('hides the grouped link for a single client', () => {
-    const tree = render([thandi]);
-    expect(() => pressableByLabel(tree, '1 client to confirm')).toThrow();
-  });
-
-  it('shows the all-clear when nothing is waiting', () => {
-    expect(text(render([]))).toContain('Nothing needs you');
-  });
 });
 
 describe('useAttendance', () => {
