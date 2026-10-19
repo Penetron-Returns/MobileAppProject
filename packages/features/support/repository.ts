@@ -27,6 +27,11 @@ export function createSupabaseSupportRepository(db: Db): SupportRequestsReposito
       if (error) return fail(error);
       return (data ?? []).map((u) => u.id);
     },
+    async getBusinessName(businessId) {
+      const { data, error } = await db.from('businesses').select('name').eq('id', businessId).maybeSingle();
+      if (error) return fail(error);
+      return data?.name ?? null;
+    },
     async open(input) {
       const { data, error } = await db
         .from('support_requests')

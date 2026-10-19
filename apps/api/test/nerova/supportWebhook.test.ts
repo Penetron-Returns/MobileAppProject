@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { signStandardWebhook } from '@booking/companion/events/events.ts';
 import type { SupportDeps } from '@booking/companion/support/supportEscalation.ts';
+import type { SupportAlert } from '@booking/features/support/ports.ts';
 import type { AttendancePushMessage } from '@booking/features/attendance/ports.ts';
 import { createFakeSupportRepository, type FakeSupportRepository } from '@booking/testing/supportRequests.ts';
 import { createApp } from '../../src/app.ts';
@@ -15,14 +16,18 @@ const SUMMARY = 'My WhatsApp number says restricted and I cannot send reminders'
 let s: Seed;
 let support: FakeSupportRepository;
 let pushes: { userIds: string[]; message: AttendancePushMessage }[];
+let alerts: SupportAlert[];
+let alertFails: boolean;
 let logs: { event: string; fields: unknown }[];
 let app: ReturnType<typeof createApp>;
 let seq = 0;
 
 beforeEach(() => {
   s = seed();
-  support = createFakeSupportRepository({ accounts: { [ACCOUNT]: s.business.id }, ownerIds: { [s.business.id]: ['user_owner'] } });
+  support = createFakeSupportRepository({ accounts: { [ACCOUNT]: s.business.id }, ownerIds: { [s.business.id]: ['user_owner'] }, businessNames: { [s.business.id]: 'Harbour Salon' } });
   pushes = [];
+  alerts = [];
+  alertFails = false;
   logs = [];
   const log = (event: string, fields?: unknown) => logs.push({ event, fields });
   const supportDeps: SupportDeps = {
@@ -35,6 +40,12 @@ beforeEach(() => {
     },
     logger: { debug: log, info: log, warn: log, error: log } as unknown as SupportDeps['logger'],
     clock: () => NOW,
+    alerts: {
+      async send(alert) {
+        if (alertFails) throw new Error('resend down');
+        alerts.push(alert);
+      },
+    },
   };
   const container = { ...testContainer({ clock: () => NOW, env: { ...TEST_ENV, NEROVA_WEBHOOK_SECRET: SECRET } }), bookingRepository: s.repo, supportDeps } as BookingContainer;
   app = createApp({ getContainer: () => container, idempotencyStore: () => memoryIdempotencyStore() });
@@ -119,5 +130,54 @@ describe('POST /webhooks/nerova owner_support escalations', () => {
     expect(res).toEqual({ status: 200, body: { data: { status: 'ignored' } } });
     expect(support.rows).toHaveLength(0);
     expect(pushes).toHaveLength(0);
+  });
+});
+
+describe('POST /webhooks/nerova support alert email', () => {
+  const finalPayload = (over: Record<string, unknown> = {}) =>
+    raised({
+      category: 'whatsapp_connection',
+      reason: 'number restricted',
+      status: 'open',
+      raisedAt: '2026-10-19T10:00:00.000Z',
+      escalation: { id: 'esc_9' },
+      someNewField: 'tolerated',
+      ...over,
+    });
+
+  it('sends one alert with business, category, reason, health and escalation id for a new request', async () => {
+    const res = await deliver(envelope('escalation.raised', finalPayload()));
+    expect(res.status).toBe(200);
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({
+      businessId: s.business.id,
+      businessName: 'Harbour Salon',
+      category: 'whatsapp_connection',
+      reason: 'number restricted',
+      summary: SUMMARY,
+      raisedAt: '2026-10-19T10:00:00.000Z',
+      escalationId: 'esc_9',
+      healthSummary: 'status restricted, quality red, verification unknown, billing payment method missing',
+    });
+  });
+
+  it('does not send again for a replayed webhook', async () => {
+    await deliver(envelope('escalation.raised', finalPayload()), 'evt_alert_dup');
+    await deliver(envelope('escalation.raised', finalPayload()), 'evt_alert_dup');
+    expect(alerts).toHaveLength(1);
+  });
+
+  it('does not send for an unknown account or for a resolve', async () => {
+    await deliver(envelope('escalation.raised', finalPayload({ accountId: 'acct_unknown' })));
+    await deliver(envelope('escalation.resolved', { accountId: ACCOUNT, source: 'owner_support' }));
+    expect(alerts).toHaveLength(0);
+  });
+
+  it('still answers 200, stores the request and logs a warning when the sender throws', async () => {
+    alertFails = true;
+    const res = await deliver(envelope('escalation.raised', finalPayload()));
+    expect(res).toEqual({ status: 200, body: { data: { status: 'accepted' } } });
+    expect(support.rows).toHaveLength(1);
+    expect(logs.some((l) => l.event === 'support_alert_failed')).toBe(true);
   });
 });

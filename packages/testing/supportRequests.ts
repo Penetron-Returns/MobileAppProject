@@ -14,6 +14,8 @@ export function createFakeSupportRepository(options: {
   /** acct_ id -> business id */
   accounts?: Record<string, string>;
   ownerIds?: Record<string, string[]>;
+  /** business id -> name */
+  businessNames?: Record<string, string>;
   clock?: () => Date;
 } = {}): FakeSupportRepository {
   const accounts = options.accounts ?? {};
@@ -26,6 +28,9 @@ export function createFakeSupportRepository(options: {
     },
     async listOwnerIds(businessId) {
       return options.ownerIds?.[businessId] ?? [];
+    },
+    async getBusinessName(businessId) {
+      return options.businessNames?.[businessId] ?? null;
     },
     async open(input: NewSupportRequest) {
       seq += 1;

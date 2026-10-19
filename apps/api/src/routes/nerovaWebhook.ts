@@ -7,7 +7,7 @@
  * acknowledged and logged (enum values only, no PII): nothing is stored and no push is sent, the app refetches
  * the setup (which carries the health) on focus and pull-to-refresh. `escalation.raised` / `escalation.resolved` with
  * source `owner_support` open / close a row in `support_requests` (a malformed one is a 400; other sources are only
- * logged). Everything else is ignored.
+ * logged), and a new request also emails the support inbox (Resend, best effort). Everything else is ignored.
  */
 import { Hono } from 'hono';
 import type { z } from 'zod';
@@ -25,11 +25,14 @@ import {
   isOwnerSupport,
   notifyOwnerSupportReceived,
   openSupportRequest,
+  sendSupportAlert,
   resolveSupportRequests,
   supportRaisedSchema,
   supportResolvedSchema,
   type SupportDeps,
 } from '@booking/companion/support/supportEscalation.ts';
+import { createSupportAlertSender } from '@booking/companion/support/alertSender.ts';
+import type { SupportAlert } from '@booking/features/support/ports.ts';
 import { createSupabaseSupportRepository } from '@booking/features/support/repository.ts';
 import { verifyStandardWebhook } from '@booking/companion/webhooks/verifyStandardWebhook.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
@@ -43,7 +46,7 @@ type ApprovalContainer = Container & { approvalPush?: ApprovalPushDeps; actionPu
 function supportDeps(container: ApprovalContainer): SupportDeps {
   if (container.supportDeps) return container.supportDeps;
   const { push, logger } = approvalPushDeps(container);
-  return { repo: createSupabaseSupportRepository(container.db), push, logger, clock: container.clock };
+  return { repo: createSupabaseSupportRepository(container.db), push, logger, clock: container.clock, alerts: createSupportAlertSender(container.env, logger) };
 }
 
 type SupportEvent =
@@ -156,9 +159,10 @@ nerovaWebhookRoutes.post('/', async (c) => {
   if (support) {
     const deps = supportDeps(container);
     let businessId: string | null = null;
+    let alert: SupportAlert | null = null;
     try {
       if (support.type === 'escalation.raised') {
-        businessId = (await openSupportRequest(deps, support.event)).businessId;
+        ({ businessId, alert } = await openSupportRequest(deps, support.event));
       } else {
         await resolveSupportRequests(deps, support.event);
       }
@@ -169,6 +173,8 @@ nerovaWebhookRoutes.post('/', async (c) => {
     }
     await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });
     if (businessId) runInBackground(() => notifyOwnerSupportReceived(deps, businessId as string), logger, 'nerova_support_push_failed');
+    // New requests only: a replayed webhook returned 'duplicate' above, before reaching here.
+    if (alert) runInBackground(() => sendSupportAlert(deps, alert as SupportAlert), logger, 'nerova_support_alert_failed');
     return c.json({ data: { status: 'accepted' } });
   }
 
