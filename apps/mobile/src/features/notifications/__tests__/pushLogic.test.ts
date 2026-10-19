@@ -1,6 +1,8 @@
 import {
   decidePushAction,
   isPushEnabled,
+  isTokenRotation,
+  shouldRegisterToken,
   type PushDecisionInput,
   type PushPermission,
 } from '../pushLogic';
@@ -66,5 +68,27 @@ describe('isPushEnabled', () => {
     ['undetermined', false, false],
   ])('permission %s, opted out %s -> %s', (permission, optedOut, expected) => {
     expect(isPushEnabled(permission, optedOut)).toBe(expected);
+  });
+});
+
+describe('isTokenRotation', () => {
+  it.each([
+    [null, 'a', false],
+    ['a', 'a', false],
+    ['a', 'b', true],
+  ])('last %s next %s -> %s', (last, next, expected) => {
+    expect(isTokenRotation(last, next)).toBe(expected);
+  });
+});
+
+describe('shouldRegisterToken', () => {
+  const last = { token: 'a', at: 1_000 };
+  it.each([
+    [null, 'a', 1_000, true],
+    [last, 'a', 2_000, false],
+    [last, 'b', 2_000, true],
+    [last, 'a', 1_000 + 300_000, true],
+  ])('last %j token %s now %s -> %s', (l, token, now, expected) => {
+    expect(shouldRegisterToken(l, token, now)).toBe(expected);
   });
 });

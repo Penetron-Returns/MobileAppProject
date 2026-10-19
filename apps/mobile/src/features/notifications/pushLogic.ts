@@ -39,3 +39,29 @@ export function isPushEnabled(
 ): boolean {
   return permission === 'granted' && !optedOut;
 }
+
+/**
+ * Whether a push-token event means Expo rotated the token. Fetching the Expo token itself re-emits the
+ * unchanged device token, so re-registering on every event loops forever (one request storm per second).
+ */
+export function isTokenRotation(
+  lastSeen: string | null,
+  next: string,
+): boolean {
+  return lastSeen !== null && lastSeen !== next;
+}
+
+export const PUSH_REGISTER_MIN_GAP_MS = 5 * 60_000;
+
+/**
+ * Backstop against any re-registration loop: the same token is not sent to the API again within the
+ * gap. Registering is idempotent server-side, so skipping is lossless; a new token always goes through.
+ */
+export function shouldRegisterToken(
+  last: { token: string; at: number } | null,
+  token: string,
+  now: number,
+  minGapMs: number = PUSH_REGISTER_MIN_GAP_MS,
+): boolean {
+  return !last || last.token !== token || now - last.at >= minGapMs;
+}

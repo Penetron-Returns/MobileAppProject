@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 import { api, newIdempotencyKey } from '@/lib/api';
 
-import type { PushPermission } from './pushLogic';
+import { shouldRegisterToken, type PushPermission } from './pushLogic';
 import { pushStore } from './pushStore';
 
 export type DevicePlatform = 'ios' | 'android' | 'web';
@@ -46,8 +46,12 @@ export async function fetchPushToken(): Promise<string> {
   return token.data;
 }
 
+let lastRegistered: { token: string; at: number } | null = null;
+
 /** Idempotent: the API upserts per token, so calling this on every start is safe. */
 export async function registerPushToken(token: string): Promise<void> {
+  if (!shouldRegisterToken(lastRegistered, token, Date.now())) return;
+  lastRegistered = { token, at: Date.now() };
   await api.registerDevice(
     { token, platform: Platform.OS as DevicePlatform },
     newIdempotencyKey(),
@@ -65,4 +69,5 @@ export async function unregisterPushToken(): Promise<void> {
     return; // keep the stored token so the next sign-out or switch-off retries
   }
   await pushStore.setToken(null);
+  lastRegistered = null;
 }

@@ -9,7 +9,7 @@ import {
   registerPushToken,
   requestPushPermission,
 } from './pushDevice';
-import { decidePushAction } from './pushLogic';
+import { decidePushAction, isTokenRotation } from './pushLogic';
 import { pushStore } from './pushStore';
 
 async function registerQuietly(): Promise<void> {
@@ -27,18 +27,27 @@ async function registerQuietly(): Promise<void> {
  */
 export function usePushRegistration(enabled: boolean) {
   const [primerOpen, setPrimerOpen] = React.useState(false);
+  const isEvaluating = React.useRef(false);
+  const lastDeviceToken = React.useRef<string | null>(null);
 
   const evaluate = React.useCallback(async () => {
-    const action = decidePushAction({
-      permission: await getPushPermission(),
-      signedIn: true,
-      hasBusiness: true,
-      canReceivePush,
-      optedOut: await pushStore.isOptedOut(),
-      primerSeen: await pushStore.isPrimerSeen(),
-    });
-    if (action === 'register') await registerQuietly();
-    else if (action === 'show-primer') setPrimerOpen(true);
+    // Single flight: fetching the token re-emits the device token, which must not start another run.
+    if (isEvaluating.current) return;
+    isEvaluating.current = true;
+    try {
+      const action = decidePushAction({
+        permission: await getPushPermission(),
+        signedIn: true,
+        hasBusiness: true,
+        canReceivePush,
+        optedOut: await pushStore.isOptedOut(),
+        primerSeen: await pushStore.isPrimerSeen(),
+      });
+      if (action === 'register') await registerQuietly();
+      else if (action === 'show-primer') setPrimerOpen(true);
+    } finally {
+      isEvaluating.current = false;
+    }
   }, []);
 
   React.useEffect(() => {
@@ -47,7 +56,11 @@ export function usePushRegistration(enabled: boolean) {
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') void evaluate();
     });
-    const rotation = Notifications.addPushTokenListener(() => void evaluate());
+    const rotation = Notifications.addPushTokenListener((token) => {
+      const rotated = isTokenRotation(lastDeviceToken.current, token.data);
+      lastDeviceToken.current = token.data;
+      if (rotated) void evaluate();
+    });
     return () => {
       appState.remove();
       rotation.remove();
