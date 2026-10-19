@@ -19,7 +19,8 @@ import {
   countText,
   fitFontSize,
   formatCount,
-  countDefaultText,
+  isCountingNumber,
+  valueAtStep,
 } from './countUp';
 import { EASE_SPRING } from './motion';
 import type { StoryCardNumber } from './model';
@@ -85,12 +86,16 @@ export function NumberLine({
   });
 
   const final = formatCount(number.value, number.format, number.unit);
-  const first = countDefaultText(number, { isCurrent, isReduced });
+  // Fixed at mount: a changing defaultValue resets the animated text.
+  const [first] = React.useState(() =>
+    formatCount(valueAtStep(number.value, 0), number.format, number.unit),
+  );
+  const isCounting = isCountingNumber(isCurrent, isReduced);
   const fontSize = fitFontSize(final, width - 2 * SIDE_MARGIN, FONT_SIZE);
   const textStyle = [styles.number, { color: accent, fontSize }];
   return (
     <Animated.View style={[styles.wrap, animated]}>
-      {isReduced ? (
+      {!isCounting ? (
         <Text
           accessibilityLabel={final}
           numberOfLines={1}
