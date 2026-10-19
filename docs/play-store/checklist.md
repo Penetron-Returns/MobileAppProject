@@ -6,7 +6,7 @@ Companion files: `listing.md`, `data-safety.md`, `declarations.md`, `privacy-pol
 
 ## Phase 0: fix these in the repo first (they block everything)
 
-- [ ] **Application id.** `apps/mobile/app.json` has `android.package = "si.nerova.booking.dev"`. Change to `app.getclovie` before the first upload. It is permanent once Play sees it. Also update the Nerova native app registration (`NEROVA_APP_ID`, `register-nerova-native-app.mjs`, which use `si.nerova.booking.dev`) and the Clerk Android settings that reference the package.
+- [x] **Application id** (resolved): `apps/mobile/app.config.ts` has per-variant ids and production is `app.getclovie` (permanent once Play sees it). The Nerova native app registration and Clerk Android settings follow that package.
 - [x] **Account deletion** (done: Settings > Delete account) in the app plus `https://getclovie.app/delete-account` (see `declarations.md` section 9). Not needed to upload to internal testing, but needed before the form is complete and for production.
 - [ ] **Privacy policy URL.** The app links to `https://nerova.si/privacy` (`apps/mobile/src/lib/legal.ts`). Host `privacy-policy.html` at `https://getclovie.app/privacy` and update that constant.
 - [ ] **Voice demo check.** `docs/voice.md` says the Kotlin was never run on a device. Run it on a real phone before recording the foreground service video.
@@ -49,7 +49,7 @@ Clovie has no in-app purchases. A merchant account is not needed for a free app;
 ## Phase 4: create the app
 
 1. Console > All apps > **Create app**.
-2. App name `Clovie: Salon Bookings` (see `listing.md`), default language English (South Africa) (or English UK), **App**, **Free**.
+2. App name `Clovie: Salon & Barber Booking` (see `listing.md`), default language English (United States), **App**, **Free**.
 3. Tick the declarations (developer program policies, US export laws).
 4. Done when the app dashboard shows "Set up your app" tasks. Package name appears after the first upload and must be `app.getclovie`.
 
@@ -96,6 +96,8 @@ Go to **Policy and programs > App content** and complete each item. Reference fi
 7. **Opt-in link:** Testers tab > **Copy link** under "How testers join your test". Send this link to your testers. Each tester must (a) be signed in to the Google account on the list, (b) open the link **on their Android phone**, (c) tap **Accept invitation / Become a tester**, then (d) tap the Play Store link on that page to install Clovie. They update from Play like any app.
 8. If a tester sees "item not found": wrong Google account, not on the list, or the release is still processing.
 9. Done when the pilot salon owner can install Clovie from the Play Store and sign in.
+10. **Play warning "no testers"**: Play asks for testers if the track has none. Create an email list on the Testers tab and tick it for the track (step 2) **(verify wording)**.
+11. **Play warning "no deobfuscation file"**: release builds use R8 (minify and resource shrinking, set via `expo-build-properties` in `app.json`). `eas.json` keeps `mapping.txt` as a build artifact (`buildArtifactPaths`). Download it from the EAS build page under Artifacts, then in Play Console open the app bundle explorer, pick the version, **Downloads** tab, and upload it as the deobfuscation (ReTrace mapping) file **(verify wording and menu path)**. Do this for every release, since the mapping changes per build.
 
 ## Phase 9: before production (later)
 
