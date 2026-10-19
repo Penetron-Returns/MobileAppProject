@@ -14,6 +14,7 @@ import type {
   ClovieVoiceStateEvent,
   ClovieVoiceTokenState,
   ClovieVoiceTranscriptEvent,
+  ClovieVoiceLatencyEvent,
 } from './ClovieVoice.types';
 
 export type * from './ClovieVoice.types';
@@ -23,6 +24,7 @@ type Events = {
   onVoiceState: (event: ClovieVoiceStateEvent) => void;
   onVoiceTranscript: (event: ClovieVoiceTranscriptEvent) => void;
   onVoiceOutcome: (event: ClovieVoiceOutcomeEvent) => void;
+  onVoiceLatency: (event: ClovieVoiceLatencyEvent) => void;
 };
 
 declare class ClovieVoiceNative extends NativeModule<Events> {
@@ -257,6 +259,14 @@ export function addVoiceTranscriptListener(
 ): () => void {
   if (!native) return () => undefined;
   const subscription = native.addListener('onVoiceTranscript', listener);
+  return () => subscription.remove();
+}
+
+export function addVoiceLatencyListener(
+  listener: (event: ClovieVoiceLatencyEvent) => void,
+): () => void {
+  if (!native) return () => undefined;
+  const subscription = native.addListener('onVoiceLatency', listener);
   return () => subscription.remove();
 }
 

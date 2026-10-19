@@ -12,7 +12,9 @@ import java.util.UUID
 
 /**
  * Reads a reply aloud with the phone's own text-to-speech engine: free and offline. The engine starts
- * lazily (`warmUp` or the first `speak`) and is kept for the life of the service. It asks for
+ * lazily (`warmUp` or the first `speak`) and is kept for the life of the service. A reply is split into
+ * sentences ([SentenceSplitter]): the first is spoken at once and the rest are queued behind it, so speech starts
+ * on the first sentence rather than after the whole reply is prepared. It asks for
  * transient audio focus, letting other audio duck, only while it talks. Message text is never logged,
  * because it can contain client names. All callbacks arrive on the main thread.
  */
@@ -35,6 +37,15 @@ class VoiceSpeaker(private val context: Context) {
     val isInterim: Boolean = false,
   ) {
     val id: String = UUID.randomUUID().toString()
+    val sentences: List<String> = SentenceSplitter.split(text).ifEmpty { listOf(text) }
+
+    /** Index of the last sentence that was really queued; it ends the reply. */
+    var lastIndex: Int = sentences.lastIndex
+
+    fun utteranceId(index: Int) = "$id#$index"
+
+    fun indexOf(utteranceId: String?): Int? =
+      utteranceId?.takeIf { it.startsWith("$id#") }?.substringAfter('#')?.toIntOrNull()
   }
 
   /** Starts the engine early, so it is ready when the answer arrives. */
@@ -44,9 +55,9 @@ class VoiceSpeaker(private val context: Context) {
   }
 
   /** A short filler ("One sec, checking."): spoken at once; a later [speak] queues behind it. */
-  fun speakInterim(text: String) {
+  fun speakInterim(text: String, onStart: () -> Unit = {}) {
     stop()
-    val pending = Pending(text, {}, isInterim = true)
+    val pending = Pending(text, {}, onStart, isInterim = true)
     if (isFailed) return
     if (!isReady) {
       queued = pending
@@ -107,7 +118,8 @@ class VoiceSpeaker(private val context: Context) {
     tts.setAudioAttributes(VoiceAudio.attributes(AudioAttributes.CONTENT_TYPE_SPEECH))
     tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
       override fun onStart(utteranceId: String?) {
-        main.post { current?.takeIf { it.id == utteranceId }?.onStart?.invoke() }
+        // Only the first sentence starts the reply: the rest are queued behind it.
+        main.post { current?.takeIf { it.indexOf(utteranceId) == 0 }?.onStart?.invoke() }
       }
 
       override fun onDone(utteranceId: String?) {
@@ -116,7 +128,7 @@ class VoiceSpeaker(private val context: Context) {
 
       @Deprecated("Deprecated in Java")
       override fun onError(utteranceId: String?) {
-        main.post { complete(utteranceId) }
+        main.post { fail(utteranceId) }
       }
 
       override fun onStop(utteranceId: String?, interrupted: Boolean) = Unit
@@ -137,15 +149,35 @@ class VoiceSpeaker(private val context: Context) {
     if (!VoiceAudio.isAudible(context)) return finish(pending)
     current = pending
     requestFocus()
-    if (tts.speak(pending.text, TextToSpeech.QUEUE_FLUSH, null, pending.id) != TextToSpeech.SUCCESS) {
+    if (tts.speak(pending.sentences[0], TextToSpeech.QUEUE_FLUSH, null, pending.utteranceId(0)) != TextToSpeech.SUCCESS) {
       current = null
       abandonFocus()
-      finish(pending)
+      return finish(pending)
+    }
+    for (index in 1..pending.sentences.lastIndex) {
+      val queued = tts.speak(pending.sentences[index], TextToSpeech.QUEUE_ADD, null, pending.utteranceId(index))
+      if (queued != TextToSpeech.SUCCESS) {
+        pending.lastIndex = index - 1
+        break
+      }
     }
   }
 
+  /** The last queued sentence ending ends the reply; earlier ones just let the next one play. */
   private fun complete(utteranceId: String?) {
-    val pending = current?.takeIf { it.id == utteranceId } ?: return
+    val pending = current ?: return
+    val index = pending.indexOf(utteranceId) ?: return
+    if (index < pending.lastIndex) return
+    current = null
+    abandonFocus()
+    finish(pending)
+  }
+
+  /** A sentence failed: drop what is queued behind it and end the reply, so callers never wait for nothing. */
+  private fun fail(utteranceId: String?) {
+    val pending = current ?: return
+    if (pending.indexOf(utteranceId) == null) return
+    engine?.stop()
     current = null
     abandonFocus()
     finish(pending)

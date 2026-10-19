@@ -31,6 +31,9 @@ class VoiceCommandTaskService : HeadlessJsTaskService() {
     /** Start the JS runtime and load today's bookings now; there is no command yet (and no `id`). */
     const val EXTRA_PREFETCH = "prefetch"
 
+    /** With a prefetch: also ping our API so the connection and the Edge isolate are warm before the request. */
+    const val EXTRA_WARM = "warm"
+
     /** Absolute path of a clip (m4a, or WAV as a fallback) for the app to transcribe (instead of `transcript`). */
     const val EXTRA_CLIP_PATH = "clipPath"
 

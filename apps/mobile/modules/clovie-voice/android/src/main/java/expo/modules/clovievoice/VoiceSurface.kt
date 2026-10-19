@@ -74,6 +74,9 @@ interface VoiceUiListener {
   fun onVoiceState(state: String, level: Float?)
   fun onVoiceTranscript(text: String)
   fun onVoiceOutcome(outcome: CommandOutcome)
+
+  /** Milliseconds after the end of speech for each step that happened; numbers and short labels only. */
+  fun onVoiceLatency(values: Map<String, Any>) {}
 }
 
 object VoiceUiBus {
@@ -90,12 +93,14 @@ object VoiceUiBus {
   fun state(state: String, level: Float? = null) = listeners.forEach { it.onVoiceState(state, level) }
   fun transcript(text: String) = listeners.forEach { it.onVoiceTranscript(text) }
   fun outcome(outcome: CommandOutcome) = listeners.forEach { it.onVoiceOutcome(outcome) }
+  fun latency(values: Map<String, Any>) = listeners.forEach { it.onVoiceLatency(values) }
 }
 
 /**
  * The in-app surface: no window, only events. States go out when they change; the microphone level goes out at
- * ~15 Hz and only while listening, so a still screen costs nothing. The partial transcript is not faked: the cloud
- * path transcribes after the clip, so the words arrive once, as the transcript of the thinking state.
+ * ~15 Hz and only while listening, so a still screen costs nothing. Partial transcripts from the on-device
+ * recogniser stream through `setTranscript` while the owner speaks; the cloud path transcribes after the clip, so
+ * its words arrive once, as the transcript of the thinking state.
  */
 class AppVoiceSurface : VoiceSurface {
   private val main = Handler(Looper.getMainLooper())

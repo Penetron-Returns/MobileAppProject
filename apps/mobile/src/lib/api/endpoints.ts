@@ -381,6 +381,9 @@ export const api = {
   // voice: today's appointments for the voice check-in (also reachable with a device token)
   voiceToday: () => get<VoiceTodayDTO>('/v1/voice/today'),
 
+  // voice: a cheap no-op that warms the connection and the Edge isolate while the owner is still speaking
+  voicePing: () => get<{ ok: boolean }>('/v1/voice/ping'),
+
   // voice: a spoken request to the companion, and its approvals (decided by id only; device token allowed)
   voiceAsk: (b: VoiceAskRequest, key: string) =>
     send<VoiceAskRequest, VoiceAskDTO>('POST', '/v1/voice/ask')(b, key),

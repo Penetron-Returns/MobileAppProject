@@ -28,10 +28,17 @@ data class SttOutcome(val text: String?, val reason: String)
  * by component. On API 33+ the language is chosen from `checkRecognitionSupport` (en-ZA, en-GB,
  * en-US, any en-*). Errors are logged by code and name (never text). A watchdog ends the listen if
  * nothing arrives in time. `SpeechRecognizer` is main-thread only.
+ *
+ * Speed: every attempt prefers offline recognition, partial results stream to `onPartial` (never logged), and
+ * `onSpeechEnd` fires once per listen the moment speech has ended, either because the recogniser said so or
+ * because [EndpointTracker] saw ~400 ms of silence with a stable partial, in which case that partial is the
+ * result and the recogniser's own (longer) end-of-speech wait is skipped.
  */
 class SpeechCapture(
   private val context: Context,
   private val onModelDownload: () -> Unit = {},
+  private val onPartial: (String) -> Unit = {},
+  private val onSpeechEnd: (endpoint: String) -> Unit = {},
   private val onLevel: (Float) -> Unit,
 ) {
   private val main = Handler(Looper.getMainLooper())
@@ -47,6 +54,20 @@ class SpeechCapture(
   private var hasTriggeredDownload = false
   private var maxRmsDb = Float.NEGATIVE_INFINITY
   private var heardSpeechStart = false
+  private var hasSignalledSpeechEnd = false
+  private val endpoint = EndpointTracker()
+  private val endpointTick = object : Runnable {
+    override fun run() {
+      if (onDone == null) return
+      if (endpoint.shouldFinalize(SystemClock.elapsedRealtime())) {
+        Log.i(TAG, "stt endpoint on partial elapsedMs=${elapsed()}")
+        signalSpeechEnd(ENDPOINT_PARTIAL)
+        finish(endpoint.text, "no_speech")
+      } else {
+        main.postDelayed(this, ENDPOINT_TICK_MS)
+      }
+    }
+  }
   private val watchdog = Runnable {
     Log.w(TAG, "stt watchdog fired elapsedMs=${elapsed()}")
     finish(null, "timeout")
@@ -65,6 +86,7 @@ class SpeechCapture(
     startedAt = SystemClock.elapsedRealtime()
     maxRmsDb = Float.NEGATIVE_INFINITY
     heardSpeechStart = false
+    hasSignalledSpeechEnd = false
     main.postDelayed(watchdog, LISTEN_TIMEOUT_MS)
     main.postDelayed(startAttempt, startDelayMs)
   }
@@ -73,12 +95,21 @@ class SpeechCapture(
     onDone = null
     main.removeCallbacks(watchdog)
     main.removeCallbacks(startAttempt)
+    main.removeCallbacks(endpointTick)
     destroyRecognizer()
+  }
+
+  private fun signalSpeechEnd(kind: String) {
+    if (hasSignalledSpeechEnd) return
+    hasSignalledSpeechEnd = true
+    onSpeechEnd(kind)
   }
 
   private fun begin() {
     if (onDone == null) return
     destroyRecognizer()
+    endpoint.reset()
+    main.removeCallbacks(endpointTick)
     val step = attempt.step
     val created = create(step) ?: return advance(SttPolicy.skip(attempt))
     recognizer = created
@@ -116,7 +147,7 @@ class SpeechCapture(
       }
     }
     try {
-      created.checkRecognitionSupport(recognitionIntent(null, false), context.mainExecutor, callback)
+      created.checkRecognitionSupport(recognitionIntent(null), context.mainExecutor, callback)
     } catch (e: RuntimeException) {
       Log.w(TAG, "stt languages check threw ${e.javaClass.simpleName}")
       start(created, FALLBACK_LOCALE)
@@ -130,7 +161,7 @@ class SpeechCapture(
     val language = SttLanguages.choose(supported) ?: return
     hasTriggeredDownload = true
     try {
-      created.triggerModelDownload(recognitionIntent(language, true))
+      created.triggerModelDownload(recognitionIntent(language))
       Log.i(TAG, "stt model download triggered language=$language")
       onModelDownload()
     } catch (e: RuntimeException) {
@@ -141,7 +172,7 @@ class SpeechCapture(
   private fun start(created: SpeechRecognizer, locale: String?) {
     val step = attempt.step
     try {
-      created.startListening(recognitionIntent(locale, step.useOnDevice))
+      created.startListening(recognitionIntent(locale))
     } catch (e: RuntimeException) {
       Log.w(TAG, "stt startListening threw ${e.javaClass.simpleName}")
       return handleError(SttErrors.CLIENT)
@@ -183,18 +214,21 @@ class SpeechCapture(
   }
 
   /** `locale` null sends no language extras at all, so the recogniser uses the phone's own language. */
-  private fun recognitionIntent(locale: String?, preferOffline: Boolean) =
+  private fun recognitionIntent(locale: String?) =
     Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
       putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
       if (locale != null) {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
       }
-      if (preferOffline) putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+      // Offline is a preference: a recogniser with no local model still answers online.
+      putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
       putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-      putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+      putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
       putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+      // Google may ignore these; EndpointTracker does not depend on them.
       putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_MS)
+      putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, POSSIBLY_COMPLETE_MS)
     }
 
   private fun elapsed() = SystemClock.elapsedRealtime() - startedAt
@@ -222,6 +256,11 @@ class SpeechCapture(
   private fun handleError(code: Int) {
     if (onDone == null) return
     val sinceStart = elapsed()
+    // The owner spoke and a partial exists: a "no match" is the recogniser giving up on a result we already have.
+    if ((code == SttErrors.NO_MATCH || code == SttErrors.SPEECH_TIMEOUT) && endpoint.text.isNotBlank()) {
+      signalSpeechEnd(ENDPOINT_RECOGNIZER)
+      return finish(endpoint.text, "no_speech")
+    }
     Log.w(TAG, "stt error code=$code name=${SttErrors.name(code)} elapsedMs=$sinceStart attempt=${attempt.number} ${diagnostics()}")
     advance(SttPolicy.next(code, sinceStart, attempt))
   }
@@ -244,6 +283,7 @@ class SpeechCapture(
     onDone = null
     main.removeCallbacks(watchdog)
     main.removeCallbacks(startAttempt)
+    main.removeCallbacks(endpointTick)
     destroyRecognizer()
     val transcript = text?.trim()?.takeIf { it.isNotEmpty() }
     val outcome = if (transcript != null) SttOutcome(transcript, "ok") else SttOutcome(null, reason)
@@ -266,7 +306,9 @@ class SpeechCapture(
 
   private val listener = object : RecognitionListener {
     override fun onResults(results: Bundle?) {
-      finish(results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull(), "no_speech")
+      val final = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+      signalSpeechEnd(ENDPOINT_RECOGNIZER)
+      finish(final?.takeIf { it.isNotBlank() } ?: endpoint.text, "no_speech")
     }
 
     override fun onError(error: Int) = handleError(error)
@@ -275,16 +317,26 @@ class SpeechCapture(
     override fun onBeginningOfSpeech() {
       heardSpeechStart = true
       Log.i(TAG, "stt beginning of speech elapsedMs=${elapsed()}")
+      // Polling runs only while the owner speaks, a few seconds at most.
+      main.removeCallbacks(endpointTick)
+      main.postDelayed(endpointTick, ENDPOINT_TICK_MS)
     }
 
     override fun onRmsChanged(rmsdB: Float) {
       if (rmsdB > maxRmsDb) maxRmsDb = rmsdB
+      endpoint.onRms(rmsdB, SystemClock.elapsedRealtime())
       onLevel(rmsdB)
     }
 
     override fun onBufferReceived(buffer: ByteArray?) = Unit
-    override fun onEndOfSpeech() = Unit
-    override fun onPartialResults(partialResults: Bundle?) = Unit
+    override fun onEndOfSpeech() = signalSpeechEnd(ENDPOINT_RECOGNIZER)
+
+    override fun onPartialResults(partialResults: Bundle?) {
+      val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
+      if (text.isNullOrEmpty()) return
+      endpoint.onPartial(text, SystemClock.elapsedRealtime())
+      onPartial(text)
+    }
     override fun onEvent(eventType: Int, params: Bundle?) = Unit
   }
 
@@ -295,6 +347,12 @@ class SpeechCapture(
 
     /** Neither results nor an error within this long: cancel and let the service re-arm. */
     const val LISTEN_TIMEOUT_MS = 10_000L
-    const val SILENCE_MS = 1_500L
+    const val SILENCE_MS = 700L
+    const val POSSIBLY_COMPLETE_MS = 500L
+    const val ENDPOINT_TICK_MS = 100L
+
+    /** What ended the speech (reported once per listen); the latency event carries it. */
+    const val ENDPOINT_PARTIAL = "partial"
+    const val ENDPOINT_RECOGNIZER = "recognizer"
   }
 }

@@ -67,3 +67,33 @@ describe('safeProperties', () => {
     expect(safeProperties(undefined)).toEqual({});
   });
 });
+
+describe('safeProperties durations', () => {
+  it('keeps whole-number millisecond durations and voice labels', () => {
+    expect(
+      safeProperties({
+        stt_path: 'device',
+        endpoint: 'partial',
+        tts_start_ms: 1450,
+        first_reply_byte_ms: 1050,
+      }),
+    ).toEqual({
+      stt_path: 'device',
+      endpoint: 'partial',
+      tts_start_ms: 1450,
+      first_reply_byte_ms: 1050,
+    });
+  });
+
+  it('drops negative, fractional, huge and non-numeric durations', () => {
+    expect(
+      safeProperties({
+        tts_start_ms: -1,
+        request_sent_ms: 1.5,
+        final_transcript_ms: 9_999_999,
+        interim_start_ms: '300',
+        transcript: 'book Thandi',
+      }),
+    ).toEqual({});
+  });
+});

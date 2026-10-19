@@ -17,7 +17,7 @@ one-tap:    tile / widget / shortcut / side key ─▶ VoiceTalkActivity (transp
 hands-free: opening hours + charger + pause ─▶ foreground service ─▶ voice gate ─▶ wake word (3 ONNX models)
                       │ (one-tap starts here; hands-free: wake word detected)
                       ├─ wake chime + haptic tick + overlay window with the cinematic entrance, mic opens at once
-                      ├─ Android SpeechRecognizer (on-device, en-ZA then en-US) ──▶ transcript
+                      ├─ Android SpeechRecognizer (on-device, en-ZA then en-US, live partials) ──▶ transcript
                       ├─ headless JS task ──▶ parse ──▶ check-in through the app's API client
                       └─ success/failure cue, reply read aloud; overlay: "Checked in Sipho" (2 s, or until spoken)   or   [Open Clovie] button, then the exit; one-tap service stops
 ```
@@ -199,6 +199,8 @@ Every interaction logs these to logcat under the tag `ClovieVoice` (no transcrip
 - `commandMs`: transcript handed to JS to the outcome shown.
 - `totalMs`: detected to outcome.
 
+The latency the owner feels (end of speech to first word) is in [Latency](#latency-end-of-speech-to-first-spoken-word).
+
 ```
 adb logcat -s ClovieVoice
 ```
@@ -275,3 +277,33 @@ adb shell dumpsys batterystats si.nerova.booking.dev
 ```
 
 Compare the app's estimated mAh, CPU time and the held wake-lock time between the two runs. Switch hands-free back to the state you found it in afterwards. Measured numbers for the gated listener are not in this document yet.
+
+## Latency: end of speech to first spoken word
+
+Free, on-device changes only (no paid cloud STT or TTS). The owner feels the time from when she stops speaking to the first word she hears, so every step below is trimmed or hidden.
+
+| Step | What we do | Expected saving |
+| --- | --- | --- |
+| End-of-speech detection | `SpeechCapture` prefers offline recognition on every attempt (`EXTRA_PREFER_OFFLINE`; the on-device recogniser, API 31+, is still tried first), turns on `EXTRA_PARTIAL_RESULTS`, and asks for 700 ms / 500 ms of silence (`COMPLETE_SILENCE` / `POSSIBLY_COMPLETE`; Google may ignore them). Where we control endpointing, `EndpointTracker` finalizes on the last stable partial after 400 ms of silence (microphone level from `onRmsChanged`, text unchanged for 400 ms), instead of the recogniser's own wait (about 1.5 s before, up to a second or more). | 0.5 to 1 s |
+| Instant acknowledgement | The moment speech ends (recogniser callback, our endpointer, or the clip VAD) the soft "got it" cue plays and a light haptic tick fires (when touch feedback is on), and the UI goes to "processing". The cue used to wait for the transcript. | Perceived, 0.3 to 1 s |
+| Live words | Partials stream through `setTranscript`, so the overlay and the in-app drawer show the words while she speaks (the drawer's listening view already renders `transcript`). On the cloud path words still arrive once, after the upload. | Perceived |
+| Speaking sooner | `VoiceSpeaker` splits a reply into sentences (`SentenceSplitter`: no split in "3.5", "20:30" or after "Dr.", fragments under 6 characters join the next) and queues them (`QUEUE_FLUSH` for the first, `QUEUE_ADD` for the rest), so speech starts on sentence one. The TTS engine is warmed when listening starts (it already was; kept), and the reply's speech is requested 250 ms before the result cue ends, so the first word follows the cue instead of waiting out its full length (about 560 ms). The "One sec" filler still covers the companion's thinking time. | 0.2 to 0.6 s on long replies, 0.25 s on every reply |
+| Warm network | While listening, the service pings `GET /v1/voice/ping` natively when it has a device token (as before), and now on both STT paths also starts the app's headless JS with `warm`, which pings the same route through the app's own HTTP client (the one that sends `/v1/voice/ask`) and prefetches today's bookings. Only while listening: nothing runs at rest. | 100 to 400 ms (DNS, TLS, Edge isolate, JS runtime start) |
+
+**Does `/v1/voice/ask` stream? No.** `voiceAsk.ts` reads Nerova's `/v1/companion/chat` stream to its end and returns one JSON body, so the first sentence cannot be spoken before the whole turn is done. Speaking sooner therefore means splitting the finished reply. To speak the first sentence as soon as it exists, two changes are needed, neither done here: (1) `apps/api` returns the reply as NDJSON or SSE (`{ type: 'text', delta }`, then a final frame with approvals, actions and `awaitingReply`) as the Nerova stream arrives; (2) the app's `api.voiceAsk` reads that stream and hands each completed sentence to the service, which calls the speaker's `QUEUE_ADD` per sentence (the speaker already queues sentences). Nerova needs nothing for this if `/v1/companion/chat` already emits text deltas before the turn ends. It would only need changing if it buffers the text until `done`, in which case it must send `delta` events as the model writes.
+
+### The `voice_latency` event
+
+One event per turn, tracked by the app's UI runtime (`src/features/voice/latency.ts`, started from `registerVoiceHeadlessTask`), with the native service as the source. All values are whole milliseconds after the owner stopped speaking (`speech_end` is zero). A step that did not happen is absent. No transcript, reply or name is ever included, and `safeProperties` drops anything else.
+
+| Property | Meaning |
+| --- | --- |
+| `final_transcript_ms` | final text available (on-device; absent for a cloud clip handled by the app) |
+| `request_sent_ms` | `/v1/voice/ask` sent (the app's JS stamps wall-clock time) |
+| `first_reply_byte_ms` | `/v1/voice/ask` answered (equals the whole reply until it streams) |
+| `interim_start_ms` | the "One sec" filler began: usually the first word heard |
+| `tts_start_ms` | the reply's first word began |
+| `stt_path` | `device` or `cloud` |
+| `endpoint` | `partial` (our endpointer), `recognizer` (its own end of speech) or `clip` (VAD) |
+
+Read p50/p95 per property in PostHog. The same numbers go to logcat as `latency {...}`. If the app's UI is not running (a headless-only start) there is no analytics client, so the event is logged and not sent. `getTimings()` is unchanged. Tuning knobs: `EndpointTracker.SILENCE_MS` (400) and `VOICE_MARGIN_DB` (4), `SpeechCapture.SILENCE_MS` / `POSSIBLY_COMPLETE_MS`, `VoiceService.TTS_PREROLL_MS` (250). A shorter silence cuts people off who pause mid-sentence; raise it first if the owner is interrupted.
