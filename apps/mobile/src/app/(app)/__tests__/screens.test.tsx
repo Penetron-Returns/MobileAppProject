@@ -433,7 +433,13 @@ const WEEK_VIEW = {
   refresh: jest.fn(),
 };
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 beforeEach(() => {
+  // Pin the clock to the fixtures' Monday so week boundaries never drift.
+  jest.useFakeTimers({ now: NOW_MS, doNotFake: ['nextTick', 'setImmediate'] });
   mockSearchParams.mockReturnValue({});
   const defaults: Record<string, unknown> = {
     useBusiness: success(BUSINESS),
