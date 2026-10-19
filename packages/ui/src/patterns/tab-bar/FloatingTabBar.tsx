@@ -92,7 +92,7 @@ export const LABEL_MAX_FONT_SCALE = 1.2;
  * bar (hairline top border, bottom inset inside it) and a floating dome above the right-hand end. Every tab, Reports included, is drawn the same. The app picks the tabs and
  * their order through `tabs`; Free passes `onAdd`, which puts the "+" (New
  * booking, opened as a modal) between the two halves, and the Inbox dome.
- * Paid plans pass Reports as an ordinary fifth tab and the Companion dome. Hidden on screens
+ * Hidden on screens
  * that opt out through `tabBarStyle: { display: 'none' }`. The selected pill
  * slides between tabs, the tapped icon pops and a light haptic confirms the
  * change.
@@ -111,13 +111,13 @@ export function FloatingTabBar({
   tabs?: readonly TabRouteName[];
   /** Replaces a tab's label (the app renames the first tab per plan). */
   tabLabels?: Partial<Record<TabRouteName, string>>;
-  /** Replaces a tab's icon, e.g. the Clovie glyph. */
+  /** Replaces a tab's icon, e.g. a custom glyph. */
   tabIcons?: Partial<
     Record<TabRouteName, (props: TabIconProps) => React.ReactNode>
   >;
   /** When given, a centre "+" opens New booking (a route, not a tab) through this. */
   onAdd?: () => void;
-  /** The Inbox or Companion dome (or nothing) shown above the right-hand end of the bar. */
+  /** The Inbox dome (or nothing) shown above the right-hand end of the bar. */
   dome?: React.ReactNode;
 }) {
   const t = useDsText();

@@ -1,6 +1,6 @@
 /**
  * Sheet detents (SwiftUI `.presentationDetents([.medium, .large])`): pure
- * geometry shared by `Sheet` and the companion sheet.
+ * geometry used by `Sheet`.
  */
 
 /** `medium` rests at about half the screen, `large` fills it under the status bar. */
