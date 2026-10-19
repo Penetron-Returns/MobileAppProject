@@ -262,6 +262,18 @@ describe('appointments', () => {
     expect(client).toMatchObject({ phone_e164: '+27720001111', name: 'Zola', email: 'z@example.com' });
   });
 
+  it.each(['+447700900123', '+15550100142', 'abc'])('rejects the unreal phone %s with details.field phone and books nothing', async (phone) => {
+    const res = await book({ client_id: undefined, new_client: { phone, name: 'Jake Miller' } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatchObject({ code: 'VALIDATION_FAILED', details: { field: 'phone' } });
+    expect(h.repo.tables.appointments).toHaveLength(0);
+  });
+
+  it.each(['+447911123456', '+14155552671'])('books a new client with the valid international phone %s', async (phone) => {
+    const res = await book({ client_id: undefined, new_client: { phone, name: 'Jake Miller' }, send_whatsapp_confirmation: false });
+    expect(res.status).toBe(201);
+  });
+
   it('validates the body', async () => {
     const both = await book({ new_client: { phone: '0720001111' } });
     expect(both.status).toBe(400);

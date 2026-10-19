@@ -32,6 +32,7 @@ import {
 } from '@/features/catalog/hooks';
 import { useClient } from '@/features/clients/hooks';
 import { isApiError } from '@/lib/api';
+import { apiFieldErrors } from '@/lib/form-errors';
 import { useIsOnline } from '@/lib/online';
 import { qk } from '@/lib/query';
 import {
@@ -52,6 +53,9 @@ import {
 import { whenFromPrefill, type BookingPrefill } from '../prefill';
 import { ClientStep, type ClientChoice } from './ClientStep';
 import { WhenStep, type WhenState } from './WhenStep';
+
+/** API field names that mean the new client's phone (zod reports `new_client.phone` as `new_client`). */
+const PHONE_FIELDS = new Set(['phone', 'new_client']);
 
 const EMPTY_CLIENT: ClientChoice = {
   mode: 'existing',
@@ -108,6 +112,7 @@ function NewBookingFlow({
   const isOnline = useIsOnline();
   const { guard, sheetProps } = useOfflineGuard(!isOnline);
   const [step, setStep] = React.useState<1 | 2>(1);
+  const [phoneError, setPhoneError] = React.useState(false);
   const [choice, setChoice] = React.useState<ClientChoice>({
     ...EMPTY_CLIENT,
     mode: startWithNewClient ? 'new' : 'existing',
@@ -203,6 +208,13 @@ function NewBookingFlow({
         setWhen((w) => ({ ...w, picked: null }));
         void queryClient.invalidateQueries({ queryKey: qk.availabilitySlots });
         void queryClient.invalidateQueries({ queryKey: qk.availabilityDays });
+        return true;
+      }
+      // A bad phone belongs under its field, on the step that has the field.
+      if (apiFieldErrors(error).some((e) => PHONE_FIELDS.has(e.field))) {
+        haptics.warning();
+        setPhoneError(true);
+        setStep(1);
         return true;
       }
     },
@@ -367,7 +379,11 @@ function NewBookingFlow({
       {step === 1 ? (
         <ClientStep
           choice={choice}
-          onChoice={setChoice}
+          onChoice={(next) => {
+            setPhoneError(false);
+            setChoice(next);
+          }}
+          phoneError={phoneError}
           services={activeServices}
           serviceId={serviceId}
           onService={onService}
