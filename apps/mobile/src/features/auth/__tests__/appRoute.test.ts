@@ -1,4 +1,5 @@
 import {
+  basicsStatus,
   isBusinessActive,
   provisioningStatus,
   resolveAppRoute,
@@ -12,6 +13,7 @@ const paidOwner: BillingInput = {
   hasCompanion: true,
   role: 'owner',
   provisioning: 'ready',
+  basics: 'complete',
 };
 
 const base: AppRouteInput = {
@@ -244,6 +246,57 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
 describe('resolveAppRoute', () => {
   it.each(cases)('%s', (_name, patch, expected) => {
     expect(resolveAppRoute({ ...base, ...patch })).toEqual(expected);
+  });
+});
+
+describe('onboarding is derived from the business, not from how the user signed in', () => {
+  const inactive: BillingInput = {
+    ...paidOwner,
+    plan: 'none',
+    hasCompanion: false,
+  };
+  const route = (billing: BillingInput) =>
+    resolveAppRoute({ ...base, billing }).kind;
+
+  it.each([
+    [
+      'org never named or set up',
+      { ...inactive, basics: 'incomplete' },
+      'onboarding',
+    ],
+    ['basics still loading', { ...inactive, basics: 'loading' }, 'splash'],
+    [
+      'named and set up, plan none',
+      { ...inactive, basics: 'complete' },
+      'choose-plan',
+    ],
+    [
+      'an active plan skips the check',
+      { ...paidOwner, basics: 'incomplete' },
+      'tabs',
+    ],
+    [
+      'staff of an unfinished business',
+      { ...inactive, role: 'staff', basics: 'incomplete' },
+      'inactive-business',
+    ],
+  ] as [string, BillingInput, AppRoute['kind']][])(
+    '%s',
+    (_l, billing, kind) => {
+      expect(route(billing)).toBe(kind);
+    },
+  );
+});
+
+describe('basicsStatus', () => {
+  it.each([
+    ['blank name', { name: '  ', hours: [{}] }, 'incomplete'],
+    ['no hours', { name: 'Ana', hours: [] }, 'incomplete'],
+    ['hours still loading', { name: 'Ana', hours: undefined }, 'loading'],
+    ['named with hours', { name: 'Ana', hours: [{}] }, 'complete'],
+    ['blank name beats loading', { name: '', hours: undefined }, 'incomplete'],
+  ] as const)('%s', (_l, input, expected) => {
+    expect(basicsStatus(input)).toBe(expected);
   });
 });
 

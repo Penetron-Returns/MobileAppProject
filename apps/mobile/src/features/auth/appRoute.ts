@@ -34,9 +34,26 @@ export interface BillingInput {
   role: MemberRole;
   /** Nerova's provisioning of the business's companion account (owners of a paid business only). */
   provisioning: ProvisioningStatus;
+  /**
+   * Whether the business was named and set up by onboarding. A business row can
+   * exist without it (the Clerk webhook mirrors any organisation), so the
+   * existence of a business alone never means onboarding is done.
+   */
+  basics: BasicsStatus;
 }
 
 export type ProvisioningStatus = 'pending' | 'ready';
+export type BasicsStatus = 'loading' | 'complete' | 'incomplete';
+
+/** Named, and onboarding wrote its default hours (it always does). */
+export function basicsStatus(input: {
+  name: string;
+  hours: readonly unknown[] | undefined;
+}): BasicsStatus {
+  if (!input.name.trim()) return 'incomplete';
+  if (!input.hours) return 'loading';
+  return input.hours.length > 0 ? 'complete' : 'incomplete';
+}
 
 export interface AppRouteInput {
   authLoaded: boolean;
@@ -134,7 +151,12 @@ export function isBusinessActive(
 function resolveBilling(billing: BillingInput): AppRoute {
   const isOwner = billing.role !== 'staff';
   if (!isBusinessActive(billing)) {
-    return { kind: isOwner ? 'choose-plan' : 'inactive-business' };
+    if (!isOwner) return { kind: 'inactive-business' };
+    // The plan is chosen after naming the business: finish onboarding first.
+    if (billing.basics === 'loading') return { kind: 'splash' };
+    return {
+      kind: billing.basics === 'incomplete' ? 'onboarding' : 'choose-plan',
+    };
   }
   if (isOwner && billing.provisioning === 'pending') {
     return { kind: 'companion-setup' };
