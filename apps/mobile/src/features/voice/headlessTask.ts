@@ -18,6 +18,7 @@ import {
   type HeadlessDeps,
 } from './headless';
 import { rememberAction } from './actionStore';
+import { createInstantAnswerer } from './instant';
 import { toCheckInCandidates } from './today';
 import { createPrefetcher } from './todayPrefetch';
 import { isCloudSttEnabled, transcribeClip } from './transcribe';
@@ -103,10 +104,13 @@ let companionTurns = 0;
 
 /** What a spoken command needs with no screen: the app's clock, strings and API client. */
 export function createHeadlessDeps(): HeadlessDeps {
+  const now = () => new Date();
+  const t = (key: string, values?: Record<string, unknown>) =>
+    i18n.t(key, values) as string;
   return {
-    now: () => new Date(),
-    t: (key: string, values?: Record<string, unknown>) =>
-      i18n.t(key, values) as string,
+    now,
+    t,
+    instant: createInstantAnswerer({ now, t, load: loadToday }),
     // A Clerk session or the device voice token: either can check someone in.
     isSignedIn: async () =>
       (await resolveBearer({ allowDeviceToken: true })) !== null,
