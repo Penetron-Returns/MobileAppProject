@@ -1140,6 +1140,7 @@
     "errors": {
       "client": "Pick a client first.",
       "newClient": "Enter the new client's name and mobile number.",
+      "phone": "That phone number doesn't look right. Include the country code, like +27 82 123 4567.",
       "service": "Pick a service.",
       "slot": "Pick a time."
     },

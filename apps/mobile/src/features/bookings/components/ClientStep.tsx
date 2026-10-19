@@ -82,6 +82,7 @@ export function ClientStep({
   serviceId,
   onService,
   currency,
+  phoneError = false,
 }: {
   choice: ClientChoice;
   onChoice: (choice: ClientChoice) => void;
@@ -89,6 +90,8 @@ export function ClientStep({
   serviceId: string | null;
   onService: (id: string) => void;
   currency: string;
+  /** The API rejected the new client's phone number. */
+  phoneError?: boolean;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = React.useState('');
@@ -162,7 +165,17 @@ export function ClientStep({
               placeholder={t('newBooking.phonePlaceholder')}
               accessibilityLabel={t('newBooking.phone')}
               keyboardType="phone-pad"
+              aria-invalid={phoneError}
+              className={phoneError ? 'border-destructive' : undefined}
             />
+            {phoneError ? (
+              <Text
+                accessibilityRole="alert"
+                className="text-subtitle text-destructive"
+              >
+                {t('newBooking.errors.phone')}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </View>
