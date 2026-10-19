@@ -14,7 +14,7 @@ declare
 begin
   a1 := tests.book(fa, 'staff_a', 'service_long',  'client_1', '2031-07-05 08:00Z');
   a2 := tests.book(fa, 'staff_a', 'service_short', 'client_2', '2031-07-05 10:00Z');
-  a3 := tests.book(fa, 'staff_a', 'service_short', 'client_3', '2031-07-05 12:00Z');
+  a3 := tests.book(fa, 'staff_a', 'service_short', 'client_1', '2031-07-05 12:00Z');
 
   perform tests.ok(a1.client_notify_after is null and a1.voided_at is null, 'new appointments carry no hold and are not voided');
   perform tests.ok(exists (select 1 from pg_enum pe join pg_type t on t.oid = pe.enumtypid
