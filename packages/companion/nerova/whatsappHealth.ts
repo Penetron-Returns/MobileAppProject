@@ -4,6 +4,7 @@
  * passed through as a string). Used by the setup read and the `channel.health_changed` webhook.
  */
 import type {
+  WhatsAppBillingDTO,
   WhatsAppHealthDTO,
   WhatsAppHealthTemplateDTO,
   WhatsAppHealthTemplateStatus,
@@ -12,6 +13,7 @@ import type {
   WhatsAppNameStatus,
   WhatsAppPhoneNumberStatus,
   WhatsAppQualityRating,
+  WhatsAppSendFailureDTO,
 } from '@booking/types';
 
 type Json = Record<string, unknown>;
@@ -45,6 +47,21 @@ function mapLastError(value: unknown): WhatsAppLastErrorDTO | null {
   return { code: typeof code === 'number' ? String(code) : text(code), message, at: text(e.at) };
 }
 
+function mapBilling(value: unknown): WhatsAppBillingDTO | null {
+  const b = record(value);
+  if (!b) return null;
+  return { payment_method_attached: typeof b.paymentMethodAttached === 'boolean' ? b.paymentMethodAttached : null, currency: text(b.currency) };
+}
+
+function mapSendFailure(value: unknown): WhatsAppSendFailureDTO | null {
+  const f = record(value);
+  if (!f) return null;
+  const code = typeof f.code === 'number' ? String(f.code) : text(f.code);
+  const count = typeof f.count === 'number' && Number.isFinite(f.count) ? Math.max(0, Math.trunc(f.count)) : 0;
+  if (!code && !text(f.title)) return null;
+  return { code, title: text(f.title), count, last_at: text(f.lastAt) };
+}
+
 /** Only the fields Nerova actually sent are set; `{}` means no health reported. */
 export function parseWhatsAppHealth(source: unknown): WhatsAppHealthDTO {
   const body = record(source) ?? {};
@@ -57,5 +74,7 @@ export function parseWhatsAppHealth(source: unknown): WhatsAppHealthDTO {
   if (Array.isArray(body.templates)) out.templates = body.templates.map(mapTemplate).filter((t): t is WhatsAppHealthTemplateDTO => t !== null);
   if ('lastError' in body) out.last_error = mapLastError(body.lastError);
   if ('lastHealthCheckAt' in body) out.last_health_check_at = text(body.lastHealthCheckAt);
+  if ('billing' in body) out.billing = mapBilling(body.billing);
+  if (Array.isArray(body.recentSendFailures)) out.recent_send_failures = body.recentSendFailures.map(mapSendFailure).filter((f): f is WhatsAppSendFailureDTO => f !== null);
   return out;
 }

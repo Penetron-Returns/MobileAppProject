@@ -5,9 +5,12 @@
  * Nerova retries a non-2xx for ~21 hours, so a failed push is logged, not retried. `approval.requested` and
  * `action.executed` (act-then-undo) push the owners; `action.undone` is only logged. `channel.health_changed` is
  * acknowledged and logged (enum values only, no PII): nothing is stored and no push is sent, the app refetches
- * the setup (which carries the health) on focus and pull-to-refresh. Everything else is ignored.
+ * the setup (which carries the health) on focus and pull-to-refresh. `escalation.raised` / `escalation.resolved` with
+ * source `owner_support` open / close a row in `support_requests` (a malformed one is a 400; other sources are only
+ * logged). Everything else is ignored.
  */
 import { Hono } from 'hono';
+import type { z } from 'zod';
 
 import { createSupabaseAttendanceRepository } from '@booking/features/attendance/index.ts';
 import { getBookingRepository } from '@booking/features/bookings/index.ts';
@@ -18,6 +21,16 @@ import { createActionsClientFromEnv } from '@booking/companion/nerova/actions.ts
 import { notifyApprovalRequested, type ApprovalPushDeps, type ApprovalRequestedObject } from '@booking/companion/approvals/approvalPush.ts';
 import { createApprovalsClientFromEnv } from '@booking/companion/nerova/approvals.ts';
 import { parseWhatsAppHealth } from '@booking/companion/nerova/whatsappHealth.ts';
+import {
+  isOwnerSupport,
+  notifyOwnerSupportReceived,
+  openSupportRequest,
+  resolveSupportRequests,
+  supportRaisedSchema,
+  supportResolvedSchema,
+  type SupportDeps,
+} from '@booking/companion/support/supportEscalation.ts';
+import { createSupabaseSupportRepository } from '@booking/features/support/repository.ts';
 import { verifyStandardWebhook } from '@booking/companion/webhooks/verifyStandardWebhook.ts';
 import { createPushSender } from '@booking/app-store/whatsapp/notifications/push.ts';
 import type { Container } from '../container.ts';
@@ -25,7 +38,27 @@ import { runInBackground } from '../lib/background.ts';
 import type { AppEnv } from '../types.ts';
 
 /** Tests inject `approvalPush` on the container; production builds it from the environment per request. */
-type ApprovalContainer = Container & { approvalPush?: ApprovalPushDeps; actionPush?: ActionPushDeps };
+type ApprovalContainer = Container & { approvalPush?: ApprovalPushDeps; actionPush?: ActionPushDeps; supportDeps?: SupportDeps };
+
+function supportDeps(container: ApprovalContainer): SupportDeps {
+  if (container.supportDeps) return container.supportDeps;
+  const { push, logger } = approvalPushDeps(container);
+  return { repo: createSupabaseSupportRepository(container.db), push, logger, clock: container.clock };
+}
+
+type SupportEvent =
+  | { type: 'escalation.raised'; event: z.infer<typeof supportRaisedSchema> }
+  | { type: 'escalation.resolved'; event: z.infer<typeof supportResolvedSchema> };
+
+/** A recognised support event whose body is malformed is a 400 (nothing is stored); other sources return null. */
+function parseSupport(type: string, object: Record<string, unknown>): SupportEvent | null {
+  if ((type !== 'escalation.raised' && type !== 'escalation.resolved') || !isOwnerSupport(object)) return null;
+  const schema = type === 'escalation.raised' ? supportRaisedSchema : supportResolvedSchema;
+  if (!schema.safeParse(object).success) throw new AppError('VALIDATION_FAILED', 'Unexpected support escalation payload');
+  return type === 'escalation.raised'
+    ? { type, event: supportRaisedSchema.parse(object) }
+    : { type, event: supportResolvedSchema.parse(object) };
+}
 
 function approvalPushDeps(container: ApprovalContainer): ApprovalPushDeps {
   if (container.approvalPush) return container.approvalPush;
@@ -107,6 +140,7 @@ nerovaWebhookRoutes.post('/', async (c) => {
   }
 
   const envelope = parseEnvelope(raw);
+  const support = parseSupport(envelope.type, envelope.object);
   const repo = getBookingRepository(container);
   // Only the type and approval id are stored: no card text, no customer detail ever reaches us anyway.
   const { row, duplicate } = await repo.recordWebhookEvent('nerova', webhookId, {
@@ -115,6 +149,28 @@ nerovaWebhookRoutes.post('/', async (c) => {
     action_id: str(envelope.object.actionId),
   });
   if (duplicate && row.processed_at) return c.json({ data: { status: 'duplicate' } });
+
+  if (envelope.type.startsWith('escalation.') && !support) {
+    logger.info('nerova_escalation_ignored', { type: envelope.type, source: str(envelope.object.source) });
+  }
+  if (support) {
+    const deps = supportDeps(container);
+    let businessId: string | null = null;
+    try {
+      if (support.type === 'escalation.raised') {
+        businessId = (await openSupportRequest(deps, support.event)).businessId;
+      } else {
+        await resolveSupportRequests(deps, support.event);
+      }
+    } catch (error) {
+      // 500 so Nerova retries; the event stays unprocessed so the retry is not treated as a duplicate.
+      await repo.finishWebhookEvent(row.id, { processedAt: null, error: 'SUPPORT_FAILED', attempts: row.attempts + 1 }).catch(() => undefined);
+      throw error;
+    }
+    await repo.finishWebhookEvent(row.id, { processedAt: new Date().toISOString(), error: null, attempts: row.attempts + 1 });
+    if (businessId) runInBackground(() => notifyOwnerSupportReceived(deps, businessId as string), logger, 'nerova_support_push_failed');
+    return c.json({ data: { status: 'accepted' } });
+  }
 
   const approval = envelope.type === 'approval.requested' ? toApprovalRequested(envelope.object) : null;
   const executed = envelope.type === 'action.executed' ? toActionExecuted(envelope.object) : null;

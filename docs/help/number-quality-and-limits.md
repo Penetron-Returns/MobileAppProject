@@ -40,7 +40,7 @@ This is how many different clients you can start a chat with in 24 hours.
 
 - New businesses start at 250.
 - Meta's docs list the next levels as 2,000, 10,000, 100,000 and unlimited.
-- The app may still show older names like "1,000 new conversations a day" (verify).
+- The app shows these levels: 250, 2,000, 10,000, 100,000 and unlimited.
 - Clients who message you first do not count.
 - Limits rise on their own if your quality is good and you used at least half your limit in the last 7 days.
 - Verifying your business can also raise it. See "Verify your business with Meta".

@@ -1663,6 +1663,47 @@ export type Database = {
           },
         ]
       }
+      support_requests: {
+        Row: {
+          business_id: string
+          created_at: string
+          health: Json
+          id: string
+          nerova_account_id: string
+          resolved_at: string | null
+          status: string
+          summary: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          health?: Json
+          id?: string
+          nerova_account_id: string
+          resolved_at?: string | null
+          status?: string
+          summary: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          health?: Json
+          id?: string
+          nerova_account_id?: string
+          resolved_at?: string | null
+          status?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
