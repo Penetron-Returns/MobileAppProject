@@ -17,6 +17,7 @@ describe('isPersistableKey', () => {
     [qk.availabilitySlots, false],
     [qk.availabilityDays, false],
     [qk.companionSetup, false],
+    [qk.companionWhatsAppHealth, false],
     [qk.companionSettings, false],
     [qk.conversations, false],
     [qk.messages('c1'), false],

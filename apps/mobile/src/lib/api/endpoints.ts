@@ -28,6 +28,7 @@ import type {
   ClientDTO,
   CompanionSessionDTO,
   CompanionSetupDTO,
+  CompanionWhatsAppHealthDTO,
   CompanionWhatsAppConnectSessionDTO,
   ClientNoteDTO,
   CreateAppointmentRequest,
@@ -144,6 +145,8 @@ export const api = {
       '/v1/companion/settings',
     )(b, key),
   companionSetup: () => get<CompanionSetupDTO>('/v1/companion/setup'),
+  companionWhatsAppHealth: () =>
+    get<CompanionWhatsAppHealthDTO>('/v1/companion/whatsapp-health'),
   createCompanionWhatsAppSession: (key: string) =>
     send<undefined, CompanionWhatsAppConnectSessionDTO>(
       'POST',

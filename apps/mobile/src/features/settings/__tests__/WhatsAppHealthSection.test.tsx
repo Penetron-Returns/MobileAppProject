@@ -4,6 +4,13 @@ import { act, mount, text } from '@/testing/render';
 
 import { WhatsAppHealthSection } from '../components/WhatsAppHealthSection';
 
+jest.mock('@/lib/format', () => ({
+  formatPhone: (v: string | null | undefined) => (v ? `fmt ${v}` : ''),
+}));
+const mockOpen = jest
+  .spyOn(require('react-native').Linking, 'openURL')
+  .mockResolvedValue(true);
+
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
   return new Proxy({}, { get: () => View });
@@ -54,13 +61,13 @@ describe('WhatsApp health section', () => {
     expect(out).toContain(label);
     expect(out).toContain(meaning);
     expect(
-      tree.root.findAllByProps({ testID: 'quality-dot' }).length,
+      tree.root.findAllByProps({ testID: 'quality-icon' }).length,
     ).toBeGreaterThan(0);
   });
 
   it.each([
     ['tier_250', '250 new conversations a day'],
-    ['tier_1k', '1,000 new conversations a day'],
+    ['tier_1k', '2,000 new conversations a day'],
     ['tier_10k', '10,000 new conversations a day'],
     ['tier_100k', '100,000 new conversations a day'],
     ['unlimited', 'Unlimited'],
@@ -155,5 +162,104 @@ describe('WhatsApp health section', () => {
     expect(
       text(render({ last_health_check_at: '2026-10-18T11:57:00Z' })),
     ).toContain('Checked 3 minutes ago');
+  });
+
+  it('shows the connected number with its status', () => {
+    const out = text(
+      render({
+        phone_number_status: 'connected',
+        display_phone_number: '+27821234567',
+      }),
+    );
+    expect(out).toContain('fmt +27821234567');
+  });
+
+  it('shows the payment method with its currency', () => {
+    const out = text(
+      render({ billing: { payment_method_attached: true, currency: 'ZAR' } }),
+    );
+    expect(out).toContain('Payment method');
+    expect(out).toContain('Added (ZAR)');
+    expect(out).not.toContain('How to add a payment method');
+  });
+
+  it('flags a missing payment method and opens Meta billing from the help row', () => {
+    const tree = render({
+      billing: { payment_method_attached: false, currency: null },
+    });
+    const out = text(tree);
+    expect(out).toContain('Missing');
+    expect(out).toContain('Easier on a computer');
+    const row = tree.root.findAll(
+      (n) =>
+        !!n.props.onPress &&
+        String(n.props.accessibilityLabel ?? '').startsWith(
+          'How to add a payment method',
+        ),
+    )[0];
+    act(() => row?.props.onPress());
+    expect(mockOpen).toHaveBeenCalledWith(
+      'https://business.facebook.com/latest/billing_hub/payment_methods/',
+    );
+  });
+
+  it('lists recent send failures in plain words and unknown codes as Meta error', () => {
+    const out = text(
+      render({
+        recent_send_failures: [
+          {
+            code: '131047',
+            title: 'x',
+            count: 3,
+            last_at: '2026-10-18T10:00:00Z',
+          },
+          { code: '999999', title: null, count: 1, last_at: null },
+        ],
+      }),
+    );
+    expect(out).toContain('Recent send problems');
+    expect(out).toContain('need an approved template');
+    expect(out).toContain('3 in the last 7 days, latest 2 hours ago');
+    expect(out).toContain('Meta error 999999');
+    expect(out).toContain('1 time in the last 7 days');
+  });
+
+  it('shows a skeleton while the live read loads and a note when it reports nothing', () => {
+    const loading = mount(
+      <WhatsAppHealthSection whatsapp={wa()} now={NOW} load="loading" />,
+    );
+    expect(text(loading)).toContain('Health');
+    const empty = text(
+      mount(<WhatsAppHealthSection whatsapp={wa()} now={NOW} load="loaded" />),
+    );
+    expect(empty).toContain('Nothing reported yet');
+    expect(
+      text(
+        mount(
+          <WhatsAppHealthSection
+            whatsapp={wa({ connected: false })}
+            now={NOW}
+            load="loaded"
+          />,
+        ),
+      ),
+    ).toBe('');
+  });
+
+  it('offers a retry when the live read fails', () => {
+    const onRetry = jest.fn();
+    const tree = mount(
+      <WhatsAppHealthSection
+        whatsapp={wa()}
+        now={NOW}
+        load="error"
+        error={new Error('boom')}
+        onRetry={onRetry}
+      />,
+    );
+    expect(text(tree)).toContain('Health');
+    expect(
+      tree.root.findAll((n) => n.props.onRetry === onRetry).length,
+    ).toBeGreaterThan(0);
   });
 });
