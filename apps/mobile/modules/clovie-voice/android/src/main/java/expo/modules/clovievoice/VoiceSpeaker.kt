@@ -7,25 +7,30 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
 import java.util.UUID
 
 /**
- * Reads a reply aloud with the phone's own text-to-speech engine: free and offline. The engine starts
- * lazily (`warmUp` or the first `speak`) and is kept for the life of the service. A reply is split into
- * sentences ([SentenceSplitter]): the first is spoken at once and the rest are queued behind it, so speech starts
- * on the first sentence rather than after the whole reply is prepared. It asks for
+ * Reads a reply aloud, free and offline. The preferred voice is the on-device neural one ([KokoroEngine]), used once
+ * its model is downloaded and loaded; otherwise, or if it ever fails, the phone's own text-to-speech engine speaks,
+ * so the owner never hears silence. Engines start lazily (`warmUp` or the first `speak`) and are kept for the life
+ * of the service. A reply is split into sentences ([SentenceSplitter]): the first is spoken at once and the rest are
+ * queued behind it, so speech starts on the first sentence rather than after the whole reply is prepared. It asks for
  * transient audio focus, letting other audio duck, only while it talks. Message text is never logged,
  * because it can contain client names. All callbacks arrive on the main thread.
  */
 class VoiceSpeaker(private val context: Context) {
   private val main = Handler(Looper.getMainLooper())
   private val audio = context.getSystemService(AudioManager::class.java)
+  private val events = EngineEvents()
   private var engine: TextToSpeech? = null
+  private var system: SystemSpeechEngine? = null
+  private val neural = KokoroEngine(context.applicationContext, events)
   private var isReady = false
   private var isFailed = false
+  /** Consecutive neural failures; two in a row park the neural voice until the next session. */
+  private var neuralFailures = 0
   /** True while the engine in use was requested by package name; its init failure gets one retry on the default engine. */
   private var isUsingGoogleEngine = false
   private var queued: Pending? = null
@@ -43,6 +48,9 @@ class VoiceSpeaker(private val context: Context) {
     val id: String = UUID.randomUUID().toString()
     val sentences: List<String> = SentenceSplitter.split(text).ifEmpty { listOf(text) }
 
+    /** The engine speaking this reply, so a failure knows whether to fall back. */
+    var engine: SpeechEngine? = null
+
     /** Index of the last sentence that was really queued; it ends the reply. */
     var lastIndex: Int = sentences.lastIndex
 
@@ -52,8 +60,26 @@ class VoiceSpeaker(private val context: Context) {
       utteranceId?.takeIf { it.startsWith("$id#") }?.substringAfter('#')?.toIntOrNull()
   }
 
-  /** Starts the engine early, so it is ready when the answer arrives. */
+  /** Both engines report here, always on the main thread. */
+  private inner class EngineEvents : SpeechEngineListener {
+    override fun onStart(utteranceId: String) {
+      // Only the first sentence starts the reply: the rest are queued behind it.
+      current?.takeIf { it.indexOf(utteranceId) == 0 }?.onStart?.invoke()
+    }
+
+    override fun onDone(utteranceId: String) {
+      if (current?.engine === neural) neuralFailures = 0
+      complete(utteranceId)
+    }
+
+    override fun onError(utteranceId: String) {
+      fail(utteranceId)
+    }
+  }
+
+  /** Starts the engines early, so they are ready when the answer arrives. */
   fun warmUp() {
+    neural.load()
     if (engine != null || isFailed) return
     val listener = TextToSpeech.OnInitListener { status -> main.post { onInit(status) } }
     val app = context.applicationContext
@@ -69,17 +95,17 @@ class VoiceSpeaker(private val context: Context) {
     false
   }
 
+  private fun choose(): EngineChoice = NeuralVoicePolicy.choose(
+    isNeuralLoaded = neural.isLoaded,
+    isNeuralBroken = neuralFailures >= MAX_NEURAL_FAILURES,
+    isSystemReady = isReady,
+    isSystemFailed = isFailed,
+  )
+
   /** A short filler ("One sec, checking."): spoken at once; a later [speak] queues behind it. */
   fun speakInterim(text: String, onStart: () -> Unit = {}) {
     stop()
-    val pending = Pending(text, {}, onStart, isInterim = true)
-    if (isFailed) return
-    if (!isReady) {
-      queued = pending
-      warmUp()
-      return
-    }
-    start(pending)
+    begin(Pending(text, {}, onStart, isInterim = true), finishWhenImpossible = false)
   }
 
   /**
@@ -93,13 +119,18 @@ class VoiceSpeaker(private val context: Context) {
       return
     }
     stop()
-    if (isFailed) return finish(pending)
-    if (!isReady) {
-      queued = pending
-      warmUp()
-      return
+    begin(pending, finishWhenImpossible = true)
+  }
+
+  private fun begin(pending: Pending, finishWhenImpossible: Boolean) {
+    when (choose()) {
+      EngineChoice.NONE -> if (finishWhenImpossible) finish(pending)
+      EngineChoice.WAIT -> {
+        queued = pending
+        warmUp()
+      }
+      else -> start(pending)
     }
-    start(pending)
   }
 
   /** Cuts speech off; the pending `onDone` is dropped. */
@@ -107,14 +138,22 @@ class VoiceSpeaker(private val context: Context) {
     queued = null
     following = null
     current = null
-    engine?.stop()
+    system?.stop()
+    neural.stop()
     abandonFocus()
+  }
+
+  /** Low memory: frees the neural model; it reloads on the next `warmUp`. */
+  fun trimMemory() {
+    neural.release()
   }
 
   fun shutdown() {
     stop()
+    neural.release()
     engine?.shutdown()
     engine = null
+    system = null
     isReady = false
   }
 
@@ -131,31 +170,19 @@ class VoiceSpeaker(private val context: Context) {
       }
       isFailed = true
       engine = null
-      queued?.let(::finish)
+      system = null
+      val waiting = queued
+      val next = following
       queued = null
-      following?.let(::finish)
       following = null
+      // The neural voice may still be able to speak what was waiting; otherwise end it so callers never wait.
+      if (waiting != null) if (choose() == EngineChoice.NEURAL) start(waiting) else finish(waiting)
+      if (next != null) finish(next)
       return
     }
     chooseVoice(tts)
     tts.setAudioAttributes(VoiceAudio.attributes(AudioAttributes.CONTENT_TYPE_SPEECH))
-    tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-      override fun onStart(utteranceId: String?) {
-        // Only the first sentence starts the reply: the rest are queued behind it.
-        main.post { current?.takeIf { it.indexOf(utteranceId) == 0 }?.onStart?.invoke() }
-      }
-
-      override fun onDone(utteranceId: String?) {
-        main.post { complete(utteranceId) }
-      }
-
-      @Deprecated("Deprecated in Java")
-      override fun onError(utteranceId: String?) {
-        main.post { fail(utteranceId) }
-      }
-
-      override fun onStop(utteranceId: String?, interrupted: Boolean) = Unit
-    })
+    system = SystemSpeechEngine(tts, events)
     isReady = true
     queued?.let(::start)
     queued = null
@@ -178,23 +205,46 @@ class VoiceSpeaker(private val context: Context) {
     Log.i(TAG, "tts engine=${tts.defaultEngine} voice=${chosen?.name ?: "default"} rate=$SPEECH_RATE pitch=$PITCH")
   }
 
+  /** Speaks the reply from its first sentence on whichever engine [choose] picks. */
   private fun start(pending: Pending) {
-    val tts = engine ?: return finish(pending)
+    val picked = when (choose()) {
+      EngineChoice.NEURAL -> neural
+      EngineChoice.SYSTEM -> system
+      else -> null
+    } ?: return finish(pending)
     if (!VoiceAudio.isAudible(context)) return finish(pending)
     current = pending
     requestFocus()
-    if (tts.speak(pending.sentences[0], TextToSpeech.QUEUE_FLUSH, null, pending.utteranceId(0)) != TextToSpeech.SUCCESS) {
+    if (!speakFrom(pending, 0, picked)) {
+      // The neural voice refused the first sentence: the system voice takes over before anything was heard.
+      if (picked === neural && fallBackToSystem(pending, 0)) return
       current = null
       abandonFocus()
-      return finish(pending)
+      finish(pending)
     }
-    for (index in 1..pending.sentences.lastIndex) {
-      val queued = tts.speak(pending.sentences[index], TextToSpeech.QUEUE_ADD, null, pending.utteranceId(index))
-      if (queued != TextToSpeech.SUCCESS) {
+  }
+
+  /** Queues sentences `from`..end on `picked`; the first flushes, so nothing older is heard. False if the first is refused. */
+  private fun speakFrom(pending: Pending, from: Int, picked: SpeechEngine): Boolean {
+    pending.engine = picked
+    if (!picked.speak(pending.sentences[from], pending.utteranceId(from), flush = true)) return false
+    for (index in from + 1..pending.sentences.lastIndex) {
+      if (!picked.speak(pending.sentences[index], pending.utteranceId(index), flush = false)) {
         pending.lastIndex = index - 1
         break
       }
     }
+    return true
+  }
+
+  /** Hands the rest of the reply (from sentence `index`) to the system voice. False when it cannot speak. */
+  private fun fallBackToSystem(pending: Pending, index: Int): Boolean {
+    neuralFailures++
+    Log.w(TAG, "neural voice failed; using system voice failures=$neuralFailures")
+    neural.stop()
+    val fallback = system?.takeIf { isReady } ?: return false
+    pending.lastIndex = pending.sentences.lastIndex
+    return speakFrom(pending, index, fallback)
   }
 
   /** The last queued sentence ending ends the reply; earlier ones just let the next one play. */
@@ -207,11 +257,13 @@ class VoiceSpeaker(private val context: Context) {
     finish(pending)
   }
 
-  /** A sentence failed: drop what is queued behind it and end the reply, so callers never wait for nothing. */
+  /** A sentence failed: the neural voice hands the rest to the system voice; otherwise the reply ends. */
   private fun fail(utteranceId: String?) {
     val pending = current ?: return
-    if (pending.indexOf(utteranceId) == null) return
-    engine?.stop()
+    val index = pending.indexOf(utteranceId) ?: return
+    if (pending.engine === neural && fallBackToSystem(pending, index)) return
+    system?.stop()
+    neural.stop()
     current = null
     abandonFocus()
     finish(pending)
@@ -223,7 +275,7 @@ class VoiceSpeaker(private val context: Context) {
     if (!pending.isInterim) return
     val next = following ?: return
     following = null
-    if (isFailed) finish(next) else start(next)
+    if (choose() == EngineChoice.NONE) finish(next) else start(next)
   }
 
   private fun requestFocus() {
@@ -244,6 +296,7 @@ class VoiceSpeaker(private val context: Context) {
   private companion object {
     const val TAG = "ClovieVoice"
     const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+    const val MAX_NEURAL_FAILURES = 2
 
     /** Slightly brisker than 1.0 so replies sound alive; kept small so speech stays clear. */
     const val SPEECH_RATE = 1.05f
