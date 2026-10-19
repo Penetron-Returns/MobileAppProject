@@ -45,6 +45,11 @@ const cases: [string, Partial<AppRouteInput>, AppRoute][] = [
     { isSignedIn: false, sessionStatus: null },
     { kind: 'signed-out' },
   ],
+  [
+    'signed in but Clerk has no session yet waits',
+    { sessionStatus: null },
+    { kind: 'splash' },
+  ],
   ['user not loaded yet', { userLoaded: false }, { kind: 'splash' }],
   [
     'pending session with a membership activates the first org',
