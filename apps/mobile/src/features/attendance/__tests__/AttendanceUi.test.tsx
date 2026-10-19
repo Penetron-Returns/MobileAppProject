@@ -3,6 +3,7 @@ import type { Approval } from '@nerova/react-native';
 import * as React from 'react';
 
 import { NeedsYou } from '@/features/today/components/ai/NeedsYou';
+import { ApiError } from '@/lib/api';
 import { act, flush, mount, pressableByLabel, text } from '@/testing/render';
 
 import { AttendanceModeScreen } from '../components/AttendanceModeScreen';
@@ -11,6 +12,12 @@ import { useAttendance } from '../hooks';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a) },
+}));
+
+const mockShowToast = jest.fn();
+jest.mock('@booking/ui', () => ({
+  ...jest.requireActual('@booking/ui'),
+  showToast: (...a: unknown[]) => mockShowToast(...a),
 }));
 
 const mockAnswer = jest.fn();
@@ -159,6 +166,42 @@ describe('useAttendance', () => {
     });
     expect(ok).toBe(false);
     expect((ref.current as View).confirmation).toBeNull();
+  });
+
+  it('resends a dropped request with the same key and still confirms', async () => {
+    mockAnswer
+      .mockRejectedValueOnce(
+        new ApiError({ code: 'NETWORK_ERROR', message: 'down', status: 0 }),
+      )
+      .mockResolvedValueOnce({});
+    const ref: { current: unknown } = { current: null };
+    mount(<Host client={ref} />);
+    let ok = false;
+    await act(async () => {
+      ok = await (ref.current as View).answer(thandi, 'came');
+    });
+    expect(ok).toBe(true);
+    expect(mockAnswer).toHaveBeenCalledTimes(2);
+    expect(mockAnswer.mock.calls[1]).toEqual(mockAnswer.mock.calls[0]);
+    expect((ref.current as View).confirmation).toBe('Marked Thandi as came');
+  });
+
+  it('does not resend a refusal and says why it was not saved', async () => {
+    mockAnswer.mockRejectedValue(
+      new ApiError({ code: 'FORBIDDEN', message: 'no', status: 403 }),
+    );
+    const ref: { current: unknown } = { current: null };
+    mount(<Host client={ref} />);
+    await act(async () => {
+      await (ref.current as View).answer(thandi, 'came');
+    });
+    expect(mockAnswer).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Couldn't save that answer",
+        description: "You don't have access to do that.",
+      }),
+    );
   });
 });
 

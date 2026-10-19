@@ -223,3 +223,36 @@ describe('attendance_mode setting', () => {
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
 });
+
+describe('answering several questions at once', () => {
+  it('saves three "came" answers tapped back to back, each with its own deterministic key', async () => {
+    const h = attendanceHarness();
+    const appointmentIds = [await book(h, '09:00'), await book(h, '10:00'), await book(h, '11:00')];
+    await h.attendance.runJob(at('11:10'));
+    await h.attendance.runJob(at('12:10'));
+    const checks = h.attendanceRepo.checks;
+    expect(checks).toHaveLength(3);
+
+    const results = await Promise.all(
+      checks.map((c) => answer(h, c.id, 'owner', { outcome: 'came' }, `attendance:${c.id}:came`)),
+    );
+    expect(results.map((r) => r.status)).toEqual([200, 200, 200]);
+    expect(results.map((r) => r.body.data.outcome)).toEqual(['came', 'came', 'came']);
+    expect(appointmentIds.map((id) => statusOf(h, id))).toEqual(['completed', 'completed', 'completed']);
+    expect(h.attendanceRepo.checks.every((c) => c.status === 'answered')).toBe(true);
+  });
+
+  it('reads the question once: no re-read after the write (fewer sequential round trips)', async () => {
+    const { h, checkId } = await withQuestion();
+    const real = h.attendanceRepo.getCheck;
+    let reads = 0;
+    h.attendanceRepo.getCheck = async (...args) => {
+      reads += 1;
+      return real(...args);
+    };
+    const res = await answer(h, checkId, 'staff', { outcome: 'came' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ status: 'answered', outcome: 'came', answered_at: '2026-09-28T06:00:00.000Z' });
+    expect(reads).toBe(1);
+  });
+});

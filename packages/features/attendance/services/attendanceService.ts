@@ -65,14 +65,19 @@ export async function answerCheck(
     }
   }
 
-  await repo.answerCheck({
+  const answeredAt = clock().toISOString();
+  const won = await repo.answerCheck({
     businessId: caller.businessId,
     checkId,
     outcome: result,
     answeredBy: caller.userId,
-    at: clock().toISOString(),
+    at: answeredAt,
   });
-  const fresh = await repo.getCheck(caller.businessId, checkId);
+  // The conditional update says what was written, so skip the re-read (several sequential round
+  // trips). Only a lost race (someone answered in between) needs the stored row.
+  const fresh: AttendanceCheckRow | null = won
+    ? { ...check, status: 'answered', outcome: result, answered_by: caller.userId, answered_at: answeredAt }
+    : await repo.getCheck(caller.businessId, checkId);
   if (!fresh) throw notFound('Attendance check');
   return toAttendanceCheckDTO(fresh);
 }

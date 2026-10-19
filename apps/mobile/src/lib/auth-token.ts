@@ -99,6 +99,19 @@ export interface BearerCredential {
   isDeviceToken: boolean;
 }
 
+/** How long the device-token routes wait for Clerk before falling back to the device token. */
+export const SESSION_TOKEN_WAIT_MS = 4000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    void promise.then((value) => {
+      clearTimeout(timer);
+      resolve(value);
+    });
+  });
+}
+
 /**
  * The bearer for a call: the Clerk session token, or, when `allowDeviceToken` and no session token is
  * available (app backgrounded or killed, so the Clerk getter is missing or fails), the device token.
@@ -116,7 +129,11 @@ export async function resolveBearer(opts: {
     });
     return token ? { token, isDeviceToken: false } : null;
   }
-  const session = await getAuthToken().catch(() => null);
+  // A Clerk getToken that never settles must not strand the call: give up and use the device token.
+  const session = await withTimeout(
+    getAuthToken().catch(() => null),
+    SESSION_TOKEN_WAIT_MS,
+  );
   if (session) return { token: session, isDeviceToken: false };
   const device = await (deviceSource?.get() ?? Promise.resolve(null)).catch(
     () => null,
