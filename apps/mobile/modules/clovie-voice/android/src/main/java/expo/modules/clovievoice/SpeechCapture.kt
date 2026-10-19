@@ -49,6 +49,8 @@ class SpeechCapture(
   val isBusy: Boolean
     get() = onDone != null
   private var onStarted: (() -> Unit)? = null
+  private var order = SttPolicy.ORDER
+  private var isOnline = false
   private var attempt = SttAttempt(SttStep.ON_DEVICE)
   private var startedAt = 0L
   private var hasTriggeredDownload = false
@@ -82,7 +84,10 @@ class SpeechCapture(
     cancel()
     this.onStarted = onStarted
     this.onDone = onDone
-    attempt = SttAttempt(SttStep.ON_DEVICE)
+    isOnline = hasValidatedNetwork()
+    order = SttPolicy.orderFor(isOnline)
+    Log.i(TAG, "stt order=${order.map { it.name }} online=$isOnline")
+    attempt = SttAttempt(order.first())
     startedAt = SystemClock.elapsedRealtime()
     maxRmsDb = Float.NEGATIVE_INFINITY
     heardSpeechStart = false
@@ -111,13 +116,27 @@ class SpeechCapture(
     endpoint.reset()
     main.removeCallbacks(endpointTick)
     val step = attempt.step
-    val created = create(step) ?: return advance(SttPolicy.skip(attempt))
+    val created = create(step) ?: return advance(SttPolicy.skip(attempt, order))
     recognizer = created
     created.setRecognitionListener(listener)
     if (!step.hasLocale) return start(created, null)
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return start(created, FALLBACK_LOCALE)
     chooseLanguage(created, step)
   }
+
+  private fun deviceLanguageTag(): String = java.util.Locale.getDefault().toLanguageTag()
+
+  /** True when the active network has internet and the system has validated it. */
+  private fun hasValidatedNetwork(): Boolean =
+    try {
+      val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+      val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+      caps != null &&
+        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    } catch (_: RuntimeException) {
+      false
+    }
 
   /** Learns what the recogniser supports (API 33+), picks the language, then starts. */
   @RequiresApi(33)
@@ -130,14 +149,15 @@ class SpeechCapture(
         val supported = support.supportedOnDeviceLanguages.toList()
         val pending = support.pendingOnDeviceLanguages.toList()
         val pool = if (step.useOnDevice) installed else installed + online
-        val chosen = SttLanguages.choose(pool) ?: if (step.useOnDevice) null else SttLanguages.choose(supported)
+        val picked = if (step.useOnDevice) SttLanguages.choose(pool) else SttLanguages.chooseOnline(deviceLanguageTag(), pool)
+        val chosen = picked ?: if (step.useOnDevice) null else SttLanguages.choose(supported)
         Log.i(
           TAG,
           "stt languages step=$step installed=$installed online=${online.size} pending=$pending " +
             "supported=${supported.size} chosen=$chosen",
         )
         if (step.useOnDevice && chosen == null) maybeDownload(created, supported, pending)
-        if (chosen == null) advance(SttPolicy.skip(attempt)) else start(created, chosen)
+        if (chosen == null) advance(SttPolicy.skip(attempt, order)) else start(created, chosen)
       }
 
       override fun onError(error: Int) {
@@ -221,8 +241,8 @@ class SpeechCapture(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
       }
-      // Offline is a preference: a recogniser with no local model still answers online.
-      putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+      // Only the on-device step stays offline; online steps must not be steered to a local model.
+      putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, attempt.step.useOnDevice)
       putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
       putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
       putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
@@ -262,7 +282,7 @@ class SpeechCapture(
       return finish(endpoint.text, "no_speech")
     }
     Log.w(TAG, "stt error code=$code name=${SttErrors.name(code)} elapsedMs=$sinceStart attempt=${attempt.number} ${diagnostics()}")
-    advance(SttPolicy.next(code, sinceStart, attempt))
+    advance(SttPolicy.next(code, sinceStart, attempt, order, isOnline, heardSpeechStart || endpoint.text.isNotBlank()))
   }
 
   private fun advance(next: SttNext) {

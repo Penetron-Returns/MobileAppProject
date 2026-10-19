@@ -61,17 +61,28 @@ object SttPolicy {
   const val FAST_FAIL_MS = 1_000L
   const val RETRY_DELAY_MS = 350L
 
-  /** Order the recognisers are tried in. */
+  /** Order the recognisers are tried in when offline. */
   val ORDER: List<SttStep> = SttStep.values().toList()
+
+  /**
+   * Online, Google's recogniser (accurate, en-ZA aware, streams partials) goes first: Samsung's on-device model
+   * often returns nothing. The on-device model stays next, and is the only useful one when offline.
+   */
+  fun orderFor(isOnline: Boolean): List<SttStep> =
+    if (isOnline) {
+      listOf(SttStep.DEFAULT_LOCALE, SttStep.ON_DEVICE, SttStep.DEFAULT_NO_LOCALE, SttStep.GOOGLE_NO_LOCALE)
+    } else {
+      ORDER
+    }
 
   fun isLanguageError(code: Int) = code == SttErrors.LANGUAGE_NOT_SUPPORTED || code == SttErrors.LANGUAGE_UNAVAILABLE
 
   /** The step after `step`, or null when it was the last. */
-  private fun following(step: SttStep): SttStep? = ORDER.getOrNull(ORDER.indexOf(step) + 1)
+  private fun following(step: SttStep, order: List<SttStep>): SttStep? = order.getOrNull(order.indexOf(step) + 1)
 
   /** Moves to the next step without an error (it cannot run here: no on-device model, no Google service). */
-  fun skip(current: SttAttempt): SttNext {
-    val step = following(current.step)
+  fun skip(current: SttAttempt, order: List<SttStep> = ORDER): SttNext {
+    val step = following(current.step, order)
     return if (step == null || current.number >= MAX_ATTEMPTS) {
       SttNext.GiveUp("language")
     } else {
@@ -79,22 +90,37 @@ object SttPolicy {
     }
   }
 
-  fun next(code: Int, elapsedMs: Long, current: SttAttempt): SttNext {
+  /**
+   * `heardAnything` is true once the recogniser reported speech starting or a partial. An on-device "nothing heard"
+   * without that is the recogniser failing, not the owner being silent, so when online it moves to the next step.
+   */
+  fun next(
+    code: Int,
+    elapsedMs: Long,
+    current: SttAttempt,
+    order: List<SttStep> = ORDER,
+    isOnline: Boolean = false,
+    heardAnything: Boolean = true,
+  ): SttNext {
     val isLastTry = current.number >= MAX_ATTEMPTS
+    val isNothingHeard = code == SttErrors.NO_MATCH || code == SttErrors.SPEECH_TIMEOUT
+    val nextStep = following(current.step, order)
+    val onDeviceFailed = isNothingHeard && current.step.useOnDevice && isOnline && !heardAnything && !isLastTry
     return when {
       code == SttErrors.INSUFFICIENT_PERMISSIONS -> SttNext.GiveUp("permission")
+      onDeviceFailed && nextStep != null -> SttNext.Retry(SttAttempt(nextStep, current.number + 1), 0L)
       code == SttErrors.NO_MATCH || code == SttErrors.SPEECH_TIMEOUT ->
         if (!isLastTry && current.number < 2 && elapsedMs < FAST_FAIL_MS) {
           SttNext.Retry(current.copy(number = current.number + 1), RETRY_DELAY_MS)
         } else {
           SttNext.GiveUp("no_speech")
         }
-      isLanguageError(code) -> skip(current)
+      isLanguageError(code) -> skip(current, order)
       isLastTry -> SttNext.GiveUp("error")
       // Busy, audio, client, server, disconnected, network, unknown: the recogniser or the microphone
       // was not ready. Move off the on-device recogniser first, then retry the same one.
       else -> {
-        val step = if (current.step.useOnDevice) following(current.step) ?: current.step else current.step
+        val step = if (current.step.useOnDevice) nextStep ?: current.step else current.step
         SttNext.Retry(SttAttempt(step, current.number + 1), RETRY_DELAY_MS)
       }
     }
@@ -130,6 +156,12 @@ object SttLanguages {
   private val PREFERRED = listOf("en-ZA", "en-GB", "en-US")
 
   private fun norm(tag: String) = tag.replace('_', '-')
+
+  /** The online recogniser supports en-ZA etc., so the device's own English locale wins; else [choose]. */
+  fun chooseOnline(deviceTag: String?, candidates: Collection<String>): String? {
+    val device = deviceTag?.let(::norm)
+    return if (device != null && device.startsWith("en-", ignoreCase = true)) device else choose(candidates)
+  }
 
   /** en-ZA, en-GB, en-US, any other `en-*`, else null (let the device choose). */
   fun choose(candidates: Collection<String>): String? {
