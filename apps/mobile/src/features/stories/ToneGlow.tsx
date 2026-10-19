@@ -1,7 +1,7 @@
 import { useReduceMotion } from '@booking/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image, type ImageStyle, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +21,14 @@ const GLOWS: Record<StoryTone, number> = {
   neutral: require('@/assets/images/clovie/glow-neutral.png'),
   attention: require('@/assets/images/clovie/glow-attention.png'),
   concern: require('@/assets/images/clovie/glow-concern.png'),
+};
+
+// absoluteFill alone leaves Android's Image at its intrinsic size (New
+// Architecture), so the size is explicit too.
+const GLOW_IMAGE_STYLE: ImageStyle = {
+  ...StyleSheet.absoluteFill,
+  width: '100%',
+  height: '100%',
 };
 
 const FADE_MS = 600;
@@ -55,7 +63,7 @@ function GlowLayer({ tone, isActive, isInstant, fadeMs }: GlowLayerProps) {
         source={GLOWS[tone]}
         resizeMode="stretch"
         fadeDuration={0}
-        style={StyleSheet.absoluteFill}
+        style={GLOW_IMAGE_STYLE}
       />
     </Animated.View>
   );
