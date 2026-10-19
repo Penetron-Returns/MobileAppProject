@@ -17,11 +17,10 @@ import {
   setName,
   shouldAutoSubmit,
   startScreen,
-  type BusinessTypeId,
   type OnboardingDraft,
   type OnboardingScreen,
 } from '../logic';
-import { clearDraft, saveBusinessType } from '../storage';
+import { clearDraft } from '../storage';
 import { useOnboardingDraft } from '../useOnboardingDraft';
 import { CreateFailedScreen } from './CreateFailedScreen';
 import { NameScreen } from './NameScreen';
@@ -29,12 +28,6 @@ import { OnboardingChrome } from './OnboardingShell';
 import { StepHost } from './StepHost';
 import { TypeScreen } from './TypeScreen';
 import { WelcomeScreen } from './WelcomeScreen';
-
-/** Keeps the type for Back from the plan screen, then drops the draft. */
-async function rememberCreated(typeId: BusinessTypeId | null) {
-  if (typeId) await saveBusinessType(typeId);
-  await clearDraft();
-}
 
 /** Ignore a second tap on a sign-in link for this long (the push is not instant). */
 const PUSH_GUARD_MS = 1000;
@@ -51,7 +44,7 @@ export function OnboardingFlow({
   onDone,
 }: {
   isSignedIn: boolean;
-  /** Called once the business exists; the app shell then moves on to the plan. */
+  /** Called once the business exists; the app shell then opens the app. */
   onDone?: () => void;
 }) {
   const { user } = useUser();
@@ -107,10 +100,10 @@ export function OnboardingFlow({
         created.current = true;
         analytics.track('business_created');
         analytics.group('business', me.business.id);
-        // Move on first; remembering the type and dropping the draft is not on the
-        // critical path (both are best effort and never throw).
+        // Move on first; dropping the draft is not on the critical path (best
+        // effort, never throws).
         onDone?.();
-        void rememberCreated(from.typeId);
+        void clearDraft();
       } catch (e) {
         setError(e);
       } finally {
@@ -152,7 +145,7 @@ export function OnboardingFlow({
       <TypeScreen
         selected={draft.typeId}
         onBack={
-          backTarget('type', { isSignedIn, isRevising: false })
+          backTarget('type', { isSignedIn })
             ? () => {
                 analytics.track('onboarding_back');
                 go('welcome', true);

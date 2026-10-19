@@ -1,11 +1,7 @@
 import type { AppRoute } from '@/features/auth/appRoute';
 
-/** Routes that belong to first-run: the questions, the plan and the setup wait. */
-const FIRST_RUN: ReadonlySet<AppRoute['kind']> = new Set([
-  'onboarding',
-  'choose-plan',
-  'companion-setup',
-]);
+/** Routes that belong to first-run: the questions. */
+const FIRST_RUN: ReadonlySet<AppRoute['kind']> = new Set(['onboarding']);
 
 /**
  * Onboarding is complete when the app reaches the tabs after having been on a

@@ -9,30 +9,19 @@ import { OnbButton } from './OnbButton';
 import { OnboardingShell } from './OnboardingShell';
 import { Rise } from './Rise';
 
-/** Creating the business failed (offline, or the API said no): the same calm layout as a failed payment, with one retry. */
+/** Creating the business failed (offline, or the API said no): with one retry. */
 export function CreateFailedScreen({
   error,
   onRetry,
-  onBack,
-  mode = 'create',
 }: {
   error: unknown;
   onRetry: () => void;
-  /** A way out (revising an existing business); creation has nothing to go back to. */
-  onBack?: () => void;
-  mode?: 'create' | 'revise';
 }) {
   const { t } = useTranslation();
-  const title = t(
-    mode === 'revise'
-      ? 'onboarding.create.reviseFailed'
-      : 'onboarding.create.failed',
-  );
+  const title = t('onboarding.create.failed');
   const { message } = describeError(error);
   return (
     <OnboardingShell
-      onBack={onBack}
-      spoken={`${title} ${message}`}
       footer={
         <OnbButton label={t('onboarding.create.retry')} onPress={onRetry} />
       }

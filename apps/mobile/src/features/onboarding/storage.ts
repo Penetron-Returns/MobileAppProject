@@ -1,13 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import {
-  BUSINESS_TYPE_IDS,
-  initialDraft,
-  parseDraft,
-  type BusinessTypeId,
-  type OnboardingDraft,
-} from './logic';
+import { initialDraft, parseDraft, type OnboardingDraft } from './logic';
 
 const KEY = 'onboarding.draft.v1';
 
@@ -60,37 +54,5 @@ export async function clearDraft(): Promise<void> {
   }
 }
 
-const TYPE_KEY = 'onboarding.type.v1';
-
-/**
- * The business type is not stored on the business, so remember it for the one
- * moment it is needed again: Back from the plan screen reopens the name and type.
- */
-export async function saveBusinessType(typeId: BusinessTypeId): Promise<void> {
-  if (Platform.OS === 'web') return;
-  try {
-    await SecureStore.setItemAsync(TYPE_KEY, typeId);
-  } catch {
-    // Not critical: the revision then starts on the type screen.
-  }
-}
-
-export async function loadBusinessType(): Promise<BusinessTypeId | null> {
-  if (Platform.OS === 'web') return null;
-  try {
-    const raw = await SecureStore.getItemAsync(TYPE_KEY);
-    return BUSINESS_TYPE_IDS.find((id) => id === raw) ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Forgets everything onboarding remembers on this device (sign-out, or onboarding finished). */
-export async function clearOnboardingStorage(): Promise<void> {
-  if (Platform.OS === 'web') return;
-  await Promise.all(
-    [KEY, TYPE_KEY].map((key) =>
-      SecureStore.deleteItemAsync(key).catch(() => undefined),
-    ),
-  );
-}
+export const clearOnboardingStorage = clearDraft;

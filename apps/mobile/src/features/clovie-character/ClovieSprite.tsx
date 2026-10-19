@@ -3,14 +3,14 @@ import { Image, StyleSheet, View } from 'react-native';
 
 import { useBlinkFrame } from './useBlinkFrame';
 
-/** Pre-rendered frames of the real companion (scripts/clovie/render-sprites.mjs), open, half, shut. */
+/** Pre-rendered mascot frames: open, half, shut. */
 const FRAMES = [
   require('@/assets/images/clovie/default-open-288.png'),
   require('@/assets/images/clovie/default-half-288.png'),
   require('@/assets/images/clovie/default-closed-288.png'),
 ] as const;
 
-/** Where the live body sat in its box (see ClovieAnimated): ~92% wide, ~11% low. */
+/** Where the live body sat in its box: ~92% wide, ~11% low. */
 const BODY_SCALE = 0.92;
 const BODY_DROP = 0.11;
 
@@ -27,7 +27,7 @@ function prefetchFrames() {
 }
 
 interface ClovieSpriteProps {
-  /** Layout size in pt, the same box ClovieAnimated fills. */
+  /** Layout size in pt. */
   size: number;
   /** Blinks only while true. */
   isActive: boolean;
@@ -37,8 +37,8 @@ interface ClovieSpriteProps {
 }
 
 /**
- * The companion as one bitmap with a blink, in place of a live WebView: the
- * frames are renders of the same avatar, so it looks the same, and the only
+ * The mascot as one bitmap with a blink: the
+ * frames are pre-rendered, so the only
  * work is a source swap every few seconds. Decorative: callers label the screen.
  */
 export const ClovieSprite = React.memo(function ClovieSprite({

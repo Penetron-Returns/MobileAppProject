@@ -22,13 +22,10 @@ import { useOnbColors } from '../theme';
 import { useHardwareBack } from '../useHardwareBack';
 import { useKeyboardHeight } from '../useKeyboardHeight';
 import { ProgressDots } from './ProgressDots';
-import { ReplayVoiceButton } from './ReplayVoiceButton';
 
 /** What a screen tells the chrome about itself. */
 interface HeaderConfig {
   stage?: OnboardingStage;
-  spoken: string;
-  autoSpeak: boolean;
   hasBack: boolean;
 }
 
@@ -46,10 +43,9 @@ const FOOTER_WITH_KEYBOARD = 12;
 
 /**
  * The persistent frame of the onboarding boards: a 44pt header (Back on the
- * left, the Clovie wordmark dead centre, the quiet read-aloud icon on the
- * right), the progress dots under it, and the content. It stays mounted while
+ * left, the Clovie wordmark dead centre), the progress dots under it, and the content. It stays mounted while
  * the steps inside it change, so only the content moves. Each step's
- * `OnboardingShell` tells it the stage, the spoken line and whether Back exists.
+ * `OnboardingShell` tells it the stage and whether Back exists.
  * It follows the keyboard on the UI thread. `reserveDots` keeps the dots row's
  * height on a step without dots, so the content never jumps.
  */
@@ -66,8 +62,6 @@ export function OnboardingChrome({
   const { isSignedIn } = useAuth();
   const isReduced = useReduceMotion();
   const [header, setHeader] = React.useState<HeaderConfig>({
-    spoken: '',
-    autoSpeak: false,
     hasBack: false,
   });
   const onBack = React.useRef<(() => void) | undefined>(undefined);
@@ -152,12 +146,7 @@ export function OnboardingChrome({
                 <ClovieWordmark size={22} />
               </View>
             </View>
-            <View style={{ width: 44, height: 44 }}>
-              <ReplayVoiceButton
-                text={header.spoken}
-                autoSpeak={header.autoSpeak}
-              />
-            </View>
+            <View style={{ width: 44, height: 44 }} />
           </View>
           {showDots ? (
             <Animated.View
@@ -181,9 +170,6 @@ export function OnboardingChrome({
 interface ShellProps {
   /** Which progress dot is current; omit on screens that show none. */
   stage?: OnboardingStage;
-  /** What the speaker icon reads. */
-  spoken: string;
-  autoSpeak?: boolean;
   onBack?: () => void;
   footer?: React.ReactNode;
   footerBottom?: number;
@@ -193,8 +179,6 @@ interface ShellProps {
 /** One step's body: registers its header facts with the chrome, then lays out content, sign-out and footer. */
 function ShellBody({
   stage,
-  spoken,
-  autoSpeak = false,
   onBack,
   footer,
   footerBottom = 34,
@@ -208,8 +192,8 @@ function ShellBody({
   const chrome = React.useContext(ChromeContext);
   const hasBack = onBack !== undefined;
   React.useLayoutEffect(() => {
-    chrome?.setHeader({ stage, spoken, autoSpeak, hasBack });
-  }, [chrome, stage, spoken, autoSpeak, hasBack]);
+    chrome?.setHeader({ stage, hasBack });
+  }, [chrome, stage, hasBack]);
   React.useLayoutEffect(() => {
     if (!chrome) return undefined;
     chrome.onBack.current = onBack;

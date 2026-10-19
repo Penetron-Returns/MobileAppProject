@@ -203,13 +203,9 @@ export function TypeScreen({
   };
 
   const current = picked ?? selected;
-  const spoken = [
-    t('onboarding.type.title'),
-    ...BUSINESS_TYPE_IDS.map((id) => t(`onboarding.types.${id}`)),
-  ].join('. ');
   const rows = [BUSINESS_TYPE_IDS.slice(0, 2), BUSINESS_TYPE_IDS.slice(2, 4)];
   return (
-    <OnboardingShell stage={1} onBack={onBack} spoken={spoken}>
+    <OnboardingShell stage={1} onBack={onBack}>
       <View
         style={{
           flex: 1,

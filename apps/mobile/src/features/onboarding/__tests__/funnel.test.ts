@@ -1,6 +1,5 @@
 import type { AppRoute } from '@/features/auth/appRoute';
 
-import { checksDone } from '../components/CompanionSetupScreen';
 import { revealed } from '../components/StreamedText';
 import { nextFunnelState } from '../funnel';
 import { LOOPS, REST, poseAt, type ClovieMood } from '../reaction';
@@ -24,18 +23,13 @@ jest.mock('@/features/auth/useSignOut', () => ({
 
 describe('onboarding completion', () => {
   it.each([
-    [
-      'a full first run',
-      ['splash', 'onboarding', 'choose-plan', 'companion-setup', 'tabs'],
-      1,
-    ],
-    ['a plan chosen straight away', ['choose-plan', 'tabs'], 1],
+    ['a full first run', ['splash', 'onboarding', 'tabs'], 1],
     [
       'a returning owner with a business never counts',
       ['splash', 'tabs', 'tabs'],
       0,
     ],
-    ['staying on first run', ['onboarding', 'choose-plan'], 0],
+    ['staying on first run', ['onboarding', 'onboarding'], 0],
     [
       'once per first run, not per later visit',
       ['onboarding', 'tabs', 'tabs'],
@@ -102,19 +96,4 @@ describe('streamed heading', () => {
     expect(revealed('One two', 0)).toEqual(['', 'One two']);
     expect(revealed('One two', 9)).toEqual(['One two', '']);
   });
-});
-
-describe('setup checks', () => {
-  it.each([
-    [0, 0],
-    [899, 0],
-    [900, 1],
-    [1800, 2],
-    [60_000, 2],
-  ])(
-    'after %sms %s checks have landed (the last waits for the real setup)',
-    (ms, done) => {
-      expect(checksDone(ms)).toBe(done);
-    },
-  );
 });

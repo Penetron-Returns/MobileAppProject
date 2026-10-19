@@ -35,7 +35,7 @@ const FADE_OUT = FadeOut.duration(FADE_MS).reduceMotion(ReduceMotion.System);
 
 /** How long the native splash may wait for the still before it hides anyway. */
 const SPLASH_SAFETY_MS = 1500;
-/** The still's body sits this fraction of the box below the box centre (see ClovieAnimated); offsets it so the body is centred. */
+/** The still's body sits this fraction of the box below the box centre; offsets it so the body is centred. */
 const STILL_CENTRE_DROP = 0.07;
 const QUOTE_GAP = 24;
 

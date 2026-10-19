@@ -9,15 +9,11 @@ jest.mock('@clerk/expo', () => ({ useAuth: () => ({ isSignedIn: false }) }));
 jest.mock('@/features/auth/useSignOut', () => ({
   useSignOut: () => jest.fn(),
 }));
-jest.mock('@/lib/speech', () => ({
-  speak: jest.fn(),
-  stopSpeaking: jest.fn(),
-}));
 
 describe('OnboardingShell header', () => {
   it('shows the Clovie wordmark as a non-interactive image', () => {
     const tree = mount(
-      <OnboardingShell spoken="hi">
+      <OnboardingShell>
         <Text>body</Text>
       </OnboardingShell>,
     );
@@ -32,7 +28,7 @@ describe('OnboardingShell header', () => {
 
   it('keeps the progress dots when a stage is given', () => {
     const tree = mount(
-      <OnboardingShell spoken="hi" stage={2}>
+      <OnboardingShell stage={2}>
         <Text>body</Text>
       </OnboardingShell>,
     );

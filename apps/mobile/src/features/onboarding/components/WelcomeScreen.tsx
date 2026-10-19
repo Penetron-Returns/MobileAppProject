@@ -27,8 +27,6 @@ export function WelcomeScreen({
   const line2 = t('onboarding.welcome.line2');
   return (
     <OnboardingShell
-      spoken={t('onboarding.welcome.title')}
-      autoSpeak
       footerBottom={24}
       footer={
         <>
