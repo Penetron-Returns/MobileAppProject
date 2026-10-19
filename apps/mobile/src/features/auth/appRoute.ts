@@ -4,9 +4,7 @@
  * gathers the inputs and renders the result.
  */
 
-import type { CompanionSetupStep, MemberRole, PlanKey } from '@booking/types';
-
-import { hasClovie } from '@/features/plans/logic';
+import type { MemberRole } from '@booking/types';
 
 export type SessionStatus = 'active' | 'pending';
 /** Clerk session task keys (`session.currentTask.key`). */
@@ -29,13 +27,8 @@ export interface InvitationsInput {
   count: number;
 }
 
-export interface BillingInput {
-  plan: PlanKey;
-  /** The plan carries the companion feature. */
-  hasCompanion: boolean;
+export interface BusinessInput {
   role: MemberRole;
-  /** Nerova's provisioning of the business's companion account (owners of a paid business only). */
-  provisioning: ProvisioningStatus;
   /**
    * Whether the business was named and set up by onboarding. A business row can
    * exist without it (the Clerk webhook mirrors any organisation), so the
@@ -44,7 +37,6 @@ export interface BillingInput {
   basics: BasicsStatus;
 }
 
-export type ProvisioningStatus = 'pending' | 'ready';
 export type BasicsStatus = 'loading' | 'complete' | 'incomplete';
 
 /** Named, and onboarding wrote its default hours (it always does). */
@@ -75,8 +67,8 @@ export interface AppRouteInput {
   /** `idle` = not asked (an organisation is active or ids were cached). */
   membershipsStatus: LookupStatus;
   me: MeStatus;
-  /** What `/v1/me` says about the business's plan; null until it has loaded. */
-  billing: BillingInput | null;
+  /** What `/v1/me` says about the business and the caller; null until it has loaded. */
+  business: BusinessInput | null;
   /** Pending invitations, asked only while the user has no organisation. */
   invitations: InvitationsInput;
   /** The person chose "Create my own business instead" on the join screen. */
@@ -91,12 +83,6 @@ export type AppRoute =
   | { kind: 'activate-org'; orgId: string }
   | { kind: 'join' }
   | { kind: 'onboarding' }
-  /** The business exists but has no plan yet: the owner chooses one. */
-  | { kind: 'choose-plan' }
-  /** A member who is not the owner of a business with no active plan. */
-  | { kind: 'inactive-business' }
-  /** Paid, and Nerova is still creating the companion account. */
-  | { kind: 'companion-setup' }
   | { kind: 'unsupported-task'; task: SessionTaskKey }
   | { kind: 'session-error' }
   | { kind: 'tabs' };
@@ -140,51 +126,13 @@ export function resolveAppRoute(input: AppRouteInput): AppRoute {
     return { kind: 'onboarding' };
   if (input.me === 'error' || input.me === 'unauthorized')
     return { kind: 'session-error' };
-  if (input.me !== 'ok' || !input.billing) return { kind: 'splash' };
-  return resolveBilling(input.billing);
+  if (input.me !== 'ok' || !input.business) return { kind: 'splash' };
+  return resolveBusiness(input.business);
 }
 
-/** Any plan, Free included (the app then runs without Clovie), is active; only `none` is not. */
-export function isBusinessActive(
-  billing: Pick<BillingInput, 'plan' | 'hasCompanion'>,
-): boolean {
-  return billing.hasCompanion || billing.plan !== 'none';
-}
-
-function resolveBilling(billing: BillingInput): AppRoute {
-  const isOwner = billing.role !== 'staff';
-  if (!isBusinessActive(billing)) {
-    if (!isOwner) return { kind: 'inactive-business' };
-    // The plan is chosen after naming the business: finish onboarding first.
-    if (billing.basics === 'loading') return { kind: 'splash' };
-    return {
-      kind: billing.basics === 'incomplete' ? 'onboarding' : 'choose-plan',
-    };
-  }
-  if (isOwner && hasClovie(billing) && billing.provisioning === 'pending') {
-    return { kind: 'companion-setup' };
-  }
-  return { kind: 'tabs' };
-}
-
-/**
- * Whether Nerova has finished creating the owner's companion account. Only
- * `provision_account` blocks the app: any other step, or a failed or unavailable
- * lookup, must not lock an owner out of their own business.
- */
-export function provisioningStatus(input: {
-  isOwner: boolean;
-  /** The business has Clovie; Free has no companion account to wait for. */
-  hasClovie: boolean;
-  setup: { isLoading: boolean; nextStep: CompanionSetupStep | null };
-  /**
-   * `/v1/me` was already known from the saved cache at launch, so this is a
-   * returning owner: open the app now and only fall back to the setup screen
-   * if Nerova then says the account is still being created.
-   */
-  hasCachedMe?: boolean;
-}): ProvisioningStatus {
-  if (!input.isOwner || !input.hasClovie) return 'ready';
-  if (input.setup.isLoading) return input.hasCachedMe ? 'ready' : 'pending';
-  return input.setup.nextStep === 'provision_account' ? 'pending' : 'ready';
+/** An owner whose business onboarding never finished completes it first; everyone else gets the app. */
+function resolveBusiness(business: BusinessInput): AppRoute {
+  if (business.role === 'staff') return { kind: 'tabs' };
+  if (business.basics === 'loading') return { kind: 'splash' };
+  return { kind: business.basics === 'incomplete' ? 'onboarding' : 'tabs' };
 }

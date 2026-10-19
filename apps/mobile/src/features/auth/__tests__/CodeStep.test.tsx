@@ -24,7 +24,7 @@ function mount(initial: Partial<Props> = {}) {
   const element = (extra: Partial<Props>) => (
     <SafeAreaProvider initialMetrics={metrics}>
       <CodeStep
-        identifier="colin@nerova.com"
+        identifier="colin@example.com"
         strategy="email_code"
         isBusy={false}
         errorKey={null}

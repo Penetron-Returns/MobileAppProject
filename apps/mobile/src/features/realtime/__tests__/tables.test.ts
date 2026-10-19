@@ -22,7 +22,6 @@ describe('realtime tables', () => {
   it('refreshes appointment-derived queries when an appointment changes', () => {
     expect(keysToInvalidate('appointments')).toEqual([
       { key: ['appointments'], refetchType: 'active' },
-      { key: ['dashboard'], refetchType: 'active' },
       { key: ['clients', 'book'], refetchType: 'none' },
     ]);
   });

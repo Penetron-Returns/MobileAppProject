@@ -38,13 +38,6 @@ const NEW_BOOKING_OPTIONS = {
   fullScreenGestureEnabled: false,
 };
 
-// The companion sheet draws its own dim and slides itself in.
-const COMPANION_OPTIONS = {
-  presentation: 'transparentModal' as const,
-  animation: 'none' as const,
-  contentStyle: { backgroundColor: 'transparent' },
-};
-
 /**
  * The signed-in navigator. Memoised with no props and fed only stable options,
  * so the layout re-rendering (query updates, Clerk state) never re-renders it.
@@ -60,7 +53,6 @@ export const ShellStack = React.memo(function ShellStack() {
     <Stack screenOptions={screenOptions}>
       <Stack.Screen name="(tabs)" options={TABS_OPTIONS} />
       <Stack.Screen name="new-booking" options={NEW_BOOKING_OPTIONS} />
-      <Stack.Screen name="companion" options={COMPANION_OPTIONS} />
     </Stack>
   );
 });

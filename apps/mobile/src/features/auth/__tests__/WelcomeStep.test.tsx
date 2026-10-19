@@ -4,13 +4,8 @@ import { mount, text } from '@/testing/render';
 
 import { WelcomeStep } from '../components/WelcomeStep';
 
-jest.mock('react-native-webview', () => {
-  const { View } = require('react-native');
-  return { WebView: View };
-});
-
 describe('WelcomeStep', () => {
-  it('shows the idle Clovie above the wordmark and the value prop', () => {
+  it('shows the Clovie mascot above the wordmark and the value prop', () => {
     const tree = mount(
       <WelcomeStep
         isBusy={false}
@@ -19,8 +14,9 @@ describe('WelcomeStep', () => {
         onEmail={jest.fn()}
       />,
     );
-    const web = tree.root.findAllByProps({ testID: 'clovie-webview' });
-    expect(web[0].props.source.html).toContain('"state":"default"');
+    expect(
+      tree.root.findAllByProps({ testID: 'clovie-sprite' }).length,
+    ).toBeGreaterThan(0);
     expect(
       tree.root.findByProps({ testID: 'clovie-wordmark' }).props
         .accessibilityLabel,

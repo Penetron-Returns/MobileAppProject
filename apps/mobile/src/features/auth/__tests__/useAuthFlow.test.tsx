@@ -68,10 +68,10 @@ describe('useAuthFlow', () => {
   it('signs an existing account in with an emailed code', async () => {
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier(' Colin@Nerova.com ');
+      await flow.current.submitIdentifier(' Colin@example.com ');
     });
     expect(mockSignIn.emailCode.sendCode).toHaveBeenCalledWith({
-      emailAddress: 'colin@nerova.com',
+      emailAddress: 'colin@example.com',
     });
     expect(mockSignUp.create).not.toHaveBeenCalled();
     expect(flow.current.step).toBe('code');
@@ -92,10 +92,10 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('new@nerova.com');
+      await flow.current.submitIdentifier('new@example.com');
     });
     expect(mockSignUp.create).toHaveBeenCalledWith({
-      emailAddress: 'new@nerova.com',
+      emailAddress: 'new@example.com',
     });
     expect(mockSignUp.verifications.sendEmailCode).toHaveBeenCalled();
     expect(flow.current.step).toBe('code');
@@ -125,7 +125,7 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@example.com');
     });
     await act(async () => {
       await flow.current.verifyCode('000000');
@@ -141,7 +141,7 @@ describe('useAuthFlow', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('new@nerova.com');
+      await flow.current.submitIdentifier('new@example.com');
     });
     await act(async () => {
       await flow.current.verifyCode('123456');
@@ -156,7 +156,7 @@ describe('useAuthFlow', () => {
     );
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@example.com');
     });
     expect(flow.current.errorKey).toBe('network');
     expect(flow.current.step).toBe('welcome');
@@ -223,7 +223,7 @@ describe('useAuthFlow', () => {
   it('verifies a code once when verify is triggered twice before Clerk answers', async () => {
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@example.com');
     });
     mockSignIn.status = 'complete';
     let release!: (v: { error: null }) => void;
@@ -251,7 +251,7 @@ describe('useAuthFlow analytics', () => {
     setAnalytics(fake);
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@example.com');
     });
     mockSignIn.status = 'complete';
     await act(async () => {
@@ -273,7 +273,7 @@ describe('useAuthFlow analytics', () => {
     });
     const flow = mountFlow();
     await act(async () => {
-      await flow.current.submitIdentifier('colin@nerova.com');
+      await flow.current.submitIdentifier('colin@example.com');
     });
     await act(async () => {
       await flow.current.verifyCode('000000');

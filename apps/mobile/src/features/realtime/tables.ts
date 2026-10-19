@@ -57,7 +57,6 @@ const CONFIG_KEYS = [
 const KEYS: Record<RealtimeTable, readonly Invalidation[]> = {
   appointments: [
     active(qk.appointments),
-    active(qk.dashboardAll),
     // The book only shows last-visit hints: refresh it when next opened.
     { key: qk.clientBook, refetchType: 'none' },
   ],

@@ -7,13 +7,9 @@ import { queryClient } from '@/lib/query';
 import { useSignOut } from '../useSignOut';
 
 const mockSignOut = jest.fn();
-const mockClearToken = jest.fn();
 const mockUnregisterPush = jest.fn();
 jest.mock('@/features/notifications/pushDevice', () => ({
   unregisterPushToken: () => mockUnregisterPush(),
-}));
-jest.mock('@/features/voice/deviceToken', () => ({
-  clearDeviceTokenOnSignOut: () => mockClearToken(),
 }));
 const mockClearStorage = jest.fn();
 jest.mock('@/features/onboarding/storage', () => ({
@@ -38,7 +34,6 @@ function mountSignOut() {
 
 beforeEach(() => {
   mockSignOut.mockReset();
-  mockClearToken.mockReset().mockResolvedValue(undefined);
   mockUnregisterPush.mockReset().mockResolvedValue(undefined);
   mockClearStorage.mockReset().mockResolvedValue(undefined);
   queryClient.clear();
@@ -76,19 +71,21 @@ describe('useSignOut', () => {
     expect(mockClearStorage).not.toHaveBeenCalled();
   });
 
-  it('revokes the device voice token before the session ends', async () => {
+  it('stops pushes to this phone before the session ends', async () => {
     const order: string[] = [];
-    mockClearToken.mockImplementation(async () => void order.push('revoke'));
+    mockUnregisterPush.mockImplementation(
+      async () => void order.push('unregister'),
+    );
     mockSignOut.mockImplementation(async () => void order.push('signOut'));
     const signOut = mountSignOut();
     await act(async () => {
       await signOut.current();
     });
-    expect(order).toEqual(['revoke', 'signOut']);
+    expect(order).toEqual(['unregister', 'signOut']);
   });
 
-  it('still signs out when the token cleanup fails', async () => {
-    mockClearToken.mockRejectedValue(new Error('offline'));
+  it('still signs out when the push cleanup fails', async () => {
+    mockUnregisterPush.mockRejectedValue(new Error('offline'));
     mockSignOut.mockResolvedValue(undefined);
     const signOut = mountSignOut();
     await act(async () => {

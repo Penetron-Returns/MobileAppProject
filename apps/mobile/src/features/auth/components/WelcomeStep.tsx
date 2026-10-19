@@ -6,7 +6,7 @@ import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+import { ClovieSprite } from '@/features/clovie-character/ClovieSprite';
 import { ClovieWordmark } from '@/features/brand/ClovieWordmark';
 import { openLegalPage, type LegalPage } from '@/lib/legal';
 import { toast } from '@/lib/toast';
@@ -94,7 +94,7 @@ export function WelcomeStep({
       >
         {/* The hop spills above the 120pt box: keep the parent unclipped. */}
         <Animated.View entering={enter(0)}>
-          <ClovieAnimated state="default" size={120} />
+          <ClovieSprite size={120} isActive />
         </Animated.View>
         <Animated.View entering={enter(1)} className="mt-4">
           <ClovieWordmark size={WORDMARK_SIZE} />
