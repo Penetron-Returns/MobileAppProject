@@ -5,6 +5,7 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { analytics } from '@/features/analytics';
 import { ClovieLoading } from '@/features/brand/ClovieLoading';
+import { readDeviceLocale } from '@/lib/device-locale';
 
 import { useCompleteOnboarding } from '../hooks';
 import {
@@ -91,7 +92,11 @@ export function OnboardingFlow({
 
   const create = React.useCallback(
     async (from: OnboardingDraft) => {
-      const request = buildOnboardingRequest(from, ownerName);
+      const request = buildOnboardingRequest(
+        from,
+        ownerName,
+        readDeviceLocale(),
+      );
       // One business per draft: never twice, never while one is in flight.
       if (!request || inFlight.current || created.current) return;
       inFlight.current = true;

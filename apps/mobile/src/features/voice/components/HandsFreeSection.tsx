@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, type AlertButton, Linking, View } from 'react-native';
 
 import { useBusiness } from '@/features/business/hooks';
+import { readDeviceLocale } from '@/lib/device-locale';
 
 import { useHeyClovie } from '../hooks';
 import { askOverlayAccess } from '../overlayAccess';
@@ -29,7 +30,7 @@ export function HandsFreeSection() {
   const { state, handsFree } = voice;
   const phrase = state.wakePhrase || t('voice.hf.toggle');
   const canToggle = canTurnOnVoice(state.status) && !voice.isPending;
-  const timezone = business.data?.timezone ?? 'Africa/Johannesburg';
+  const timezone = business.data?.timezone ?? readDeviceLocale().timezone;
 
   /**
    * Prominent disclosure (Google Play), before any permission prompt. The first dialog says the

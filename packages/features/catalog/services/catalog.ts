@@ -23,6 +23,7 @@ import type {
 } from '@booking/types';
 import { AppError, notFound } from '../../lib/errors.ts';
 import { normalizePhone } from '../../lib/phone.ts';
+import { businessPhoneRegion, regionForBusiness } from '../../lib/region.ts';
 import { pick } from '../../lib/pick.ts';
 import { normaliseTimeOfDay } from '../../lib/time.ts';
 import { findRepeatedWeekday } from '../../availability/lib/hours.ts';
@@ -106,7 +107,10 @@ export async function updateBusiness(
     ...pick(req, ['name', 'slug', 'timezone', 'currency', 'logo_url', 'address', 'phone', 'email', 'attendance_mode'] as const),
     ...(req.booking_rules ? { booking_rules: { ...bookingRules(current), ...req.booking_rules } } : {}),
   };
-  if (typeof patch.phone === 'string') patch.phone = normalizePhone(patch.phone);
+  if (typeof patch.phone === 'string') {
+    const locale = { timezone: patch.timezone ?? current.timezone, currency: patch.currency ?? current.currency };
+    patch.phone = normalizePhone(patch.phone, regionForBusiness(locale));
+  }
   if (Object.keys(patch).length === 0) return toBusinessDTO(current);
   const updated = await repo.updateBusiness(businessId, patch);
   if (actorId && patch.attendance_mode && patch.attendance_mode !== current.attendance_mode) {
@@ -218,7 +222,7 @@ export async function createStaff(repo: BookingRepository, businessId: UUID, req
     name: req.name,
     title: req.title ?? null,
     photo_url: req.photo_url ?? null,
-    phone: req.phone ? normalizePhone(req.phone) : null,
+    phone: req.phone ? normalizePhone(req.phone, await businessPhoneRegion(repo, businessId)) : null,
     email: req.email ?? null,
     color: req.color ?? null,
     is_active: req.is_active ?? true,
@@ -239,7 +243,7 @@ export async function updateStaff(
   const existing = await requireStaff(repo, businessId, staffId);
   if (req.service_ids) await assertServiceIds(repo, businessId, req.service_ids);
   const patch = pick(req, STAFF_KEYS);
-  if (typeof patch.phone === 'string') patch.phone = normalizePhone(patch.phone);
+  if (typeof patch.phone === 'string') patch.phone = normalizePhone(patch.phone, await businessPhoneRegion(repo, businessId));
   const row = Object.keys(patch).length ? await repo.updateStaff(businessId, staffId, patch) : existing;
   if (!row) throw notFound('Staff');
   if (req.service_ids) await repo.replaceStaffServices(businessId, staffId, unique(req.service_ids));

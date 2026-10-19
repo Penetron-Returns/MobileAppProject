@@ -67,7 +67,7 @@
       "didntGet": "Did not get it?"
     },
     "errors": {
-      "emailInvalid": "Enter a valid email address, or a mobile number with its country code, like +27 82 555 0100.",
+      "emailInvalid": "Enter a valid email address, or a mobile number with its country code, starting with +.",
       "codeIncorrect": "That code is not right. Check it and try again.",
       "codeExpired": "That code has expired. Send a new one.",
       "tooManyAttempts": "Too many attempts. Wait a minute and try again.",
@@ -83,7 +83,7 @@
       "title": "What is your email or mobile number?",
       "subtitle": "We will send you a 6-digit code by email or SMS. No password needed.",
       "label": "Email or mobile number",
-      "placeholder": "you@example.com or +27 82 555 0100",
+      "placeholder": "Email or mobile number (with country code)",
       "continue": "Continue",
       "sending": "Sending code"
     }
@@ -938,7 +938,11 @@
       "BWP": "Botswana Pula (BWP)",
       "NAD": "Namibian Dollar (NAD)",
       "KES": "Kenyan Shilling (KES)",
-      "NGN": "Nigerian Naira (NGN)"
+      "NGN": "Nigerian Naira (NGN)",
+      "CAD": "Canadian Dollar (CAD)",
+      "AUD": "Australian Dollar (AUD)",
+      "NZD": "New Zealand Dollar (NZD)",
+      "INR": "Indian Rupee (INR)"
     }
   },
   "hours": {
@@ -1124,7 +1128,8 @@
     "name": "Name",
     "namePlaceholder": "First and last name",
     "phone": "Mobile",
-    "phonePlaceholder": "+27 82 555 0143",
+    "phonePlaceholder": "Mobile, e.g. {{example}}",
+    "phonePlaceholderGeneric": "Mobile, with country code",
     "service": "Service",
     "noServices": "Add a service in Settings first.",
     "next": "Next: pick a time",
@@ -1140,7 +1145,8 @@
     "errors": {
       "client": "Pick a client first.",
       "newClient": "Enter the new client's name and mobile number.",
-      "phone": "That phone number doesn't look right. Include the country code, like +27 82 123 4567.",
+      "phone": "That phone number doesn't look right. Include the country code, like {{example}}.",
+      "phoneGeneric": "That phone number doesn't look right. Include the country code, starting with +.",
       "service": "Pick a service.",
       "slot": "Pick a time."
     },
@@ -1294,7 +1300,7 @@
     "back": "Back",
     "signOut": "Not you? Sign out",
     "replayVoice": "Replay Clovie's voice",
-    "orgFailed": "Could not create the organisation.",
+    "orgFailed": "Could not create the organization.",
     "welcome": {
       "title": "Hi, I'm Clovie. Let's set up your business.",
       "line1": "Hi, I'm Clovie.",
@@ -1310,7 +1316,7 @@
     "types": {
       "barber": "Barbershop",
       "salon": "Salon",
-      "beauty": "Beauty parlour",
+      "beauty": "Beauty parlor",
       "mix": "A mix"
     },
     "name": {
@@ -1457,7 +1463,7 @@
       "owner": "Owner"
     },
     "colour": {
-      "label": "Calendar colour",
+      "label": "Calendar color",
       "blue": "Blue",
       "orange": "Orange",
       "purple": "Purple",
@@ -2046,7 +2052,7 @@
       "recording": "Nothing is recorded or sent while it waits for the wake phrase. After you say it, Clovie records only the short command you speak.",
       "where": {
         "cloud": "That short recording is sent over an encrypted connection to Clovie's server, which passes it to our speech-to-text provider (Nerova, running on Microsoft Azure) to turn it into text. It is deleted as soon as it is transcribed and is not stored. The text is used to carry out your request.",
-        "device": "Your phone's own speech recogniser (usually Google's) turns that command into text. Depending on your phone's settings that can involve Google's servers. Clovie does not store the recording."
+        "device": "Your phone's own speech recognizer (usually Google's) turns that command into text. Depending on your phone's settings that can involve Google's servers. Clovie does not store the recording."
       }
     },
     "background": {

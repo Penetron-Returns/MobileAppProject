@@ -202,7 +202,7 @@ describe('InactiveBusinessScreen', () => {
 describe('TypeScreen', () => {
   it('renders every tile label in full, including "A mix"', () => {
     const tree = mount(<TypeScreen selected={null} onSelect={jest.fn()} />);
-    for (const label of ['Barbershop', 'Salon', 'Beauty parlour', 'A mix']) {
+    for (const label of ['Barbershop', 'Salon', 'Beauty parlor', 'A mix']) {
       expect(text(tree)).toContain(label);
     }
   });

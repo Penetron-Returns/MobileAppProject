@@ -141,7 +141,7 @@ describe('phone', () => {
     ['0027821234567', '+27821234567'],
     ['+44 7911 123456', '+447911123456'],
   ])('%s → %s', (input, expected) => {
-    expect(normalizePhone(input)).toBe(expected);
+    expect(normalizePhone(input, 'ZA')).toBe(expected);
   });
 
   it('rejects invalid numbers without echoing them', () => {

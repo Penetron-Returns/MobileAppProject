@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { comparisonRows, type CellTone } from '../compare';
-import { formatRand } from '../logic';
+import { formatPrice } from '@/lib/format';
 
 /** One equal tier card: name, price, allowance and one choose button. */
 export function TierCard({
@@ -33,7 +33,7 @@ export function TierCard({
   onChoose: (plan: PlanDTO) => void;
 }) {
   const { t } = useTranslation();
-  const price = formatRand(plan.price_cents);
+  const price = formatPrice(plan.price_cents, plan.currency);
   return (
     <Surface variant="raised" radius={26} className="mx-5 mt-3 p-4">
       <Text className="text-title font-semibold">{plan.name}</Text>
@@ -61,7 +61,7 @@ export function TierCard({
       </Text>
       <Text className="mt-0.5 text-meta text-muted-foreground">
         {t('plans.tier.perJob', {
-          price: formatRand(plan.extra_job_cents ?? 0),
+          price: formatPrice(plan.extra_job_cents ?? 0, plan.currency),
         })}
       </Text>
       {plan.is_current ? (

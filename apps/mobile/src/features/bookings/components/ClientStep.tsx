@@ -15,6 +15,7 @@ import type { ServiceRow } from '@/features/catalog/hooks';
 import { useClientSearch, type ClientOption } from '@/features/clients/hooks';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { isFailed } from '@/lib/offline';
+import { phoneExampleFor } from '@/lib/device-locale';
 import { formatDuration, formatMoney, formatPhone } from '@/lib/format';
 
 export interface ClientChoice {
@@ -97,6 +98,7 @@ export function ClientStep({
   const [query, setQuery] = React.useState('');
   const search = useClientSearch(useDebouncedValue(query));
   const isNew = choice.mode === 'new';
+  const example = React.useMemo(() => phoneExampleFor(currency), [currency]);
 
   return (
     <View className="gap-5">
@@ -162,7 +164,11 @@ export function ClientStep({
             <Input
               value={choice.newPhone}
               onChangeText={(newPhone) => onChoice({ ...choice, newPhone })}
-              placeholder={t('newBooking.phonePlaceholder')}
+              placeholder={
+                example
+                  ? t('newBooking.phonePlaceholder', { example })
+                  : t('newBooking.phonePlaceholderGeneric')
+              }
               accessibilityLabel={t('newBooking.phone')}
               keyboardType="phone-pad"
               aria-invalid={phoneError}
@@ -173,7 +179,9 @@ export function ClientStep({
                 accessibilityRole="alert"
                 className="text-subtitle text-destructive"
               >
-                {t('newBooking.errors.phone')}
+                {example
+                  ? t('newBooking.errors.phone', { example })
+                  : t('newBooking.errors.phoneGeneric')}
               </Text>
             ) : null}
           </View>

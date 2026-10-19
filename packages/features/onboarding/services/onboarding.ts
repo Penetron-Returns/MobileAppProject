@@ -88,6 +88,18 @@ async function reviseUntouched(
   return business;
 }
 
+/** Where a business is when the app sends no locale (an older build): neutral, never a country's default. */
+export const FALLBACK_TIMEZONE = 'UTC';
+export const FALLBACK_CURRENCY = 'USD';
+
+/** A business that is not set up yet takes the owner's timezone and currency instead of the database defaults. */
+async function applyLocale(repo: BookingRepository, business: BusinessRow, locale: OnboardingRequest['business']): Promise<BusinessRow> {
+  return repo.updateBusiness(business.id, {
+    timezone: locale.timezone ?? FALLBACK_TIMEZONE,
+    currency: locale.currency ?? FALLBACK_CURRENCY,
+  });
+}
+
 export async function completeOnboarding(
   repo: BookingRepository,
   session: OnboardingSession,
@@ -100,7 +112,7 @@ export async function completeOnboarding(
     return req.revise ? reviseUntouched(repo, getPlan, existing, req) : existing;
   }
 
-  const business = await ensureBusiness(repo, session.orgId, req.business.name);
+  const business = await applyLocale(repo, await ensureBusiness(repo, session.orgId, req.business.name), req.business);
   const knownUser = await repo.getUser(session.userId);
   const ownerName = req.owner_name?.trim() || knownUser?.display_name || 'Owner';
   // The owner's staff row is created inside the RPC, under the business lock, so a concurrent double submit cannot duplicate it.

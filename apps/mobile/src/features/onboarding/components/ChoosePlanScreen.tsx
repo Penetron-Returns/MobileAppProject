@@ -8,7 +8,8 @@ import { analytics } from '@/features/analytics';
 import { paidPlans } from '@/features/plans/compare';
 import { isCheckoutPlan, type CheckoutPlanId } from '@/features/plans/checkout';
 import { usePlans } from '@/features/plans/hooks';
-import { formatRand } from '@/features/plans/logic';
+import { planCurrency } from '@/features/plans/logic';
+import { formatPrice } from '@/lib/format';
 import { useCheckout } from '@/features/plans/useCheckout';
 import { useIsOnline } from '@/lib/online';
 import { describeError } from '@/lib/toast';
@@ -95,7 +96,7 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
     ...tiers.map((p) =>
       t('onboarding.plan.spokenPlan', {
         name: p.name,
-        price: formatRand(p.price_cents),
+        price: formatPrice(p.price_cents, p.currency),
         count: p.included_jobs ?? 0,
       }),
     ),
@@ -212,7 +213,9 @@ export function ChoosePlanScreen({ onBack }: { onBack?: () => void } = {}) {
         {extra > 0 ? (
           <Rise index={3}>
             <Text style={[TYPE.sub, { color: c.secondary, marginTop: 2 }]}>
-              {t('onboarding.plan.extra', { price: formatRand(extra) })}
+              {t('onboarding.plan.extra', {
+                price: formatPrice(extra, planCurrency(tiers)),
+              })}
             </Text>
           </Rise>
         ) : null}

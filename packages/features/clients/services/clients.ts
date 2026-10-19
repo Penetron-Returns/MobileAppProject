@@ -12,6 +12,7 @@ import type {
 } from '@booking/types';
 import { notFound } from '../../lib/errors.ts';
 import { normalizePhone } from '../../lib/phone.ts';
+import { businessPhoneRegion } from '../../lib/region.ts';
 import { pick } from '../../lib/pick.ts';
 import { toClientDTO, toClientNoteDTO } from '../../bookings/lib/mappers.ts';
 import type { ClientPatch } from '../../repositories/types.ts';
@@ -27,7 +28,7 @@ export async function upsertClient(
   req: CreateClientRequest,
   opts: { onlyFillBlank?: boolean } = {},
 ): Promise<ClientDTO> {
-  const phone = normalizePhone(req.phone);
+  const phone = normalizePhone(req.phone, await businessPhoneRegion(repo, businessId));
   const row = await repo.upsertClientByPhone(businessId, phone, req.name ?? null);
   const wanted: ClientPatch = pick(req, ['name', 'email', 'notes', 'tags'] as const);
   const patch: ClientPatch = opts.onlyFillBlank
@@ -49,7 +50,7 @@ export async function updateClient(
   req: UpdateClientRequest,
 ): Promise<ClientDTO> {
   const patch: ClientPatch = pick(req, ['name', 'email', 'notes', 'tags', 'is_blocked', 'whatsapp_opt_in'] as const);
-  if (req.phone !== undefined) patch.phone_e164 = normalizePhone(req.phone);
+  if (req.phone !== undefined) patch.phone_e164 = normalizePhone(req.phone, await businessPhoneRegion(repo, businessId));
   const row = Object.keys(patch).length
     ? await repo.updateClient(businessId, clientId, patch)
     : await repo.getClient(businessId, clientId);

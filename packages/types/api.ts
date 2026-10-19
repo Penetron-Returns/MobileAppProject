@@ -168,7 +168,13 @@ export interface ReplaceBusinessHoursRequest {
  * applies hours, services and team. Responds with the same shape as GET /v1/me.
  */
 export interface OnboardingRequest {
-  business: { name: string };
+  business: {
+    name: string;
+    /** IANA timezone of the business (the device's, at onboarding). Missing: UTC */
+    timezone?: string;
+    /** ISO 4217 currency (from the device region, at onboarding). Missing: USD */
+    currency?: string;
+  };
   /** Shown on the owner's own staff row (falls back to the mirrored user name) */
   owner_name?: string | null;
   /** Opening hours, one row per open range. At least one row */

@@ -520,7 +520,7 @@ describe('Remove from team', () => {
     await press(tree, 'Ruan van Wyk, Barber, can sign in. Open');
     const out = json(tree);
     expect(out).toContain('Role');
-    expect(out).toContain('Calendar colour');
+    expect(out).toContain('Calendar color');
     expect(out).toContain('Remove from team');
     expect(out).not.toContain('"More"');
   });

@@ -10,7 +10,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { formatRand } from '@/features/plans/logic';
+import { formatPrice } from '@/lib/format';
 
 import { TYPE, useOnbColors } from '../theme';
 
@@ -38,7 +38,7 @@ export function PlanCard({
       duration: 260,
     });
   }, [isSelected, selected]);
-  const price = formatRand(plan.price_cents);
+  const price = formatPrice(plan.price_cents, plan.currency);
   const count = plan.included_jobs ?? 0;
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
