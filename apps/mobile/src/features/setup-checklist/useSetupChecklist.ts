@@ -41,7 +41,11 @@ export interface SetupChecklistView extends Checklist {
   markReviewed: (id: ChecklistItemId) => void;
 }
 
-/** Gathers what the app already knows and derives the "Get set up" checklist from it. */
+/**
+ * Gathers what the app already knows and derives the "Get set up" checklist
+ * from it. A failed load counts as "not done" rather than "unknown", so one
+ * flaky request cannot hide the "Get set up" ring for good.
+ */
 export function useSetupChecklist(): SetupChecklistView {
   const me = useMe();
   const isOwner = me.data?.role === 'owner';
@@ -64,13 +68,17 @@ export function useSetupChecklist(): SetupChecklistView {
           : 'web',
     isWhatsAppConnected: companion.data
       ? companion.data.whatsapp.connected
-      : null,
-    servicesCount: services.data?.length ?? null,
-    hoursCount: hours.data?.length ?? null,
-    staffCount: staff.data?.length ?? null,
+      : companion.isError
+        ? false
+        : null,
+    servicesCount: services.data?.length ?? (services.isError ? 0 : null),
+    hoursCount: hours.data?.length ?? (hours.isError ? 0 : null),
+    staffCount: staff.data?.length ?? (staff.isError ? 0 : null),
     hasContactDetails: contact
       ? Boolean(contact.phone || contact.address)
-      : null,
+      : details.isError
+        ? false
+        : null,
     isVoiceOn,
     isPushGranted,
     reviewed,
