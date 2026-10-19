@@ -1,4 +1,9 @@
-import { useAuth, useOrganization, useOrganizationList } from '@clerk/expo';
+import {
+  useAuth,
+  useOrganization,
+  useOrganizationList,
+  useUser,
+} from '@clerk/expo';
 import type { MeDTO, OnboardingRequest } from '@booking/types';
 import { useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
@@ -6,6 +11,8 @@ import * as React from 'react';
 import { api } from '@/lib/api';
 import i18n from '@/lib/i18n';
 import { qk, useApiMutation } from '@/lib/query';
+
+import { ensureOrganization } from './organization';
 
 /**
  * Creates the business: first the Clerk organisation (client-side, skipped when
@@ -17,19 +24,28 @@ export function useCompleteOnboarding() {
   const qc = useQueryClient();
   const { getToken } = useAuth();
   const { organization } = useOrganization();
+  const { user } = useUser();
   const { createOrganization, setActive } = useOrganizationList();
   const orgIdRef = React.useRef<string | null>(null);
   orgIdRef.current ??= organization?.id ?? null;
 
   return useApiMutation<OnboardingRequest, MeDTO>({
     mutationFn: async (request, key) => {
-      if (!orgIdRef.current) {
-        const created = await createOrganization?.({
-          name: request.business.name,
-        });
-        if (!created) throw new Error(i18n.t('onboarding.orgFailed'));
-        orgIdRef.current = created.id;
-      }
+      orgIdRef.current ??= await ensureOrganization({
+        userId: user?.id ?? null,
+        activeOrgId: null,
+        listOwnedOrgIds: async () =>
+          (await user?.getOrganizationMemberships())?.data
+            .filter((m) => m.role === 'org:admin')
+            .map((m) => m.organization.id) ?? [],
+        create: async () => {
+          const created = await createOrganization?.({
+            name: request.business.name,
+          });
+          if (!created) throw new Error(i18n.t('onboarding.orgFailed'));
+          return created.id;
+        },
+      });
       if (organization?.id !== orgIdRef.current) {
         await setActive?.({ organization: orgIdRef.current });
       }
@@ -39,8 +55,10 @@ export function useCompleteOnboarding() {
     },
     // The inline error card replaces the default toast.
     onError: () => true,
-    onSuccess: (me) => {
+    onSuccess: (me, request) => {
       qc.setQueryData(qk.me, me);
+      // The route gate reads the hours to know onboarding finished: never let a stale empty list send the owner back.
+      qc.setQueryData(qk.businessHours, request.hours);
       // The plan screen is next: warm its query so it opens without skeletons.
       void qc.prefetchQuery({ queryKey: qk.plans, queryFn: api.plans });
     },

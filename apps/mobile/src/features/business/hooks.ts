@@ -61,11 +61,12 @@ async function fetchBusinessHours() {
   );
 }
 
-export function useBusinessHours() {
+export function useBusinessHours(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: qk.businessHours,
     queryFn: fetchBusinessHours,
     staleTime: 5 * 60_000,
+    enabled: opts.enabled ?? true,
   });
 }
 

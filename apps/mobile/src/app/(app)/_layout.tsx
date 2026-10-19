@@ -30,7 +30,9 @@ import type { BusinessBasics } from '@/features/onboarding/logic';
 import { OfflineStartScreen } from '@/features/auth/components/OfflineStartScreen';
 import { useMembershipOrgIds } from '@/features/auth/useMemberships';
 import { useUserScopedState } from '@/features/auth/useUserScopedState';
+import { useBusinessHours } from '@/features/business/hooks';
 import {
+  basicsStatus,
   isBusinessActive,
   provisioningStatus,
   resolveAppRoute,
@@ -104,8 +106,17 @@ function useBilling(
   const setup = useCompanionSetup({
     enabled: Boolean(me) && isOwner && isActive,
   });
+  // Only an owner without a plan can still be mid-onboarding.
+  const hours = useBusinessHours({
+    enabled: Boolean(me) && isOwner && !isActive,
+  });
   if (!me) return null;
+  const basics =
+    isActive || !isOwner || hours.isError
+      ? 'complete' // a failed lookup must not trap the owner in onboarding
+      : basicsStatus({ name: me.business.name, hours: hours.data });
   return {
+    basics,
     plan,
     hasCompanion,
     role: me.role,
