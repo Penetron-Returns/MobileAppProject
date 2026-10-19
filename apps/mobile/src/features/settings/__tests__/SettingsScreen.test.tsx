@@ -154,7 +154,7 @@ describe('The WhatsApp row', () => {
 
   it('leaves the WhatsApp row bare until the channel status has loaded', () => {
     expect(text(mount())).not.toMatch(
-      /WhatsApp | (Connected|Paused|Pending|Needs|Not connected)/,
+      /WhatsApp \| (Connected|Paused|Pending|Needs|Not connected)/,
     );
   });
 });
