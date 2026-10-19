@@ -11,6 +11,7 @@ import type {
   NerovaOwnerChatSession,
   NerovaSetupStatus,
   NerovaTranscription,
+  NerovaWhatsAppHealth,
 } from '@booking/companion/nerova/client.ts';
 
 export interface FakeNerovaAccount extends NerovaAccount {
@@ -25,6 +26,8 @@ export interface FakeNerovaAccount extends NerovaAccount {
   blockingReasons?: string[];
   /** Activation version; defaults to 1 */
   activationVersion?: number;
+  /** Set to serve GET whatsapp-health; unset behaves like Nerova before the endpoint ships (404) */
+  whatsappHealthEndpoint?: Partial<NerovaWhatsAppHealth>;
 }
 
 export interface FakeTranscriptionRequest {
@@ -93,6 +96,12 @@ export function createFakeNerovaClient(
       if (fake.failWith) throw fake.failWith;
       const found = fake.accounts.find((a) => a.id === idOrReference || a.externalReference === idOrReference);
       return found ? { id: found.id, provisioningState: found.provisioningState } : null;
+    },
+    async getWhatsAppHealth(idOrReference): Promise<NerovaWhatsAppHealth | null> {
+      if (fake.failWith) throw fake.failWith;
+      const found = fake.accounts.find((a) => a.id === idOrReference || a.externalReference === idOrReference);
+      if (!found?.whatsappHealthEndpoint) return null;
+      return { connected: false, state: 'not_connected', displayPhoneNumber: null, businessVerified: false, businessVerificationStatus: null, health: {}, ...found.whatsappHealthEndpoint };
     },
     async getCompanionSetup(idOrReference): Promise<NerovaSetupStatus | null> {
       if (fake.failWith) throw fake.failWith;

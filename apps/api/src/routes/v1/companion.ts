@@ -1,6 +1,6 @@
 /**
  * Owner chat session (member) and WhatsApp setup (owner) for the Nerova companion, all gated on feature `companion`:
- * POST /v1/companion/session, GET /v1/companion/setup, POST /v1/companion/whatsapp/connect-session.
+ * POST /v1/companion/session, GET /v1/companion/setup, GET /v1/companion/whatsapp-health, POST /v1/companion/whatsapp/connect-session.
  */
 import { APP_ID_HEADER } from '@booking/companion/nerova/nativeApps.ts';
 import { Hono } from 'hono';
@@ -23,6 +23,11 @@ companionRoutes.post('/companion/session', requireFeature('companion'), async (c
 companionRoutes.get('/companion/setup', requireOwner, requireFeature('companion'), async (c) => {
   const setup = await c.get('container').companion.getSetup(c.get('auth').businessId);
   return c.json({ data: setup });
+});
+
+// Any member may read the number's health (no secrets in it); Nerova's whatsapp-health, else the setup read.
+companionRoutes.get('/companion/whatsapp-health', requireFeature('companion'), async (c) => {
+  return c.json({ data: await c.get('container').companion.getWhatsAppHealth(c.get('auth').businessId) });
 });
 
 // The launch URL carries a secret `#state=`: it is returned as-is and never logged.

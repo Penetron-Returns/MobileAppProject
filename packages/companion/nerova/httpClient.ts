@@ -2,7 +2,7 @@
 import type { CompanionNotReadyReason, CompanionOutcomesDTO, CompanionSettingsDTO } from '@booking/types';
 import { AppError } from '@booking/features/lib/errors.ts';
 import { createLogger, type Logger } from '@booking/features/lib/logger.ts';
-import type { CompanionSettingsPatch, NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
+import type { CompanionSettingsPatch, NerovaAccount, NerovaClient, NerovaConnectionSession, NerovaOwnerChatSession, NerovaSetupStatus, NerovaWhatsAppHealth, NerovaTranscription, TranscribeFile, TranscribeOptions } from './client.ts';
 import { parseOutcomeSummary } from './outcomes.ts';
 import { parseWhatsAppHealth } from './whatsappHealth.ts';
 
@@ -88,6 +88,18 @@ function parseSettings(body: Json): CompanionSettingsDTO {
   const window = body.undoWindowSeconds;
   if (!policy || typeof window !== 'number' || !Number.isInteger(window)) throw upstream('The companion service returned unexpected settings', { reason: 'unexpected_response' });
   return { approvalPolicy: policy, undoWindowSeconds: window, updatedAt: text(body.updatedAt) };
+}
+
+/** Nerova's WhatsApp status object (the setup's `whatsApp`, or the body of the health endpoint) in our shape. */
+function parseWhatsAppStatus(whatsapp: Json): NerovaWhatsAppHealth {
+  return {
+    connected: whatsapp.connected === true,
+    state: text(whatsapp.state) ?? 'not_connected',
+    displayPhoneNumber: text(whatsapp.displayPhoneNumber),
+    businessVerified: whatsapp.businessVerified === true,
+    businessVerificationStatus: text(whatsapp.businessVerificationStatus),
+    health: parseWhatsAppHealth(whatsapp),
+  };
 }
 
 export function createHttpNerovaClient(options: HttpNerovaClientOptions): NerovaClient {
@@ -196,20 +208,17 @@ export function createHttpNerovaClient(options: HttpNerovaClientOptions): Nerova
       return { id, provisioningState: text(body.provisioningState) };
     },
 
+    async getWhatsAppHealth(idOrReference): Promise<NerovaWhatsAppHealth | null> {
+      const body = await request('GET', `${account(idOrReference)}/whatsapp-health`, { allowNotFound: true, notReadyOn: accountNotAvailable });
+      return body ? parseWhatsAppStatus(body) : null;
+    },
+
     async getCompanionSetup(idOrReference): Promise<NerovaSetupStatus | null> {
       const body = await request('GET', `${account(idOrReference)}/companion/setup`, { allowNotFound: true, notReadyOn: accountNotAvailable });
       if (!body) return null;
-      const whatsapp = record(body.whatsApp);
       return {
         nextStep: text(body.nextStep),
-        whatsapp: {
-          connected: whatsapp.connected === true,
-          state: text(whatsapp.state) ?? 'not_connected',
-          displayPhoneNumber: text(whatsapp.displayPhoneNumber),
-          businessVerified: whatsapp.businessVerified === true,
-          businessVerificationStatus: text(whatsapp.businessVerificationStatus),
-          health: parseWhatsAppHealth(whatsapp),
-        },
+        whatsapp: parseWhatsAppStatus(record(body.whatsApp)),
         provisioned: body.provisioned === true,
         bookingConnection: text(body.bookingConnection),
         blockingReasons: Array.isArray(body.blockingReasons) ? body.blockingReasons.filter((r): r is string => typeof r === 'string' && r.length > 0) : [],
@@ -299,7 +308,7 @@ export const unconfiguredNerovaClient: NerovaClient = (() => {
   const fail = async (): Promise<never> => {
     throw new AppError('COMPANION_NOT_READY', 'The companion is not available yet', { reason: 'unavailable' });
   };
-  return { getAccount: fail, getCompanionSetup: fail, createConnectionSession: fail, createOwnerChatSession: fail, transcribe: fail, getOutcomeSummary: fail, getCompanionSettings: fail, updateCompanionSettings: fail };
+  return { getAccount: fail, getCompanionSetup: fail, getWhatsAppHealth: fail, createConnectionSession: fail, createOwnerChatSession: fail, transcribe: fail, getOutcomeSummary: fail, getCompanionSettings: fail, updateCompanionSettings: fail };
 })();
 
 export function createNerovaClientFromEnv(env: NerovaEnv, options: Omit<HttpNerovaClientOptions, 'apiKey'> = {}): NerovaClient {

@@ -954,6 +954,25 @@ export interface WhatsAppLastErrorDTO {
   at: string | null;
 }
 
+/** One kind of recent send failure Nerova reports (last 7 days, no message content or recipient) */
+export interface WhatsAppSendFailureDTO {
+  /** Meta error code as text (e.g. `131026`); null when Nerova sent none */
+  code: string | null;
+  /** Nerova's short title for the failure */
+  title: string | null;
+  count: number;
+  /** ISO-8601 instant of the latest occurrence, null when unknown */
+  last_at: string | null;
+}
+
+/** Whether Meta can bill the business for WhatsApp conversations */
+export interface WhatsAppBillingDTO {
+  /** null when Nerova does not know */
+  payment_method_attached: boolean | null;
+  /** ISO-4217 currency of the Meta billing account, null when unknown */
+  currency: string | null;
+}
+
 /** The health fields of CompanionSetupDTO.whatsapp: all optional, absent until Nerova reports them */
 export interface WhatsAppHealthDTO {
   phone_number_status?: WhatsAppPhoneNumberStatus | null;
@@ -965,6 +984,17 @@ export interface WhatsAppHealthDTO {
   last_error?: WhatsAppLastErrorDTO | null;
   /** ISO-8601 instant of Nerova's last health check */
   last_health_check_at?: string | null;
+  /** Meta billing state (payment method, currency); absent until Nerova ships it */
+  billing?: WhatsAppBillingDTO | null;
+  /** Send failures of the last 7 days grouped by Meta code; absent until Nerova ships it */
+  recent_send_failures?: WhatsAppSendFailureDTO[] | null;
+}
+
+/** GET /v1/companion/whatsapp-health (any member, feature `companion`): the number's current health, read live from Nerova */
+export interface CompanionWhatsAppHealthDTO extends WhatsAppHealthDTO {
+  connected: boolean;
+  display_phone_number: string | null;
+  business_verification_status: string | null;
 }
 
 /** GET /v1/companion/setup (owner) */

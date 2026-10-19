@@ -40,6 +40,9 @@ export interface NerovaSetupStatus {
   version: number | null;
 }
 
+/** The WhatsApp health object of `GET /v1/accounts/{id}/whatsapp-health` (same shape as the setup's `whatsApp`) */
+export type NerovaWhatsAppHealth = NerovaSetupStatus['whatsapp'];
+
 export interface CreateConnectionSessionInput {
   accountId: string;
   /** Exact https origin of the embedding page; must be on the Nerova embed allowlist */
@@ -112,6 +115,11 @@ export interface NerovaClient {
   getAccount(idOrReference: string): Promise<NerovaAccount | null>;
   /** Null when the account is unknown (404) */
   getCompanionSetup(idOrReference: string): Promise<NerovaSetupStatus | null>;
+  /**
+   * `GET /v1/accounts/{id}/whatsapp-health`. Null when Nerova has no such account OR does not serve the endpoint yet
+   * (404): callers fall back to the setup read.
+   */
+  getWhatsAppHealth(idOrReference: string): Promise<NerovaWhatsAppHealth | null>;
   /**
    * Starts a hosted WhatsApp connect session. Throws COMPANION_NOT_READY for an unprovisioned account, and an
    * UPSTREAM_COMPANION_ERROR with `details.nerova_code: "activation.version_conflict"` (HTTP 409) when `expectedVersion` is stale.

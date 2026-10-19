@@ -10,6 +10,7 @@ import type {
   CompanionSessionDTO,
   CompanionSetupDTO,
   CompanionSetupStep,
+  CompanionWhatsAppHealthDTO,
   CompanionWhatsAppConnectSessionDTO,
   MonthKey,
   UUID,
@@ -45,6 +46,11 @@ export interface CompanionService {
   createSession(businessId: UUID, input: CompanionSessionInput): Promise<CompanionSessionDTO>;
   /** The owner's next setup step and WhatsApp status. No Nerova account yet is `connect_booking_system`, not an error. */
   getSetup(businessId: UUID): Promise<CompanionSetupDTO>;
+  /**
+   * The number's current health, read live: Nerova's `whatsapp-health` when it serves it, else the whatsApp part of the setup
+   * read. No Nerova account yet is a not-connected answer, not an error.
+   */
+  getWhatsAppHealth(businessId: UUID): Promise<CompanionWhatsAppHealthDTO>;
   /**
    * Starts the hosted WhatsApp connect flow. COMPANION_NOT_READY (409) without a provisioned account,
    * WHATSAPP_ALREADY_CONNECTED (409) when WhatsApp is already connected. The launch URL is a secret.
@@ -195,6 +201,22 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     };
   }
 
+  async function getWhatsAppHealth(businessId: UUID): Promise<CompanionWhatsAppHealthDTO> {
+    const notConnected: CompanionWhatsAppHealthDTO = { connected: false, display_phone_number: null, business_verification_status: null };
+    const profile = await plans.getProfile(businessId);
+    const account = await resolveAccount(businessId, profile.nerovaAccountId);
+    if (!account) return notConnected;
+    // 404 is "unknown account" or "endpoint not shipped yet": the setup read tells them apart.
+    const whatsapp = (await nerova.getWhatsAppHealth(account.id)) ?? (await nerova.getCompanionSetup(account.id))?.whatsapp;
+    if (!whatsapp) return notConnected;
+    return {
+      connected: whatsapp.connected,
+      display_phone_number: whatsapp.displayPhoneNumber,
+      business_verification_status: whatsapp.businessVerificationStatus,
+      ...whatsapp.health,
+    };
+  }
+
   async function createWhatsAppConnectSession(businessId: UUID, options: { returnUrl?: string | undefined; appId?: string | undefined } = {}): Promise<CompanionWhatsAppConnectSessionDTO> {
     if (!deps.embedOrigin) throw notReady('unavailable');
     // Forwarded only with NEROVA_WHATSAPP_RETURN_URL on (before #946 Nerova's body rejects unknown fields); otherwise dropped.
@@ -280,5 +302,5 @@ export function createCompanionService(deps: CompanionServiceDeps): CompanionSer
     return toTranscription(result);
   }
 
-  return { createSession, getSetup, createWhatsAppConnectSession, transcribe, getOutcomes };
+  return { createSession, getSetup, getWhatsAppHealth, createWhatsAppConnectSession, transcribe, getOutcomes };
 }
