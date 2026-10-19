@@ -1,32 +1,12 @@
 import { useReduceMotion } from '@booking/ui';
 import * as React from 'react';
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  type TextInputProps,
-} from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedProps,
-  useAnimatedStyle,
-  useDerivedValue,
-} from 'react-native-reanimated';
+import { StyleSheet, Text, useWindowDimensions } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
-import {
-  COUNT_MS,
-  countText,
-  fitFontSize,
-  formatCount,
-  isCountingNumber,
-  valueAtStep,
-} from './countUp';
+import { COUNT_MS, COUNT_STEPS, countTextAtStep, fitFontSize } from './countUp';
 import { EASE_SPRING } from './motion';
 import type { StoryCardNumber } from './model';
 import { useReveal } from './useReveal';
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 /** The big number's size, and the width it has: the screen less the 24 pt content margins. */
 const FONT_SIZE = 88;
@@ -42,10 +22,43 @@ interface NumberLineProps {
 }
 
 /**
- * The big number. It counts up in 16 steps on the UI thread: the text is a
- * derived value written straight to a read-only TextInput, so counting never
- * renders React. Screen readers always get the final value. Reduce Motion
- * shows the final value at once, as plain text.
+ * The step the count is on. It runs once per mount, the first time the card
+ * is current: later re-renders or isCurrent flips neither restart nor reset
+ * it, and once it reaches the last step it stays there. Reduce Motion and a
+ * card that was never current sit on the last step.
+ */
+function useCountStep(isCurrent: boolean, isReduced: boolean) {
+  const isRunnable = isCurrent && !isReduced;
+  const [step, setStep] = React.useState(isRunnable ? 0 : COUNT_STEPS);
+  const hasStarted = React.useRef(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const advance = React.useCallback((next: number) => {
+    setStep(next);
+    if (next >= COUNT_STEPS) return;
+    timer.current = setTimeout(() => advance(next + 1), COUNT_MS / COUNT_STEPS);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isRunnable || hasStarted.current) return;
+    hasStarted.current = true;
+    advance(0);
+  }, [isRunnable, advance]);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      // A strict-mode remount starts the count again rather than freezing it.
+      hasStarted.current = false;
+    },
+    [],
+  );
+  return isReduced ? COUNT_STEPS : step;
+}
+
+/**
+ * The big number. It counts up in 16 steps as plain text driven by React
+ * state (16 tiny renders in 0.9 s). Screen readers always get the final
+ * value; Reduce Motion shows it at once.
  */
 export function NumberLine({
   number,
@@ -62,12 +75,7 @@ export function NumberLine({
     EASE_SPRING,
     isReduced,
   );
-  const count = useReveal(0, COUNT_MS, Easing.linear, isReduced);
-
-  const text = useDerivedValue(() => countText(number, count.value));
-  const animatedProps = useAnimatedProps(
-    () => ({ text: text.value }) as Partial<TextInputProps>,
-  );
+  const step = useCountStep(isCurrent, isReduced);
 
   const animated = useAnimatedStyle(() => {
     if (hasPush && !isReduced) {
@@ -85,36 +93,19 @@ export function NumberLine({
     };
   });
 
-  const final = formatCount(number.value, number.format, number.unit);
-  // Fixed at mount: a changing defaultValue resets the animated text.
-  const [first] = React.useState(() =>
-    formatCount(valueAtStep(number.value, 0), number.format, number.unit),
-  );
-  const isCounting = isCountingNumber(isCurrent, isReduced);
+  const final = countTextAtStep(number, COUNT_STEPS);
+  const shown = step >= COUNT_STEPS ? final : countTextAtStep(number, step);
   const fontSize = fitFontSize(final, width - 2 * SIDE_MARGIN, FONT_SIZE);
-  const textStyle = [styles.number, { color: accent, fontSize }];
   return (
     <Animated.View style={[styles.wrap, animated]}>
-      {!isCounting ? (
-        <Text
-          accessibilityLabel={final}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          style={textStyle}
-        >
-          {final}
-        </Text>
-      ) : (
-        <AnimatedTextInput
-          accessibilityLabel={final}
-          editable={false}
-          pointerEvents="none"
-          scrollEnabled={false}
-          defaultValue={first}
-          animatedProps={animatedProps}
-          style={textStyle}
-        />
-      )}
+      <Text
+        accessibilityLabel={final}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={[styles.number, { color: accent, fontSize }]}
+      >
+        {shown}
+      </Text>
     </Animated.View>
   );
 }
@@ -126,7 +117,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -2,
     fontVariant: ['tabular-nums'],
-    padding: 0,
     includeFontPadding: false,
   },
 });

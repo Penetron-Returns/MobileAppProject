@@ -1,36 +1,30 @@
+import { formatMoney } from '@/lib/format';
+
 import type { StoryCardNumber } from './model';
 
 /** The count runs in 16 steps over about 0.9 s, easing out. */
 export const COUNT_STEPS = 16;
 export const COUNT_MS = 880;
 
-/*
- * Everything here runs on the UI thread while the number counts, so each
- * function is a worklet and uses no Intl or imports. `money` reproduces
- * `formatMoney(value, 'ZAR', { decimals: false })` from `@/lib/format`
- * (a test keeps the two in step).
- */
+/** Used when a story's number names no currency; the business's currency is set by the caller. */
+export const DEFAULT_CURRENCY = 'USD';
 
 export function easeOutCubic(p: number) {
-  'worklet';
   return 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
 }
 
 /** Quantises a 0..1 progress to a step, so the text only changes 16 times. */
 export function countStep(progress: number) {
-  'worklet';
   return Math.min(COUNT_STEPS, Math.floor(Math.max(0, progress) * COUNT_STEPS));
 }
 
 /** The value shown at `step` of a count to `target`. */
 export function valueAtStep(target: number, step: number) {
-  'worklet';
   return Math.round(target * easeOutCubic(step / COUNT_STEPS));
 }
 
 /** Groups thousands with commas, as `en-US` does. */
 function group(value: number) {
-  'worklet';
   const digits = String(Math.abs(value));
   let out = '';
   for (let i = 0; i < digits.length; i++) {
@@ -40,16 +34,15 @@ function group(value: number) {
   return out;
 }
 
-/** Formats a count, percent or money (integer cents, ZAR, whole rand) value. */
+/** Formats a count, percent or money (integer cents, whole units of `currency`) value. */
 export function formatCount(
   value: number,
   format: StoryCardNumber['format'],
   unit?: string,
+  currency: string = DEFAULT_CURRENCY,
 ) {
-  'worklet';
   if (format === 'money') {
-    const text = `R ${group(Math.round(Math.abs(value) / 100))}`;
-    return value < 0 ? `-${text}` : text;
+    return formatMoney(value, currency, { decimals: false });
   }
   const sign = value < 0 ? '-' : '';
   const text =
@@ -57,13 +50,13 @@ export function formatCount(
   return unit ? `${text} ${unit}` : text;
 }
 
-/** The frame shown at a given progress: format(valueAtStep(...)). */
-export function countText(number: StoryCardNumber, progress: number) {
-  'worklet';
+/** The frame shown at a given step: format(valueAtStep(...)). */
+export function countTextAtStep(number: StoryCardNumber, step: number) {
   return formatCount(
-    valueAtStep(number.value, countStep(progress)),
+    valueAtStep(number.value, step),
     number.format,
     number.unit,
+    number.currency,
   );
 }
 
@@ -72,8 +65,8 @@ const GLYPH_EM = { digit: 0.6, narrow: 0.3, percent: 0.85, wide: 0.7 };
 
 /**
  * The font size at which `text` fits `available` pt: the base size, shrunk
- * only when the estimated width is over. A TextInput cannot shrink to fit on
- * its own, and the animated number is one.
+ * only when the estimated width is over. The count is plain text that
+ * must not jump size while it grows.
  */
 export function fitFontSize(text: string, available: number, base: number) {
   let em = 0;
@@ -86,14 +79,4 @@ export function fitFontSize(text: string, available: number, base: number) {
   }
   const width = em * base;
   return width <= available ? base : Math.floor((base * available) / width);
-}
-
-/**
- * Whether the number is the live counting field. Only a card that is on screen
- * counts (0 to final); a leaving card, or any card under Reduce Motion, is
- * plain text at its final value. The field's defaultValue is fixed at mount:
- * changing it after the count starts fights the animated text on Android.
- */
-export function isCountingNumber(isCurrent: boolean, isReduced: boolean) {
-  return isCurrent && !isReduced;
 }

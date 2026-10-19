@@ -1,7 +1,7 @@
 import {
   COUNT_STEPS,
   countStep,
-  countText,
+  countTextAtStep,
   easeOutCubic,
   formatCount,
   valueAtStep,
@@ -75,9 +75,9 @@ describe('count formatting', () => {
     [14800, 'count', undefined, '14,800'],
     [12, 'percent', undefined, '12%'],
     [3, 'count', 'min', '3 min'],
-    [245000, 'money', undefined, 'R 2,450'],
-    [1480000, 'money', undefined, 'R 14,800'],
-    [0, 'money', undefined, 'R 0'],
+    [245000, 'money', undefined, '$2,450'],
+    [1480000, 'money', undefined, '$14,800'],
+    [0, 'money', undefined, '$0'],
   ] as const)('%s %s %s -> %s', (value, format, unit, expected) => {
     expect(formatCount(value, format, unit)).toBe(expected);
   });
@@ -94,9 +94,9 @@ describe('count formatting', () => {
   });
 
   it('shows the formatted frame for a progress', () => {
-    const n = { value: 245000, format: 'money' as const };
-    expect(countText(n, 0)).toBe('R 0');
-    expect(countText(n, 1)).toBe('R 2,450');
+    const n = { value: 245000, format: 'money' as const, currency: 'ZAR' };
+    expect(countTextAtStep(n, 0)).toBe('R 0');
+    expect(countTextAtStep(n, COUNT_STEPS)).toBe('R 2,450');
   });
 });
 

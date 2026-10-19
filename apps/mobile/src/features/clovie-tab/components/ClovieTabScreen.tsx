@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAttendance } from '@/features/attendance/hooks';
 import { useBusiness } from '@/features/business/hooks';
+import { withCurrency } from '@/features/stories/currency';
 import { useMe } from '@/features/business/me';
 import { useOpenSetupOnce } from '@/features/companion/useOpenSetupOnce';
 import { useCompanionSheet } from '@/features/companion/sdk/companionSheetControl';
@@ -59,7 +60,18 @@ export function ClovieTabScreen() {
   const pageStyle = useAnimatedStyle(() => ({
     paddingBottom: Math.max(keyboardHeight.value, clearance) + 8,
   }));
-  const { stories, isLoading, isError, refetch, markViewed } = useStories();
+  const {
+    stories: fetched,
+    isLoading,
+    isError,
+    refetch,
+    markViewed,
+  } = useStories();
+  const currency = business.data?.currency;
+  const stories = React.useMemo(
+    () => withCurrency(fetched, currency),
+    [fetched, currency],
+  );
   const refetchStories = React.useCallback(() => void refetch(), [refetch]);
   const events = useStoryEvents(stories);
 
