@@ -33,6 +33,8 @@ export interface HeadlessDeps extends Pick<
     timezone: string;
   }>;
   checkIn: (appointmentId: string) => Promise<unknown>;
+  /** Answers a read-only question from today's bookings with no LLM call (`instant/`); null means ask Clovie. */
+  instant?: (text: string) => Promise<string | null>;
 }
 
 /**
@@ -73,6 +75,8 @@ export async function runVoiceCommandHeadless(
     if (!(await deps.isSignedIn())) {
       return { status: 'open_app', message: command.text };
     }
+    const instant = await deps.instant?.(command.text).catch(() => null);
+    if (instant) return { status: 'done', message: instant };
     return askCompanion(command.text, deps);
   }
   try {

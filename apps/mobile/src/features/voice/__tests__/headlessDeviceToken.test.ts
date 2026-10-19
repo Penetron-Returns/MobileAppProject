@@ -100,7 +100,7 @@ describe('headless check-in with only the device voice token', () => {
 });
 
 describe('toCheckInCandidates', () => {
-  it('maps the first name and drops everything else', () => {
+  it('maps the first name, staff id and service, and drops everything else', () => {
     expect(toCheckInCandidates(today)).toEqual([
       {
         id: 'a1',
@@ -109,6 +109,8 @@ describe('toCheckInCandidates', () => {
         status: 'confirmed',
         checked_in_at: null,
         client: { name: 'Sipho' },
+        staff_id: 's1',
+        service: { name: 'Cut' },
       },
     ]);
   });
