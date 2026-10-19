@@ -2,6 +2,7 @@ import * as React from 'react';
 
 import { act, mount } from '@/testing/render';
 
+import { NumberLine } from '../NumberLine';
 import { SAMPLE_STORIES } from '../sampleStories';
 import { StoryRing } from '../StoryRing';
 import { StoryViewer } from '../StoryViewer';
@@ -213,5 +214,41 @@ describe('StoryViewer', () => {
       expect.objectContaining({ type: 'action', cardId: 'b3' }),
     );
     act(() => tree.unmount());
+  });
+});
+
+describe('NumberLine', () => {
+  const number = { value: 490200, format: 'money' } as const;
+  const line = (isCurrent: boolean) => (
+    <NumberLine
+      number={number}
+      accent="#fff"
+      hasPush={false}
+      isCurrent={isCurrent}
+    />
+  );
+  const field = (tree: ReturnType<typeof mount>) =>
+    tree.root.findAll(
+      (n) => n.props.defaultValue !== undefined && n.props.editable === false,
+    );
+
+  it('mounts counting from zero and keeps its default after a re-render', () => {
+    const tree = mount(line(true));
+    expect(field(tree)[0].props.defaultValue).toBe('R 0');
+    act(() => tree.update(line(true)));
+    expect(field(tree)[0].props.defaultValue).toBe('R 0');
+  });
+
+  it('keeps the final value once the card is leaving', () => {
+    const tree = mount(line(true));
+    act(() => tree.update(line(false)));
+    expect(field(tree)).toHaveLength(0);
+    expect(texts(tree)).toContain('R 4,902');
+  });
+
+  it('shows the final value at once under reduce motion', () => {
+    mockReduce = true;
+    const tree = mount(line(true));
+    expect(texts(tree)).toContain('R 4,902');
   });
 });

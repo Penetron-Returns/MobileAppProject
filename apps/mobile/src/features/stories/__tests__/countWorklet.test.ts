@@ -1,6 +1,11 @@
 import { formatMoney } from '@/lib/format';
 
-import { countDefaultText, fitFontSize, formatCount } from '../countUp';
+import {
+  countText,
+  fitFontSize,
+  formatCount,
+  isCountingNumber,
+} from '../countUp';
 import { fpsLabel, framesPerSecond } from '../fps';
 
 describe('the worklet money formatter', () => {
@@ -45,24 +50,20 @@ describe('fps meter maths', () => {
   });
 });
 
-describe('countDefaultText', () => {
+describe('the count', () => {
   const revenue = { value: 490200, format: 'money' } as const;
 
-  it('starts an entering card from 0', () => {
-    expect(
-      countDefaultText(revenue, { isCurrent: true, isReduced: false }),
-    ).toBe('R 0');
+  it('ends on the final value', () => {
+    expect(countText(revenue, 1)).toBe('R 4,902');
   });
 
-  it('keeps the final value on a card that is leaving', () => {
-    expect(
-      countDefaultText(revenue, { isCurrent: false, isReduced: false }),
-    ).toBe('R 4,902');
+  it('starts at zero', () => {
+    expect(countText(revenue, 0)).toBe('R 0');
   });
 
-  it('shows the final value at once under reduce motion', () => {
-    expect(
-      countDefaultText(revenue, { isCurrent: true, isReduced: true }),
-    ).toBe('R 4,902');
+  it('only counts on the card that is on screen, never under reduce motion', () => {
+    expect(isCountingNumber(true, false)).toBe(true);
+    expect(isCountingNumber(false, false)).toBe(false);
+    expect(isCountingNumber(true, true)).toBe(false);
   });
 });
