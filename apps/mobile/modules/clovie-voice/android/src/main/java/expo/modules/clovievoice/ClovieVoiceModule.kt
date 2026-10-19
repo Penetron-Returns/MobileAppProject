@@ -96,14 +96,16 @@ class ClovieVoiceModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("ClovieVoice")
-    Events("onStatusChange", "onVoiceState", "onVoiceTranscript", "onVoiceOutcome", "onVoiceLatency")
+    Events("onStatusChange", "onVoiceState", "onVoiceTranscript", "onVoiceOutcome", "onVoiceLatency", "onNeuralVoiceStatus")
 
     OnCreate {
+      NeuralVoiceStore.setListener { sendEvent("onNeuralVoiceStatus", neuralMap(it)) }
       VoiceState.addListener(onStatus)
       VoiceUiBus.add(uiListener)
       publishShortcut()
     }
     OnDestroy {
+      NeuralVoiceStore.setListener(null)
       VoiceState.removeListener(onStatus)
       VoiceUiBus.remove(uiListener)
       AppPresence.setUiAttached(false)
@@ -222,12 +224,18 @@ class ClovieVoiceModule : Module() {
     Function("endStreamedReply") { id: String -> VoiceService.instance?.endStreamedReply(id) }
     Function("isCommandActive") { id: String -> VoiceCommandBridge.isPending(id) }
 
+    // On-device neural voice (Kokoro): download state, and a call that starts the one-time model download.
+    Function("getNeuralVoiceStatus") { neuralMap(NeuralVoiceStore.status(context)) }
+    Function("prepareNeuralVoice") { NeuralVoiceStore.prepare(context) }
+
     // Latency of the last voice interaction in ms (wakeToOverlayMs, wakeToSttStartMs, sttMs, commandMs, totalMs).
     Function("getTimings") { VoiceTimings.last }
 
     // A step the app's headless JS measured (headlessStartMs, todayMs): logged with the native ones. Allowlisted keys only.
     Function("recordTiming") { key: String, ms: Double -> VoiceTimings.external(key, ms.toLong()) }
   }
+
+  private fun neuralMap(s: NeuralVoiceStatus): Map<String, Any> = mapOf("state" to s.state.wire, "progress" to s.progress)
 
   /** "Not configured" is derived, not stored: it depends on which model files were bundled. */
   private fun currentSnapshot(): VoiceSnapshot {
