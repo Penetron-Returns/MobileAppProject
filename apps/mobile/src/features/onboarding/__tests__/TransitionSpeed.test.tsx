@@ -7,7 +7,6 @@ import '@/lib/i18n';
 import { flush, mount, pressableByLabel, text } from '@/testing/render';
 
 import { NameScreen } from '../components/NameScreen';
-import { OnboardingShell } from '../components/OnboardingShell';
 import { TypeScreen } from '../components/TypeScreen';
 
 jest.mock('@clerk/expo', () => ({
@@ -17,9 +16,6 @@ jest.mock('@/features/auth/useSignOut', () => ({
   useSignOut: () => jest.fn(),
 }));
 jest.mock('expo-router', () => ({ useIsFocused: () => true }));
-jest.mock('@/features/brand/ClovieAnimated', () => ({
-  ClovieAnimated: () => null,
-}));
 
 const METRICS = {
   insets: { top: 0, left: 0, right: 0, bottom: 0 },
@@ -58,14 +54,6 @@ describe('TypeScreen', () => {
     act(() => pressableByLabel(tree, 'A mix').props.onPress());
     act(() => void jest.advanceTimersByTime(500));
     expect(onSelect).toHaveBeenCalledTimes(1);
-  });
-
-  it('reads the four option names aloud', () => {
-    const tree = mount(<TypeScreen selected={null} onSelect={jest.fn()} />);
-    const spoken: string = tree.root.findByType(OnboardingShell).props.spoken;
-    for (const label of ['Barbershop', 'Salon', 'Beauty parlor', 'A mix']) {
-      expect(spoken).toContain(label);
-    }
   });
 
   it('lets tile labels wrap to two lines inside a minimum-height tile', () => {

@@ -65,7 +65,7 @@ export function OnbButton({
       {loading ? (
         <ActivityIndicator color={color} />
       ) : (
-        // Keyed by the label, so a changed label (the plan button) cross-fades in 150ms.
+        // Keyed by the label, so a changed label cross-fades in 150ms.
         <Animated.View
           key={label}
           entering={FadeIn.duration(150).reduceMotion(ReduceMotion.System)}

@@ -1,10 +1,6 @@
 import {
   backTarget,
   buildOnboardingRequest,
-  buildReviseRequest,
-  hasRevision,
-  reviseDraft,
-  reviseStartScreen,
   confirmName,
   dotStates,
   shouldAutoSubmit,
@@ -136,9 +132,8 @@ describe('draft persistence', () => {
 
 describe('progress dots', () => {
   it.each([
-    [1, ['active', 'todo', 'todo']],
-    [2, ['done', 'active', 'todo']],
-    [3, ['done', 'done', 'active']],
+    [1, ['active', 'todo']],
+    [2, ['done', 'active']],
   ] as const)('stage %s', (stage, expected) => {
     expect(dotStates(stage)).toEqual(expected);
   });
@@ -203,60 +198,13 @@ describe('auto-submit after sign-in', () => {
 
 describe('Back from every first-run screen', () => {
   it.each([
-    ['welcome, signed out', 'welcome', false, false, null],
-    ['type, signed out', 'type', false, false, 'welcome'],
-    ['type, signed in (nothing before it)', 'type', true, false, null],
-    ['type, revising a created business', 'type', true, true, 'plan'],
-    ['name, signed out', 'name', false, false, 'type'],
-    ['name, signed in', 'name', true, false, 'type'],
-    ['name, revising a created business', 'name', true, true, 'type'],
-  ] as const)('%s', (_label, screen, isSignedIn, isRevising, expected) => {
-    expect(backTarget(screen, { isSignedIn, isRevising })).toBe(expected);
-  });
-});
-
-describe('revising a created business', () => {
-  const current = { name: 'Ashgrove', typeId: 'salon' } as const;
-
-  it('prefills the name and type and opens on the name', () => {
-    expect(reviseDraft(current)).toEqual({
-      step: 2,
-      typeId: 'salon',
-      businessName: 'Ashgrove',
-    });
-    expect(reviseStartScreen(current)).toBe('name');
-  });
-
-  it('opens on the type when the type was not remembered', () => {
-    expect(reviseStartScreen({ name: 'Ashgrove', typeId: null })).toBe('type');
-  });
-
-  it.each([
-    ['nothing changed', 'Ashgrove', 'salon', false],
-    ['only surrounding spaces', '  Ashgrove ', 'salon', false],
-    ['name changed', 'Ashgrove Hair', 'salon', true],
-    ['type changed', 'Ashgrove', 'barber', true],
-    ['both changed', 'Cuts', 'barber', true],
-  ] as const)('%s', (_label, name, typeId, expected) => {
-    const draft = { step: 2 as const, typeId, businessName: name };
-    expect(hasRevision(draft, current)).toBe(expected);
-  });
-
-  it('builds a revise request with the new type template and no team', () => {
-    const request = buildReviseRequest({
-      step: 2,
-      typeId: 'barber',
-      businessName: ' Cuts ',
-    });
-    expect(request).toMatchObject({
-      revise: true,
-      business: { name: 'Cuts' },
-      team: [],
-    });
-    expect(request?.services[0]?.name).toBe('Skin fade');
-    expect(
-      buildReviseRequest({ step: 2, typeId: null, businessName: 'x' }),
-    ).toBeNull();
+    ['welcome, signed out', 'welcome', false, null],
+    ['type, signed out', 'type', false, 'welcome'],
+    ['type, signed in (nothing before it)', 'type', true, null],
+    ['name, signed out', 'name', false, 'type'],
+    ['name, signed in', 'name', true, 'type'],
+  ] as const)('%s', (_label, screen, isSignedIn, expected) => {
+    expect(backTarget(screen, { isSignedIn })).toBe(expected);
   });
 });
 

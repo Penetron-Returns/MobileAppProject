@@ -25,9 +25,6 @@ jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a) },
   useIsFocused: () => true,
 }));
-jest.mock('@/features/brand/ClovieAnimated', () => ({
-  ClovieAnimated: () => null,
-}));
 jest.mock('@/features/brand/ClovieLoading', () => ({
   ClovieLoading: () => null,
 }));

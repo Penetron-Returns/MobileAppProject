@@ -59,24 +59,6 @@ export function useCompleteOnboarding() {
       qc.setQueryData(qk.me, me);
       // The route gate reads the hours to know onboarding finished: never let a stale empty list send the owner back.
       qc.setQueryData(qk.businessHours, request.hours);
-      // The plan screen is next: warm its query so it opens without skeletons.
-      void qc.prefetchQuery({ queryKey: qk.plans, queryFn: api.plans });
-    },
-  });
-}
-
-/**
- * Back from the plan screen: re-runs onboarding for the business that already
- * exists. The API applies the new name and type template only while the business
- * is untouched, and never creates a second business.
- */
-export function useReviseBusiness() {
-  const qc = useQueryClient();
-  return useApiMutation<OnboardingRequest, MeDTO>({
-    mutationFn: (request, key) => api.onboard(request, key),
-    onError: () => true,
-    onSuccess: (me) => {
-      qc.setQueryData(qk.me, me);
     },
   });
 }

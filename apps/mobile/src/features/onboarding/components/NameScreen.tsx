@@ -117,7 +117,6 @@ export function NameScreen({
               onBack();
             }
       }
-      spoken={greeting.replace('\n', ' ')}
       footer={
         <OnbButton
           label={t('onboarding.continue')}

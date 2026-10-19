@@ -38,11 +38,10 @@ describe('onboarding storage', () => {
     expect((await loadDraft()).typeId).toBe('salon');
   });
 
-  it('clears both the draft and the remembered type', async () => {
+  it('clears the draft', async () => {
     mockStore.set('onboarding.draft.v1', '{}');
-    mockStore.set('onboarding.type.v1', 'salon');
     await clearOnboardingStorage();
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(2);
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(1);
     expect(mockStore.size).toBe(0);
   });
 });

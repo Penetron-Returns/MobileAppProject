@@ -12,7 +12,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 
 import { BRAND } from '@/features/brand/brandColors';
-import { ClovieAnimated } from '@/features/brand/ClovieAnimated';
+import { ClovieSprite } from '@/features/clovie-character/ClovieSprite';
 import { useMotionActive } from '@/hooks/useMotionActive';
 
 import { LOOPS, REST, poseAt, type ClovieMood } from '../reaction';
@@ -123,7 +123,7 @@ export function ClovieReaction({
       style={{ width: size, height: size }}
     >
       <Animated.View style={style}>
-        <ClovieAnimated size={size} />
+        <ClovieSprite size={size} isActive />
       </Animated.View>
       {sparkles
         ? SPARKLES.map(([s, left, top, delay]) => (
