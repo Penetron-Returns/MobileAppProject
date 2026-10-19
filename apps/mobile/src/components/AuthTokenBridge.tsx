@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import * as React from 'react';
 
-import { setAuthTokenGetter } from '@/lib/auth-token';
+import { setAuthTokenGetter, setSignedInProbe } from '@/lib/auth-token';
 import { startTokenPrewarm } from '@/lib/tokenPrewarm';
 
 /**
@@ -14,9 +14,12 @@ export function AuthTokenBridge() {
   const { getToken, isSignedIn } = useAuth();
   const getTokenRef = React.useRef(getToken);
   getTokenRef.current = getToken;
+  const isSignedInRef = React.useRef(isSignedIn);
+  isSignedInRef.current = isSignedIn;
 
   React.useEffect(() => {
     setAuthTokenGetter(() => getTokenRef.current());
+    setSignedInProbe(() => Boolean(isSignedInRef.current));
   }, []);
 
   // Keep the session token warm so the first request after a pause is instant.
