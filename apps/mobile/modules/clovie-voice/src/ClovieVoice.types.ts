@@ -131,6 +131,10 @@ export interface ClovieVoiceLatencyEvent {
   interimStartMs?: number;
   /** The reply's first word. */
   ttsStartMs?: number;
+  /** The streamed reply's first text. */
+  firstTokenMs?: number;
+  /** The first streamed sentence's first audio. */
+  firstAudioMs?: number;
   /** What ended the speech: our endpointer on a stable partial, the recogniser, or the clip VAD. */
   endpoint?: string;
   /** `device` (Android recogniser) or `cloud` (clip transcribed by the backend). */
