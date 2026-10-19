@@ -29,7 +29,6 @@ import type { BusinessRow } from '@booking/features/repositories/rows.ts';
 import { AppError, notFound } from '@booking/features/lib/errors.ts';
 import { parseJson, parseParam, parseQuery } from '../lib/validation.ts';
 import type { AppEnv } from '../types.ts';
-import { publicBillingRoutes } from './publicBilling.ts';
 import { rpcIdempotencyKey, type Ctx } from './v1/context.ts';
 import { attemptStepSchema, daysQuerySchema, publicBookingSchema, slotsQuerySchema, slugParam, uuid } from './v1/schemas.ts';
 
@@ -65,7 +64,6 @@ const staffFilter = (business: BusinessRow, staffId: UUID | null | undefined) =>
 export function createPublicRoutes(limiter: RateLimiter) {
   const routes = new Hono<AppEnv>();
   routes.use('*', rateLimit(limiter));
-  routes.route('/billing', publicBillingRoutes);
   const repoOf = (c: Ctx) => getBookingRepository(c.get('container'));
 
   routes.get('/b/:slug', async (c) => {

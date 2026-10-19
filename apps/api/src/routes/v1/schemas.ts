@@ -222,7 +222,6 @@ export const onboardingSchema = z.object({
     )
     .max(20),
   team: z.array(z.object({ name: text(120).min(1), title: nullableText(80) })).max(20),
-  revise: z.boolean().optional(),
 });
 
 // ---------- team ----------
@@ -239,23 +238,10 @@ export const updateMemberRoleSchema = z.object({ role: memberRole });
 
 export const deleteAccountSchema = z.object({ confirm_business_name: z.string().max(200).optional() });
 
-// ---------- plans, usage, companion, reports ----------
+// ---------- reports ----------
 
 /** `YYYY-MM`, optional: the route defaults to the current month in the business timezone. */
 export const monthQuerySchema = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Expected a month YYYY-MM').optional() });
-
-/** Optional body: the app sends none today. `return_url` is accepted ahead of Nerova supporting `returnUrl`. */
-export const connectWhatsAppSessionSchema = z.object({ return_url: z.url().max(2048).optional() });
-
-export const createCompanionSessionSchema = z.object({ color_mode: z.enum(['light', 'dark']), platform: z.enum(['web', 'native']).default('web') });
-
-/** PATCH /v1/companion/settings: partial, camelCase like Nerova's body; at least one field. */
-export const companionSettingsPatchSchema = z
-  .object({
-    approvalPolicy: z.enum(['always', 'risky_only', 'never']).optional(),
-    undoWindowSeconds: z.number().int().min(0).max(120).optional(),
-  })
-  .refine((v) => v.approvalPolicy !== undefined || v.undoWindowSeconds !== undefined, 'Send approvalPolicy and/or undoWindowSeconds');
 
 // ---------- attendance check ----------
 

@@ -6,7 +6,6 @@
 import { Hono, type Context } from 'hono';
 
 import { parseJson } from '../../lib/validation.ts';
-import { requireFeature } from '../../middleware/feature.ts';
 import type { AppEnv } from '../../types.ts';
 import { getWaDeps } from '@booking/app-store/whatsapp/deps.ts';
 import { releaseConversation, resolveEscalation, sendStaffMessage } from '@booking/app-store/whatsapp/inbox.ts';
@@ -14,10 +13,6 @@ import { idParam, parseOptionalJson } from '../v1/context.ts';
 import { resolveEscalationSchema, staffMessageSchema } from './schemas.ts';
 
 export const v1InboxRoutes = new Hono<AppEnv>();
-
-// Mounted at /v1 beside other routers, so scope by path rather than '*'.
-v1InboxRoutes.use('/conversations/*', requireFeature('inbox'));
-v1InboxRoutes.use('/escalations/*', requireFeature('inbox'));
 
 const waDeps = (c: Context<AppEnv>) => getWaDeps(c.get('container'), c.get('logger'));
 

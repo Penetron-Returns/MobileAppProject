@@ -7,9 +7,7 @@ import type { Env } from '../../src/env.ts';
 import type { Db } from '@booking/features/lib/db.ts';
 import type { Logger } from '@booking/features/lib/logger.ts';
 import type { ClerkClaims } from '../../src/middleware/auth.ts';
-import type { AccountEventsPort, AppointmentChangedEvent, EntitlementService } from '@booking/features/ports.ts';
-import { createDeviceTokenService } from '@booking/features/voice/deviceTokens.ts';
-import { createMemoryDeviceTokenRepository, type MemoryDeviceTokenRepository } from '@booking/testing/voiceTokens.ts';
+import type { AppointmentChangedEvent } from '@booking/features/ports.ts';
 import { createFakeClerkAdmin, type FakeClerkAdmin } from '@booking/testing/clerkAdmin.ts';
 import { memoryIdempotencyStore, TEST_ENV, testContainer, type BookingContainer } from '../helpers.ts';
 import { NOW, seed, type Seed } from './fixtures.ts';
@@ -53,14 +51,12 @@ export interface Harness extends Seed {
   /** Attendance pushes the fake Expo sender received; a user without a device in `device_push_tokens` gets none */
   attendancePushes: { businessId: string; userId: string; message: AttendancePushMessage }[];
   clerk: FakeClerkAdmin;
-  /** Device voice tokens; the owner (user_owner) and staff (user_staff) are members of the seeded business */
-  voiceTokenRepo: MemoryDeviceTokenRepository;
   call(method: string, path: string, opts?: RequestOptions): Promise<{ status: number; body: any; headers: Headers }>;
 }
 
 let keySeq = 0;
 
-export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEventsPort; entitlements?: EntitlementService } = {}): Harness {
+export function harness(opts: { env?: Partial<Env> } = {}): Harness {
   const s = seed();
   const events: AppointmentChangedEvent[] = [];
   const clerk = createFakeClerkAdmin();
@@ -87,20 +83,14 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
       },
     },
   });
-  const voiceTokenRepo = createMemoryDeviceTokenRepository();
-  voiceTokenRepo.addMember({ businessId: s.business.id, userId: 'user_owner', orgId: 'org_test', role: 'owner' });
-  voiceTokenRepo.addMember({ businessId: s.business.id, userId: 'user_staff', orgId: 'org_test', role: 'staff' });
   const container: BookingContainer = {
     ...testContainer({
       booking,
       attendance,
       db: authDb(s.business.id),
       clerkAdmin: clerk,
-      voiceTokens: createDeviceTokenService({ repo: voiceTokenRepo }),
       clock: () => NOW,
       env: { ...TEST_ENV, ...opts.env },
-      ...(opts.nerovaEvents ? { nerovaEvents: opts.nerovaEvents } : {}),
-      ...(opts.entitlements ? { entitlements: opts.entitlements } : {}),
     }),
     bookingRepository: s.repo,
   };
@@ -131,5 +121,5 @@ export function harness(opts: { env?: Partial<Env>; nerovaEvents?: AccountEvents
     return { status: res.status, body: text ? JSON.parse(text) : null, headers: res.headers };
   }
 
-  return { ...s, app, events, attendance, attendanceRepo, attendancePushes, clerk, voiceTokenRepo, call };
+  return { ...s, app, events, attendance, attendanceRepo, attendancePushes, clerk, call };
 }

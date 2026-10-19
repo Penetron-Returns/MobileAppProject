@@ -1,6 +1,6 @@
 /**
- * Client operations behind /v1/clients, the public web booking and the
- * Nerova connector. Every function takes the caller's business id.
+ * Client operations behind /v1/clients and the public web booking.
+ * Every function takes the caller's business id.
  */
 import type {
   ClientDTO,

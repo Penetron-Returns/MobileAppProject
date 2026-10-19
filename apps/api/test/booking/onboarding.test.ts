@@ -1,13 +1,14 @@
 import { Webhook } from 'svix';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { PlanKey } from '@booking/types';
-import { fakeEntitlements } from '@booking/testing/entitlements.ts';
 import { harness, type Harness } from './harness.ts';
 
 const SECRET = `whsec_${Buffer.alloc(32, 9).toString('base64')}`;
 
-let h: Harness;let plan: PlanKey;beforeEach(() => {  plan = 'none';  h = harness({    env: { CLERK_WEBHOOK_SECRET: SECRET },    entitlements: { ...fakeEntitlements('none'), getEntitlements: async () => ({ plan, features: [] }) },  });});
+let h: Harness;
+beforeEach(() => {
+  h = harness({ env: { CLERK_WEBHOOK_SECRET: SECRET } });
+});
 
 const payload = (over: Record<string, unknown> = {}) => ({
   business: { name: 'Ashgrove Hair & Beauty' },
@@ -219,65 +220,22 @@ describe('onboarding idempotency scope', () => {
   });
 });
 
-describe('POST /v1/onboarding revise (owner went back from the plan screen)', () => {
-  const revised = (over: Record<string, unknown> = {}) =>
-    payload({
-      business: { name: 'Fresh Cuts' },
-      hours: [{ weekday: 2, opens_at: '08:00', closes_at: '18:00' }],
-      services: [{ name: 'Gel manicure', duration_minutes: 45, price_cents: 28_000 }],
-      revise: true,
-      ...over,
-    });
+describe('POST /v1/onboarding re-run', () => {
   const names = () => h.repo.tables.services.filter((s) => s.business_id === mine()!.id).map((s) => s.name);
 
-  it('renames and re-applies the new template without a second business', async () => {
+  it('returns the existing setup unchanged when the business is already set up, whatever the new request says', async () => {
     await post(payload());
-    const res = await post(revised(), { key: 'onboard-revise-0001' });
+    const res = await post(
+      payload({
+        business: { name: 'Fresh Cuts' },
+        hours: [{ weekday: 2, opens_at: '08:00', closes_at: '18:00' }],
+        services: [{ name: 'Gel manicure', duration_minutes: 45, price_cents: 28_000 }],
+      }),
+      { key: 'onboard-rerun-0001' },
+    );
     expect(res.status).toBe(200);
-    expect(res.body.data.business.name).toBe('Fresh Cuts');
+    expect(res.body.data.business.name).toBe('Ashgrove Hair & Beauty');
     expect(h.repo.tables.businesses.filter((b) => b.clerk_org_id === 'org_new')).toHaveLength(1);
-    expect(names()).toEqual(['Gel manicure']);
-    expect(h.repo.tables.business_hours.filter((r) => r.business_id === mine()!.id).map((r) => r.weekday)).toEqual([2]);
-    // the new service is bookable by the owner and every existing staff member
-    const svc = h.repo.tables.services.find((s) => s.business_id === mine()!.id)!;
-    expect(h.repo.tables.staff_services.filter((l) => l.service_id === svc.id)).toHaveLength(2);
-  });
-
-  it('is repeatable: the same revision twice leaves one copy of each service', async () => {
-    await post(payload());
-    await post(revised(), { key: 'onboard-revise-0001' });
-    await post(revised(), { key: 'onboard-revise-0002' });
-    expect(names()).toEqual(['Gel manicure']);
-  });
-
-  it('changes only the name when the template is unchanged', async () => {
-    await post(payload());
-    const before = names();
-    const res = await post(payload({ business: { name: 'Only Renamed' }, revise: true }), { key: 'onboard-revise-0003' });
-    expect(res.body.data.business.name).toBe('Only Renamed');
-    expect(names()).toEqual(before);
-  });
-
-  it('keeps the old setup once the business has a paid plan', async () => {
-    await post(payload());
-    plan = 'starter';
-    const res = await post(revised(), { key: 'onboard-revise-0004' });
-    expect(res.status).toBe(200);
-    expect(res.body.data.business.name).toBe('Ashgrove Hair & Beauty');
-    expect(names()).toEqual(['Skin fade', 'Beard trim']);
-  });
-
-  it('keeps the old setup once the business has an appointment', async () => {
-    await post(payload());
-    h.repo.tables.appointments.push({ business_id: mine()!.id } as never);
-    const res = await post(revised(), { key: 'onboard-revise-0005' });
-    expect(res.body.data.business.name).toBe('Ashgrove Hair & Beauty');
-    expect(names()).toEqual(['Skin fade', 'Beard trim']);
-  });
-
-  it('ignores a revision unless it is asked for', async () => {
-    await post(payload());
-    await post(revised({ revise: undefined }), { key: 'onboard-revise-0006' });
     expect(names()).toEqual(['Skin fade', 'Beard trim']);
   });
 });

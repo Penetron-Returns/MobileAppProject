@@ -1,12 +1,10 @@
-/** Deps builder for WhatsApp tests: fake repository, Graph client, clock and entitlements. */
+/** Deps builder for WhatsApp tests: fake repository, Graph client and clock. */
 
 import { encryptSecret } from '@booking/features/lib/crypto.ts';
 import type { BookingService } from '@booking/features/ports.ts';
 import type { Logger } from '@booking/features/lib/logger.ts';
 import type { WaDeps, WhatsAppEnv } from '@booking/app-store/whatsapp/deps.ts';
 import type { WaAccountRow } from '@booking/app-store/whatsapp/repo.ts';
-import type { PlanKey } from '@booking/types';
-import { fakeEntitlements } from '../entitlements.ts';
 import { fakeGraph, type FakeGraph } from './fakeGraph.ts';
 import { memoryRepo } from './memoryRepo.ts';
 import { ACCOUNT_ID, BIZ, fakeBooking, makeWorld, NOW, PHONE_NUMBER_ID, uuidN, WABA_ID, type World } from './world.ts';
@@ -59,7 +57,7 @@ export interface Harness {
   clock: { now: Date };
 }
 
-export function harness(opts: { world?: World; account?: Partial<WaAccountRow> | null; plan?: PlanKey } = {}): Harness {
+export function harness(opts: { world?: World; account?: Partial<WaAccountRow> | null } = {}): Harness {
   const world = opts.world ?? makeWorld();
   const repo = memoryRepo(world);
   if (opts.account !== null) repo.db.accounts.push(liveAccount(opts.account ?? {}));
@@ -72,7 +70,6 @@ export function harness(opts: { world?: World; account?: Partial<WaAccountRow> |
     env: { ...TEST_WA_ENV, META_APP_ID: 'app-id', WHATSAPP_REGISTRATION_PIN: '123456' },
     repo,
     booking,
-    entitlements: fakeEntitlements(opts.plan ?? 'free'),
     graph: graph.factory,
     push: {
       async toBusiness(businessId, m) {

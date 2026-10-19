@@ -9,7 +9,6 @@ import {
   type EscalationRow,
   type MessageInsert,
   type MessageRow,
-  type HeldNotificationClaim,
   type ReminderClaim,
   type TemplateRow,
   type WaAccountRow,
@@ -53,7 +52,6 @@ export interface MemoryDb {
   appointmentEvents: { appointment_id: string; type: string; payload: Record<string, unknown> }[];
   reminderQueue: ReminderClaim[];
   /** Held client notifications already due (what claim_due_client_notifications would return) */
-  heldQueue: HeldNotificationClaim[];
   pushTokens: { business_id: string; token: string }[];
   businesses: { id: string; name: string; timezone: string }[];
   appointments: () => AppointmentDTO[];
@@ -74,7 +72,6 @@ export function memoryRepo(world?: World): WaRepo & { db: MemoryDb } {
     attempts: [],
     appointmentEvents: [],
     reminderQueue: [],
-    heldQueue: [],
     pushTokens: [],
     businesses: [{ id: BIZ, name: 'Nadia Hair', timezone: 'Africa/Johannesburg' }],
     appointments: () => world?.appointments ?? [],
@@ -329,9 +326,6 @@ export function memoryRepo(world?: World): WaRepo & { db: MemoryDb } {
     },
     async insertAppointmentEvent(e) {
       db.appointmentEvents.push({ appointment_id: e.appointmentId, type: e.type, payload: e.payload });
-    },
-    async claimDueClientNotifications(_now, limit) {
-      return clone(db.heldQueue.splice(0, limit));
     },
     async claimDueReminders(_now, limit) {
       const out = db.reminderQueue.splice(0, limit);

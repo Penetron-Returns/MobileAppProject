@@ -4,7 +4,7 @@
  */
 import type { Db } from '../lib/db.ts';
 import { createLogger } from '../lib/logger.ts';
-import type { AppointmentEventsPort, BookingMeter, BookingService, NotificationService } from '../ports.ts';
+import type { BookingService, NotificationService } from '../ports.ts';
 import { createSupabaseRepository } from '../repositories/supabase.ts';
 import type { BookingRepository } from '../repositories/types.ts';
 import { createBookingServiceFromRepository } from './services/bookingService.ts';
@@ -15,12 +15,6 @@ export type { BookingRepository } from '../repositories/types.ts';
 export interface BookingDeps {
   db: Db;
   notifications: NotificationService;
-  /** Outbound appointment lifecycle events (Nerova); see BookingServiceOptions.appointmentEvents */
-  appointmentEvents?: AppointmentEventsPort;
-  /** Usage metering: told about every created booking, after commit. See BookingServiceOptions.meter */
-  meter?: BookingMeter;
-  /** See BookingServiceOptions.defer */
-  defer?: (task: () => Promise<unknown>) => void;
 }
 
 const repositories = new WeakMap<object, BookingRepository>();
@@ -38,9 +32,6 @@ export function createBookingService(deps: BookingDeps): BookingService {
   return createBookingServiceFromRepository({
     repository: supabaseRepositoryFor(deps.db),
     notifications: deps.notifications,
-    defer: deps.defer,
-    appointmentEvents: deps.appointmentEvents,
-    meter: deps.meter,
     logger: createLogger({ module: 'booking' }),
   });
 }

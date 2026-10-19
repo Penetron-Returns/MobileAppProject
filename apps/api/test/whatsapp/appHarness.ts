@@ -9,7 +9,6 @@ import type { WaAccountRow } from '@booking/app-store/whatsapp/repo.ts';
 import { signMetaBody } from '@booking/app-store/whatsapp/signature.ts';
 import { BIZ, type World } from '@booking/testing/whatsapp/world.ts';
 import { harness, type Harness } from '@booking/testing/whatsapp/harness.ts';
-import type { PlanKey } from '@booking/types';
 import { memoryIdempotencyStore, TEST_ENV, testContainer } from '../helpers.ts';
 
 export const ORG = 'org_wa_test';
@@ -51,7 +50,6 @@ export function appHarness(
   opts: {
     world?: World;
     account?: Partial<WaAccountRow> | null;
-    plan?: PlanKey;
     env?: Partial<Env> & Record<string, string | undefined>;
   } = {},
 ): AppHarness {
@@ -62,7 +60,6 @@ export function appHarness(
       booking: h.booking,
       db: authDb(BIZ),
       env: { ...TEST_ENV, ...h.deps.env },
-      entitlements: h.deps.entitlements,
     }),
     whatsapp: h.deps,
   };

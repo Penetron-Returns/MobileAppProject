@@ -4,7 +4,6 @@
  */
 import type {
   AppointmentSource,
-  ClientConfirmationChannel,
   AppointmentStatus,
   AvailabilityRuleInput,
   BusinessHoursRow,
@@ -90,30 +89,9 @@ export interface CancelArgs extends ActorRef {
   reason: string | null;
 }
 
-export interface VoidArgs extends ActorRef {
-  appointmentId: UUID;
-}
-
-/** A held appointment whose hold has just been claimed (and cleared) by the hold job */
-export interface DueClientNotification {
-  appointment_id: UUID;
-  business_id: UUID;
-  client_id: UUID;
-  status: AppointmentStatus;
-  voided: boolean;
-}
-
 export interface SetStatusArgs extends ActorRef {
   appointmentId: UUID;
   status: Extract<AppointmentStatus, 'completed' | 'no_show'>;
-}
-
-export interface ConfirmByClientArgs extends ActorRef {
-  businessId: UUID;
-  appointmentId: UUID;
-  confirmedAt: string;
-  via: ClientConfirmationChannel;
-  idempotencyKey: string | null;
 }
 
 export interface NewBusiness {
@@ -217,17 +195,7 @@ export interface AppointmentRepository {
   createAppointment(args: CreateAppointmentArgs): Promise<AppointmentRow>;
   rescheduleAppointment(args: RescheduleArgs): Promise<AppointmentRow>;
   cancelAppointment(args: CancelArgs): Promise<AppointmentRow>;
-  /** Cancels as a VOID (RPC void_appointment): no fee, no penalty, excluded from stats; writes a `voided` event */
-  voidAppointment(args: VoidArgs): Promise<AppointmentRow>;
-  /** Holds the client notifications of an appointment until `untilIso` (client_notify_after), business-scoped */
-  holdClientNotification(businessId: UUID, appointmentId: UUID, untilIso: string): Promise<void>;
-  /** Atomically claims (and clears) holds due at `nowIso`: UPDATE ... RETURNING, so each is returned once */
-  claimDueClientNotifications(nowIso: string, limit: number): Promise<DueClientNotification[]>;
   setAppointmentStatus(args: SetStatusArgs): Promise<AppointmentRow>;
-  /** Id of the newest `appointment_events` row of this type for the appointment (outbound event idempotency) */
-  findLatestAppointmentEventId(appointmentId: UUID, type: string): Promise<UUID | null>;
-  /** Idempotent, business-scoped; a non-confirmed or already confirmed appointment comes back unchanged */
-  confirmAppointmentByClient(args: ConfirmByClientArgs): Promise<AppointmentRow>;
   checkInAppointment(appointmentId: UUID, actorId: string | null): Promise<AppointmentRow>;
   updateAppointmentNotes(businessId: UUID, appointmentId: UUID, notes: string | null): Promise<AppointmentRow | null>;
 }

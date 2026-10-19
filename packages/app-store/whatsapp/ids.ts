@@ -49,7 +49,7 @@ export function isCalendarDate(v: string): boolean {
   return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
 }
 
-/** Re-exported: the rule lives in features so the companion connector can share it without importing this app. */
+/** Re-exported: the rule lives in features (shared time helpers). */
 export { isInstant, normaliseInstant };
 
 export function parseReplyId(raw: unknown): ReplyId | null {

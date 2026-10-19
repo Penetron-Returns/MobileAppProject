@@ -15,7 +15,7 @@ function account(c: Ctx): { deps: AccountDeps; caller: AccountCaller } {
   const { repo, auth } = deps(c);
   const container = c.get('container');
   return {
-    deps: { repo, clerk: container.clerkAdmin, deviceTokens: container.voiceTokens },
+    deps: { repo, clerk: container.clerkAdmin },
     // Org and business always come from the verified token, never from the request.
     caller: { userId: auth.userId, orgId: auth.orgId, businessId: auth.businessId, role: auth.role, requestId: c.get('requestId') },
   };

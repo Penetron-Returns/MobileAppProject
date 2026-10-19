@@ -27,7 +27,7 @@ function resolveNpmFromApi(): Plugin {
 export default defineConfig({
   plugins: [resolveNpmFromApi()],
   resolve: {
-    alias: [{ find: /^@booking\/(features|companion|app-store|testing)\//, replacement: `${packagesRoot}$1/` }],
+    alias: [{ find: /^@booking\/(features|app-store|testing)\//, replacement: `${packagesRoot}$1/` }],
   },
   test: {
     environment: 'node',

@@ -9,7 +9,6 @@ export interface FakeClerkAdmin extends ClerkAdmin {
   deletedUsers: string[];
   deletedOrganizations: string[];
   /** publicMetadata per organisation, merged like Clerk does */
-  orgMetadata: Map<string, Record<string, unknown>>;
   /** Makes every call fail, like a Clerk outage */
   failWith: AppError | null;
   addMember(orgId: string, member: Partial<ClerkOrgMember> & { userId: string }): void;
@@ -25,7 +24,6 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
   const calls: string[] = [];
   const deletedUsers: string[] = [];
   const deletedOrganizations: string[] = [];
-  const orgMetadata = new Map<string, Record<string, unknown>>();
   const state = { failWith: null as AppError | null };
 
   const guard = (name: string) => {
@@ -42,7 +40,6 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
     calls,
     deletedUsers,
     deletedOrganizations,
-    orgMetadata,
     get failWith() {
       return state.failWith;
     },
@@ -119,10 +116,6 @@ export function createFakeClerkAdmin(): FakeClerkAdmin {
       guard('deleteUser');
       for (const [orgId, list] of members) members.set(orgId, list.filter((m) => m.userId !== userId));
       if (!deletedUsers.includes(userId)) deletedUsers.push(userId);
-    },
-    async updateOrganizationPublicMetadata(orgId, publicMetadata) {
-      guard('updateOrganizationPublicMetadata');
-      orgMetadata.set(orgId, { ...orgMetadata.get(orgId), ...publicMetadata });
     },
     async deleteOrganization(orgId) {
       guard('deleteOrganization');

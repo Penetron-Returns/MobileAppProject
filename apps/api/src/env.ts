@@ -5,20 +5,6 @@ const optional = z
   .optional()
   .transform((v) => (v === '' ? undefined : v));
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Comma-separated business UUIDs; blank = none. Invalid entries fail loud so a typo can never silently drop the flag. */
-const uuidList = z
-  .string()
-  .optional()
-  .transform((v) =>
-    (v ?? '')
-      .split(',')
-      .map((id) => id.trim().toLowerCase())
-      .filter(Boolean),
-  )
-  .refine((ids) => ids.every((id) => UUID_RE.test(id)), { message: 'must be comma-separated UUIDs' });
-
 const EnvSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
@@ -43,78 +29,6 @@ const EnvSchema = z.object({
   API_BASE_URL: optional,
   PUBLIC_WEB_BOOKING_URL: optional,
   EXPO_ACCESS_TOKEN: optional,
-
-  /** Nerova Booking connector: comma-separated SHA-256 hex hashes of accepted bearer tokens (empty = connector off) */
-  NEROVA_CONNECTOR_TOKEN_HASHES: optional,
-  /**
-   * Nerova conformance: business ids the connector flags `sandbox: true` on accounts_list/accounts_get. Write checks
-   * only ever run on these. Test business only (Harbour); NEVER a live salon (Ashgrove). Empty = no sandbox accounts.
-   */
-  NEROVA_SANDBOX_BUSINESS_IDS: uuidList,
-  /** Connector read-cache TTL in ms for catalogue/staff/hours (default 30000; the plan gate uses twice that; 0 = no caching) */
-  NEROVA_CONNECTOR_CACHE_TTL_MS: optional,
-  /** "true" turns on signed account events to Nerova (off by default) */
-  NEROVA_EVENTS_ENABLED: optional,
-  NEROVA_EVENTS_URL: optional,
-  /** whsec_... signing secret shown on the Nerova connection */
-  NEROVA_EVENTS_SIGNING_SECRET: optional,
-  /** "true" also sends signed appointment.* events (off by default; contract not yet confirmed by Nerova). Needs the URL + secret above */
-  NEROVA_APPOINTMENT_EVENTS_ENABLED: optional,
-
-  /** Nerova REST API key (https://api.nerova.si): companion sessions and outcome counts. Never logged or returned. Empty = companion off */
-  NEROVA_API_KEY: optional,
-  /** Origin of the owner web app that frames the companion; must be on Nerova's embed allowlist (scheme://host[:port]) */
-  NEROVA_EMBED_ORIGIN: optional,
-  /** "true" lets platform:'native' session requests use Nerova's native sessions (needs Nerova PR #946 live and the app registered). Off = always web. */
-  NEROVA_NATIVE_SESSIONS: optional,
-  /** "false" stops voice streams sending `mode: "voice"` to Nerova (default on; a 400 for it already falls back to a plain turn). */
-  NEROVA_VOICE_MODE: optional,
-  /** Nerova nativeApps appId used for native sessions (default si.nerova.booking.dev) */
-  NEROVA_APP_ID: optional,
-  /** "true" forwards the allowlisted return_url to Nerova connection-sessions as returnUrl (needs #946 live). Off = dropped. */
-  NEROVA_WHATSAPP_RETURN_URL: optional,
-
-  /** whsec_... signing secret returned once by POST /v1/webhooks (scripts/nerova/register-approval-webhook.mjs). Verifies POST /webhooks/nerova. Empty = route answers 503 */
-  NEROVA_WEBHOOK_SECRET: optional,
-
-  /** Support inbox alert for new owner support requests (Resend). All three set = emails sent; any empty = log only */
-  RESEND_API_KEY: optional,
-  /** Clovie support inbox that receives the alert */
-  SUPPORT_ALERT_EMAIL: optional,
-  /** Verified Resend sender, e.g. "Clovie alerts <alerts@getclovie.app>" */
-  SUPPORT_ALERT_FROM: optional,
-
-  /** "true" enables POST /v1/voice/transcriptions (proxy to Nerova speech-to-text). Off = 503 TRANSCRIPTION_UNAVAILABLE. */
-  VOICE_CLOUD_STT: optional,
-
-  /** Stripe billing, server-side only. Empty secret key = billing off (owner routes answer BILLING_NOT_CONFIGURED) */
-  STRIPE_SECRET_KEY: optional,
-  /** whsec_... of the webhook endpoint POST /webhooks/stripe. Empty = the route answers 503 */
-  STRIPE_WEBHOOK_SECRET: optional,
-  /** Recurring monthly base price ids (price_...) per plan */
-  STRIPE_PRICE_STARTER: optional,
-  STRIPE_PRICE_GROWTH: optional,
-  STRIPE_PRICE_PRO: optional,
-  /** Metered per-booking usage price ids (price_...) per plan, attached to the subscription at checkout */
-  STRIPE_PRICE_STARTER_USAGE: optional,
-  STRIPE_PRICE_GROWTH_USAGE: optional,
-  STRIPE_PRICE_PRO_USAGE: optional,
-  /** Stripe billing meter event name for completed bookings (defaults to booking_made) */
-  STRIPE_METER_EVENT_NAME: optional,
-  /** Optional USD price ids, for a future USD checkout (not used yet) */
-  STRIPE_PRICE_STARTER_USD: optional,
-  STRIPE_PRICE_GROWTH_USD: optional,
-  STRIPE_PRICE_PRO_USD: optional,
-  /** One-time per-unit price (R4) for extra completed bookings, added to renewal invoices. Empty = overage is not billed */
-  STRIPE_PRICE_OVERAGE: optional,
-  /** Where Checkout returns after paying / cancelling, and where the billing portal returns */
-  BILLING_SUCCESS_URL: optional,
-  BILLING_CANCEL_URL: optional,
-  BILLING_RETURN_URL: optional,
-  /** Our own checkout page (https://checkout.getclovie.app). Set = Checkout Sessions use ui_mode embedded_page and the app opens this page; unset = hosted Checkout with the BILLING_* URLs */
-  CHECKOUT_PAGE_URL: optional,
-  /** Comma-separated origins allowed to call POST /public/billing/checkout/confirm (CORS). Default: the CHECKOUT_PAGE_URL origin plus http://localhost:3000 */
-  CHECKOUT_ALLOWED_ORIGINS: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

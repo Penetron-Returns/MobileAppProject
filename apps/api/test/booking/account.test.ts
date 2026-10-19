@@ -39,9 +39,7 @@ describe('GET /v1/me/deletion-preview', () => {
 });
 
 describe('DELETE /v1/me as a staff member', () => {
-  it('deletes the Clerk user, revokes voice and push tokens at once, anonymises the staff row and leaves the rest to the user.deleted webhook', async () => {
-    await h.voiceTokenRepo.insert({ businessId: h.business.id, userId: 'user_staff', tokenHash: 'hash', deviceLabel: 'default', at: new Date() });
-
+  it('deletes the Clerk user, revokes push tokens at once, anonymises the staff row and leaves the rest to the user.deleted webhook', async () => {
     h.repo.tables.device_push_tokens.push({ business_id: h.business.id, user_id: 'user_staff', token: 'ExponentPushToken[x]', platform: 'android' });
 
     const res = await remove('staff');
@@ -54,7 +52,6 @@ describe('DELETE /v1/me as a staff member', () => {
     expect(h.clerk.deletedUsers).toEqual(['user_staff']);
     expect(h.clerk.deletedOrganizations).toEqual([]);
     expect(h.repo.tables.users.some((u) => u.id === 'user_staff')).toBe(false);
-    expect(h.voiceTokenRepo.records.every((r) => r.user_id !== 'user_staff' || r.revoked_at)).toBe(true);
     expect(h.repo.tables.staff.find((s) => s.id === h.thandi.id)).toMatchObject({
       user_id: null,
       name: FORMER_STAFF_NAME,

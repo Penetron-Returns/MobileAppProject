@@ -28,7 +28,7 @@ const STAFF_COLS =
 const CLIENT_COLS =
   'id, business_id, phone_e164, name, email, notes, tags, is_blocked, whatsapp_opt_in, first_seen_at, last_seen_at';
 const APPOINTMENT_COLS =
-  'id, business_id, client_id, staff_id, service_id, slot, blocked, status, source, price_cents, duration_minutes, notes, idempotency_key, checked_in_at, client_confirmed_at, client_confirmed_via, cancelled_at, cancel_reason, client_notify_after, voided_at, created_by, created_at';
+  'id, business_id, client_id, staff_id, service_id, slot, blocked, status, source, price_cents, duration_minutes, notes, idempotency_key, checked_in_at, client_confirmed_at, client_confirmed_via, cancelled_at, cancel_reason, created_by, created_at';
 const ATTEMPT_COLS =
   'id, business_id, channel, client_id, conversation_id, session_key, started_at, completed_at, step_count, outcome, appointment_id, error_code, steps';
 
@@ -281,24 +281,6 @@ export function createSupabaseRepository(db: Db): BookingRepository {
         'Appointment',
       );
     },
-    async voidAppointment(a) {
-      return rpcRow(
-        await db.rpc("void_appointment", { p_appointment_id: a.appointmentId, p_actor: a.actor, p_actor_id: a.actorId ?? "" }),
-        "Appointment",
-      );
-    },
-    async holdClientNotification(businessId, appointmentId, untilIso) {
-      const result = await t("appointments")
-        .update({ client_notify_after: untilIso })
-        .eq("business_id", businessId)
-        .eq("id", appointmentId);
-      if (result.error) throw mapDbError(result.error);
-    },
-    async claimDueClientNotifications(nowIso, limit) {
-      const result = await db.rpc("claim_due_client_notifications", { p_now: nowIso, p_limit: limit });
-      if (result.error) throw mapDbError(result.error);
-      return result.data ?? [];
-    },
     async setAppointmentStatus(a) {
       return rpcRow(
         await db.rpc('set_appointment_status', {
@@ -306,31 +288,6 @@ export function createSupabaseRepository(db: Db): BookingRepository {
           p_status: a.status,
           p_actor: a.actor,
           p_actor_id: a.actorId ?? '',
-        }),
-        'Appointment',
-      );
-    },
-    async findLatestAppointmentEventId(appointmentId, type) {
-      const result = await t('appointment_events')
-        .select('id')
-        .eq('appointment_id', appointmentId)
-        .eq('type', type as 'created')
-        .order('occurred_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return maybe<{ id: string }>(result)?.id ?? null;
-    },
-    async confirmAppointmentByClient(a) {
-      return rpcRow(
-        await db.rpc('confirm_appointment_by_client', {
-          p_business_id: a.businessId,
-          p_appointment_id: a.appointmentId,
-          p_confirmed_at: a.confirmedAt,
-          p_via: a.via,
-          p_actor: a.actor,
-          p_actor_id: a.actorId ?? '',
-          p_idempotency_key: a.idempotencyKey ?? '',
         }),
         'Appointment',
       );

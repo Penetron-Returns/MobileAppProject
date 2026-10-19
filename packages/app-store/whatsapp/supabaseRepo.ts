@@ -405,9 +405,6 @@ export function supabaseWaRepo(db: Db): WaRepo {
       const rows = must(await db.rpc('claim_due_reminders', { p_now: now, p_limit: limit }), 'claim reminders');
       return (rows ?? []).map((r) => ({ ...r, offset_minutes: Number(r.offset_minutes), starts_at: isoUtc(r.starts_at) }));
     },
-    async claimDueClientNotifications(now, limit) {
-      return must(await db.rpc('claim_due_client_notifications', { p_now: now, p_limit: limit }), 'claim client notifications') ?? [];
-    },
     async setReminderState(claim, extra) {
       const startsAt = isoUtc(claim.starts_at);
       must(
