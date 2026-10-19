@@ -930,6 +930,12 @@ class VoiceService : Service() {
     powerReceiver = null
   }
 
+  override fun onTrimMemory(level: Int) {
+    super.onTrimMemory(level)
+    // Frees the neural voice model (about 150 MB); it reloads at the next wake-up.
+    if (level >= TRIM_MEMORY_RUNNING_LOW && ::speaker.isInitialized) speaker.trimMemory()
+  }
+
   override fun onDestroy() {
     isDestroyed = true
     isRunning = false
