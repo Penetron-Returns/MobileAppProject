@@ -20,8 +20,8 @@ export const CACHE_SCOPE_KEY = 'clovie.query-cache.scope';
 
 /**
  * Query roots that are stable enough to paint from a saved copy while the
- * live one loads. Availability (days and slots), conversations and the
- * companion session queries are deliberately absent: they must be live.
+ * live one loads. Availability (days and slots), and conversations are
+ * deliberately absent: they must be live.
  */
 const PERSISTED_ROOTS = new Set([
   'me',
@@ -30,16 +30,13 @@ const PERSISTED_ROOTS = new Set([
   'staff-services',
   'services',
   'business-hours',
-  'stories',
   'attendance',
-  'dashboard',
 ]);
 
 /** Which cached queries are written to disk. Pure: tested as a table. */
 export function isPersistableKey(key: QueryKey): boolean {
   const [root, second] = key;
   if (typeof root !== 'string') return false;
-  if (root === 'plans') return key.length === 1;
   if (root === 'appointments') return second === 'range';
   if (root === 'clients') return second === 'book';
   return PERSISTED_ROOTS.has(root);
@@ -66,10 +63,7 @@ export function applyPersistedGcTimes(qc: QueryClient) {
     ['staff-services'],
     ['services'],
     ['business-hours'],
-    ['stories'],
     ['attendance'],
-    ['dashboard'],
-    ['plans'],
     ['appointments', 'range'],
     ['clients', 'book'],
   ];

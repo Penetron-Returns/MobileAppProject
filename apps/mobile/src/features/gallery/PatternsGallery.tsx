@@ -3,7 +3,6 @@ import {
   BlockedActionSheet,
   Button,
   CenteredSpinner,
-  CompanionDome,
   EmptyState,
   ErrorState,
   FlowCaption,
@@ -214,7 +213,7 @@ export function PatternsGallery() {
         <BlockedActionSheet {...guard.sheetProps} />
       </Section>
 
-      <Section title="Tab bar: Free (plus, Inbox dome) and paid (Reports tab, companion dome)">
+      <Section title="Tab bar: plus and Inbox dome, and the Reports tab">
         <Stage height={170}>
           <FloatingTabBar
             {...({
@@ -239,15 +238,7 @@ export function PatternsGallery() {
               descriptors: TAB_DESCRIPTORS,
               navigation: TAB_NAVIGATION,
             } as unknown as React.ComponentProps<typeof FloatingTabBar>)}
-            tabs={['index', 'calendar', 'reports', 'clients', 'settings']}
-            dome={
-              <CompanionDome
-                character={require('@/assets/images/companion-default.png')}
-                count={2}
-                label="Open your companion, 2 need your attention"
-                onPress={() => {}}
-              />
-            }
+            tabs={['calendar', 'reports', 'clients', 'settings']}
           />
         </Stage>
       </Section>

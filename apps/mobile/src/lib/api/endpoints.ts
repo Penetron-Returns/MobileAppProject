@@ -1,7 +1,4 @@
 import type {
-  ChangePlanRequest,
-  ChangePlanResultDTO,
-  PlanChangePreviewDTO,
   AccountDeletionPreviewDTO,
   AnswerAttendanceRequest,
   AppointmentDTO,
@@ -12,29 +9,13 @@ import type {
   AvailabilityConfigResponse,
   AvailableDaysResponse,
   AvailableSlotsResponse,
-  BillingUsageDTO,
   BusinessDTO,
-  CheckoutSessionDTO,
-  PortalSessionDTO,
-  CreateCheckoutRequest,
-  DeviceTokenDTO,
-  VoiceTodayDTO,
-  VoiceAskDTO,
-  VoiceAskRequest,
-  VoiceActionDTO,
-  CompanionSettingsDTO,
-  VoiceApprovalResultDTO,
   CancelAppointmentRequest,
   ClientDTO,
-  CompanionSessionDTO,
-  CompanionSetupDTO,
-  CompanionWhatsAppHealthDTO,
-  CompanionWhatsAppConnectSessionDTO,
   ClientNoteDTO,
   CreateAppointmentRequest,
   CreateClientNoteRequest,
   CreateClientRequest,
-  CreateCompanionSessionRequest,
   CreateOverrideRequest,
   CreateServiceRequest,
   CreateSpecialDayRequest,
@@ -45,12 +26,7 @@ import type {
   CreateStaffRequest,
   ManualConnectRequest,
   MeDTO,
-  ProductUpdatesViewRequest,
-  StoriesResponseDTO,
-  StoryEventsRequest,
-  StoryViewRequest,
   OnboardingRequest,
-  PlansDTO,
   RegisterDeviceRequest,
   UnregisterDeviceRequest,
   ReplaceBusinessHoursRequest,
@@ -80,14 +56,7 @@ import type {
   WhatsAppChannelDTO,
 } from '@booking/types';
 
-import type { CheckoutPlanId } from '@/features/plans/checkout';
-
-import { apiRequest, enc, get, send } from './client';
-
-/** PATCH /v1/companion/settings body: either field. */
-export type CompanionSettingsPatch = Partial<
-  Pick<CompanionSettingsDTO, 'approvalPolicy' | 'undoWindowSeconds'>
->;
+import { enc, get, send } from './client';
 
 /** GET /v1/availability/conflicts: whole days, or `start_time`..`end_time` on each date. */
 export type ConflictQuery = {
@@ -109,65 +78,6 @@ export const api = {
       b,
       key,
     ),
-
-  // plans, usage, companion (docs/BUILD_PLAN.md "Plans, usage, companion and reports")
-  plans: () => get<PlansDTO>('/v1/plans'),
-  billingUsage: (month?: string) =>
-    get<BillingUsageDTO>('/v1/billing/usage', { month }),
-  createCheckout: (b: CreateCheckoutRequest, key: string) =>
-    send<CreateCheckoutRequest, CheckoutSessionDTO>(
-      'POST',
-      '/v1/billing/checkout',
-    )(b, key),
-  previewPlanChange: (plan: CheckoutPlanId) =>
-    get<PlanChangePreviewDTO>('/v1/billing/plan/preview', { plan }),
-  changePlan: (b: ChangePlanRequest, key: string) =>
-    send<ChangePlanRequest, ChangePlanResultDTO>('POST', '/v1/billing/plan')(
-      b,
-      key,
-    ),
-  createPortalSession: (key: string) =>
-    send<undefined, PortalSessionDTO>('POST', '/v1/billing/portal')(
-      undefined,
-      key,
-    ),
-  createCompanionSession: (b: CreateCompanionSessionRequest, key: string) =>
-    send<CreateCompanionSessionRequest, CompanionSessionDTO>(
-      'POST',
-      '/v1/companion/session',
-    )(b, key),
-
-  // owner-only (Clerk): how much Clovie asks first, and how long a booking can be undone
-  companionSettings: () => get<CompanionSettingsDTO>('/v1/companion/settings'),
-  updateCompanionSettings: (b: CompanionSettingsPatch, key: string) =>
-    send<CompanionSettingsPatch, CompanionSettingsDTO>(
-      'PATCH',
-      '/v1/companion/settings',
-    )(b, key),
-  companionSetup: () => get<CompanionSetupDTO>('/v1/companion/setup'),
-  companionWhatsAppHealth: () =>
-    get<CompanionWhatsAppHealthDTO>('/v1/companion/whatsapp-health'),
-  createCompanionWhatsAppSession: (key: string) =>
-    send<undefined, CompanionWhatsAppConnectSessionDTO>(
-      'POST',
-      '/v1/companion/whatsapp/connect-session',
-    )(undefined, key),
-
-  // Clovie stories: the app sends its version and platform so product updates can be filtered
-  stories: (headers: Record<string, string>) =>
-    apiRequest<StoriesResponseDTO>('GET', '/v1/stories', { headers }),
-  markStoryViewed: (id: string, b: StoryViewRequest, key: string) =>
-    send<StoryViewRequest, { viewed: boolean }>(
-      'POST',
-      `/v1/stories/${enc(id)}/view`,
-    )(b, key),
-  markProductUpdatesViewed: (b: ProductUpdatesViewRequest, key: string) =>
-    send<ProductUpdatesViewRequest, { viewed: boolean }>(
-      'POST',
-      '/v1/product-updates/view',
-    )(b, key),
-  recordStoryEvents: (b: StoryEventsRequest, key: string) =>
-    send<StoryEventsRequest, unknown>('POST', '/v1/stories/events')(b, key),
 
   // onboarding: needs only an org-owner session, no business yet
   onboard: (b: OnboardingRequest, key: string) =>
@@ -377,46 +287,6 @@ export const api = {
       'POST',
       `/v1/attendance/${enc(checkId)}/answer`,
     )(b, key),
-
-  // voice: today's appointments for the voice check-in (also reachable with a device token)
-  voiceToday: () => get<VoiceTodayDTO>('/v1/voice/today'),
-
-  // voice: a cheap no-op that warms the connection and the Edge isolate while the owner is still speaking
-  voicePing: () => get<{ ok: boolean }>('/v1/voice/ping'),
-
-  // voice: a spoken request to the companion, and its approvals (decided by id only; device token allowed)
-  voiceAsk: (b: VoiceAskRequest, key: string) =>
-    send<VoiceAskRequest, VoiceAskDTO>('POST', '/v1/voice/ask')(b, key),
-  voiceDecideApproval: (
-    id: string,
-    decision: 'approve' | 'decline',
-    key: string,
-  ) =>
-    send<undefined, VoiceApprovalResultDTO>(
-      'POST',
-      `/v1/voice/approvals/${enc(id)}/${decision}`,
-    )(undefined, key),
-
-  // voice: act-then-undo. Undo exactly one executed action by id (device token allowed); list what is still undoable.
-  voiceUndoAction: (id: string, key: string) =>
-    send<undefined, VoiceActionDTO>(
-      'POST',
-      `/v1/voice/actions/${enc(id)}/undo`,
-    )(undefined, key),
-  voiceActions: (status: 'executed' | 'undone' = 'executed') =>
-    get<VoiceActionDTO[]>('/v1/voice/actions', { status }),
-
-  // voice: the scoped device token for background voice and attendance answers
-  mintVoiceDeviceToken: (b: { device_label: string }, key: string) =>
-    send<{ device_label: string }, DeviceTokenDTO>(
-      'POST',
-      '/v1/voice/device-token',
-    )(b, key),
-  revokeVoiceDeviceToken: (key: string) =>
-    send<undefined, { revoked: boolean }>('DELETE', '/v1/voice/device-token')(
-      undefined,
-      key,
-    ),
 
   // devices
   registerDevice: (b: RegisterDeviceRequest, key: string) =>

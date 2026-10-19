@@ -1,14 +1,8 @@
-import * as Application from 'expo-application';
 import * as Crypto from 'expo-crypto';
 
 import type { ApiErrorBody, ApiErrorCode } from '@booking/types';
 
-import {
-  acceptsDeviceToken,
-  reportBearerResult,
-  resolveBearer,
-  type BearerCredential,
-} from '../auth-token';
+import { getSessionToken } from '../auth-token';
 import { env } from '../env';
 import { fetchWithTimeout } from '../fetchWithTimeout';
 
@@ -72,20 +66,6 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Extra request headers (e.g. `X-App-Version`). Never overrides auth or idempotency. */
   headers?: Record<string, string>;
-}
-
-/**
- * The running build's application id (`si.nerova.booking.dev`, `app.getclovie.preview`, `app.getclovie`). Companion calls send it as
- * `X-Clovie-App-Id` so the API mints Nerova sessions and WhatsApp return URLs for this build; the API checks it against an allow-list.
- */
-export const APP_ID_HEADER = 'X-Clovie-App-Id';
-
-function applicationId(): string | null {
-  try {
-    return Application.applicationId || null;
-  } catch {
-    return null;
-  }
 }
 
 export function buildUrl(base: string, path: string, query?: Query) {
@@ -161,10 +141,6 @@ export async function apiRequest<T>(
     ...opts.headers,
     Accept: 'application/json',
   };
-  if (path.startsWith('/v1/companion/')) {
-    const appId = applicationId();
-    if (appId) headers[APP_ID_HEADER] = appId;
-  }
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') {
     if (!opts.idempotencyKey) {
@@ -173,23 +149,18 @@ export async function apiRequest<T>(
     }
     headers['Idempotency-Key'] = opts.idempotencyKey;
   }
-  let credential: BearerCredential | null = null;
   if (opts.auth !== false) {
-    // The voice upload and the attendance answer may fall back to the device
-    // voice token when no Clerk session is available (app in the background).
-    credential = await resolveBearer({
-      allowDeviceToken: acceptsDeviceToken(method, path),
-    });
+    const token = await getSessionToken();
     // Never send a protected call without a token: it can only 401, and a
     // caller that reads that as "no business" misroutes the user.
-    if (!credential) {
+    if (!token) {
       throw new ApiError({
         code: 'NOT_SIGNED_IN',
         message: 'No session token is available yet.',
         status: 401,
       });
     }
-    headers.Authorization = `Bearer ${credential.token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   let res: Response;
@@ -208,7 +179,6 @@ export async function apiRequest<T>(
       status: 0,
     });
   }
-  if (credential) reportBearerResult(credential, res.status);
   return parseEnvelope<T>(res);
 }
 

@@ -7,9 +7,8 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  * `expo prebuild` / `expo start` keeps producing the side-by-side dev app.
  *
  * The production Android application id `app.getclovie` is permanent once it is on Google Play.
- * Everything that must match it follows from `package` here: the Clerk native application, the
- * Nerova native app (server env `NEROVA_APP_ID`) and the generated manifest (deep-link hosts, the
- * voice module's notification and service names all derive from the package or the scheme).
+ * Everything that must match it follows from `package` here: the Clerk native application and the
+ * generated manifest (deep-link hosts derive from the package or the scheme).
  */
 export type AppVariant = 'development' | 'preview' | 'production';
 
@@ -17,7 +16,7 @@ interface VariantConfig {
   name: string;
   /** Android application id and iOS bundle identifier */
   id: string;
-  /** Deep-link scheme (Clerk OAuth return, WhatsApp connect return, voice links) */
+  /** Deep-link scheme (Clerk OAuth return) */
   scheme: string;
 }
 

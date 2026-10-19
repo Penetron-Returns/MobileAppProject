@@ -55,24 +55,18 @@
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "packagingOptions": { "pickFirst": ["**/libonnxruntime.so"] }
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],
-      "./plugins/with-dev-menu-no-fab.cjs",
-      "./plugins/with-clovie-voice.cjs",
-      "./plugins/with-clovie-proguard.cjs"
+      "./plugins/with-dev-menu-no-fab.cjs"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "80bb7524-14b3-4992-b112-10b8abdb2f1f"
-      }
-    },
-    "owner": "nerova-ai"
+      "eas": {}
+    }
   }
 }
