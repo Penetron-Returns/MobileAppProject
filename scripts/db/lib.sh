@@ -10,7 +10,7 @@
 set -euo pipefail
 
 DB_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DB_SUPABASE_DIR="$DB_REPO_ROOT/supabase"
+DB_SUPABASE_DIR="$DB_REPO_ROOT/packages/database/supabase"
 DB_SCRIPTS_DIR="$DB_REPO_ROOT/scripts/db"
 
 _find_pg_bin() {

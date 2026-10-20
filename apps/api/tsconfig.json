@@ -1,0 +1,27 @@
+{
+  "extends": "../../packages/config/tsconfig.node.json",
+  "compilerOptions": {
+    "paths": {
+      "@booking/types": ["../../packages/types/api.ts"],
+      "@booking/types/*": ["../../packages/types/*"],
+      "@booking/database": ["../../packages/database/database.types.ts"],
+      "@booking/features/*": ["../../packages/features/*"],
+      "@booking/app-store/*": ["../../packages/app-store/*"],
+      "@booking/testing/*": ["../../packages/testing/*"],
+      "zod": ["./node_modules/zod"],
+      "luxon": ["./node_modules/@types/luxon"],
+      "libphonenumber-js": ["./node_modules/libphonenumber-js"],
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "vitest.config.ts",
+    "../../packages/types/**/*.ts",
+    "../../packages/database/database.types.ts",
+    "../../packages/features/**/*.ts",
+    "../../packages/app-store/**/*.ts",
+    "../../packages/testing/**/*.ts"
+  ]
+}

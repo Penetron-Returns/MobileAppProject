@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 # Report which environment variables are missing for an app. Prints NAMES only, never values.
 #
-#   sh scripts/env/check.sh [mobile|backend|all] [--hosted]
+#   sh scripts/env/check.sh [mobile|api|all] [--hosted]
 #
 # Sources, in order: the current environment, Doppler (if installed and configured), then
-# apps/mobile/.env.local or apps/backend/.env. --hosted skips SUPABASE_* because Supabase injects
+# apps/mobile/.env.local or apps/api/.env. --hosted skips SUPABASE_* because Supabase injects
 # them into Edge Functions. Exit code 1 when a required variable is missing.
 # Windows: run from Git Bash (`sh scripts/env/check.sh`).
 set -eu
@@ -14,17 +14,17 @@ TARGET="all"
 HOSTED=0
 for arg in "$@"; do
   case "$arg" in
-    mobile|backend|all) TARGET="$arg" ;;
+    mobile|api|all) TARGET="$arg" ;;
     --hosted) HOSTED=1 ;;
-    *) echo "usage: check.sh [mobile|backend|all] [--hosted]" >&2; exit 2 ;;
+    *) echo "usage: check.sh [mobile|api|all] [--hosted]" >&2; exit 2 ;;
   esac
 done
 
 MOBILE_REQUIRED="EXPO_PUBLIC_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY"
 BACKEND_REQUIRED="CLERK_SECRET_KEY CLERK_JWT_KEY CLERK_AUTHORIZED_PARTIES CLERK_WEBHOOK_SECRET TOKEN_ENCRYPTION_KEY FLOW_TOKEN_SECRET CRON_SECRET API_BASE_URL"
 BACKEND_LOCAL_ONLY="SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY"
-# Needed only for the WhatsApp channel / Stripe; the API starts without them.
-BACKEND_OPTIONAL="META_APP_ID META_APP_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_FLOW_PRIVATE_KEY WHATSAPP_REGISTRATION_PIN PUBLIC_WEB_BOOKING_URL STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET"
+# Needed only for the WhatsApp channel; the API starts without them.
+BACKEND_OPTIONAL="META_APP_ID META_APP_SECRET WHATSAPP_VERIFY_TOKEN WHATSAPP_FLOW_PRIVATE_KEY WHATSAPP_REGISTRATION_PIN PUBLIC_WEB_BOOKING_URL"
 
 SNAPSHOT="$(mktemp)"
 trap 'rm -f "$SNAPSHOT"' EXIT INT TERM
@@ -74,8 +74,8 @@ if [ "$TARGET" = mobile ] || [ "$TARGET" = all ]; then
   echo "== mobile =="; collect apps/mobile .env.local
   report required "$MOBILE_REQUIRED" 1
 fi
-if [ "$TARGET" = backend ] || [ "$TARGET" = all ]; then
-  echo "== backend =="; collect apps/backend .env
+if [ "$TARGET" = api ] || [ "$TARGET" = all ]; then
+  echo "== api =="; collect apps/api .env
   report required "$BACKEND_REQUIRED" 1
   [ "$HOSTED" = 1 ] || report "local run" "$BACKEND_LOCAL_ONLY" 1
   report feature "$BACKEND_OPTIONAL" 0

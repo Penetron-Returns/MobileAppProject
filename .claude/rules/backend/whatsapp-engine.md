@@ -1,11 +1,11 @@
 ---
-paths: apps/backend/src/whatsapp/**/*.ts,apps/backend/src/routes/whatsapp/**/*.ts,apps/backend/whatsapp/**
+paths: packages/app-store/whatsapp/**,apps/api/src/routes/whatsapp/**/*.ts
 description: Rules for the deterministic WhatsApp conversation engine, Flows, windows and templates
 ---
 
 # WhatsApp Engine
 
-The customer channel is a deterministic state machine: no AI and no free-text interpretation. See [BUILD_PLAN.md](/docs/BUILD_PLAN.md) §5 and [whatsapp.md](/docs/whatsapp.md).
+The customer channel is a deterministic state machine: no AI and no free-text interpretation. It lives in `packages/app-store/whatsapp`; the routes in `apps/api/src/routes/whatsapp` stay a thin shell. See [BUILD_PLAN.md](/docs/BUILD_PLAN.md) §5 and [whatsapp.md](/docs/whatsapp.md).
 
 ## Implementation
 

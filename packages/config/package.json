@@ -1,0 +1,12 @@
+{
+  "name": "@booking/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared tooling presets: TypeScript base for the API, Prettier and ESLint base rules.",
+  "type": "module",
+  "exports": {
+    "./prettier": "./prettier.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./eslint": "./eslint.base.js"
+  }
+}

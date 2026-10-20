@@ -1,148 +1,189 @@
-import { ChevronRight, Clock, Plus, Sparkles } from 'lucide-react-native';
+import {
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  GlassPage,
+  Group,
+  GroupRow,
+  ListSkeleton,
+  Presenter,
+  SectionTitle,
+  SwipeableRow,
+  Text,
+  TintLink,
+  Reveal,
+} from '@booking/ui';
+import { useQueryClient } from '@tanstack/react-query';
+import { Plus, Sparkles, Trash2 } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
 
-import { Header } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { EmptyState, ErrorState, LoadingRows } from '@/components/States';
-import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
+import { isFailed, loadError } from '@/lib/offline';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
+import { describeError, toast } from '@/lib/toast';
 import { BusinessGate } from '@/features/business/components/BusinessGate';
+import { useBusiness } from '@/features/business/hooks';
 import { useCanManage } from '@/features/business/me';
-import { useServices, type ServiceRow } from '@/features/catalog/hooks';
-import { formatDuration, formatMoney } from '@/lib/format';
-import { cn } from '@/lib/utils';
+import {
+  useDeleteService,
+  useServices,
+  useStaff,
+  useStaffServices,
+  type ServiceRow,
+} from '@/features/catalog/hooks';
 
+import {
+  compactMoney,
+  durationLabel,
+  existingCategories,
+  groupByCategory,
+  joinMeta,
+} from '../lists';
+import { OwnerOnlyNote } from './OwnerOnlyNote';
 import { ServiceForm } from './ServiceForm';
-
-function groupByCategory(services: ServiceRow[], other: string) {
-  const groups = new Map<string, ServiceRow[]>();
-  for (const s of services) {
-    const key = s.category?.trim() || other;
-    groups.set(key, [...(groups.get(key) ?? []), s]);
-  }
-  return [...groups.entries()];
-}
 
 export function ServicesScreen() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const canManage = useCanManage();
   const services = useServices();
+  const staff = useStaff();
+  const links = useStaffServices();
+  const business = useBusiness();
   const [editing, setEditing] = React.useState<ServiceRow | 'new' | null>(null);
-  const categories = [
-    ...new Set(
-      (services.data ?? [])
-        .map((s) => s.category?.trim())
-        .filter((c): c is string => !!c),
-    ),
-  ];
+  // The confirm lives here, outside the sheet's modal, so it is not hidden behind it.
+  const [deleting, setDeleting] = React.useState<ServiceRow | null>(null);
+  const remove = useDeleteService({
+    onSuccess: () => toast.success(t('services.removed')),
+  });
 
-  return (
-    <Screen
-      header={<Header title={t('services.title')} fallbackHref="/settings" />}
-      footer={
-        canManage ? (
-          <View className="items-center pb-2">
-            <Pressable
-              onPress={() => setEditing('new')}
-              accessibilityRole="button"
-              accessibilityLabel={t('services.add')}
-              className="bg-primary h-14 w-full max-w-md flex-row items-center justify-center gap-2 rounded-full shadow-lg active:opacity-90"
-            >
-              <Icon as={Plus} size={20} className="text-primary-foreground" />
-              <Text className="text-primary-foreground text-base font-bold">
-                {t('services.add')}
-              </Text>
-            </Pressable>
-          </View>
-        ) : undefined
-      }
-    >
+  const bookable = staff.data?.filter((s) => s.is_active) ?? null;
+  const staffIdsFor = (serviceId: string) =>
+    (links.data ?? [])
+      .filter((l) => l.service_id === serviceId)
+      .map((l) => l.staff_id);
+
+  let body: React.ReactNode;
+  if (isFailed(services)) {
+    body = (
+      <ErrorState
+        variant="banner"
+        {...describeError(loadError(services))}
+        onRetry={() => void services.refetch()}
+      />
+    );
+  } else if (services.isPending) {
+    body = <ListSkeleton rows={4} />;
+  } else if (services.data.length === 0) {
+    body = <EmptyState icon={Sparkles} title={t('services.empty')} />;
+  } else {
+    body = (
       <BusinessGate>
-        {(business) =>
-          services.isPending ? (
-            <LoadingRows count={4} />
-          ) : services.isError ? (
-            <ErrorState
-              error={services.error}
-              onRetry={() => void services.refetch()}
-            />
-          ) : services.data.length === 0 ? (
-            <EmptyState icon={Sparkles} title={t('services.empty')} />
-          ) : (
-            <View className="mx-auto w-full max-w-2xl gap-6 pb-6">
-              {groupByCategory(services.data, t('services.other')).map(
-                ([category, items]) => (
-                  <View key={category} className="gap-2.5">
-                    <Text className="text-primary px-1 text-lg font-bold">
-                      {category}
-                    </Text>
-                    {items.map((service) => (
-                      <Pressable
+        {(biz) =>
+          groupByCategory(services.data, t('services.other')).map(
+            ([category, rows], index) => (
+              <Reveal key={category} scope="services" index={index}>
+                <SectionTitle className="mt-5">{category}</SectionTitle>
+                <Group>
+                  {rows.map((service, i) => {
+                    const meta = joinMeta(
+                      durationLabel(service.duration_minutes, t),
+                      compactMoney(service.price_cents, biz.currency),
+                      !service.is_active && t('services.hidden'),
+                    );
+                    return (
+                      <SwipeableRow
                         key={service.id}
-                        onPress={() => canManage && setEditing(service)}
-                        accessibilityRole="button"
-                        accessibilityLabel={service.name}
-                        className={cn(
-                          'bg-card border-border flex-row items-center justify-between rounded-xl border p-4 shadow-sm active:border-primary',
-                          !service.is_active && 'opacity-60',
-                        )}
+                        enabled={canManage}
+                        trailing={[
+                          {
+                            key: 'delete',
+                            label: t('common.delete'),
+                            role: 'destructive',
+                            icon: Trash2,
+                            onPress: () => setDeleting(service),
+                          },
+                        ]}
                       >
-                        <View className="flex-1 gap-1 pr-3">
-                          <View className="flex-row items-center gap-2">
-                            <Text className="text-foreground shrink text-base font-semibold">
-                              {service.name}
-                            </Text>
-                            {!service.is_active ? (
-                              <View className="bg-muted rounded-full px-2 py-0.5">
-                                <Text className="text-muted-foreground text-[10px] font-bold uppercase">
-                                  {t('services.hidden')}
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <View className="flex-row items-center gap-2">
-                            <Icon
-                              as={Clock}
-                              size={14}
-                              className="text-muted-foreground"
-                            />
-                            <Text className="text-muted-foreground text-sm font-medium">
-                              {formatDuration(service.duration_minutes)}
-                            </Text>
-                            <View className="bg-muted-foreground/30 h-1 w-1 rounded-full" />
-                            <Text className="text-foreground text-sm font-bold">
-                              {formatMoney(
-                                service.price_cents,
-                                business.currency,
-                              )}
-                            </Text>
-                          </View>
-                        </View>
-                        {canManage ? (
-                          <Icon
-                            as={ChevronRight}
-                            size={20}
-                            className="text-muted-foreground"
-                          />
-                        ) : null}
-                      </Pressable>
-                    ))}
-                  </View>
-                ),
-              )}
-            </View>
+                        <GroupRow
+                          showSeparator={i > 0}
+                          title={service.name}
+                          subtitle={meta}
+                          onPress={
+                            canManage ? () => setEditing(service) : undefined
+                          }
+                          accessibilityLabel={t('settings.servicesList.open', {
+                            name: service.name,
+                            meta,
+                          })}
+                        />
+                      </SwipeableRow>
+                    );
+                  })}
+                </Group>
+              </Reveal>
+            ),
           )
         }
       </BusinessGate>
-      {editing ? (
+    );
+  }
+
+  return (
+    <Presenter active={editing !== null}>
+      <GlassPage
+        title={t('services.title')}
+        backLabel={t('tabs.settings')}
+        backFallback="/settings"
+        onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
+      >
+        <SavedCopyBanner query={services} />
+        {services.data ? (
+          <Text className="mx-5 text-title text-muted-foreground">
+            {t('settings.servicesList.summary', {
+              count: services.data.length,
+            })}
+          </Text>
+        ) : null}
+        {canManage ? (
+          <TintLink
+            variant="action"
+            icon={Plus}
+            label={t('settings.servicesList.add')}
+            onPress={() => setEditing('new')}
+            className="ml-5 mt-2"
+          />
+        ) : null}
+        {body}
+        <OwnerOnlyNote />
+      </GlassPage>
+      {editing && business.data ? (
         <ServiceForm
           service={editing === 'new' ? null : editing}
-          categories={categories}
+          categories={existingCategories(services.data ?? [])}
+          currency={business.data.currency}
+          staff={bookable && links.data ? bookable : null}
+          staffIds={editing === 'new' ? [] : staffIdsFor(editing.id)}
           onClose={() => setEditing(null)}
+          onDelete={() => {
+            if (editing !== 'new') setDeleting(editing);
+            setEditing(null);
+          }}
         />
       ) : null}
-    </Screen>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={t('services.deleteDialog.title')}
+        description={t('services.deleteDialog.description')}
+        confirmLabel={t('services.deleteDialog.confirm')}
+        cancelLabel={t('services.deleteDialog.keep')}
+        destructive
+        onConfirm={() => {
+          if (deleting) remove.mutate(deleting.id);
+          setDeleting(null);
+        }}
+      />
+    </Presenter>
   );
 }

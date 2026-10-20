@@ -1,4 +1,4 @@
-import type { BusinessHoursRow, UpdateBusinessRequest } from '@shared/api';
+import type { BusinessHoursRow, UpdateBusinessRequest } from '@booking/types';
 import { useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api';
@@ -6,7 +6,7 @@ import { qk, useApiMutation } from '@/lib/query';
 import type { MutationCallbacks } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
-async function fetchBusiness() {
+export async function fetchBusiness() {
   // RLS returns only the business of the active Clerk organisation.
   const res = await supabase
     .from('businesses')
@@ -61,11 +61,12 @@ async function fetchBusinessHours() {
   );
 }
 
-export function useBusinessHours() {
+export function useBusinessHours(opts: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: qk.businessHours,
     queryFn: fetchBusinessHours,
     staleTime: 5 * 60_000,
+    enabled: opts.enabled ?? true,
   });
 }
 

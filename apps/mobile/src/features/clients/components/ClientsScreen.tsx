@@ -1,157 +1,151 @@
+import {
+  BlockedActionSheet,
+  Button,
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+  Page,
+  Text,
+  useOfflineGuard,
+} from '@booking/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { ChevronDown, Plus, Users } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Users } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, View } from 'react-native';
 
-import { Screen } from '@/components/Screen';
-import { SearchInput } from '@/components/SearchInput';
-import { EmptyState, ErrorState, LoadingRows } from '@/components/States';
-import { TabHeader } from '@/components/TabHeader';
-import { Icon } from '@/components/ui/icon';
-import { Text } from '@/components/ui/text';
-import { BusinessGate } from '@/features/business/components/BusinessGate';
-import type { BusinessSummary } from '@/features/business/hooks';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { cn } from '@/lib/utils';
+import { SavedCopyBanner } from '@/components/SavedCopyBanner';
+import { useBusiness } from '@/features/business/hooks';
+import { useInboxThreads } from '@/features/inbox/hooks';
+import { isFailed, isShowingSavedCopy, loadError } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
+import { todayISO } from '@/lib/time';
+import { describeError } from '@/lib/toast';
 
-import { useClientList } from '../hooks';
-import type { ClientFilter } from '../logic';
-import { ClientRow } from './ClientRow';
+import { useClientBook, usePrefetchClient } from '../hooks';
+import { buildBookIndex, sectionsFromIndex, selectRecent } from '../phoneBook';
+import { PhoneBookList } from './PhoneBookList';
 
-const FILTERS: ClientFilter[] = ['all', 'recent', 'vip'];
+const ADD_CLIENT = { pathname: '/new-booking', params: { mode: 'new' } };
 
+/** Clients: a phone book. Search, the people you spoke to last, A-Z groups. */
 export function ClientsScreen() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const business = useBusiness();
+  const book = useClientBook();
+  // Recent also reads the latest WhatsApp message; without the inbox it is bookings only.
+  const inbox = useInboxThreads();
+  const [search, setSearch] = React.useState('');
+  const timezone = business.data?.timezone;
+  const isOnline = useIsOnline();
+  const isOffline = !isOnline || isShowingSavedCopy(book);
+  const { guard, sheetProps } = useOfflineGuard(isOffline, () =>
+    book.refetch({ throwOnError: true }),
+  );
+
+  const dataUpdatedAt = book.dataUpdatedAt;
+  const now = React.useMemo(
+    () => new Date(dataUpdatedAt || Date.now()),
+    [dataUpdatedAt],
+  );
+  const clients = book.data;
+  // Sorting and normalising the book is paid when the clients change; a
+  // keystroke only filters it, and a deferred query keeps typing responsive.
+  const index = React.useMemo(
+    () =>
+      clients && timezone ? buildBookIndex(clients, { now, timezone }) : [],
+    [clients, now, timezone],
+  );
+  const query = React.useDeferredValue(search.trim());
+  const sections = React.useMemo(
+    () => sectionsFromIndex(index, query),
+    [index, query],
+  );
+  const recent = React.useMemo(
+    () =>
+      clients && timezone
+        ? selectRecent(clients, inbox.data ?? [], { now, timezone })
+        : [],
+    [clients, inbox.data, now, timezone],
+  );
+  const prefetchClient = usePrefetchClient();
+  const openClient = React.useCallback(
+    (id: string) => {
+      // Start the profile, history and notes requests as the screen opens.
+      prefetchClient(id);
+      router.push(`/clients/${id}` as never);
+    },
+    [prefetchClient],
+  );
+  const refresh = React.useCallback(
+    () => queryClient.refetchQueries({ type: 'active' }),
+    [queryClient],
+  );
+
+  if (clients && timezone) {
+    return clients.length === 0 ? (
+      <Page title={t('clients.title')} isTab onRefresh={refresh}>
+        <ClientsEmpty onAdd={guard(() => router.push(ADD_CLIENT as never))} />
+        <BlockedActionSheet {...sheetProps} />
+      </Page>
+    ) : (
+      <>
+        <PhoneBookList
+          title={t('clients.title')}
+          sections={sections}
+          recent={recent}
+          search={search}
+          onSearch={setSearch}
+          isSearching={query.length > 0}
+          emptyText={t('clients.empty.search', { query })}
+          banner={<SavedCopyBanner query={book} timezone={timezone} />}
+          today={todayISO(timezone, now)}
+          onOpen={openClient}
+          onRefresh={refresh}
+        />
+        <BlockedActionSheet {...sheetProps} />
+      </>
+    );
+  }
+
   return (
-    <Screen
-      header={<TabHeader />}
-      onRefresh={() => queryClient.refetchQueries({ type: 'active' })}
-    >
-      <BusinessGate>
-        {(business) => <ClientsContent business={business} />}
-      </BusinessGate>
-    </Screen>
+    <Page title={t('clients.title')} isTab onRefresh={refresh}>
+      {isFailed(business) ? (
+        <ErrorState
+          variant="banner"
+          {...describeError(loadError(business))}
+          onRetry={() => void business.refetch()}
+        />
+      ) : isFailed(book) ? (
+        <ErrorState
+          variant="banner"
+          {...describeError(loadError(book))}
+          onRetry={() => void book.refetch()}
+          isRetrying={book.isRefetching}
+        />
+      ) : (
+        <ListSkeleton />
+      )}
+      <BlockedActionSheet {...sheetProps} />
+    </Page>
   );
 }
 
-function ClientsContent({ business }: { business: BusinessSummary }) {
+/** First run: no client has booked yet. */
+function ClientsEmpty({ onAdd }: { onAdd: () => void }) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const [search, setSearch] = React.useState('');
-  const [filter, setFilter] = React.useState<ClientFilter>('all');
-  const debouncedSearch = useDebouncedValue(search);
-  const list = useClientList(filter, debouncedSearch);
-  const clients = list.data?.pages.flat() ?? [];
-
   return (
-    <View className="mx-auto w-full max-w-lg gap-5 pb-8 sm:max-w-2xl md:max-w-4xl">
-      <View className="flex-row items-end justify-between">
-        <View className="flex-1 pr-3">
-          <Text className="text-foreground text-2xl font-bold sm:text-3xl">
-            {t('clients.title')}
-          </Text>
-          <Text className="text-muted-foreground mt-0.5 text-sm">
-            {t('clients.subtitle')}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() =>
-            router.push({ pathname: '/add', params: { mode: 'new' } } as never)
-          }
-          accessibilityRole="button"
-          accessibilityLabel={t('clients.addNew')}
-          className="bg-primary min-h-[44px] flex-row items-center gap-1.5 rounded-lg px-4 py-2.5 shadow-sm active:opacity-90"
-        >
-          <Icon as={Plus} size={18} className="text-primary-foreground" />
-          <Text className="text-primary-foreground text-sm font-semibold">
-            {t('clients.new')}
-          </Text>
-        </Pressable>
-      </View>
-
-      <SearchInput
-        value={search}
-        onChangeText={setSearch}
-        placeholder={t('clients.searchPlaceholder')}
-        containerClassName="rounded-xl border-border bg-card shadow-sm"
-      />
-
-      <View className="flex-row gap-2">
-        {FILTERS.map((id) => {
-          const isActive = filter === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => setFilter(id)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              className={cn(
-                'min-h-[36px] justify-center rounded-full border px-4 py-1.5 active:opacity-80',
-                isActive
-                  ? 'border-primary/20 bg-primary/10'
-                  : 'border-border bg-card',
-              )}
-            >
-              <Text
-                className={cn(
-                  'text-xs font-semibold',
-                  isActive ? 'text-primary' : 'text-muted-foreground',
-                )}
-              >
-                {t(`clients.filters.${id}`)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {list.isPending ? (
-        <LoadingRows count={5} />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : clients.length === 0 ? (
-        <View className="bg-card border-border rounded-xl border">
-          <EmptyState
-            icon={Users}
-            title={t('clients.empty.title')}
-            description={
-              debouncedSearch.trim()
-                ? t('clients.empty.search', { query: debouncedSearch.trim() })
-                : t('clients.empty.filter')
-            }
-          />
-        </View>
-      ) : (
-        <View className="bg-card border-border overflow-hidden rounded-xl border shadow-sm">
-          {clients.map((client, index) => (
-            <ClientRow
-              key={client.id}
-              client={client}
-              timezone={business.timezone}
-              isLast={index === clients.length - 1}
-            />
-          ))}
-        </View>
-      )}
-
-      {list.hasNextPage ? (
-        <View className="flex-row justify-center pt-1">
-          <Pressable
-            onPress={() => void list.fetchNextPage()}
-            disabled={list.isFetchingNextPage}
-            accessibilityRole="button"
-            accessibilityLabel={t('clients.loadMore')}
-            className="min-h-[44px] flex-row items-center gap-1 py-2 active:opacity-70"
-          >
-            <Text className="text-primary text-sm font-semibold">
-              {t('clients.loadMore')}
-            </Text>
-            <Icon as={ChevronDown} size={18} className="text-primary" />
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+    <EmptyState
+      variant="screen"
+      icon={Users}
+      title={t('clients.empty.title')}
+      description={t('clients.empty.description')}
+      action={
+        <Button size="lg" className="px-7" onPress={onAdd}>
+          <Text className="text-title">{t('clients.empty.add')}</Text>
+        </Button>
+      }
+    />
   );
 }

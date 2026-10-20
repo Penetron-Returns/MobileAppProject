@@ -1,0 +1,62 @@
+# Supabase CLI config for local development (`supabase start` / `supabase db reset`).
+# Only what this project needs; every other setting uses the CLI default.
+# Docs: https://supabase.com/docs/guides/local-development/cli/config
+
+project_id = "whatsapp-booking"
+
+[api]
+enabled = true
+port = 54321
+# The app reads through PostgREST (RLS); `private` is intentionally NOT exposed.
+schemas = ["public", "graphql_public"]
+# `extensions` must be on the search path so citext operators resolve.
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "100MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["http://localhost:8081"]
+
+# Clerk is the identity provider (third-party auth): Supabase trusts Clerk
+# session JWTs, and RLS reads the org from `org_id` (Clerk v1 tokens) or
+# `o.id` (v2 tokens) via private.current_org_id().
+#
+# Set CLERK_DOMAIN to your Clerk Frontend API domain before `supabase start`,
+# e.g. `export CLERK_DOMAIN=your-app.clerk.accounts.dev` (Clerk dashboard →
+# Configure → Domains, or the "Supabase" integration page). For the hosted
+# project, add Clerk under Authentication → Sign In / Providers → Third-Party
+# Auth instead. See docs/database.md → "Clerk third-party auth".
+[auth.third_party.clerk]
+enabled = true
+domain = "env(CLERK_DOMAIN)"
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+# The whole API (apps/api) (Hono) runs as one Edge Function: https://<ref>.supabase.co/functions/v1/api/*
+[functions.api]
+enabled = true
+# Meta webhooks, the Flows endpoint and pg_cron don't send a Supabase JWT. The API authenticates
+# every route itself (Clerk JWT on /v1, signatures on webhooks, x-cron-secret on /cron).
+verify_jwt = false
+import_map = "./functions/api/deno.json"
+entrypoint = "./functions/api/index.ts"

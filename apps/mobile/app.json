@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Booking Admin",
+    "name": "Clovie",
     "slug": "booking-admin",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,9 +14,14 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "monochromeImage": "./src/assets/images/adaptive-icon-monochrome.png",
+        "backgroundColor": "#d4e9f4"
       },
-      "package": "si.nerova.booking.dev"
+      "package": "si.nerova.booking.dev",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,10 +34,14 @@
       [
         "expo-splash-screen",
         {
-          "image": "./src/assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./src/assets/images/splash-wordmark.png",
+          "imageWidth": 288,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./src/assets/images/splash-wordmark-dark.png",
+            "backgroundColor": "#0B0C10"
+          }
         }
       ],
       [
@@ -40,10 +49,24 @@
         {
           "appleSignIn": false
         }
-      ]
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ],
+      "./plugins/with-dev-menu-no-fab.cjs"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {}
     }
   }
 }

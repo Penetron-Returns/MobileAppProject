@@ -1,0 +1,8 @@
+# Supabase CLI local state (created by start/link)
+.branches
+.temp
+
+# Local secrets for `supabase start`
+.env.keys
+.env.local
+.env.*.local

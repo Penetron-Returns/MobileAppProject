@@ -17,13 +17,13 @@ No secrets are committed. Remote servers authenticate with OAuth in the client. 
 | `metadev-tools` | HTTP `https://mcp.facebook.com/devtools` | Meta Developer Tools: app review status, compliance, webhook config of our Meta app (WhatsApp Cloud API) | OAuth with your Meta developer account |
 | `clerk` | HTTP `https://mcp.clerk.com/mcp` | Up-to-date Clerk SDK snippets and patterns (Expo + backend) | None/OAuth per Clerk docs |
 | `shadcn` | stdio `npx shadcn@latest mcp` | Browse and install UI components. It reads `apps/mobile/components.json`, which points at the react-native-reusables registry | None |
-| `stripe` | HTTP `https://mcp.stripe.com/` | Payments work (not built yet). Customers, products, payment links in **test mode** | OAuth (pick the test-mode account) |
+| `stripe` | HTTP `https://mcp.stripe.com/` | Not used in the free edition (no payments). The entry is still in the MCP config files and can be removed | OAuth |
 | `supabase` *(optional)* | stdio `@supabase/mcp-server-supabase --read-only` | Inspect the schema, run read-only SQL, read logs | `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` |
 
 ## Setup (Claude Code)
 
 1. Open the repo in Claude Code. It asks once to approve the project MCP servers, so accept them.
-2. Run `/mcp`, select each HTTP server (`metadev-tools`, `clerk`, `stripe`) and complete the OAuth flow in the browser.
+2. Run `/mcp`, select each HTTP server (`metadev-tools`, `clerk`) and complete the OAuth flow in the browser.
 3. For Supabase, export before starting Claude Code:
    ```bash
    export SUPABASE_PROJECT_REF=<dev project ref>
@@ -35,8 +35,7 @@ VS Code prompts for the Supabase values via `inputs`. Cursor reads them from you
 
 ## Safety rules
 
-- **Stripe:** connect the **test-mode** account only. If you use a key instead of OAuth, create a *restricted* key with the minimum permissions. Never use a live secret key with an agent.
-- **Supabase:** always point it at the **dev** project. It's `--read-only`; all writes go through migrations in `supabase/migrations`.
+- **Supabase:** always point it at the **dev** project. It's `--read-only`; all writes go through migrations in `packages/database/supabase/migrations`.
 - **Meta:** the Developer Tools MCP can change one app setting. Review any write it proposes before approving it.
 - Never paste tokens into `.mcp.json`. Use environment variables.
 
@@ -45,5 +44,4 @@ VS Code prompts for the Supabase values via `inputs`. Cursor reads them from you
 - Meta Developer Tools MCP: https://developers.facebook.com/documentation/mcp/devtools-mcp
 - Clerk MCP server: https://clerk.com/docs/guides/ai/mcp/clerk-mcp-server
 - shadcn MCP: https://ui.shadcn.com/docs/mcp
-- Stripe MCP: https://docs.stripe.com/mcp
 - Supabase MCP: https://supabase.com/docs/guides/getting-started/mcp

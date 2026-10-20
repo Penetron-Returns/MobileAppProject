@@ -9,21 +9,37 @@
       "distribution": "internal",
       "channel": "development",
       "environment": "development",
+      "env": { "APP_VARIANT": "development" },
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
-      "android": { "buildType": "apk" }
+      "env": { "APP_VARIANT": "preview" },
+      "android": { "buildType": "apk" },
+      "buildArtifactPaths": [
+        "android/app/build/outputs/mapping/release/mapping.txt"
+      ]
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "environment": "production"
+      "environment": "production",
+      "env": { "APP_VARIANT": "production" },
+      "android": { "buildType": "app-bundle" },
+      "buildArtifactPaths": [
+        "android/app/build/outputs/mapping/release/mapping.txt"
+      ]
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft",
+        "serviceAccountKeyPath": "./google-play-service-account.json"
+      }
+    }
   }
 }

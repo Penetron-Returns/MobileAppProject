@@ -16,13 +16,13 @@ Guidelines for the AI configuration in `.claude/`. `.claude/` is the source of t
    - `.claude/skills/`: workflow skills (ours) and vetted third-party skills (see `docs/skills.md`)
    - `.claude/hooks/`: Node scripts (`.mjs`) so they run on every OS. Wire them in `.claude/settings.json`
 2. Use this frontmatter for rules:
-   - `paths:` comma-separated globs for conditional loading. Be specific (`apps/backend/src/whatsapp/**/*.ts`, not `**/*.ts`). Omit it only for rules that must always load (`general/`)
+   - `paths:` comma-separated globs for conditional loading. Be specific (`packages/app-store/whatsapp/**/*.ts`, not `**/*.ts`). New packages must appear in the `paths:` of the rules for the work done in them. Omit it only for rules that must always load (`general/`)
    - `description:` one self-contained line
 3. Structure every rule the same way:
    - `# Title` matching the filename, then a one-paragraph overview
    - `## Implementation` with numbered steps that start with a directive verb (Use, Create, Never …)
    - `## Examples` with `// ✅ DO:` and `// ❌ DON'T:` code, using `### Example 1 - <topic>` for several
-4. Keep rules short and specific to this codebase. Link to real files (`[container.ts](/apps/backend/src/container.ts)`) instead of restating them. Generic advice belongs in skills, not rules.
+4. Keep rules short and specific to this codebase. Link to real files (`[container.ts](/apps/api/src/container.ts)`) instead of restating them. Generic advice belongs in skills, not rules.
 5. Keep one topic per file. When a rule grows past ~150 lines, split it.
 6. Change a rule in the same PR as the code convention it describes.
 
@@ -33,12 +33,14 @@ Guidelines for the AI configuration in `.claude/`. `.claude/` is the source of t
 ```markdown
 // ✅ DO: specific paths, one-line description
 ---
-paths: apps/backend/src/routes/**/*.ts
+
+paths: apps/api/src/routes/**/*.ts
 description: Rules for Hono route handlers, validation and response envelopes
 ---
 
 // ❌ DON'T: match everything, or omit the description
 ---
-paths: **/*
+
+paths: *_/_
 ---
 ```

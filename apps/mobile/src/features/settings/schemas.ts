@@ -2,7 +2,7 @@ import type {
   CreateServiceRequest,
   CreateStaffRequest,
   UpdateBusinessRequest,
-} from '@shared/api';
+} from '@booking/types';
 import { z } from 'zod';
 
 import { parseMoneyToCents } from '@/lib/format';
@@ -48,6 +48,8 @@ export function serviceSchema(t: T) {
       .string()
       .refine((p) => parseMoneyToCents(p) !== null, t('forms.invalidPrice')),
     is_active: z.boolean(),
+    /** Who does it. Absent when the team has not loaded: links stay as they are. */
+    staff_ids: z.array(z.string()).optional(),
   });
 }
 
@@ -59,13 +61,14 @@ export function toServiceFields(
 ): Pick<
   CreateServiceRequest,
   'name' | 'category' | 'duration_minutes' | 'price_cents'
-> & { is_active: boolean } {
+> & { is_active: boolean; staff_ids?: string[] } {
   return {
     name: v.name,
     category: v.category || null,
     duration_minutes: v.duration_minutes,
     price_cents: parseMoneyToCents(v.price) ?? 0,
     is_active: v.is_active,
+    ...(v.staff_ids ? { staff_ids: v.staff_ids } : {}),
   };
 }
 

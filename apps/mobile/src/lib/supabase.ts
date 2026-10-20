@@ -2,10 +2,11 @@ import 'react-native-url-polyfill/auto';
 
 import { createClient, type PostgrestError } from '@supabase/supabase-js';
 
-import type { Database } from '@shared/database.types';
+import type { Database } from '@booking/database';
 
 import { getAuthToken } from './auth-token';
 import { env } from './env';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 /**
  * READ-ONLY data access. RLS scopes every row to the business of the Clerk
@@ -17,6 +18,8 @@ export const supabase = createClient<Database>(
   env.supabaseAnonKey || 'missing-anon-key',
   {
     accessToken: async () => (await getAuthToken()) ?? null,
+    // A dead connection fails in seconds (and retries) instead of hanging.
+    global: { fetch: (input, init) => fetchWithTimeout(input, init) },
     realtime: { params: { eventsPerSecond: 5 } },
   },
 );

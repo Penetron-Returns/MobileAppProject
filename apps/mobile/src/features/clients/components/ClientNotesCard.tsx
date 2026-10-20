@@ -1,93 +1,147 @@
-import { AlertTriangle, Coffee, StickyNote } from 'lucide-react-native';
+import {
+  Button,
+  Group,
+  InsetInput,
+  SectionTitle,
+  Skeleton,
+  Text,
+  useDepth,
+} from '@booking/ui';
+import { AlertTriangle, Coffee, StickyNote, X } from 'lucide-react-native';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { ErrorState, LoadingRows } from '@/components/States';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
-import { Text } from '@/components/ui/text';
-
-import { useAddClientNote, useClientNotes } from '../hooks';
+import {
+  useAddClientNote,
+  useClientNotes,
+  useDeleteClientNote,
+  type ClientNoteRow,
+} from '../hooks';
+import { isFailed } from '@/lib/offline';
+import { useIsOnline } from '@/lib/online';
 
 const KIND_ICON = {
-  warning: { icon: AlertTriangle, className: 'text-status-pending' },
-  preference: { icon: Coffee, className: 'text-primary' },
-  general: { icon: StickyNote, className: 'text-muted-foreground' },
+  warning: AlertTriangle,
+  preference: Coffee,
+  general: StickyNote,
 } as const;
 
-function kindStyle(kind: string) {
-  return KIND_ICON[kind as keyof typeof KIND_ICON] ?? KIND_ICON.general;
-}
-
-export function ClientNotesCard({ clientId }: { clientId: string }) {
+/** Notes about a client: the team's list, add one, remove one. */
+export function ClientNotesCard({
+  clientId,
+  firstName,
+}: {
+  clientId: string;
+  firstName: string;
+}) {
   const { t } = useTranslation();
   const notes = useClientNotes(clientId);
   const [draft, setDraft] = React.useState('');
-  const addNote = useAddClientNote(clientId);
+  // The note is already in the list when the server refuses it: put the words
+  // back (unless something new was typed meanwhile) so nothing is lost.
+  const addNote = useAddClientNote(clientId, (body) =>
+    setDraft((current) => current || body),
+  );
+  const deleteNote = useDeleteClientNote(clientId);
+  const isOnline = useIsOnline();
 
   const submit = () => {
     const body = draft.trim();
     if (!body) return;
     addNote.mutate({ body });
-    setDraft('');
+    // Offline the write is refused up front: keep the draft for later.
+    if (isOnline) setDraft('');
   };
 
   return (
-    <View className="bg-card border-border border-t-status-pending overflow-hidden rounded-2xl border border-t-4 p-5 shadow-sm">
-      <View className="mb-3 flex-row items-center gap-2">
-        <Icon as={AlertTriangle} size={20} className="text-status-pending" />
-        <Text className="text-foreground text-lg font-bold">
-          {t('clientProfile.notes')}
-        </Text>
-      </View>
-
-      {notes.isPending ? (
-        <LoadingRows count={2} />
-      ) : notes.isError ? (
-        <ErrorState error={notes.error} onRetry={() => void notes.refetch()} />
-      ) : (
-        <View className="gap-2.5">
-          {notes.data.length === 0 ? (
-            <Text className="text-muted-foreground text-sm">
-              {t('clientProfile.noNotes')}
+    <>
+      <SectionTitle>{t('clients.profile.notes')}</SectionTitle>
+      <Group className="gap-3 p-4">
+        {notes.isPending ? (
+          <Skeleton className="h-5 w-2/3" />
+        ) : isFailed(notes) ? (
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="flex-1 text-subtitle text-muted-foreground">
+              {t('clients.profile.notesFailed')}
             </Text>
-          ) : (
-            notes.data.map((note) => {
-              const style = kindStyle(note.kind);
-              return (
-                <View
-                  key={note.id}
-                  className="bg-muted/40 border-border flex-row gap-3 rounded-xl border p-3"
-                >
-                  <Icon as={style.icon} size={18} className={style.className} />
-                  <Text className="text-foreground/90 flex-1 text-sm leading-5">
-                    {note.body}
-                  </Text>
-                </View>
-              );
-            })
-          )}
-        </View>
-      )}
-
-      <View className="mt-3 flex-row items-center gap-2">
-        <Input
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => void notes.refetch()}
+            >
+              <Text>{t('common.retry')}</Text>
+            </Button>
+          </View>
+        ) : notes.data.length === 0 ? (
+          <Text className="text-title text-muted-foreground">
+            {t('clients.profile.noNotes')}
+          </Text>
+        ) : (
+          notes.data.map((note) => (
+            <NoteRow
+              key={note.id}
+              note={note}
+              onDelete={() => deleteNote.mutate(note.id)}
+            />
+          ))
+        )}
+        <InsetInput
+          label={t('clients.profile.noteLabel', { name: firstName })}
+          placeholder={t('clients.profile.notePlaceholder')}
           value={draft}
           onChangeText={setDraft}
-          placeholder={t('clientProfile.notePlaceholder')}
           onSubmitEditing={submit}
-          className="flex-1"
+          returnKeyType="done"
+          trailing={
+            <Button
+              size="sm"
+              className="h-9"
+              onPress={submit}
+              disabled={!draft.trim()}
+              accessibilityLabel={t('clients.profile.addNote')}
+            >
+              <Text>{t('clients.profile.addNote')}</Text>
+            </Button>
+          }
         />
-        <Button
-          size="sm"
-          onPress={submit}
-          disabled={!draft.trim() || addNote.isPending}
-        >
-          <Text>{t('clientProfile.addNote')}</Text>
-        </Button>
+      </Group>
+    </>
+  );
+}
+
+function NoteRow({
+  note,
+  onDelete,
+}: {
+  note: ClientNoteRow;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+  const depth = useDepth();
+  const Glyph = KIND_ICON[note.kind as keyof typeof KIND_ICON] ?? StickyNote;
+  const isWarning = note.kind === 'warning';
+  return (
+    <View className="flex-row items-start gap-3">
+      <View className="mt-0.5">
+        <Glyph
+          size={20}
+          strokeWidth={1.8}
+          color={isWarning ? depth.colors.amber : depth.colors.secondary}
+        />
       </View>
+      <Text selectable className="min-w-0 flex-1 text-title">
+        {note.body}
+      </Text>
+      <Pressable
+        onPress={onDelete}
+        accessibilityRole="button"
+        accessibilityLabel={t('clients.profile.deleteNote')}
+        hitSlop={8}
+        className="h-11 w-11 items-center justify-center active:opacity-50"
+      >
+        <X size={18} strokeWidth={2} color={depth.colors.secondary} />
+      </Pressable>
     </View>
   );
 }

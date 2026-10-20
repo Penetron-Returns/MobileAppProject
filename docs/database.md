@@ -4,19 +4,20 @@ Supabase Postgres schema for the booking platform: the tables, RLS, RPCs, realti
 
 | Path | What |
 | --- | --- |
-| `supabase/migrations/20260924000001_extensions_schemas_enums.sql` | `extensions` / `private` schemas, `pgcrypto`, `btree_gist`, `citext`, all enums |
-| `supabase/migrations/20260924000002_tables.sql` | every table, check, FK and index |
-| `supabase/migrations/20260924000003_helpers_triggers.sql` | `private.current_org_id()`, `private.current_business_id()`, `updated_at` trigger, audit trigger |
-| `supabase/migrations/20260924000004_rls_grants.sql` | RLS, SELECT-only policies, table/column grants, default privileges |
-| `supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
-| `supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
-| `supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
-| `supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
-| `supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
-| `supabase/config.toml` | local CLI config with Clerk third-party auth |
-| `packages/shared/database.types.ts` | generated `Database` type |
+| `packages/database/supabase/migrations/20260924000001_extensions_schemas_enums.sql` | `extensions` / `private` schemas, `pgcrypto`, `btree_gist`, `citext`, all enums |
+| `packages/database/supabase/migrations/20260924000002_tables.sql` | every table, check, FK and index |
+| `packages/database/supabase/migrations/20260924000003_helpers_triggers.sql` | `private.current_org_id()`, `private.current_business_id()`, `updated_at` trigger, audit trigger |
+| `packages/database/supabase/migrations/20260924000004_rls_grants.sql` | RLS, SELECT-only policies, table/column grants, default privileges |
+| `packages/database/supabase/migrations/20260924000005_rpcs.sql` | the ten RPCs |
+| `packages/database/supabase/migrations/20260924000006_realtime_storage.sql` | `supabase_realtime` publication, storage buckets and policies (both guarded) |
+| `packages/database/supabase/migrations/20261029000002_realtime_config_tables.sql` | Adds the schedule-config tables (hours, special days, availability rules/overrides, breaks, time off) to `supabase_realtime` (guarded, idempotent) |
+| `packages/database/supabase/migrations/20260924000007_cron.sql` | `private.invoke_cron_job()` plus the pg_cron schedule (guarded; a no-op without pg_cron/pg_net) |
+| `packages/database/supabase/seed.sql` | demo business "Ashgrove Hair & Beauty" (`org_demo_ashgrove`) |
+| `packages/database/supabase/tests/*.sql` | SQL test suite (plain `DO` blocks) |
+| `packages/database/supabase/config.toml` | local CLI config with Clerk third-party auth |
+| `packages/database/database.types.ts` | generated `Database` type |
 | `scripts/db/test.sh` | runs everything against a throwaway Postgres |
-| `scripts/db/gen-types.sh` | regenerates `packages/shared/database.types.ts` |
+| `scripts/db/gen-types.sh` | regenerates `packages/database/database.types.ts` |
 
 ## Running the tests locally
 
@@ -30,14 +31,14 @@ The script:
 
 1. Starts a disposable cluster on a free port with its data dir in `/tmp`. When run as root, it runs the server as the `postgres` OS user and creates that user if needed.
 2. Applies `scripts/db/supabase-shim.sql`. The shim stands in for what Supabase provides: the roles, `auth.jwt()`, the `supabase_realtime` publication, a minimal `storage` schema, an empty `vault` schema, and Supabase's default grants, which the migrations must revoke.
-3. Applies every migration in order, then applies them all a second time to check they are idempotent, then applies `seed.sql` and every `supabase/tests/*.sql`.
+3. Applies every migration in order, then applies them all a second time to check they are idempotent, then applies `seed.sql` and every `packages/database/supabase/tests/*.sql`.
 4. Races 12 concurrent sessions for one slot. Exactly one must win and the rest must get `23P01`. It then races 12 sessions with the same idempotency key, and all must get back the same row.
-5. Regenerates the types and fails if `packages/shared/database.types.ts` is stale.
+5. Regenerates the types and fails if `packages/database/database.types.ts` is stale.
 6. Tears the cluster down. It exits non-zero on the first failure.
 
 Override the binaries with `PG_BIN=/path/to/bin` and the port with `PG_PORT`.
 
-After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `packages/shared/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `packages/shared/` is types-only.
+After changing a migration, run `scripts/db/gen-types.sh` and commit the regenerated `packages/database/database.types.ts`. Once a Supabase project is linked, `supabase gen types typescript --linked --schema public` produces an equivalent file. The only difference is that the CLI output also exports a runtime `Constants` object, which we omit because `packages/types/` is types-only.
 
 ## Applying migrations to Supabase
 
@@ -45,15 +46,15 @@ With the CLI:
 
 ```bash
 supabase login
-supabase link --project-ref <project-ref>
-supabase db push                 # applies supabase/migrations in order
+supabase --workdir packages/database link --project-ref <project-ref>
+supabase --workdir packages/database db push                 # applies packages/database/supabase/migrations in order
 # optional demo data (never on production):
-psql "$(supabase db url --linked)" -f supabase/seed.sql   # or paste into the SQL editor
+psql "$(supabase --workdir packages/database db url --linked)" -f packages/database/supabase/seed.sql   # or paste into the SQL editor
 ```
 
 Without the CLI, run the migration files in filename order in the dashboard SQL editor. Every migration is safe to re-run.
 
-Locally, `supabase start` followed by `supabase db reset` applies the migrations and the seed. You must set `CLERK_DOMAIN` first (see below).
+Locally, `supabase --workdir packages/database start` followed by `supabase --workdir packages/database db reset` applies the migrations and the seed. You must set `CLERK_DOMAIN` first (see below).
 
 Project settings the schema expects:
 
@@ -67,9 +68,9 @@ The app sends Clerk session tokens straight to Supabase. RLS reads the organisat
 
 1. **Clerk dashboard:** open *Integrations → Supabase* (or *Configure → Supabase*) and activate it. This adds the `role: "authenticated"` claim to session tokens. Without that claim, PostgREST treats the request as `anon`, and `anon` can read nothing. Copy the Clerk domain it shows (for example `your-app.clerk.accounts.dev`).
 2. **Supabase dashboard:** open *Authentication → Sign In / Providers → Third-Party Auth → Add provider → Clerk* and paste the domain.
-3. **Local:** `export CLERK_DOMAIN=your-app.clerk.accounts.dev` before `supabase start`. `supabase/config.toml` reads it from `[auth.third_party.clerk]`.
+3. **Local:** `export CLERK_DOMAIN=your-app.clerk.accounts.dev` before `supabase --workdir packages/database start`. `packages/database/supabase/config.toml` reads it from `[auth.third_party.clerk]`.
 4. **App:** create the Supabase client with `accessToken: async () => (await clerk.session?.getToken()) ?? null`. The user must have an **active organisation** in the session. Otherwise the token has no org claim and every query returns zero rows.
-5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `apps/backend/src/middleware/auth.ts`).
+5. **Backend:** the API uses the service-role key, which bypasses RLS. It resolves the business itself (see `apps/api/src/middleware/auth.ts`).
 
 ## Vault secrets for cron
 
@@ -95,6 +96,15 @@ select id, status_code, error_msg, created from net._http_response order by crea
 | `api-waba-health` | `0 * * * *` | `/cron/waba-health` |
 | `api-token-refresh` | `0 3 * * *` (05:00 SAST) | `/cron/token-refresh` |
 | `api-cleanup` | `30 3 * * *` (05:30 SAST) | `/cron/cleanup` |
+| `api-attendance` | `*/5 * * * *` | `/cron/attendance` (migration `20261021000002_cron_attendance`, which re-creates `private.invoke_cron_job` with `attendance` whitelisted) |
+
+## Attendance check (migration `20261021000001_attendance_checks`)
+
+- `businesses.attendance_mode text not null default 'staff' check in ('staff','owner')`. Already audited by the generic `businesses` trigger; the API also writes an explicit `audit_log` entry with the owner as actor.
+- `attendance_checks`: one row per appointment (`unique (appointment_id)`, composite FK `(business_id, appointment_id)` cascading), `audience`, `recipient_user_id`, `status`/`outcome`/`answered_at`/`answered_by` tied together by `attendance_checks_answer_check`, `notified_at`, `escalated_at`. RLS: business-scoped SELECT for `authenticated` (`members_select`), no write policies; service role writes. Partial indexes on pending rows. In the Realtime publication (guarded).
+- `attendance_pushes`: push log (`user_id`, `kind`, `check_ids`, `local_date`, `sent_at`). RLS enabled with no policy and no grant to `authenticated`: service role only.
+- `attendance_due_appointments(p_ended_before, p_ended_after, p_limit)`: confirmed appointments that ended in the window and have no check, joined with the staff member's linked user, client name and service name. `service_role` only. Backed by the partial index `appointments_confirmed_ends_at_idx`.
+- Tests: `packages/database/supabase/tests/17_attendance.sql`.
 
 ## Notes for the API and app workstreams
 
@@ -141,17 +151,13 @@ The `RULE` codes in use are:
 - Optional args such as `p_notes` and `p_staff_id` can be omitted.
 
 **Audit attribution**
-- Audited tables: businesses, services, staff, staff_services, business_hours, availability_rules, availability_overrides, clients.
+- Audited tables: businesses, services, staff, staff_services, business_hours, availability_rules, availability_overrides, business_special_days, staff_breaks, staff_time_off, clients.
 - Every PostgREST call is its own transaction, so a separate `set_request_context()` call does not carry over to the next request.
 - For plain table writes, attach headers instead: `db.from('services').update(...).setHeader('x-actor-id', userId).setHeader('x-request-id', requestId)`. Optionally add `x-actor-type: customer|staff|system`.
 - The audit trigger resolves the actor in this order: `app.actor_id` GUC, then the `x-actor-id` header, then `system`. An actor id without a type counts as `staff`.
 - Updates that only touch `updated_at` (or `clients.last_seen_at`) are not audited.
 
-**Plans and entitlements** (migration `20261014000001_plan_flags`)
-- `businesses.plan` (`plan_key`, default `free`) says which plan a business is on. Only the service role writes it (future billing webhook). Clients have SELECT only and there is no API route for it.
-- `plan_features(plan, feature, monthly_limit)` is the catalogue, seeded in the migration. RLS is on, `authenticated` can SELECT it and only the service role writes. Feature keys: `whatsapp_menu`, `inbox`, `companion`, `desktop_app`, `extensions`, `assistant_bookings`. `monthly_limit` is null (uncapped) everywhere until the paid-tier caps are decided.
-- `business_features(p_business_id default null)` returns `(plan, feature, monthly_limit)` rows. It is SECURITY INVOKER, so RLS limits an `authenticated` caller to their own business.
-- Tests: `supabase/tests/11_plan_flags.sql`. Demo seed: Ashgrove is on `free`, Harbour Barbers (`10000000-0000-4000-8000-000000000002`) is a bare `growth` business.
+**Legacy objects from the paid edition.** This free edition does not use them, but the migrations were left untouched, so they still exist: the `nerova` label on `appointment_source` and `actor_type`, `businesses.plan` and the `plan_key` enum, `plan_features` and `business_features()`, plus the billing, voice, stories and support tables. The full list and the cleanup plan are in `docs/BUILD_PLAN.md` ("Free edition: leftovers"). The SQL tests for them (for example `11_plan_flags.sql`, `12_nerova_actor.sql`) still run against the migrations.
 
 **`dashboard_summary(p_date)`**
 - The month is the calendar month containing `p_date`, in `businesses.timezone`.
@@ -168,7 +174,11 @@ The `RULE` codes in use are:
 **Replace RPCs**
 - `replace_business_hours` takes rows `[{weekday, opens_at, closes_at}]` with times as `"HH:mm"`.
 - `replace_staff_availability` takes `[{weekday, start_time, end_time}]`. An empty array means the staff member inherits business hours.
-- Both return the resulting rows. They apply the replace as a diff, so unchanged rows keep their ids and their audit history.
+- Both allow at most one range per weekday (`RULE:ONE_RANGE_PER_DAY`) and upsert by weekday. `replace_staff_breaks` takes `[{label, start_time, end_time, weekdays}]` (empty/absent `weekdays` = every day; overlaps raise `RULE:OVERLAPPING_BREAKS`).
+- All return the resulting rows. They apply the replace as a diff, so unchanged rows keep their ids and their audit history.
+
+**Onboarding**
+- `complete_onboarding(p_business_id, p_user_id, p_owner_name, p_hours, p_team, p_services)` runs the whole first-run setup in one transaction under a row lock on the business and writes `businesses.onboarded_at` last. It returns `true` when applied and `false` when already onboarded, so a retry or a concurrent duplicate is a no-op. `p_team` is `[{name, title?}]`, `p_services` is `[{name, duration_minutes, price_cents}]`. Existing businesses with hours or services were backfilled as onboarded. `service_role` only.
 
 **Storage**
 - Upload to `logos/<business_id>/...` and `staff-photos/<business_id>/...` with the member's token.
@@ -194,7 +204,7 @@ Deviations are kept to a minimum. Each one fixes something the plan as written c
    - `appointments`: `cancelled ⇔ cancelled_at is not null`, the slot length equals `duration_minutes`, and `lower(blocked) = lower(slot)`.
    - Enumerated values for `escalations.reason`, `webhook_events.source` and `device_push_tokens.platform`, taken from the plan and the DTOs.
    - `slug` format and uppercase ISO `currency`.
-   - An open (not closed) override must have a valid window.
+   - An open (not closed) override must have a valid window. Overrides are per staff (`staff_id not null`); business-wide days live in `business_special_days`.
 9. **FK semantics.**
    - `users.business_id` uses `on delete set null`, because users outlive a business.
    - `appointments → clients/staff/services` use `NO ACTION`: it has restrict semantics but is checked at the end of the statement, so deleting a business still cascades.
@@ -202,4 +212,5 @@ Deviations are kept to a minimum. Each one fixes something the plan as written c
    - `audit_log.business_id` has no FK, so history survives deleting a business.
 10. **Audit context fallback** (additive). Besides `app.actor_id` / `app.request_id`, the trigger reads PostgREST's `x-actor-id` / `x-request-id` / `x-actor-type` request headers. Without them, plain table writes through PostgREST could never be attributed.
 11. **`check_in_appointment`** requires a `confirmed` appointment (otherwise `RULE:INVALID_STATUS`). Checking in again is a no-op: it returns the row and writes no second event.
-12. **Types file.** It is generated by `scripts/db/gen-types.mjs`, sets `__InternalSupabase.PostgrestVersion = "12"`, and omits the runtime `Constants` export.
+12. **Client confirmation** (additive, migration `20261022000001_client_confirmation.sql`). `appointments.client_confirmed_at` / `client_confirmed_via` (`whatsapp | sms | web | app`), constraint `appointments_client_confirmed_check` (both null or both set), enum value `appointment_event_type.client_confirmed`, and `confirm_appointment_by_client(p_business_id, p_appointment_id, p_confirmed_at, p_via, p_actor, p_actor_id, p_idempotency_key)` (`service_role` only). It is business-scoped, a no-op unless the status is `confirmed`, idempotent per appointment and per key, and writes one `client_confirmed` event with the given actor. The columns need no new grant: `authenticated` already has table-level SELECT on `appointments` behind the business-scoped `members_select` policy. Tests: `tests/18_client_confirmation.sql`.
+13. **Types file.** It is generated by `scripts/db/gen-types.mjs`, sets `__InternalSupabase.PostgrestVersion = "12"`, and omits the runtime `Constants` export.

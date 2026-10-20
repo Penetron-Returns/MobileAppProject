@@ -1,31 +1,27 @@
-import * as React from 'react';
-import { useTranslation } from 'react-i18next';
+import { ErrorState, ListSkeleton } from '@booking/ui';
 
-import { Header } from '@/components/Header';
-import { Screen } from '@/components/Screen';
-import { ErrorState, LoadingCard } from '@/components/States';
+import { isFailed, loadError } from '@/lib/offline';
+import { describeError } from '@/lib/toast';
 import { useBusinessDetails } from '@/features/business/hooks';
 
 import { BusinessDetailsForm } from './BusinessDetailsForm';
 
 export function BusinessDetailsScreen() {
-  const { t } = useTranslation();
   const details = useBusinessDetails();
-  if (details.data) return <BusinessDetailsForm initial={details.data} />;
   return (
-    <Screen
-      header={
-        <Header title={t('businessDetails.title')} fallbackHref="/settings" />
+    <BusinessDetailsForm
+      initial={details.data}
+      fallback={
+        isFailed(details) ? (
+          <ErrorState
+            variant="banner"
+            {...describeError(loadError(details))}
+            onRetry={() => void details.refetch()}
+          />
+        ) : (
+          <ListSkeleton rows={4} />
+        )
       }
-    >
-      {details.isError ? (
-        <ErrorState
-          error={details.error}
-          onRetry={() => void details.refetch()}
-        />
-      ) : (
-        <LoadingCard />
-      )}
-    </Screen>
+    />
   );
 }

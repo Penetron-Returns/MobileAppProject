@@ -5,12 +5,88 @@
     "dismiss": "Dismiss",
     "retry": "Try again",
     "cancel": "Cancel",
+    "delete": "Delete",
+    "remove": "Remove",
     "confirm": "Confirm",
     "save": "Save",
     "search": "Search",
+    "clearSearch": "Clear search",
     "signOut": "Sign out",
     "saveChanges": "Save Changes",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "done": "Done"
+  },
+  "loading": {
+    "label": "Loading Clovie",
+    "quotes": [
+      "Polishing the clovers…",
+      "Finding your four-leaf day…",
+      "Checking who's booked in…",
+      "Fluffing up your calendar…",
+      "Tip: long-press a booking for quick actions.",
+      "Tip: swipe a row to see more.",
+      "Lining up today's appointments…",
+      "Warming up the schedule…",
+      "Tip: pull down on a list to refresh it.",
+      "Almost there, one moment…"
+    ]
+  },
+  "auth": {
+    "appName": "Clovie",
+    "welcome": {
+      "valueProp": "Run your shop from your phone.",
+      "google": "Continue with Google",
+      "email": "Continue with email or phone",
+      "legalPrefix": "By continuing you agree to our",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy",
+      "openLink": "Open {{page}}",
+      "linkFailed": "Couldn't open that page. Try again later."
+    },
+    "code": {
+      "title": {
+        "email_code": "Check your email",
+        "phone_code": "Check your messages"
+      },
+      "subtitle": {
+        "email_code": "We sent a 6-digit code to {{identifier}}.",
+        "phone_code": "We sent a 6-digit code by SMS to {{identifier}}."
+      },
+      "label": "6-digit code",
+      "cell": "Digit {{index}} of 6",
+      "verify": "Verify",
+      "verifying": "Verifying",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {{seconds}}s",
+      "resent": "New code sent.",
+      "notYou": {
+        "email_code": "Use a different email",
+        "phone_code": "Use a different number"
+      },
+      "didntGet": "Did not get it?"
+    },
+    "errors": {
+      "emailInvalid": "Enter a valid email address, or a mobile number with its country code, starting with +.",
+      "codeIncorrect": "That code is not right. Check it and try again.",
+      "codeExpired": "That code has expired. Send a new one.",
+      "tooManyAttempts": "Too many attempts. Wait a minute and try again.",
+      "network": "Could not reach the server. Check your connection and try again.",
+      "botCheck": "We could not confirm you are a person. Try again in a moment.",
+      "accountLocked": "This account is locked. Try again later or contact support.",
+      "notAllowed": "This email cannot be used to sign in.",
+      "signUpIncomplete": "We could not finish creating your account. Please contact support.",
+      "secondFactorUnsupported": "This account needs an extra verification step that this app does not support yet.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "identifier": {
+      "title": "What is your email or mobile number?",
+      "subtitle": "We will send you a 6-digit code by email or SMS. No password needed.",
+      "label": "Email or mobile number",
+      "placeholder": "Email or mobile number (with country code)",
+      "continue": "Continue",
+      "sending": "Sending code"
+    }
   },
   "errors": {
     "generic": "Something went wrong.",
@@ -32,7 +108,11 @@
       "INTERNAL": "Something went wrong on our end.",
       "NETWORK_ERROR": "Could not reach the server. Check your connection.",
       "BAD_RESPONSE": "The server returned an unexpected response.",
-      "NOT_CONFIGURED": "This app isn't configured yet."
+      "NOT_CONFIGURED": "This app isn't configured yet.",
+      "OFFLINE": "You're offline. Reconnect to make changes.",
+      "COMPANION_NOT_READY": "Your companion isn't ready yet.",
+      "UPSTREAM_COMPANION_ERROR": "Your companion couldn't be reached. Please try again.",
+      "FEATURE_NOT_IN_PLAN": "That isn't included in your plan."
     }
   },
   "status": {
@@ -41,42 +121,34 @@
     "completed": "Completed",
     "no_show": "No-show"
   },
-  "dashboard": {
-    "title": "Administrator",
-    "notifications": "Notifications",
-    "noNotifications": "No new notifications",
-    "monthlyRevenue": "Monthly Revenue",
-    "todaysBookings": "Today's Bookings",
-    "statusCount": {
-      "confirmed": "{{count}} Confirmed",
-      "checked_in": "{{count}} Checked in",
-      "completed": "{{count}} Completed",
-      "no_show": "{{count}} No-show"
-    },
-    "nextAppointment": "Next Appointment",
-    "noNextAppointment": "No more appointments today",
-    "checkIn": "Check In",
-    "checkedIn": "{{name}} checked in",
-    "todaysSchedule": "Today's Schedule",
-    "viewAll": "View All",
-    "viewAllLabel": "View Today's Schedule in Calendar",
-    "next": "Next",
-    "serviceLine": "{{service}} · {{duration}}",
-    "unknownClient": "Walk-in client",
-    "messageOnWhatsApp": "Message {{name}} on WhatsApp",
-    "whatsAppGreeting": "Hi {{name}}, confirming your appointment with us today.",
-    "openingWhatsApp": "Opening WhatsApp chat for {{name}}",
-    "emptySchedule": {
-      "title": "No appointments today",
-      "description": "Bookings from WhatsApp, the web page and this app show up here."
-    }
+  "clientConfirmed": {
+    "label": "Confirmed by client"
+  },
+  "bookingMenu": {
+    "open": "Open",
+    "reschedule": "Reschedule",
+    "message": "Message",
+    "cancel": "Cancel booking",
+    "client": "the client",
+    "greeting": "Hi {{name}}, a quick note about your appointment with us."
+  },
+  "clientMenu": {
+    "open": "Open",
+    "book": "Book",
+    "message": "Message",
+    "greeting": "Hi {{name}}, this is a message from us."
+  },
+  "sheet": {
+    "expand": "Show larger",
+    "collapse": "Show smaller"
   },
   "tabs": {
-    "today": "Today",
+    "today": "Home",
     "calendar": "Calendar",
     "add": "New booking",
     "clients": "Clients",
-    "settings": "Settings"
+    "settings": "Settings",
+    "reports": "Reports"
   },
   "inbox": {
     "title": "Inbox",
@@ -84,56 +156,69 @@
     "domeLabel_one": "Inbox, {{count}} needs a reply",
     "domeLabel_other": "Inbox, {{count}} need a reply",
     "empty": {
-      "title": "Nothing needs a reply",
-      "description": "Conversations that need you will show up here."
+      "title": "All caught up",
+      "description": "Messages the booking menu can't handle land here."
+    },
+    "botPrefix": "Booking menu: {{text}}",
+    "noText": "Message",
+    "needsReply": "Needs a reply",
+    "filterLabel": "Filter conversations",
+    "segments": {
+      "needs": "Needs a reply ({{count}})",
+      "all": "All"
+    },
+    "nothingNeeds": "Nothing needs a reply right now.",
+    "footerNeeds": "Replying is free for 24 hours after a customer writes.",
+    "footerAll": "Conversations on WhatsApp."
+  },
+  "notifications": {
+    "primer": {
+      "title": "Stay in the loop",
+      "body": "Get told when someone books or Clovie needs your OK.",
+      "accept": "Turn on",
+      "decline": "Not now"
+    }
+  },
+  "attendance": {
+    "notification": {
+      "came": "Came",
+      "noShow": "No-show"
+    },
+    "question": "Did {{name}} make it to their {{time}} {{service}}?",
+    "came": "Came",
+    "noShow": "No-show",
+    "cameLabel": "Mark {{name}} as came",
+    "noShowLabel": "Mark {{name}} as a no-show",
+    "markedCame": "Marked {{name}} as came",
+    "markedNoShow": "Marked {{name}} as a no-show",
+    "answerFailed": "Couldn't save that answer",
+    "toConfirm_one": "{{count}} client to confirm",
+    "toConfirm_other": "{{count}} clients to confirm",
+    "list": {
+      "title": "Confirm attendance",
+      "back": "Home",
+      "emptyTitle": "All confirmed",
+      "emptyDescription": "Nobody is waiting for an answer.",
+      "row": "{{time}} · {{service}}"
+    },
+    "setting": {
+      "title": "Who confirms attendance",
+      "hint": "After an appointment, this person is asked whether the client came.",
+      "staff": "Each staff member for their own clients",
+      "staffDetail": "They are asked about their own appointments.",
+      "owner": "The owner confirms everyone",
+      "ownerDetail": "Only the owner is asked, about every appointment.",
+      "recommended": "Recommended",
+      "selected": "{{label}}, selected",
+      "saveFailed": "Couldn't change who confirms attendance"
     }
   },
   "today": {
-    "title": "Today",
-    "notifications": "Notifications",
-    "noNotifications": "No new notifications",
-    "upNext": "Up next",
-    "when": {
-      "arrived": "Arrived",
-      "now": "{{time}} · now",
-      "in": "{{time}} · in {{duration}}"
-    },
-    "serviceWithStaff": "{{service}} with {{staff}}",
-    "unknownClient": "Walk-in client",
     "checkIn": "Check in",
     "checkedIn": "Checked in",
     "checkedInToast": "{{name}} checked in",
     "checkInLabel": "Check in {{name}}",
-    "message": "Message",
-    "messageLabel": "Message {{name}} on WhatsApp",
-    "whatsAppGreeting": "Hi {{name}}, confirming your appointment with us today.",
-    "openingWhatsApp": "Opening WhatsApp chat for {{name}}",
-    "laterToday": "Later today",
-    "needsConfirming": "Needs confirming",
-    "seeAllMore_one": "See {{count}} more",
-    "seeAllMore_other": "See all {{count}} more",
-    "seeAllLabel": "See the rest of today in the calendar",
-    "bookingLabel": "{{client}}, {{service}}, {{time}}",
-    "expected": "{{amount}} expected today",
-    "allDone": {
-      "title": "Nothing else today",
-      "description": "All of today's bookings are done."
-    },
-    "empty": {
-      "title": "No bookings today",
-      "description": "Share your WhatsApp booking link so clients can book themselves.",
-      "copyLink": "Copy link",
-      "copied": "Copied",
-      "linkLabel": "Your booking link",
-      "addBooking": "Add a booking"
-    },
-    "error": {
-      "title": "Couldn't load today",
-      "description": "Check your connection and try again."
-    },
-    "offline": "Offline · showing what we had at {{time}}",
-    "offlineNoTime": "Offline · showing what we had saved",
-    "loading": "Loading today"
+    "openingWhatsApp": "Opening WhatsApp chat for {{name}}"
   },
   "noBusiness": {
     "title": "No business linked",
@@ -151,18 +236,41 @@
     "invalidPrice": "Enter a price like 250 or 250.00."
   },
   "calendar": {
+    "viewSwitch": "Calendar view",
     "today": "Today",
-    "time": "Time",
+    "goToToday": "Go to today",
     "closed": "Closed",
-    "free": "Free",
-    "break": "Break",
-    "apptCount_one": "{{count}} appt",
-    "apptCount_other": "{{count}} appts",
-    "monthView": "Month view",
-    "weekView": "Week view",
-    "openDay": "Open {{date}}",
-    "monthCellLabel": "{{date}}, {{count}} appointments",
-    "blockLabel": "{{service}} with {{client}}, {{time}}",
+    "dayOff": "Not working",
+    "weekView": "Week",
+    "loading": "Loading the calendar",
+    "noStaff": "Add a team member in Settings to see the calendar.",
+    "offline": "Offline · showing what we had saved",
+    "error": {
+      "title": "Couldn't load the calendar",
+      "description": "Check your connection and try again."
+    },
+    "unknownClient": "Walk-in client",
+    "timeRange": "{{start}} to {{end}}",
+    "blockLabel": "{{client}}, {{service}}, {{time}}, {{status}}",
+    "tone": {
+      "upcoming": "booked",
+      "arrived": "checked in",
+      "done": "completed",
+      "noShow": "no-show"
+    },
+    "bookingCount_one": "{{count}} booking",
+    "bookingCount_other": "{{count}} bookings",
+    "openDay": "Show {{date}}",
+    "showFor": "Show bookings for",
+    "showForPick": "Show bookings for {{name}}. Choose a person",
+    "everyone": "Everyone",
+    "weekDayLabel_one": "{{day}} {{date}}, {{count}} booking. Open day",
+    "weekDayLabel_other": "{{day}} {{date}}, {{count}} bookings. Open day",
+    "weekDayClosed": "{{day}} {{date}}, closed",
+    "weekTotal_one": "{{count}} booking this week",
+    "weekTotal_other": "{{count}} bookings this week",
+    "weekTotalFor_one": "{{count}} booking this week for {{name}}",
+    "weekTotalFor_other": "{{count}} bookings this week for {{name}}",
     "views": {
       "day": "Day",
       "week": "Week",
@@ -182,29 +290,80 @@
       "day": "Next day",
       "week": "Next week",
       "month": "Next month"
-    }
+    },
+    "time": "Time",
+    "free": "Free",
+    "break": "Break",
+    "apptCount_one": "{{count}} appt",
+    "apptCount_other": "{{count}} appts",
+    "monthView": "Month view",
+    "monthCellLabel": "{{date}}, {{count}} appointments",
+    "closedDay": "{{name}} · Closed",
+    "closedNamed": "Closed · {{name}}",
+    "blockedLabel": "{{label}}, {{start}} to {{end}}, unavailable",
+    "weekDayClosedNamed": "{{day}} {{date}}, closed, {{name}}",
+    "offNote": "{{name}}: {{reason}}"
   },
   "clients": {
     "title": "Clients",
     "subtitle": "Manage your client relationships",
     "new": "New",
     "addNew": "Add new client",
-    "searchPlaceholder": "Search clients by name or phone...",
-    "filters": {
-      "all": "All Clients",
-      "recent": "Recent",
-      "vip": "VIP"
-    },
+    "searchPlaceholder": "Search clients",
     "vip": "VIP",
-    "appointmentToday": "Appointment today at {{time}}",
-    "lastVisit": "Last visit: {{when}}",
     "noVisits": "No visits yet",
-    "loadMore": "Load more clients",
     "empty": {
-      "title": "No clients found",
-      "search": "No clients match \"{{query}}\". Try a different name or number.",
-      "filter": "No clients in this category yet."
-    }
+      "title": "No clients yet",
+      "search": "No clients match “{{query}}”.",
+      "description": "Clients appear here after their first booking.",
+      "add": "Add a client"
+    },
+    "searchLabel": "Search clients",
+    "profile": {
+      "notFound": "This client couldn't be found.",
+      "since": "Client since {{date}}",
+      "book": "Book",
+      "bookLabel": "Book {{name}}",
+      "callNumber": "{{phone}}, call",
+      "contact": "Contact",
+      "mobile": "Mobile",
+      "email": "Email",
+      "optIn": "WhatsApp messages",
+      "optedIn": "Reminders and confirmations are sent.",
+      "optedOut": "Opted out. No messages will be sent.",
+      "upNext": "Up next",
+      "openBooking": "{{when}}, {{service}}. Open booking",
+      "history": "Visit history",
+      "noHistory": "No past visits yet.",
+      "historyFailed": "Couldn't load visits. Tap to try again.",
+      "showAll": "Show all {{count}}",
+      "visits_one": "{{count}} visit",
+      "visits_other": "{{count}} visits",
+      "spent": "{{amount}} spent",
+      "cadence_one": "usually every week",
+      "cadence_other": "usually every {{count}} weeks",
+      "status": {
+        "confirmed": "Confirmed",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "no_show": "No-show"
+      },
+      "notes": "Notes",
+      "notesFailed": "Couldn't load notes.",
+      "noNotes": "No notes yet.",
+      "noteLabel": "Add a note about {{name}}",
+      "notePlaceholder": "Add a note",
+      "addNote": "Add",
+      "deleteNote": "Delete note"
+    },
+    "recent": "Recent",
+    "recentLabel": "Recent clients",
+    "indexLabel": "Jump to letter",
+    "jumpTo": "Jump to {{letter}}",
+    "today": "today",
+    "rowLabel": "{{name}}, last visit {{when}}",
+    "rowLabelNone": "{{name}}, no visits yet",
+    "rowLabelVip": "{{label}}, VIP"
   },
   "clientProfile": {
     "title": "Client Profile",
@@ -239,8 +398,41 @@
     }
   },
   "booking": {
-    "title": "Booking Detail",
+    "title": "Booking",
     "notFound": "This booking couldn't be found.",
+    "thisClient": "the client",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "timeRange": "{{start}} to {{end}}",
+    "viewClient": "Open client profile for {{name}}",
+    "message": "Message",
+    "messageLabel": "Message {{name}} on WhatsApp",
+    "whatsAppFailed": "Couldn't open WhatsApp.",
+    "reschedule": "Reschedule",
+    "rescheduleLabel": "Reschedule {{name}}'s booking",
+    "checkOut": "Check out",
+    "checkOutLabel": "Check out {{name}}",
+    "checkedOutToast": "{{name}} checked out",
+    "notes": "Notes",
+    "staff": "Staff",
+    "price": "Price",
+    "history": "History",
+    "historyFailed": "Couldn't load the history.",
+    "event": {
+      "created": "Booked",
+      "confirmation_sent": "Confirmation sent",
+      "reminder_sent": "Reminder sent",
+      "checked_in": "Checked in",
+      "rescheduled": "Moved to a new time",
+      "completed": "Checked out",
+      "no_show": "Marked as no-show",
+      "cancelled": "Cancelled",
+      "notes_updated": "Notes changed"
+    },
+    "cancel": "Cancel booking",
+    "more": "More",
+    "markNoShow": "Mark as no-show",
+    "markedNoShow": "Marked as no-show",
     "bookedOn": "Booked {{date}} via {{source}}",
     "source": {
       "whatsapp": "WhatsApp",
@@ -253,15 +445,10 @@
     "historyReturning_other": "Returning client • {{count}} past visits",
     "historyVip_one": "VIP client • {{count}} past visit",
     "historyVip_other": "VIP client • {{count}} past visits",
-    "viewClient": "View client profile for {{name}}",
     "schedule": "Schedule",
     "service": "Service",
     "total": "Total",
-    "staff": "Assigned Staff",
-    "notes": "Booking Notes",
-    "message": "Message",
     "viewCalendar": "Calendar",
-    "cancel": "Cancel",
     "cancelled": "Booking cancelled",
     "cancelDialog": {
       "title": "Cancel appointment?",
@@ -269,6 +456,392 @@
       "confirm": "Yes, cancel booking",
       "keep": "Keep appointment"
     }
+  },
+  "settings": {
+    "explainers": {
+      "anyone": "Anyone",
+      "month": "DEC",
+      "closed": "CLOSED",
+      "minutesShort": "{{n}} min",
+      "hoursShort": "{{n}} h",
+      "secondsShort": "{{n}} s",
+      "daysShort_one": "{{count}} day",
+      "daysShort_other": "{{count}} days",
+      "help": {
+        "lead_time_minutes": "Clients can't book sooner than this.",
+        "booking_horizon_days": "How far ahead clients can book.",
+        "cancellation_window_minutes": "After this, clients message you.",
+        "slot_interval_minutes": "How often a new start time appears.",
+        "buffer_minutes": "Time kept free after each booking.",
+        "allow_staff_selection": "Clients pick a team member themselves.",
+        "hours": "Switch a day off to close the shop.",
+        "holidays": "Clients can't book on these dates.",
+        "holidaysCount_one": "{{count}} day closed",
+        "holidaysCount_other": "{{count}} days closed",
+        "reminders": "WhatsApp reminders sent before a booking.",
+        "status": "Clovie answers clients on WhatsApp.",
+        "attendance": "Who gets asked if the client came.",
+        "voice": "Say \"Hey Clovie\" to talk hands free."
+      }
+    },
+    "preferences": "Preferences",
+    "darkMode": "Dark mode",
+    "darkModeHint": "Toggle appearance",
+    "businessSettings": "Business Settings",
+    "integrations": "Integrations",
+    "logOut": "Log Out",
+    "roles": {
+      "owner": "Owner",
+      "staff": "Staff"
+    },
+    "items": {
+      "businessDetails": "Business details",
+      "operatingHours": {
+        "title": "Operating Hours",
+        "subtitle": "Opening times and breaks"
+      },
+      "services": "Services",
+      "hours": "Opening hours",
+      "team": "Team",
+      "rules": "Booking rules",
+      "attendance": "Who confirms attendance",
+      "notifications": "Notifications",
+      "whatsapp": "WhatsApp",
+      "deleteAccount": "Delete account",
+      "appearance": "Appearance",
+      "haptics": "Haptic feedback"
+    },
+    "whatsapp": {
+      "title": "WhatsApp",
+      "reminders": "Reminders to clients",
+      "remindersFooter": "WhatsApp reminders go to clients before their booking.",
+      "channel": {
+        "status": "Booking menu",
+        "number": "Number",
+        "verifiedName": "Verified name",
+        "none": "Not available",
+        "pause": "Pause booking menu",
+        "resume": "Resume booking menu",
+        "pill": {
+          "live": "Live",
+          "pending": "Pending",
+          "paused": "Paused",
+          "needs_reauth": "Needs reconnecting",
+          "not_connected": "Not connected"
+        },
+        "hint": {
+          "live": "Clients can book, reschedule and cancel on this number.",
+          "pending": "The number is being set up. This takes a few minutes.",
+          "paused": "Clients cannot book on WhatsApp while this is paused.",
+          "needs_reauth": "The connection expired. Ask your administrator to reconnect the number.",
+          "not_connected": "No WhatsApp number is connected yet. Your administrator connects it for you."
+        }
+      },
+      "rowConnected": "Connected · {{phone}}"
+    },
+    "title": "Settings",
+    "groups": {
+      "business": "Your business",
+      "team": "Team",
+      "notifications": "Notifications",
+      "account": "Account",
+      "channel": "WhatsApp"
+    },
+    "ownerOnly": "Only the owner can change this.",
+    "units": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "rules": {
+      "hint": "Tap a rule to change it.",
+      "change": "{{rule}}: {{value}}. Change",
+      "lead_time_minutes": "Earliest booking",
+      "booking_horizon_days": "Latest booking",
+      "cancellation_window_minutes": "Free cancellation until",
+      "reminders": "Remind clients before",
+      "slot_interval_minutes": "Gap between start times",
+      "buffer_minutes": "Break between appointments",
+      "allow_staff_selection": "Clients can choose who",
+      "noReminders": "No reminders",
+      "and": "and",
+      "footer": "Staff can always cancel or move a booking."
+    },
+    "notifications": {
+      "push": "Notify me on this phone",
+      "pushOffHint": "Turned off in your phone settings.",
+      "pushHint": "New bookings and messages that need a reply.",
+      "footer": "Notifications go to this phone. Turn them off in your phone settings any time.",
+      "webUnsupported": "Push notifications are available in the phone app.",
+      "needsDevice": "Push notifications need a real phone.",
+      "denied": "Notifications are turned off for this app in your phone settings.",
+      "failed": "Couldn't turn notifications on. Try again."
+    },
+    "details": {
+      "contact": "Contact",
+      "address": "Address",
+      "regional": "Money and time",
+      "timezone": "Time zone",
+      "currencyChange": "Currency, {{value}}. Tap to change",
+      "timezoneFixed": "Set when the business was created"
+    },
+    "hours": {
+      "hint": "Tap a time to change it. Switch a day off to close the shop that day."
+    },
+    "servicesList": {
+      "summary_one": "{{count}} service. Tap one to edit.",
+      "summary_other": "{{count}} services. Tap one to edit.",
+      "add": "Add a service",
+      "open": "{{name}}, {{meta}}"
+    },
+    "hoursClosed": "Closed",
+    "rulesValue": "{{lead}} notice"
+  },
+  "businessDetails": {
+    "title": "Business Details",
+    "timezone": "Time zone: {{tz}}",
+    "info": "Business Information",
+    "name": "Business Name",
+    "email": "Business Email",
+    "phone": "Phone Number",
+    "location": "Location Details",
+    "address": "Address",
+    "regional": "Regional Settings",
+    "currency": "Currency",
+    "saved": "Business details saved",
+    "currencies": {
+      "ZAR": "South African Rand (ZAR)",
+      "USD": "US Dollar (USD)",
+      "EUR": "Euro (EUR)",
+      "GBP": "British Pound (GBP)",
+      "BWP": "Botswana Pula (BWP)",
+      "NAD": "Namibian Dollar (NAD)",
+      "KES": "Kenyan Shilling (KES)",
+      "NGN": "Nigerian Naira (NGN)",
+      "CAD": "Canadian Dollar (CAD)",
+      "AUD": "Australian Dollar (AUD)",
+      "NZD": "New Zealand Dollar (NZD)",
+      "INR": "Indian Rupee (INR)"
+    }
+  },
+  "hours": {
+    "title": "Operating hours",
+    "breaks": {
+      "open": "Open Team",
+      "hint": "Breaks and time off are set per person in Team."
+    },
+    "intro": "Set your standard opening times. One range per day: add a team member's lunch as a break.",
+    "open": "Open",
+    "closed": "Closed",
+    "toggle": "{{day}} open",
+    "noHours": "No hours set",
+    "to": "to",
+    "done": "Done",
+    "hour": "Hour {{value}}",
+    "minutes": "Minutes {{value}}",
+    "saved": "Operating hours saved",
+    "pick": {
+      "opens": "{{day}} opens",
+      "closes": "{{day}} closes"
+    },
+    "field": {
+      "opens": "{{day}} opens at {{time}}",
+      "closes": "{{day}} closes at {{time}}"
+    },
+    "errors": {
+      "order": "{{day}}: closing time must be after opening time."
+    },
+    "special": {
+      "title": "Holidays and special days",
+      "add": "Add special day",
+      "edit": "Edit special day",
+      "none": "No special days coming up",
+      "note": "Customers can only book inside these hours and each team member's own hours.",
+      "date": "Date",
+      "name": "Name",
+      "namePlaceholder": "Staff day",
+      "mode": "What happens that day",
+      "hours": "Special hours",
+      "open": "Open",
+      "custom": "Custom day",
+      "addCustom": "Add custom day",
+      "suggestions": "Public holidays",
+      "addAll": "Add all upcoming public holidays ({{count}})",
+      "addHoliday": "Add {{name}}, {{date}}, as a closed day",
+      "observed": "{{date}}, moved from {{sunday}}",
+      "loading": "Loading public holidays",
+      "rowLabel": "{{name}}, {{date}}, {{value}}",
+      "added": "Special day added",
+      "updated": "Special day saved",
+      "removed": "Special day deleted",
+      "addedCount_one": "{{count}} public holiday added",
+      "addedCount_other": "{{count}} public holidays added",
+      "delete": "Delete special day",
+      "deleteDialog": {
+        "title": "Delete {{name}}?",
+        "description": "Bookings on that date are not touched. The usual hours apply again.",
+        "confirm": "Delete",
+        "keep": "Keep"
+      },
+      "errors": {
+        "name": "Give the day a name.",
+        "order": "The closing time must be after the opening time.",
+        "exists": "There is already a special day on that date. Edit that one instead."
+      }
+    }
+  },
+  "services": {
+    "title": "Services",
+    "empty": "No services yet",
+    "other": "Other",
+    "hidden": "Hidden",
+    "add": "New service",
+    "edit": "Edit service",
+    "name": "Name",
+    "whoDoes": "Who does it",
+    "moreOptions": "More options",
+    "newCategory": "Or a new category",
+    "shorter": "Shorter",
+    "longer": "Longer",
+    "minutes": "{{value}} min",
+    "hoursOnly": "{{hours}} h",
+    "hoursAndMinutes": "{{hours}} h {{minutes}} min",
+    "category": "Category",
+    "categoryHint": "Existing: {{list}}",
+    "duration": "Duration",
+    "price": "Price",
+    "active": "Bookable",
+    "activeHint": "Hidden services stay on past bookings but can't be booked",
+    "added": "Service added",
+    "updated": "Service updated",
+    "removed": "Service removed",
+    "delete": "Delete service",
+    "deleteDialog": {
+      "title": "Delete service?",
+      "description": "Clients can no longer book it. A service with past bookings is hidden instead of deleted.",
+      "confirm": "Yes, delete",
+      "keep": "Keep service"
+    }
+  },
+  "staff": {
+    "empty": "No staff members yet",
+    "name": "Full Name",
+    "active": "Active",
+    "activeHint": "Inactive staff are hidden from the booking flow",
+    "acceptsBookings": "Accept Bookings",
+    "acceptsBookingsHint": "Clients can be booked with this staff member",
+    "services": "Services they perform",
+    "added": "Staff member added",
+    "updated": "Staff details updated",
+    "removed": "Staff member removed",
+    "delete": "Remove Staff Member",
+    "deleteDialog": {
+      "title": "Remove staff member?",
+      "description": "They are removed from the team directory. Their existing bookings are kept.",
+      "confirm": "Yes, remove",
+      "keep": "Keep staff"
+    }
+  },
+  "slots": {
+    "pickService": "Choose a service to see times.",
+    "noDays": "No free days in the booking window.",
+    "noSlots": "No free times on this day. Try another day.",
+    "times": "Times",
+    "days": "Days",
+    "loading": "Checking live availability",
+    "error": {
+      "title": "Couldn't check availability",
+      "description": "Check your connection and try again."
+    },
+    "closedOn": "Closed: {{days}}"
+  },
+  "reschedule": {
+    "title": "Reschedule",
+    "notAllowed": "Only a confirmed booking can be moved.",
+    "summary": "{{name}} · {{service}} · {{duration}}",
+    "current": "{{when}} is the current time",
+    "tell": "Tell {{name}} on WhatsApp",
+    "pickTime": "Pick a new time",
+    "moveTo": "Move to {{when}}",
+    "slotTaken": "That time was just taken. Pick another.",
+    "done": "Moved",
+    "told": "{{name}} will get a WhatsApp update.",
+    "notTold": "No WhatsApp message was sent.",
+    "doneDetail": "{{when}} · {{service}}"
+  },
+  "cancel": {
+    "title": "Cancel booking",
+    "notAllowed": "This booking can't be cancelled.",
+    "question": "Why is this being cancelled?",
+    "summary": "{{name}} · {{service}} · {{when}}",
+    "reasons": {
+      "client": "Client asked",
+      "staff": "Staff unavailable",
+      "other": "Other"
+    },
+    "otherLabel": "What happened?",
+    "otherPlaceholder": "A few words are enough",
+    "late": "This is a late cancellation (within {{hours}} hours).",
+    "tell": "Tell {{name}} on WhatsApp",
+    "confirm": "Cancel booking",
+    "keep": "Keep booking",
+    "done": "Booking cancelled",
+    "told": "{{name}} will get a WhatsApp message.",
+    "notTold": "No WhatsApp message was sent.",
+    "recordedLate": "Recorded as a late cancellation."
+  },
+  "newBooking": {
+    "title": "New booking",
+    "discard": {
+      "title": "Discard this booking?",
+      "description": "What you entered will be lost.",
+      "confirm": "Discard",
+      "keep": "Keep editing"
+    },
+    "who": "Who is it for?",
+    "searchPlaceholder": "Client name or number",
+    "searchFailed": "Couldn't search clients.",
+    "noMatch": "No client matches. Add them below.",
+    "selectClient": "Pick {{name}}",
+    "newClient": "New client",
+    "name": "Name",
+    "namePlaceholder": "First and last name",
+    "phone": "Mobile",
+    "phonePlaceholder": "Mobile, e.g. {{example}}",
+    "phonePlaceholderGeneric": "Mobile, with country code",
+    "service": "Service",
+    "noServices": "Add a service in Settings first.",
+    "next": "Next: pick a time",
+    "when": "When?",
+    "staff": "With",
+    "anyStaff": "Any",
+    "sendConfirmation": "Send {{name}} a WhatsApp confirmation",
+    "note": "Note",
+    "notePlaceholder": "Anything the team should know",
+    "thisClient": "the client",
+    "pickTime": "Pick a time",
+    "bookFor": "Book {{name}} for {{when}}",
+    "errors": {
+      "client": "Pick a client first.",
+      "newClient": "Enter the new client's name and mobile number.",
+      "phone": "That phone number doesn't look right. Include the country code, like {{example}}.",
+      "phoneGeneric": "That phone number doesn't look right. Include the country code, starting with +.",
+      "service": "Pick a service.",
+      "slot": "Pick a time."
+    },
+    "taken": {
+      "title": "{{when}} was just booked by someone else.",
+      "closest": "Here are the closest times:",
+      "none": "Nothing else is free that day. Pick another day."
+    },
+    "done": "Booked",
+    "told": "{{name}} will get a WhatsApp confirmation.",
+    "notTold": "No WhatsApp message was sent.",
+    "doneDetail": "{{when}} · {{service}}",
+    "view": "View booking"
   },
   "addBooking": {
     "client": "Client",
@@ -307,143 +880,395 @@
       "slot": "Select a time slot."
     }
   },
-  "settings": {
-    "preferences": "Preferences",
-    "darkMode": "Dark Mode",
-    "darkModeHint": "Toggle appearance",
-    "businessSettings": "Business Settings",
-    "integrations": "Integrations",
-    "logOut": "Log Out",
-    "roles": {
+  "conversation": {
+    "menuGroup": "Booking menu · {{count}} messages",
+    "handedOver": "Passed to you after the menu didn't understand",
+    "menuReplying": "Booking menu is replying",
+    "window_one": "You can reply for free for {{count}} more hour.",
+    "window_other": "You can reply for free for {{count}} more hours.",
+    "windowClosed": "The free reply window has closed. They need to message you first.",
+    "bookFor": "Book for {{name}}",
+    "release": "Done, back to menu",
+    "messageLabel": "Message to {{name}}",
+    "placeholder": "Message {{name}}",
+    "send": "Send message",
+    "bookingMenu": "Booking menu",
+    "notFound": {
+      "title": "That conversation isn't here",
+      "description": "It may have been deleted, or the link is out of date.",
+      "action": "Back to inbox"
+    }
+  },
+  "states": {
+    "loading": "Loading",
+    "offline": {
+      "banner": "Offline · showing what we had at {{time}}",
+      "bannerNoTime": "Offline · showing what we had saved"
+    },
+    "blocked": {
+      "title": "You're offline",
+      "body": "New bookings need a connection so no one double-books the same time. Everything else you can still see.",
+      "stillOffline": "Still offline",
+      "ok": "OK",
+      "tryAgain": "Try again"
+    },
+    "error": {
+      "title": "Couldn't load this",
+      "description": "Check your connection and try again."
+    }
+  },
+  "config": {
+    "title": "Missing configuration",
+    "body": "Add the following to a .env.local file at the project root (see .env.example), then restart the dev server:"
+  },
+  "notFound": {
+    "headerTitle": "Not found",
+    "title": "This screen doesn't exist.",
+    "action": "Go to Today"
+  },
+  "publicBooking": {
+    "title": "Coming soon",
+    "description": "The web booking page for \"{{slug}}\" will live here."
+  },
+  "session": {
+    "offline": {
+      "title": "You're offline",
+      "hint": "Clovie needs a connection to open your business. Reconnect and try again."
+    },
+    "unsupportedTask": "This account needs an extra step ({{task}}) that the app can't show. Sign out and contact support."
+  },
+  "onboarding": {
+    "step": "Step {{step}} of {{max}}",
+    "continue": "Continue",
+    "back": "Back",
+    "signOut": "Not you? Sign out",
+    "orgFailed": "Could not create the organization.",
+    "welcome": {
+      "title": "Hi, I'm Clovie. Let's set up your business.",
+      "line1": "Hi, I'm Clovie.",
+      "line2": "Let's set up your business.",
+      "about": "About 1 minute",
+      "start": "Start",
+      "haveAccount": "I already have an account"
+    },
+    "typeLabel": "Business type",
+    "type": {
+      "title": "What kind of business?"
+    },
+    "types": {
+      "barber": "Barbershop",
+      "salon": "Salon",
+      "beauty": "Beauty parlor",
+      "mix": "A mix"
+    },
+    "name": {
+      "lovely": "{{type}}. Lovely!",
+      "title": "What's it called?",
+      "label": "Business name",
+      "placeholder": "Business name"
+    },
+    "create": {
+      "failed": "Couldn't create your business",
+      "retry": "Try again"
+    }
+  },
+  "team": {
+    "title": "Team",
+    "summary_one": "{{count}} person can take bookings",
+    "summary_other": "{{count}} people can take bookings",
+    "openPerson": "{{name}}, {{meta}}. Open",
+    "access": {
       "owner": "Owner",
-      "staff": "Staff"
+      "staff": "Staff",
+      "invited": "Invite pending",
+      "none": "No app access"
     },
-    "items": {
-      "businessDetails": {
-        "title": "Business Details",
-        "subtitle": "Name, address, contact"
-      },
-      "operatingHours": {
-        "title": "Operating Hours",
-        "subtitle": "Opening times and breaks"
-      },
-      "services": {
-        "title": "Services",
-        "subtitle": "Menu and pricing"
-      },
-      "staff": {
-        "title": "Staff Management",
-        "subtitle": "Team members and roles"
-      }
+    "accessSpoken": {
+      "member": "can sign in",
+      "invited": "invite pending",
+      "none": "no app access"
     },
-    "whatsapp": {
-      "title": "WhatsApp API",
-      "loading": "Checking connection...",
-      "notConnected": "Not connected yet",
-      "status": {
-        "live": "Connected · {{phone}}",
-        "pending": "Setup in progress",
-        "needs_reauth": "Needs to be reconnected",
-        "disconnected": "Disconnected",
-        "paused": "Paused"
-      }
-    }
-  },
-  "businessDetails": {
-    "title": "Business Details",
-    "timezone": "Time zone: {{tz}}",
-    "info": "Business Information",
-    "name": "Business Name",
-    "email": "Business Email",
-    "phone": "Phone Number",
-    "location": "Location Details",
-    "address": "Address",
-    "regional": "Regional Settings",
-    "currency": "Currency",
-    "saved": "Business details saved",
-    "currencies": {
-      "ZAR": "South African Rand (ZAR)",
-      "USD": "US Dollar (USD)",
-      "EUR": "Euro (EUR)",
-      "GBP": "British Pound (GBP)",
-      "BWP": "Botswana Pula (BWP)",
-      "NAD": "Namibian Dollar (NAD)",
-      "KES": "Kenyan Shilling (KES)",
-      "NGN": "Nigerian Naira (NGN)"
-    }
-  },
-  "hours": {
-    "title": "Operating Hours",
-    "intro": "Set your standard opening times. Add a second time range for split shifts such as a lunch break.",
-    "open": "Open",
-    "closed": "Closed",
-    "toggle": "Toggle {{day}} open",
-    "noHours": "No hours set",
+    "invite": {
+      "action": "Invite a team member",
+      "toApp": "Invite to the app",
+      "emailLabel": "Their email address",
+      "emailPlaceholder": "name@example.com",
+      "hint": "They get an email invite. They join by signing in to the app with this address.",
+      "send": "Send invite",
+      "sent": "Invite sent.",
+      "pendingFor": "Invite sent to {{email}} as {{role}}. They join by signing in with that address."
+    },
+    "addPerson": "Add someone without app access",
+    "editDetails": "Edit name, job and services",
     "to": "to",
-    "addRange": "Add time range",
-    "removeRange": "Remove time range",
-    "saved": "Operating hours saved",
-    "pick": {
-      "opens": "{{day}} opening time",
-      "closes": "{{day}} closing time"
+    "off": "Off",
+    "workingDays": {
+      "title": "Working days",
+      "none": "No working days set",
+      "inherited": "Same as business hours, {{days}}"
+    },
+    "services": {
+      "title": "Services",
+      "count_one": "{{count}} service",
+      "count_other": "{{count}} services"
+    },
+    "more": "More",
+    "role": {
+      "label": "Role",
+      "staff": "Staff",
+      "owner": "Owner"
+    },
+    "colour": {
+      "label": "Calendar color",
+      "blue": "Blue",
+      "orange": "Orange",
+      "purple": "Purple",
+      "teal": "Teal",
+      "green": "Green",
+      "pink": "Pink",
+      "indigo": "Indigo",
+      "red": "Red"
+    },
+    "remove": {
+      "action": "Remove from team",
+      "title": "Remove {{name}} from the team?",
+      "description": "This removes their access to the app. {{name}} stays in the calendar with their bookings unless you make them inactive.",
+      "confirm": "Remove",
+      "keep": "Keep",
+      "self": "You cannot remove yourself from the team.",
+      "viaEdit": "This person has no login. Delete them from Edit details."
+    },
+    "revoke": {
+      "action": "Revoke invite"
+    },
+    "removed": "{{name}} no longer has app access",
+    "revoked": "Invite revoked",
+    "form": {
+      "editTitle": "Edit person",
+      "addTitle": "Add a person",
+      "job": "Job title"
     },
     "errors": {
-      "order": "{{day}}: closing time must be after opening time.",
-      "overlap": "{{day}}: time ranges overlap."
+      "LAST_OWNER": "A business needs at least one owner. Make someone else an owner first.",
+      "ALREADY_MEMBER": "That person is already on your team.",
+      "ALREADY_INVITED": "That address already has a pending invite.",
+      "STAFF_ALREADY_LINKED": "This person already has a login.",
+      "FORBIDDEN": "Only the owner can manage the team."
+    },
+    "status": {
+      "paused": "Not taking bookings",
+      "inactive": "Inactive"
+    },
+    "more_count": "+{{count}} more",
+    "deleteConfirm": "Delete",
+    "deleteKeep": "Keep",
+    "hours": {
+      "change": "Change hours",
+      "saved": "Working days saved",
+      "hint": "Customers can book this person only inside these hours and the business hours.",
+      "useBusiness": "Use business hours",
+      "closedThatDay": "The business is closed on {{day}}.",
+      "outside": "Business hours are {{opens}} to {{closes}}",
+      "errors": {
+        "order": "{{day}}: the end time must be after the start time.",
+        "closed": "{{day}}: the business is closed that day. Open it in the business hours first.",
+        "outside": "{{day}}: these hours fall outside the business hours."
+      }
+    },
+    "breaks": {
+      "title": "Breaks",
+      "none": "No breaks",
+      "addAction": "Add a break",
+      "add": "Add a break",
+      "edit": "Edit break",
+      "name": "Name",
+      "time": "Break",
+      "days": "Days",
+      "everyDay": "Every working day",
+      "delete": "Delete break",
+      "added": "Break added",
+      "updated": "Break saved",
+      "removed": "Break deleted",
+      "editLine": "{{label}}, {{times}}. Edit",
+      "errors": {
+        "label": "Give the break a name.",
+        "order": "The break must end after it starts.",
+        "overlap": "That break overlaps another break on the same day."
+      },
+      "deleteDialog": {
+        "title": "Delete this break?",
+        "description": "Customers will be able to book over that time again."
+      }
+    },
+    "timeOff": {
+      "title": "Time off",
+      "none": "Nothing planned",
+      "addAction": "Add time off",
+      "add": "Add time off",
+      "edit": "Edit time off",
+      "reason": "Reason",
+      "reasons": {
+        "leave": "Leave",
+        "sick": "Sick",
+        "training": "Training",
+        "other": "Other"
+      },
+      "from": "From",
+      "to": "To",
+      "allDay": "All day",
+      "hours": "Hours",
+      "note": "Note",
+      "optional": "Optional",
+      "delete": "Delete time off",
+      "added": "Time off added",
+      "updated": "Time off saved",
+      "removed": "Time off deleted",
+      "editLine": "{{reason}}, {{range}}. Edit",
+      "errors": {
+        "range": "The last day must not be before the first day.",
+        "order": "The end time must be after the start time."
+      },
+      "deleteDialog": {
+        "title": "Delete this time off?",
+        "description": "Customers will be able to book this person on those days again."
+      }
     }
   },
-  "services": {
-    "title": "Services",
-    "empty": "No services yet",
-    "other": "Other",
-    "hidden": "Hidden",
-    "add": "Add Service",
-    "edit": "Edit Service",
-    "name": "Service Name",
-    "category": "Category",
-    "categoryHint": "Existing: {{list}}",
-    "duration": "Duration",
-    "price": "Price",
-    "active": "Bookable",
-    "activeHint": "Hidden services stay on past bookings but can't be booked",
-    "added": "Service added",
-    "updated": "Service updated",
-    "removed": "Service removed",
-    "delete": "Delete Service",
-    "deleteDialog": {
-      "title": "Delete service?",
-      "description": "Clients can no longer book it. A service with past bookings is hidden instead of deleted.",
-      "confirm": "Yes, delete",
-      "keep": "Keep service"
+  "join": {
+    "headline": "You've been invited to {{business}}",
+    "subtitle": "Join to see their calendar and bookings. You can create your own business instead.",
+    "join": "Join",
+    "joinNamed": "Join {{business}}",
+    "name": {
+      "title": "Your name",
+      "hint": "This is how you appear on the team and in bookings.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "firstNameRequired": "Enter your first name."
+    },
+    "createOwn": "Create my own business instead",
+    "confirmOwn": {
+      "title": "Create your own business?",
+      "description": "You won’t join the business that invited you.",
+      "confirm": "Create my own",
+      "cancel": "Go back"
+    },
+    "wrongEmail": "Wrong email? Sign out and use the address the invite went to.",
+    "failed": "Couldn't join. Check your connection and try again."
+  },
+  "availability": {
+    "field": {
+      "start": "{{title}} starts at {{time}}",
+      "end": "{{title}} ends at {{time}}"
+    },
+    "pick": {
+      "start": "{{title}} starts",
+      "end": "{{title}} ends"
+    },
+    "dateField": "{{title}}, {{date}}",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "conflicts": {
+      "dayTitle_one": "{{count}} booking that day",
+      "dayTitle_other": "{{count}} bookings that day",
+      "timeTitle_one": "{{count}} booking in that time",
+      "timeTitle_other": "{{count}} bookings in that time",
+      "body": "These bookings stay as they are. Nothing is cancelled or moved. Open one to message the client or change it.",
+      "open": "Open booking {{booking}}",
+      "saveAnyway": "Save anyway (bookings stay)"
     }
   },
-  "staff": {
-    "screenTitle": "Staff Management",
-    "directory": "Team Directory",
-    "directoryHint": "Manage roles and availability",
-    "empty": "No staff members yet",
-    "add": "Add Staff",
-    "edit": "Edit Staff Member",
-    "name": "Full Name",
-    "title": "Role / Title",
-    "active": "Active",
-    "activeHint": "Inactive staff are hidden from the booking flow",
-    "acceptsBookings": "Accept Bookings",
-    "acceptsBookingsHint": "Clients can be booked with this staff member",
-    "services": "Services they perform",
-    "bookings": "Bookings",
-    "toggleBookings": "Toggle bookings for {{name}}",
-    "statusActive": "Active",
-    "statusInactive": "Inactive",
-    "added": "Staff member added",
-    "updated": "Staff details updated",
-    "removed": "Staff member removed",
-    "delete": "Remove Staff Member",
-    "deleteDialog": {
-      "title": "Remove staff member?",
-      "description": "They are removed from the team directory. Their existing bookings are kept.",
-      "confirm": "Yes, remove",
-      "keep": "Keep staff"
+  "reports": {
+    "title": "Reports",
+    "loading": "Loading the report",
+    "error": {
+      "title": "Couldn't load this report",
+      "description": "Check your connection and try again."
+    },
+    "range": {
+      "label": "Period",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "revenue": "Revenue · {{period}}",
+    "period": "{{from}} to {{to}}",
+    "delta": {
+      "up": "+{{percent}}% {{versus}}",
+      "down": "-{{percent}}% {{versus}}",
+      "flat": "No change {{versus}}"
+    },
+    "versus": {
+      "week": "vs last week so far",
+      "month": "vs {{label}}",
+      "year": "vs {{label}}"
+    },
+    "chart": {
+      "label": "Revenue by {{unit}}",
+      "unitDay": "day",
+      "unitMonth": "month",
+      "bar": "{{date}}, {{amount}}",
+      "empty": "No completed bookings yet in this period."
+    },
+    "kpi": {
+      "bookings": "Bookings",
+      "noShowRate": "No-show rate",
+      "returning": "Returning clients",
+      "none": "–"
+    },
+    "staff": {
+      "title": "By staff",
+      "bookings_one": "{{count}} booking",
+      "bookings_other": "{{count}} bookings",
+      "empty": "No bookings by staff in this period."
+    },
+    "sources": {
+      "title": "Where bookings come from",
+      "whatsapp": "WhatsApp",
+      "clovie": "Clovie",
+      "empty": "No bookings in this period.",
+      "row": "{{source}} {{percent}}%",
+      "summary": "Booked by customers on WhatsApp, or by you and your team in Clovie."
+    },
+    "times": {
+      "title": "Busiest times",
+      "empty": "The busiest times show once there are bookings.",
+      "chart": "Bookings by weekday and hour",
+      "busiest": "Busiest: {{day}} around {{time}}. Darker means busier."
+    },
+    "export": {
+      "action": "Export CSV",
+      "title": "Revenue by {{unit}}"
+    }
+  },
+  "account": {
+    "delete": {
+      "title": "Delete account",
+      "whatHappens": "What happens",
+      "member": "Your login is deleted and you lose access to this business. Your name, email, phone and photo are removed from the team list. Bookings you handled stay in the business history without your name.",
+      "soleOwner_one": "You are the only owner of {{name}}. Deleting your account also permanently deletes {{name}} with all its bookings, clients, services and WhatsApp connection. {{count}} other team member loses access. To keep the business, make a colleague an owner in Team first.",
+      "soleOwner_other": "You are the only owner of {{name}}. Deleting your account also permanently deletes {{name}} with all its bookings, clients, services and WhatsApp connection. {{count}} other team members lose access. To keep the business, make a colleague an owner in Team first.",
+      "always": "Your voice and notification devices are signed out at once. This cannot be undone.",
+      "typeName": "Type {{name}} to confirm",
+      "nameField": "Business name",
+      "action": "Delete account",
+      "keep": "Keep account",
+      "confirmTitle": "Delete your account?",
+      "confirmBody": "This cannot be undone.",
+      "loadFailed": "Could not check what deleting would do. Check your connection and try again.",
+      "support": "Need help or cannot sign in? Email support@nerovasystems.com and we will delete your account for you."
+    },
+    "publicDelete": {
+      "title": "Delete your Clovie account",
+      "intro": "You can delete your Clovie account and its data at any time.",
+      "inApp": "In the app",
+      "inAppSteps": "Open Clovie, go to Settings, then Account, then Delete account. If you are the only owner of a business you also delete that business, and you confirm by typing its name.",
+      "byEmail": "By email",
+      "byEmailBody": "Cannot open the app? Email support@nerovasystems.com from the address on your account, and we will delete it for you within 30 days.",
+      "whatDeleted": "What is deleted",
+      "whatDeletedBody": "Your login, email, name, phone and photo, and your push and voice device tokens. If you were the only owner, the business and its bookings, clients and settings are deleted too. A short audit record (that the deletion happened, with no contact details) is kept. Bookings in a business that continues stay in its history without your name.",
+      "emailAction": "Email support",
+      "privacy": "Privacy policy"
     }
   }
 }

@@ -1,0 +1,138 @@
+/**
+ * Pure routing decision for the protected `(app)` group. No React, no I/O, so
+ * every combination of Clerk session state is table-testable. The layout only
+ * gathers the inputs and renders the result.
+ */
+
+import type { MemberRole } from '@booking/types';
+
+export type SessionStatus = 'active' | 'pending';
+/** Clerk session task keys (`session.currentTask.key`). */
+export type SessionTaskKey =
+  'choose-organization' | 'reset-password' | 'setup-mfa';
+export type MeStatus =
+  | 'idle'
+  | 'loading'
+  | 'ok'
+  | 'no_business'
+  /** The API rejected the session (401) or no token could be obtained. */
+  | 'unauthorized'
+  | 'error';
+/** Progress of the lookup of the user's organisation memberships. */
+export type LookupStatus = 'idle' | 'loading' | 'ready' | 'error';
+/** Pending organisation invitations of the signed-in user. */
+export interface InvitationsInput {
+  /** `idle` = not asked (the user already has an organisation). */
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  count: number;
+}
+
+export interface BusinessInput {
+  role: MemberRole;
+  /**
+   * Whether the business was named and set up by onboarding. A business row can
+   * exist without it (the Clerk webhook mirrors any organisation), so the
+   * existence of a business alone never means onboarding is done.
+   */
+  basics: BasicsStatus;
+}
+
+export type BasicsStatus = 'loading' | 'complete' | 'incomplete';
+
+/** Named, and onboarding wrote its default hours (it always does). */
+export function basicsStatus(input: {
+  name: string;
+  hours: readonly unknown[] | undefined;
+}): BasicsStatus {
+  if (!input.name.trim()) return 'incomplete';
+  if (!input.hours) return 'loading';
+  return input.hours.length > 0 ? 'complete' : 'incomplete';
+}
+
+export interface AppRouteInput {
+  authLoaded: boolean;
+  isSignedIn: boolean;
+  /** Null until Clerk reports a session. */
+  sessionStatus: SessionStatus | null;
+  /** The pending session's task, if any. */
+  taskKey: SessionTaskKey | null;
+  /** True once the Clerk user (and its memberships) have loaded. */
+  userLoaded: boolean;
+  activeOrgId: string | null;
+  /**
+   * Organisation ids of the user. Clerk's cached list is empty right after a
+   * fresh sign-in, so the layout fetches it when nothing is cached.
+   */
+  membershipOrgIds: readonly string[];
+  /** `idle` = not asked (an organisation is active or ids were cached). */
+  membershipsStatus: LookupStatus;
+  me: MeStatus;
+  /** What `/v1/me` says about the business and the caller; null until it has loaded. */
+  business: BusinessInput | null;
+  /** Pending invitations, asked only while the user has no organisation. */
+  invitations: InvitationsInput;
+  /** The person chose "Create my own business instead" on the join screen. */
+  joinDeclined: boolean;
+  /** Onboarding stays mounted once started, until the user finishes it. */
+  inOnboarding: boolean;
+}
+
+export type AppRoute =
+  | { kind: 'splash' }
+  | { kind: 'signed-out' }
+  | { kind: 'activate-org'; orgId: string }
+  | { kind: 'join' }
+  | { kind: 'onboarding' }
+  | { kind: 'unsupported-task'; task: SessionTaskKey }
+  | { kind: 'session-error' }
+  | { kind: 'tabs' };
+
+export function resolveAppRoute(input: AppRouteInput): AppRoute {
+  if (!input.authLoaded) return { kind: 'splash' };
+  if (!input.isSignedIn) return { kind: 'signed-out' };
+  // Clerk reports signed in a beat before the session (and its token) exists.
+  if (!input.userLoaded || input.sessionStatus === null) {
+    return { kind: 'splash' };
+  }
+
+  // Tasks other than choosing an organisation need Clerk UI we do not ship
+  // (accounts are issued), so say so instead of spinning.
+  if (input.taskKey && input.taskKey !== 'choose-organization') {
+    return { kind: 'unsupported-task', task: input.taskKey };
+  }
+
+  if (!input.activeOrgId) {
+    const first = input.membershipOrgIds[0];
+    if (first) return { kind: 'activate-org', orgId: first };
+    // Never decide "no business" until the memberships are actually known: an
+    // unanswered or failed lookup is not an empty one.
+    if (input.membershipsStatus === 'loading') return { kind: 'splash' };
+    if (input.membershipsStatus === 'error') return { kind: 'session-error' };
+    // Someone invited to a business joins it before creating their own. A
+    // failed lookup falls through to onboarding: it needs an explicit action,
+    // and blocking here would strand a user who has no invitation.
+    if (input.invitations.status === 'loading') return { kind: 'splash' };
+    if (
+      input.invitations.status === 'ready' &&
+      input.invitations.count > 0 &&
+      !input.joinDeclined
+    ) {
+      return { kind: 'join' };
+    }
+    return { kind: 'onboarding' };
+  }
+
+  if (input.inOnboarding || input.me === 'no_business')
+    return { kind: 'onboarding' };
+  if (input.me === 'error' || input.me === 'unauthorized')
+    return { kind: 'session-error' };
+  if (input.me !== 'ok' || !input.business) return { kind: 'splash' };
+  return resolveBusiness(input.business);
+}
+
+/** An owner whose business onboarding never finished completes it first; everyone else gets the app. */
+function resolveBusiness(business: BusinessInput): AppRoute {
+  if (business.role === 'staff') return { kind: 'tabs' };
+  if (business.basics === 'loading') return { kind: 'splash' };
+  return { kind: business.basics === 'incomplete' ? 'onboarding' : 'tabs' };
+}

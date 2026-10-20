@@ -3,27 +3,27 @@
 This workstream is the customer-facing channel. It covers the Meta Graph client, the signed webhook, the deterministic conversation engine, WhatsApp Flows, onboarding (`/v1/whatsapp`), the staff inbox, notifications (confirmations, reminders, Expo push) and the WhatsApp cron jobs. The contract is `docs/BUILD_PLAN.md` §4–§5. The deviations are listed at the end.
 
 ```
-apps/backend/src/whatsapp/
+packages/app-store/whatsapp/
   graph.ts            Graph API client: retry/backoff, typed Meta error kinds
   messages.ts         message builders (WhatsApp limits) → Cloud API payloads
   ids.ts              reply-id grammar (parse/format)
   format.ts           dates, times, money in the business timezone (ICU-independent)
   signature.ts        X-Hub-Signature-256 (HMAC-SHA256 over the raw body)
-  repo.ts             persistence port (types derived from packages/shared/database.types.ts)
+  repo.ts             persistence port (types derived from packages/database/database.types.ts)
   supabaseRepo.ts     Supabase implementation of the port
   deps.ts             dependency bundle (repo, Graph factory, push, clock, ids)
   outbound.ts         the one send path: store → send → stamp; escalate()
   engine/             types, copy, render, transition (pure), run, executor, index (pipeline)
   webhook/            events.ts (zod → typed events + dedupe keys), process.ts
-  flows/              crypto.ts, token.ts, handler.ts (data_exchange)
+  flows/              crypto.ts, token.ts, handler.ts (dispatch), bookingFlow.ts, rescheduleFlow.ts, session.ts
   onboarding.ts       connect / Embedded Signup / sync / pause / resume / disconnect / test
   inbox.ts            staff reply, release, resolve escalation
   jobs.ts             reminders, conversation-expiry, waba-health, token-refresh
   assets.ts           bundled Flow JSON + templates (JSON imports)
-apps/backend/src/notifications/   NotificationService (index.ts), customer copy, Expo push
-apps/backend/src/routes/whatsapp/ webhook.ts, flows.ts, v1.ts (/v1/whatsapp), inbox.ts (/v1), schemas.ts
-apps/backend/whatsapp/            flows/booking.json, flows/reschedule.json, templates.json, generate-flow-keys.mjs
-apps/backend/test/whatsapp/       fakes + table-driven and end-to-end tests
+packages/app-store/whatsapp/notifications/  NotificationService (index.ts), customer copy, Expo push
+apps/api/src/routes/whatsapp/ webhook.ts, flows.ts, v1.ts (/v1/whatsapp), inbox.ts (/v1), schemas.ts
+packages/app-store/whatsapp/assets/  flows/booking.json, flows/reschedule.json, templates.json (scripts/generate-flow-keys.mjs)
+apps/api/test/whatsapp/       table-driven and end-to-end tests (fakes in packages/testing/whatsapp)
 ```
 
 No new dependencies were added. The code only uses Web-standard APIs, `node:crypto` / `node:buffer`, hono, zod and luxon, so it runs unchanged on Node (Vitest) and on Supabase Edge Functions (Deno). Bundled JSON is loaded with `import … with { type: 'json' }`.
@@ -56,7 +56,7 @@ Without `WHATSAPP_FLOW_PRIVATE_KEY`, `FLOW_TOKEN_SECRET` or `API_BASE_URL`, Flow
 ### 2. Flows keys
 
 ```bash
-node apps/backend/whatsapp/generate-flow-keys.mjs [passphrase]
+node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs [passphrase]
 ```
 
 This prints `WHATSAPP_FLOW_PRIVATE_KEY` as one line with `\n` escapes (the backend accepts escaped or real newlines), plus the public key. You don't need to upload the public key by hand: `connect` and `sync` call `POST /{phone-number-id}/whatsapp_business_encryption` with it. Set `FLOW_TOKEN_SECRET` to a random string.
@@ -96,7 +96,7 @@ Every step is idempotent, so `POST /v1/whatsapp/sync` resumes after a failure.
 | `phone` | `GET /{phone-number-id}` (display number, name, quality, limit, status) | yes |
 | `register` | `POST /{phone-number-id}/register` with the PIN, only when the status is not `CONNECTED` | yes |
 | `flow_key` | `POST /{phone-number-id}/whatsapp_business_encryption` | no |
-| `flows` | `GET /{waba}/flows`, then create-and-publish `booking_v1` / `reschedule_v1` with `endpoint_uri`. A draft is updated and published, and a published one is reused | no |
+| `flows` | `GET /{waba}/flows`, then create-and-publish `booking_v2` / `reschedule_v2` with `endpoint_uri`. A draft is updated and published, and a published one is reused | no |
 | `templates` | `GET /{waba}/message_templates`, then create the four utility templates that are missing and upsert `message_templates` | no |
 
 - **Required steps:** a failure stores `last_error = "<step>: <kind> (<code>): <message>"`, sets `needs_reauth` for error 190, and answers `502 UPSTREAM_META_ERROR` with `details.step`.
@@ -113,7 +113,7 @@ The other endpoints (all owner-only, except `GET` which any member can call):
 
 ### Templates
 
-`apps/backend/whatsapp/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
+`packages/app-store/whatsapp/assets/templates.json` holds four `UTILITY` templates in `en`. Each has body parameters `{{1}}` business, `{{2}}` service, `{{3}}` "Tue 30 Sep 2026 at 09:00" and `{{4}}` staff.
 
 | Template | Quick replies (payloads) |
 | --- | --- |
@@ -145,7 +145,7 @@ stateDiagram-v2
     confirm --> idle: cfm:yes → booked
     confirm --> select_slot: SLOT_UNAVAILABLE
     confirm --> menu: cfm:no
-    flow_booking --> idle: nfm_reply (booked)
+    flow_booking --> idle: nfm_reply → create_booking (booked)
     manage_booking --> manage_appointment: appt
     manage_appointment --> reschedule_select_date: appt:resched
     manage_appointment --> flow_reschedule: appt:resched (Flow live)
@@ -154,7 +154,7 @@ stateDiagram-v2
     reschedule_select_date --> reschedule_select_slot: day
     reschedule_select_slot --> reschedule_confirm: slot
     reschedule_confirm --> idle: cfm:yes → moved
-    flow_reschedule --> idle: nfm_reply (moved)
+    flow_reschedule --> idle: nfm_reply → reschedule_booking (moved)
     cancel_confirm --> idle: cfm:yes → cancelled
     menu --> escalated: 3rd invalid input
     escalated --> menu: staff release
@@ -207,8 +207,8 @@ For each inbound message (`engine/index.ts`):
 
 - **Idempotency keys** for `BookingService`:
   - `wa:<wamid>` for list-path creates.
-  - `wa-flow:<flow token>:<slot id>` for Flow bookings.
-  - Reschedule and cancel are idempotent by state.
+  - `wa-flow:<attempt id>:<start instant>` for Flow bookings (created by the engine on the nfm_reply).
+  - Reschedule (including the reschedule Flow's nfm_reply) and cancel have no key and are idempotent by state: moving to the current start, or cancelling a cancelled booking, changes nothing.
 - **Outbound messages** are all stored in `messages` (`queued` → `sent` with the wamid, or `failed` with `{kind, code}`).
   - Booking confirmations carry a dedupe key (`confirm:<id>:created`, `confirm:<id>:rescheduled:<starts_at>`, `confirm:<id>:cancelled`). The engine, the Flow completion and `NotificationService` therefore never confirm the same change twice.
   - A confirmation that goes out also writes a `confirmation_sent` appointment event.
@@ -235,25 +235,72 @@ For each inbound message (`engine/index.ts`):
   - `427` means the flow token is invalid or expired, or the conversation or appointment is gone.
   - `432` means an `X-Hub-Signature-256` header is present but wrong.
 - **Actions:**
-  - `ping` → `{data:{status:'active'}}`.
-  - Client error notifications (`data.error`) → `{data:{acknowledged:true}}`, plus a `flow_error` escalation.
+  - `ping` → `{version:'3.0', data:{status:'active'}}`.
+  - Client error notifications (`data.error`) → `{version:'3.0', data:{acknowledged:true}}`, plus a `flow_error` escalation.
   - `INIT` / `BACK` → first screen.
   - `data_exchange` → the next screen.
 - **Flow token:** `v1.<conversationId>.<subject>.<expiry>.<hmac>`.
-  - `subject` is the booking attempt id, or `rs-<appointmentId>` for a reschedule Flow.
+  - `subject` is the booking attempt id, or `rs-<appointmentId>` for a reschedule Flow (the token, not the payload, binds the Flow to its appointment).
   - `expiry` is unix seconds (24h).
   - `hmac` is HMAC-SHA256 with `FLOW_TOKEN_SECRET` over the first four parts.
-- **Booking screens:** SERVICE → STAFF (skipped with one qualified staff member or when selection is off) → DATE → SLOT → DETAILS (name, optional email) → SUMMARY → SUCCESS.
-  - Each step re-reads live availability.
-  - The booking is created on SUMMARY, where `BookingService` re-validates and replays by key, so a retried SUMMARY returns the same appointment.
-  - Errors keep the customer on the submitted screen with `error_message`.
-- **Reschedule screens:** DATE → SLOT → SUMMARY → SUCCESS, with the same staff member.
-- **Flow JSON:** `apps/backend/whatsapp/flows/*.json` (Flow JSON `7.1`, `data_api_version` `3.0`, `routing_model` declared, SUMMARY terminal).
-- **SUCCESS:** the response carries `extension_message_response.params = {flow_token, appointment_id, flow}`. Meta then sends an `nfm_reply` to the webhook. The engine verifies the token and the conversation, loads the appointment, closes the attempt and sends the in-chat confirmation. The dedupe key keeps that confirmation to one per change.
+- **Booking Flow** (`booking.json`, Flow JSON `7.3`, `data_api_version` `3.0`, ported from the production Flow): SERVICE → DATETIME → SUMMARY (terminal, `complete`). Code: `src/whatsapp/flows/bookingFlow.ts`.
+  - SERVICE is a `RadioButtonsGroup` (title, duration, price). `INIT` serves it (at most 20 services).
+  - Exchanges are routed by the payload `trigger`:
+    - `service_selected` `{service}` → DATETIME with the grid hidden (`min_date` today, `max_date` today + `booking_horizon_days`).
+    - `date_selected` `{service, date}` → DATETIME again, with that day's chips (`show_times`, `time: [{id: <ISO UTC>, title: "09:00"}]`, at most 20) or `no_times`. The chip id is the bare start instant, so the backend picks the staff member (any available).
+    - `continue` `{service_slug, time}` → the slot is re-validated live, then SUMMARY (`summary_text` markdown, `service_slug`, `start_time_iso`, `duration_minutes`, `timezone`). If the time was just taken, DATETIME is re-rendered with fresh chips and the heading reads "Sorry, that time was just taken…".
+  - `service_slug` carries the service **id** (uuid). An unknown id, an unknown trigger or malformed data restarts at SERVICE.
+  - DATETIME has `refresh_on_back`, so `BACK` re-renders it fresh (grid hidden). `BACK` without state restarts at SERVICE.
+  - **Booking happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` with the payload plus `flow_token`. The engine verifies the token and conversation, then books through `BookingService` (`create_booking`, key `wa-flow:<attempt id>:<start instant>`, source `whatsapp`, staff = any). A time taken in between closes the attempt as `failed` (`SLOT_UNAVAILABLE`) and shows the menu with a fixed message. A completion for an attempt that is no longer open books nothing and sends "That booking session has ended…".
+  - Staff selection and intake fields (name, email) are not in this Flow. The customer is the client row created from the WhatsApp number.
+- **Reschedule Flow** (`reschedule.json`, name `reschedule_v2`, Flow JSON `7.3`, same components and copy style as the booking Flow): DATETIME → SUMMARY (terminal, `complete`). Code: `src/whatsapp/flows/rescheduleFlow.ts`. The first version (`reschedule_v1`: DATE → SLOT → SUMMARY with a `data_exchange` terminal screen) was rejected by Meta and is no longer looked up.
+  - The service and staff member are always the appointment's own, read from the token's appointment (never from the payload). A cancelled, past or foreign appointment answers 427, which closes the Flow.
+  - Exchanges are routed by the payload `trigger`:
+    - `INIT` / `BACK` / unknown → DATETIME with the grid hidden (`selected_service_label`, `min_date`, `max_date`).
+    - `date_selected` `{date}` → DATETIME with that day's chips for the appointment's staff member (at most 20), or `no_times`.
+    - `continue` `{time}` → the slot is re-validated live, then SUMMARY (`summary_text` markdown, `appointment_id`, `start_time_iso`, `timezone`). If the time was just taken, DATETIME is re-rendered with fresh chips and the heading reads "Sorry, that time was just taken…".
+  - **The move happens in the engine, not the endpoint.** SUMMARY's `complete` returns to the chat as an `nfm_reply` (`appointment_id`, `start_time_iso`, `timezone`, `flow_token`). The engine verifies the token and conversation and requires the conversation to be in `flow_reschedule` for that appointment, then moves it through `BookingService.rescheduleAppointment` (customer actor, same staff member, so availability, lead time and the cancellation window are enforced). `rescheduleAppointment` has no idempotency key, so retries are idempotent by state: a completion for an appointment already at the chosen time only re-sends the confirmation, and a redelivered `nfm_reply` finds the conversation `idle`.
+  - Outcomes: success sends the "moved" confirmation (dedupe key `confirm:<id>:rescheduled:<starts_at>`) and goes `idle`. `SLOT_UNAVAILABLE` keeps the booking unchanged and re-sends the Flow with "Sorry, that time was just taken. Your booking has not changed." `CANCELLATION_WINDOW` escalates to staff. A completion for a closed or different Flow changes nothing and sends "That reschedule session has ended…". A cancelled or past appointment shows the menu. A legacy `reschedule_v1` completion (no `start_time_iso`; already written) is only confirmed.
+- **Cancel** is not a Flow. It stays on the deterministic path: My bookings → `appt:cancel:<id>` → Yes/No buttons → `cancel_booking`.
+- **Responses** echo `version: "3.0"`, including `ping`.
 
-## Plan gating
+### Creating, uploading and publishing the Flows by hand
 
-The engine, `/v1/whatsapp/**` and the inbox are the **Free-plan** features `whatsapp_menu` and `inbox` (BUILD_PLAN §4, *Plans and entitlements*). Paid plans run on Nerova's WhatsApp, so for a business without `whatsapp_menu` the webhook records the inbound message in `webhook_events` (note `feature_not_in_plan`) and does nothing else, and the Flows endpoint answers 427. The REST routes answer `403 FEATURE_NOT_IN_PLAN`.
+`connect` and `sync` do all of this automatically (`flow_key` and `flows` steps). To do it yourself (placeholders in `<>`; Graph version `v23.0`):
+
+```bash
+# 1. Keys. Put the private key in WHATSAPP_FLOW_PRIVATE_KEY (and the passphrase, if any), and set FLOW_TOKEN_SECRET + API_BASE_URL.
+node packages/app-store/whatsapp/scripts/generate-flow-keys.mjs [passphrase]
+
+# 2. Upload the public key (the PEM printed above, saved as public_key.pem) to the phone number.
+curl -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/whatsapp_business_encryption" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" --data-urlencode "business_public_key@public_key.pem"
+
+# 3. Create the Flow (draft). Returns {"id": "<FLOW_ID>", "validation_errors": []}.
+curl -X POST "https://graph.facebook.com/v23.0/<WABA_ID>/flows" -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -F name=booking_v2 -F 'categories=["APPOINTMENT_BOOKING"]' \
+  -F endpoint_uri="<API_BASE_URL>/flows/whatsapp" \
+  -F flow_json=@packages/app-store/whatsapp/assets/flows/booking.json -F publish=false
+
+# 4. (Re)upload the JSON to a draft. Fix any validation_errors in the response first.
+curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/assets" -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -F name=flow.json -F asset_type=FLOW_JSON -F file=@packages/app-store/whatsapp/assets/flows/booking.json
+
+# 5. Publish. A published Flow is immutable: to change the JSON, create booking_v3 and re-point flow_ids.
+curl -X POST "https://graph.facebook.com/v23.0/<FLOW_ID>/publish" -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+Repeat 3-5 for `reschedule_v2` with `reschedule.json`. Then store the ids on the account (SQL, or run `POST /v1/whatsapp/sync`, which finds the Flows by name):
+
+```sql
+update public.whatsapp_accounts set flow_ids = '{"booking":"<BOOKING_FLOW_ID>","reschedule":"<RESCHEDULE_FLOW_ID>"}' where business_id = '<BUSINESS_ID>';
+```
+
+With no `flow_ids.booking` (or without the key, secret or URL), Book uses the interactive-list path. The booking Flow is named `booking_v2` and the reschedule Flow `reschedule_v2`: an existing published `booking_v1` or `reschedule_v1` is no longer reused, and `sync` creates the v2 Flow and replaces the matching `flow_ids` entry.
+
+## Always on, never AI
+
+The menu engine, `/v1/whatsapp/**` and the inbox are always on for every business: nothing is gated by plan in the free edition. The engine is deterministic by design (structured reply IDs, fixed messages, no NLU and no free-text interpretation), which is the premise of the ITMDA3 research comparison against the web booking page.
 
 ## Webhook
 
@@ -349,14 +396,14 @@ BookingService methods used: `getBusiness`, `listServices`, `listBookableStaff`,
 
 ## Testing
 
-`cd apps/backend && npx tsc --noEmit && npx vitest run`. The WhatsApp suites live in `test/whatsapp/`:
+`cd apps/api && npx tsc --noEmit && npx vitest run`. The WhatsApp suites live in `test/whatsapp/`:
 
 - the transition table: every state × every input kind, paging, strikes, the window and flows
 - the reply-id grammar
 - builders and limits
 - the Graph client's retry and error mapping
 - webhooks: signature, dedupe, redelivery, unlinked and paused numbers, statuses, templates
-- Flows: a crypto round-trip with a generated RSA key pair, token tampering, every screen, retried SUMMARY, and HTTP 421/427/432
+- Flows: a crypto round-trip with a generated RSA key pair, token tampering, every booking and reschedule trigger (table-driven), the engine booking or moving on the nfm_reply (slot taken, stale session, retry), `booking.json` and `reschedule.json` shape (`flowDefinition.test.ts`), and HTTP 421/427/432
 - onboarding with a fake Graph client
 - the inbox
 - notifications
@@ -374,7 +421,7 @@ BookingService methods used: `getBusiness`, `listServices`, `listBookableStaff`,
 7. **Optional setup steps.** Flows and templates don't block going live. Their failures are recorded in `last_error`.
 8. **Flows `endpoint_uri`** comes from `API_BASE_URL`, not from the request origin, because the API runs behind the Supabase Functions prefix.
 9. **Opt-in.** `clients.whatsapp_opt_in = false` stops proactive messages (confirmations, reminders). Replies to the customer's own messages are still sent.
-10. **Response shapes not in `packages/shared/api.ts`:**
+10. **Response shapes not in `packages/types/api.ts`:**
     - `POST /v1/whatsapp/test-message` returns `{wa_message_id}`.
     - The inbox shapes are listed above.
     - Every other `/v1/whatsapp` endpoint returns `WhatsAppChannelDTO`.

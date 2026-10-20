@@ -1,29 +1,28 @@
+import { Icon, Text } from '@booking/ui';
 import { AlertTriangle } from 'lucide-react-native';
-import { ScrollView, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, View } from 'react-native';
 
 /**
  * Rendered instead of the app when a required `EXPO_PUBLIC_*` variable is
  * missing, so a bad `.env` fails loudly instead of crashing deep inside
- * Clerk/Supabase. Deliberately dependency-free (no NativeWind/Clerk) so it
- * always renders.
+ * Clerk/Supabase. It needs no Clerk, Supabase or query client: only the
+ * design system's tokens, so it always renders.
  */
 export function ConfigErrorScreen({ missing }: { missing: string[] }) {
+  const { t } = useTranslation();
   return (
-    <View style={{ flex: 1, backgroundColor: '#F5F7FB', paddingTop: 64 }}>
-      <ScrollView contentContainerStyle={{ padding: 24, gap: 12 }}>
-        <AlertTriangle size={28} color="#B42318" />
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#101828' }}>
-          Missing configuration
+    <View className="flex-1 bg-background pt-16">
+      <ScrollView contentContainerClassName="gap-3 p-6">
+        <Icon as={AlertTriangle} size={28} className="text-destructive" />
+        <Text role="heading" aria-level="1" className="text-section font-bold">
+          {t('config.title')}
         </Text>
-        <Text style={{ fontSize: 14, color: '#475467' }}>
-          Add the following to a .env.local file at the project root (see
-          .env.example), then restart the dev server:
+        <Text className="text-subtitle text-muted-foreground">
+          {t('config.body')}
         </Text>
         {missing.map((name) => (
-          <Text
-            key={name}
-            style={{ fontFamily: 'Courier', fontSize: 13, color: '#B42318' }}
-          >
+          <Text key={name} className="font-mono text-subtitle text-destructive">
             {name}
           </Text>
         ))}

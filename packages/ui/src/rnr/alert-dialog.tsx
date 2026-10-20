@@ -1,0 +1,181 @@
+import { buttonTextVariants, buttonVariants } from '../components/Button';
+import { NativeOnlyAnimatedView } from '../primitives/NativeOnlyAnimatedView';
+import { TextClassContext } from '../primitives/Text';
+import { cn } from '../lib/cn';
+import { type VariantProps } from 'class-variance-authority';
+import * as AlertDialogPrimitive from '@rn-primitives/alert-dialog';
+import * as React from 'react';
+import { Platform, View, type ViewProps } from 'react-native';
+import { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
+import { FullWindowOverlay as RNFullWindowOverlay } from 'react-native-screens';
+
+const AlertDialog = AlertDialogPrimitive.Root;
+
+const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
+
+const AlertDialogPortal = AlertDialogPrimitive.Portal;
+
+const FullWindowOverlay =
+  Platform.OS === 'ios' ? RNFullWindowOverlay : React.Fragment;
+
+function AlertDialogOverlay({
+  className,
+  children,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof AlertDialogPrimitive.Overlay>,
+  'asChild'
+> & {
+  children?: React.ReactNode;
+}) {
+  return (
+    <FullWindowOverlay>
+      <AlertDialogPrimitive.Overlay
+        className={cn(
+          'absolute bottom-0 left-0 right-0 top-0 z-50 flex items-center justify-center bg-black/50 p-2',
+          Platform.select({
+            web: 'animate-in fade-in-0 fixed',
+          }),
+          className,
+        )}
+        {...props}
+        asChild={Platform.OS !== 'web'}
+      >
+        {/* accessible={false}: an accessible Pressable backdrop groups the dialog into one
+            screen-reader node and, on Android, swallows taps meant for its buttons. */}
+        <NativeOnlyAnimatedView
+          accessible={false}
+          entering={FadeIn.duration(200)
+            .delay(50)
+            .reduceMotion(ReduceMotion.System)}
+          exiting={FadeOut.duration(150).reduceMotion(ReduceMotion.System)}
+          as="View"
+        >
+          <>{children}</>
+        </NativeOnlyAnimatedView>
+      </AlertDialogPrimitive.Overlay>
+    </FullWindowOverlay>
+  );
+}
+
+function AlertDialogContent({
+  className,
+  portalHost,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
+  portalHost?: string;
+}) {
+  return (
+    <AlertDialogPortal hostName={portalHost}>
+      <AlertDialogOverlay>
+        <AlertDialogPrimitive.Content
+          className={cn(
+            'bg-background border-border z-50 flex w-full max-w-[calc(100%-2rem)] flex-col gap-4 rounded-lg border p-6 sm:max-w-lg',
+            Platform.select({
+              web: 'animate-in fade-in-0 zoom-in-95 duration-200',
+            }),
+            className,
+          )}
+          {...props}
+        />
+      </AlertDialogOverlay>
+    </AlertDialogPortal>
+  );
+}
+
+function AlertDialogHeader({ className, ...props }: ViewProps) {
+  return (
+    <TextClassContext.Provider value="text-center sm:text-left">
+      <View className={cn('flex flex-col gap-2', className)} {...props} />
+    </TextClassContext.Provider>
+  );
+}
+
+function AlertDialogFooter({ className, ...props }: ViewProps) {
+  return (
+    <View
+      className={cn(
+        'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function AlertDialogTitle({
+  className,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
+  return (
+    <AlertDialogPrimitive.Title
+      className={cn('text-foreground text-lg font-semibold', className)}
+      {...props}
+    />
+  );
+}
+
+function AlertDialogDescription({
+  className,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
+  return (
+    <AlertDialogPrimitive.Description
+      className={cn('text-muted-foreground text-sm', className)}
+      {...props}
+    />
+  );
+}
+
+/**
+ * The label gets its colour from `variant` only. Container classes (`bg-*`,
+ * `active:*`) must never reach the label: an `active:` class on a Text makes
+ * NativeWind wrap it in press handlers, which on Android turned the label into
+ * a focusable responder that swallowed taps meant for the button.
+ */
+function AlertDialogAction({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
+  variant?: VariantProps<typeof buttonVariants>['variant'];
+}) {
+  return (
+    <TextClassContext.Provider value={buttonTextVariants({ variant })}>
+      <AlertDialogPrimitive.Action
+        className={cn(buttonVariants({ variant }), className)}
+        {...props}
+      />
+    </TextClassContext.Provider>
+  );
+}
+
+function AlertDialogCancel({
+  className,
+  ...props
+}: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
+  return (
+    <TextClassContext.Provider
+      value={buttonTextVariants({ variant: 'outline' })}
+    >
+      <AlertDialogPrimitive.Cancel
+        className={cn(buttonVariants({ variant: 'outline' }), className)}
+        {...props}
+      />
+    </TextClassContext.Provider>
+  );
+}
+
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+};

@@ -1,8 +1,9 @@
 # Clerk setup (WS-D)
 
-Dashboard checklist for the Clerk instance this app and `apps/backend/` share. There are no custom auth
-forms anywhere in the app — every screen uses Clerk's prebuilt UI (`@clerk/expo/native` on iOS/Android,
-`@clerk/expo/web` on web). This file is the "do this in the Clerk Dashboard" companion to that code;
+Dashboard checklist for the Clerk instance this app and `apps/api/` share. There are no custom auth
+password forms: sign-in and sign-up are our own screens (`apps/mobile/src/features/auth/`) on Clerk's headless hooks
+(`useSignIn`, `useSignUp`, `useSSO` from `@clerk/expo`); the prebuilt `AuthView` is no longer used. Clerk still does
+all security (codes, rate limits, bot protection). Account UI uses `UserButton`/`UserProfileView`; web keeps Clerk's `<SignIn />`. This file is the "do this in the Clerk Dashboard" companion to that code;
 the code itself is `apps/mobile/src/app/(auth)/`, `apps/mobile/src/app/(app)/_layout.tsx`, `apps/mobile/src/lib/clerk-token-cache.ts` and
 `apps/mobile/src/lib/auth-token.ts`.
 
@@ -12,8 +13,9 @@ Dashboard → **Organizations** → enable Organizations.
 
 - **Membership mode: Optional.** The app (not Clerk's hosted `choose-organization` task) decides what
   to show a member with no active organisation — `(app)/_layout.tsx` activates the first membership
-  automatically, or renders a "No business linked" screen with sign-out when the user has none. Using
-  "Membership required" would insert Clerk's own hosted org-chooser in front of that screen.
+  automatically, or starts in-app onboarding when the user has none (the app creates the organisation with
+  `createOrganization` and calls `POST /v1/onboarding`, so the Clerk webhook is not on the critical path).
+  Using "Membership required" would insert Clerk's own hosted org-chooser in front of that flow.
 - **Roles.** Dashboard → Organizations → **Roles**. Keep the two default roles and rename their intent
   to match `docs/BUILD_PLAN.md`'s `member_role` enum:
   - `org:admin` → **owner** (full access; the business's admin)
@@ -21,17 +23,18 @@ Dashboard → **Organizations** → enable Organizations.
 - One business = one Clerk organisation (`businesses.clerk_org_id`, see `docs/database.md`). The API
   reads the role from the org membership, never from a separate column.
 
-## 2. Sign-up restricted to invitations
+## 2. Sign-up mode
 
-Dashboard → **User & authentication** → restrict sign-up so accounts are only created by invitation
-(owner invites staff from inside a Clerk organisation; there is no public sign-up route in this app —
-`AuthView` is rendered with `mode="signIn"`). Turn off any sign-up strategy that doesn't go through an
-organisation invitation.
+Dashboard → **User & authentication**. Sign-up is `public` on the dev instance, and the app's email screen
+tries sign-in and falls back to sign-up when Clerk reports `form_identifier_not_found`, so users can create their own
+account. **The email-code flow requires Password to be optional** (Dashboard → User & authentication → Email, phone, username → Password: turn
+off, or at least not required); a required password leaves every new sign-up stuck in `missing_requirements`. Staff can still be invited from inside a Clerk organisation. Review the sign-up mode before
+production.
 
 ## 3. Session token (v2)
 
 Dashboard → **Sessions** → **Customize session token**, on the v2 (default) format. The RLS helper in
-`supabase/migrations` (`private.current_org_id()`) reads `o.id` / `o.rol` from the v2 shape
+`packages/database/supabase/migrations` (`private.current_org_id()`) reads `o.id` / `o.rol` from the v2 shape
 (`{"o": {"id": "...", "rol": "..."}}`), falling back to the v1 `org_id` claim. No custom claims need
 adding — v2 already includes the active organisation.
 
@@ -48,12 +51,12 @@ Two integrations, both required, per `docs/database.md`:
 The mobile app never talks to Supabase Auth — `createClient<Database>(url, anon, { accessToken })`
 in `apps/mobile/src/lib/supabase.ts` calls Clerk's `getToken()` (wired up by `AuthTokenBridge`) on every request.
 Every table's only RLS policy for `authenticated` is a read (`SELECT ... business_id = private.current_business_id()`) —
-all writes go through `apps/backend/` with the service-role key.
+all writes go through `apps/api/` with the service-role key.
 
 ## 5. Webhook
 
 Dashboard → **Webhooks** → add an endpoint at `<API_BASE_URL>/webhooks/clerk` (see
-`apps/backend/src/routes/clerk.ts`), subscribed to:
+`apps/api/src/routes/clerk.ts`), subscribed to:
 
 - `organization.created`, `organization.updated`, `organization.deleted`
 - `user.created`, `user.updated`, `user.deleted`
@@ -65,11 +68,11 @@ with `svix`, see `docs/BUILD_PLAN.md` §7).
 ## 6. Backend JWT verification
 
 `CLERK_JWT_KEY` (backend env) is the instance's PEM public key — Dashboard → **API keys** → **Show JWT
-public key** — so `apps/backend/` can verify session tokens networklessly (`@clerk/backend`'s
+public key** — so `apps/api/` can verify session tokens networklessly (`@clerk/backend`'s
 `verifyToken`). `CLERK_SECRET_KEY` and `CLERK_AUTHORIZED_PARTIES` (the app's native scheme(s) and web
 origin(s), comma-separated) are also required; see `docs/BUILD_PLAN.md` §7.
 
-## 7. Native applications (required for `AuthView` / `UserButton`)
+## 7. Native applications (required for native Clerk views and Google sign-in)
 
 Dashboard → **Native applications** (`https://dashboard.clerk.com/~/native-applications`) → enable the
 Native API, then register the app:
@@ -83,7 +86,7 @@ Native API, then register the app:
 The `@clerk/expo` config plugin (`apps/mobile/app.json` → `expo.plugins`) sets the iOS deployment target (17.0) and
 Android packaging/Kotlin options the native SDKs need; run `npx expo prebuild --clean` (or an EAS build)
 after any change to it, and see `docs/mobile-app.md` for why a **development build** is required —
-`AuthView`/`UserButton`/`UserProfileView` do not run in Expo Go.
+`UserButton`/`UserProfileView` do not run in Expo Go (the custom sign-in screens do).
 
 ## 8. Allowed web origins
 
@@ -97,10 +100,10 @@ Frontend API's CORS checks both key off this list.
 | Variable | Where | Source |
 | --- | --- | --- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | app (`.env.local`, EAS `env`) | Dashboard → API keys → Publishable key |
-| `CLERK_SECRET_KEY` | `apps/backend/` | Dashboard → API keys → Secret key |
-| `CLERK_JWT_KEY` | `apps/backend/` | Dashboard → API keys → Show JWT public key (PEM) |
-| `CLERK_AUTHORIZED_PARTIES` | `apps/backend/` | the app's scheme(s) (`bookingadmin://`; unchanged by the package id) and web origin(s), comma-separated |
-| `CLERK_WEBHOOK_SECRET` | `apps/backend/` | the webhook endpoint's signing secret (step 5) |
+| `CLERK_SECRET_KEY` | `apps/api/` | Dashboard → API keys → Secret key |
+| `CLERK_JWT_KEY` | `apps/api/` | Dashboard → API keys → Show JWT public key (PEM) |
+| `CLERK_AUTHORIZED_PARTIES` | `apps/api/` | the app's scheme(s) (`bookingadmin://`; unchanged by the package id) and web origin(s), comma-separated |
+| `CLERK_WEBHOOK_SECRET` | `apps/api/` | the webhook endpoint's signing secret (step 5) |
 
 ## Sources
 

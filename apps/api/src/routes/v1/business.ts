@@ -1,0 +1,44 @@
+/** /v1/me, /v1/business, /v1/business/hours, /v1/devices */
+import { Hono } from 'hono';
+
+import { getMe, replaceBusinessHours, updateBusiness } from '@booking/features/catalog/services/catalog.ts';
+import { registerDevice, unregisterDevice } from '@booking/features/team/services/devices.ts';
+import { parseJson } from '../../lib/validation.ts';
+import { requireOwner } from '../../middleware/auth.ts';
+import type { AppEnv } from '../../types.ts';
+import { deps } from './context.ts';
+import { registerDeviceSchema, replaceHoursSchema, unregisterDeviceSchema, updateBusinessSchema } from './schemas.ts';
+
+export const businessRoutes = new Hono<AppEnv>();
+
+businessRoutes.get('/me', async (c) => {
+  const { repo, auth } = deps(c);
+  return c.json({ data: await getMe(repo, auth) });
+});
+
+businessRoutes.patch('/business', requireOwner, async (c) => {
+  const { repo, auth } = deps(c);
+  const body = await parseJson(c, updateBusinessSchema);
+  const business = await updateBusiness(repo, auth.businessId, body, auth.userId);
+  return c.json({ data: business });
+});
+
+businessRoutes.put('/business/hours', requireOwner, async (c) => {
+  const { repo, auth } = deps(c);
+  const { hours } = await parseJson(c, replaceHoursSchema);
+  const saved = await replaceBusinessHours(repo, auth.businessId, hours);
+  return c.json({ data: { hours: saved } });
+});
+
+businessRoutes.post('/devices', async (c) => {
+  const { repo, auth } = deps(c);
+  const { token, platform } = await parseJson(c, registerDeviceSchema);
+  return c.json({ data: await registerDevice(repo, auth.businessId, auth.userId, token, platform) }, 201);
+});
+
+businessRoutes.delete('/devices', async (c) => {
+  const { repo, auth } = deps(c);
+  const { token } = await parseJson(c, unregisterDeviceSchema);
+  await unregisterDevice(repo, auth.businessId, auth.userId, token);
+  return c.json({ data: { removed: true } });
+});

@@ -2,7 +2,11 @@ import {
   clientSearchFilter,
   clientStats,
   historyStatus,
+  isRegular,
+  noShowCount,
   summariseVisits,
+  upcomingAppointments,
+  visitCadenceWeeks,
 } from '../logic';
 
 const TZ = 'Africa/Johannesburg';
@@ -121,5 +125,121 @@ describe('historyStatus', () => {
     ],
   ])('labels %s', (_label, appointment, expected) => {
     expect(historyStatus(appointment, NOW)).toBe(expected);
+  });
+});
+
+describe('isRegular', () => {
+  const visit = (
+    daysAgo: number,
+    status: 'completed' | 'cancelled' = 'completed',
+  ) => ({
+    starts_at: new Date(NOW.getTime() - daysAgo * 86_400_000).toISOString(),
+    status,
+  });
+
+  it.each([
+    ['no visits', [], false],
+    ['two completed visits', [visit(10), visit(40)], false],
+    [
+      'three completed visits inside the window',
+      [visit(10), visit(40), visit(170)],
+      true,
+    ],
+    [
+      'the third visit just outside 180 days',
+      [visit(10), visit(40), visit(181)],
+      false,
+    ],
+    [
+      'cancelled visits do not count',
+      [visit(10), visit(40), visit(50, 'cancelled')],
+      false,
+    ],
+    [
+      'a future completed row does not count',
+      [visit(10), visit(40), visit(-3)],
+      false,
+    ],
+  ])('%s', (_label, appointments, expected) => {
+    expect(isRegular(appointments, NOW)).toBe(expected);
+  });
+});
+
+describe('noShowCount', () => {
+  it('counts only no-shows', () => {
+    expect(
+      noShowCount([
+        { starts_at: '2026-10-01T08:00:00.000Z', status: 'no_show' },
+        { starts_at: '2026-10-02T08:00:00.000Z', status: 'no_show' },
+        { starts_at: '2026-10-03T08:00:00.000Z', status: 'completed' },
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe('visitCadenceWeeks', () => {
+  it.each([
+    [
+      'fewer than three visits',
+      ['2026-09-01T08:00:00Z', '2026-09-15T08:00:00Z'],
+      null,
+    ],
+    [
+      'a fortnightly rhythm',
+      ['2026-09-01T08:00:00Z', '2026-09-15T08:00:00Z', '2026-09-29T08:00:00Z'],
+      2,
+    ],
+    [
+      'unsorted input',
+      ['2026-09-29T08:00:00Z', '2026-09-01T08:00:00Z', '2026-09-15T08:00:00Z'],
+      2,
+    ],
+    [
+      'visits closer than a week still read as one week',
+      ['2026-09-01T08:00:00Z', '2026-09-03T08:00:00Z', '2026-09-05T08:00:00Z'],
+      1,
+    ],
+  ])('%s', (_label, starts, expected) => {
+    expect(visitCadenceWeeks(starts)).toBe(expected);
+  });
+});
+
+describe('upcomingAppointments', () => {
+  it('keeps only confirmed bookings after now, soonest first', () => {
+    const rows = [
+      {
+        id: 'later',
+        status: 'confirmed' as const,
+        starts_at: '2026-10-20T08:00:00.000Z',
+      },
+      {
+        id: 'past',
+        status: 'confirmed' as const,
+        starts_at: '2026-10-01T08:00:00.000Z',
+      },
+      {
+        id: 'cancelled',
+        status: 'cancelled' as const,
+        starts_at: '2026-10-15T08:00:00.000Z',
+      },
+      {
+        id: 'done',
+        status: 'completed' as const,
+        starts_at: '2026-10-16T08:00:00.000Z',
+      },
+      {
+        id: 'soon',
+        status: 'confirmed' as const,
+        starts_at: '2026-10-13T08:00:00.000Z',
+      },
+    ];
+    expect(upcomingAppointments(rows, NOW).map((r) => r.id)).toEqual([
+      'soon',
+      'later',
+    ]);
+  });
+
+  it('returns nothing for an empty history', () => {
+    expect(upcomingAppointments([], NOW)).toEqual([]);
   });
 });

@@ -1,0 +1,15 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "*.ts",
+    "*.tsx",
+    "eslint.config.js",
+    "../../apps/mobile/nativewind-env.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

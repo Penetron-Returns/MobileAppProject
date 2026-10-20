@@ -1,64 +1,56 @@
-import type { CreateClientNoteRequest } from '@shared/api';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import type {
+  CreateClientNoteRequest,
+  UpdateClientRequest,
+} from '@booking/types';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
 
 import { api } from '@/lib/api';
-import { qk, useApiMutation } from '@/lib/query';
+import { patchQueries, qk, useApiMutation } from '@/lib/query';
 import { supabase, unwrap } from '@/lib/supabase';
 
-import {
-  clientSearchFilter,
-  RECENT_DAYS,
-  VIP_TAG,
-  type ClientFilter,
-} from './logic';
+import { clientSearchFilter } from './logic';
 
-export const CLIENT_PAGE_SIZE = 20;
-/** Recent appointments embedded per row, enough to find today's and the last visit. */
-const EMBEDDED_APPOINTMENTS = 10;
+/** Rows per request; PostgREST caps a response at 1,000 by default. */
+const BOOK_PAGE_SIZE = 1000;
+/** Safety stop on the phone book: 20,000 clients. */
+const BOOK_MAX_PAGES = 20;
+/** Newest bookings embedded per client, enough to find the last visit. */
+const EMBEDDED_APPOINTMENTS = 6;
 
-async function fetchClientPage(
-  filter: ClientFilter,
-  search: string,
-  page: number,
-) {
-  let query = supabase
+const BOOK_SELECT =
+  'id, name, phone_e164, tags, appointments(starts_at, created_at, status, service:services(name))';
+
+function bookPage(page: number) {
+  const from = page * BOOK_PAGE_SIZE;
+  return supabase
     .from('clients')
-    .select(
-      'id, name, phone_e164, tags, last_seen_at, appointments(starts_at, status)',
-    )
+    .select(BOOK_SELECT)
+    .neq('appointments.status', 'cancelled')
     .order('starts_at', { referencedTable: 'appointments', ascending: false })
-    .limit(EMBEDDED_APPOINTMENTS, { referencedTable: 'appointments' });
-
-  const or = clientSearchFilter(search);
-  if (or) query = query.or(or);
-  if (filter === 'vip') query = query.contains('tags', [VIP_TAG]);
-  if (filter === 'recent') {
-    const since = new Date(Date.now() - RECENT_DAYS * 86_400_000);
-    query = query
-      .gte('last_seen_at', since.toISOString())
-      .order('last_seen_at', { ascending: false });
-  }
-  const from = page * CLIENT_PAGE_SIZE;
-  return unwrap(
-    await query
-      .order('name', { nullsFirst: false })
-      .order('id')
-      .range(from, from + CLIENT_PAGE_SIZE - 1),
-  );
+    .limit(EMBEDDED_APPOINTMENTS, { referencedTable: 'appointments' })
+    .order('id')
+    .range(from, from + BOOK_PAGE_SIZE - 1);
 }
 
-export type ClientListItem = Awaited<
-  ReturnType<typeof fetchClientPage>
+/** Every client with their newest bookings: one query per 1,000 clients, no per-client calls. */
+async function fetchClientBook() {
+  const rows: NonNullable<Awaited<ReturnType<typeof bookPage>>['data']> = [];
+  for (let page = 0; page < BOOK_MAX_PAGES; page += 1) {
+    const batch = unwrap(await bookPage(page));
+    rows.push(...batch);
+    if (batch.length < BOOK_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+export type ClientBookItem = NonNullable<
+  Awaited<ReturnType<typeof fetchClientBook>>
 >[number];
 
-export function useClientList(filter: ClientFilter, search: string) {
-  return useInfiniteQuery({
-    queryKey: qk.clientList(filter, search.trim()),
-    queryFn: ({ pageParam }) => fetchClientPage(filter, search, pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, pages) =>
-      lastPage.length === CLIENT_PAGE_SIZE ? pages.length : undefined,
-  });
+/** The whole client list for the phone book (sectioned and searched on the device). */
+export function useClientBook() {
+  return useQuery({ queryKey: qk.clientBook, queryFn: fetchClientBook });
 }
 
 async function searchClients(search: string) {
@@ -88,7 +80,9 @@ export function useClientSearch(search: string) {
 async function fetchClient(id: string) {
   const res = await supabase
     .from('clients')
-    .select('id, name, phone_e164, email, tags, first_seen_at, is_blocked')
+    .select(
+      'id, name, phone_e164, email, tags, first_seen_at, is_blocked, whatsapp_opt_in',
+    )
     .eq('id', id)
     .maybeSingle();
   return unwrap<NonNullable<typeof res.data> | null>(res);
@@ -150,9 +144,111 @@ export function useClientAppointments(id: string) {
   });
 }
 
-export function useAddClientNote(clientId: string) {
+/**
+ * What the phone book already knows about a client (name, phone, VIP), so the
+ * profile can title itself and draw its header before the profile loads.
+ */
+export function useClientPreview(id: string) {
+  const qc = useQueryClient();
+  return React.useMemo(() => {
+    const book = qc.getQueryData<ClientBookItem[]>(qk.clientBook);
+    const found = book?.find((c) => c.id === id);
+    return found
+      ? { name: found.name, phone_e164: found.phone_e164, tags: found.tags }
+      : null;
+  }, [qc, id]);
+}
+
+/** Warms a client's profile, history and notes so the screen opens with content. */
+export function usePrefetchClient() {
+  const qc = useQueryClient();
+  return React.useCallback(
+    (id: string) => {
+      void qc.prefetchQuery({
+        queryKey: qk.client(id),
+        queryFn: () => fetchClient(id),
+      });
+      void qc.prefetchQuery({
+        queryKey: qk.clientAppointments(id),
+        queryFn: () => fetchClientAppointments(id),
+      });
+      void qc.prefetchQuery({
+        queryKey: qk.clientNotes(id),
+        queryFn: () => fetchClientNotes(id),
+      });
+    },
+    [qc],
+  );
+}
+
+let pendingNoteCount = 0;
+
+/**
+ * Adds a note: it shows in the list at once and leaves again if the server
+ * refuses. `onRejected` gets the text back so the draft can be restored.
+ */
+export function useAddClientNote(
+  clientId: string,
+  onRejected?: (body: string) => void,
+) {
   return useApiMutation<CreateClientNoteRequest>({
     mutationFn: (body, key) => api.addClientNote(clientId, body, key),
     invalidate: [qk.clientNotes(clientId)],
+    optimistic: (body, qc) =>
+      patchQueries<ClientNoteRow[]>(
+        qc,
+        { queryKey: qk.clientNotes(clientId), exact: true },
+        (notes) => [
+          {
+            id: `pending-${(pendingNoteCount += 1)}`,
+            body: body.body,
+            kind: body.kind ?? 'general',
+            created_at: new Date().toISOString(),
+          },
+          ...notes,
+        ],
+      ),
+    onError: (_error, body) => {
+      onRejected?.(body.body);
+    },
+  });
+}
+
+export function useDeleteClientNote(clientId: string) {
+  return useApiMutation<string>({
+    mutationFn: (noteId, key) => api.deleteClientNote(clientId, noteId, key),
+    invalidate: [qk.clientNotes(clientId)],
+    optimistic: (noteId, qc) =>
+      patchQueries<ClientNoteRow[]>(
+        qc,
+        { queryKey: qk.clientNotes(clientId), exact: true },
+        (notes) => notes.filter((n) => n.id !== noteId),
+      ),
+  });
+}
+
+/**
+ * Opt a client in or out of WhatsApp messages. The switch flips at once; only
+ * this client's profile is refetched (the phone book shows none of it).
+ */
+export function useUpdateClient(clientId: string) {
+  return useApiMutation<UpdateClientRequest>({
+    mutationFn: (body, key) => api.updateClient(clientId, body, key),
+    invalidate: [qk.client(clientId)],
+    optimistic: (body, qc) =>
+      patchQueries<ClientProfile | null>(
+        qc,
+        { queryKey: qk.client(clientId), exact: true },
+        (client) =>
+          client && {
+            ...client,
+            ...(body.whatsapp_opt_in === undefined
+              ? {}
+              : { whatsapp_opt_in: body.whatsapp_opt_in }),
+            ...(body.is_blocked === undefined
+              ? {}
+              : { is_blocked: body.is_blocked }),
+          },
+      ),
   });
 }

@@ -1,121 +1,258 @@
-import { useAuth, useOrganization, useOrganizationList } from '@clerk/expo';
-import { Redirect, Tabs } from 'expo-router';
+import type { MeDTO } from '@booking/types';
+import { useAuth, useClerk, useSession, useUser } from '@clerk/expo';
+import { Redirect } from 'expo-router';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { NoBusinessScreen } from '@/components/NoBusinessScreen';
-import { CenteredSpinner } from '@/components/States';
-import { FloatingTabBar } from '@/components/tab-bar/FloatingTabBar';
-import { useAppointmentsRealtime } from '@/features/appointments/hooks';
+import NetInfo from '@react-native-community/netinfo';
+
+import { ClovieLoading } from '@/features/brand/ClovieLoading';
+import { useHideSplashWhen } from '@/features/brand/useHideSplash';
+import { ShellEffects } from '@/features/shell/ShellEffects';
+import { ShellStack } from '@/features/shell/ShellStack';
+import { PushRegistration } from '@/features/notifications/components/PushRegistration';
+import { useMe } from '@/features/business/me';
+import { SessionErrorScreen } from '@/features/business/components/SessionErrorScreen';
+import { JoinScreen } from '@/features/join/components/JoinScreen';
+import { usePendingInvitations } from '@/features/join/hooks';
+import { OnboardingFlow } from '@/features/onboarding/components/OnboardingFlow';
+import { OfflineStartScreen } from '@/features/auth/components/OfflineStartScreen';
+import { useMembershipOrgIds } from '@/features/auth/useMemberships';
+import { useUserScopedState } from '@/features/auth/useUserScopedState';
+import { useBusinessHours } from '@/features/business/hooks';
+import {
+  basicsStatus,
+  resolveAppRoute,
+  type AppRoute,
+  type BusinessInput,
+  type InvitationsInput,
+  type LookupStatus,
+  type MeStatus,
+  type SessionTaskKey,
+} from '@/features/auth/appRoute';
+import { isApiError } from '@/lib/api';
+import { useIsOnline } from '@/lib/online';
+
+function toInvitationsInput(
+  enabled: boolean,
+  query: { isSuccess: boolean; isError: boolean; data?: readonly unknown[] },
+): InvitationsInput {
+  if (!enabled) return { status: 'idle', count: 0 };
+  if (query.isSuccess)
+    return { status: 'ready', count: query.data?.length ?? 0 };
+  return { status: query.isError ? 'error' : 'loading', count: 0 };
+}
+
+function toLookupStatus(
+  enabled: boolean,
+  query: { isSuccess: boolean; isError: boolean },
+): LookupStatus {
+  if (!enabled) return 'idle';
+  if (query.isSuccess) return 'ready';
+  return query.isError ? 'error' : 'loading';
+}
+
+/** A rejected session (401) or a missing token is not "no business". */
+function isUnauthorized(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    (error.status === 401 || error.code === 'NOT_SIGNED_IN')
+  );
+}
+
+function toMeStatus(
+  enabled: boolean,
+  me: { isSuccess: boolean; isError: boolean; error: unknown },
+): MeStatus {
+  if (!enabled) return 'idle';
+  if (me.isSuccess) return 'ok';
+  if (me.isError) {
+    if (isUnauthorized(me.error)) return 'unauthorized';
+    return isApiError(me.error) && me.error.code === 'NO_BUSINESS'
+      ? 'no_business'
+      : 'error';
+  }
+  return 'loading';
+}
+
+/** What the router needs about the business and the caller, from `/v1/me`. Null until it has loaded. */
+function useBusinessInput(me: MeDTO | undefined): BusinessInput | null {
+  const isOwner = me?.role !== 'staff';
+  // Only an owner can still be mid-onboarding.
+  const hours = useBusinessHours({ enabled: Boolean(me) && isOwner });
+  if (!me) return null;
+  const basics =
+    !isOwner || hours.isError
+      ? 'complete' // a failed lookup must not trap the owner in onboarding
+      : basicsStatus({ name: me.business.name, hours: hours.data });
+  return { basics, role: me.role };
+}
 
 /**
- * Protected group: requires a signed-in user AND an active Clerk
- * organisation (a business). Activates the first membership automatically
- * when the session has none active yet; a user with zero memberships sees
- * `NoBusinessScreen` instead of the tabs.
+ * Protected group. All routing decisions live in the pure `resolveAppRoute`;
+ * this component gathers Clerk/API state, runs the one side effect (activating
+ * the first organisation, which also completes a pending
+ * `choose-organization` session task) and renders the result.
+ *
+ * Clerk's org hooks stay unloaded for a `pending` session, so memberships
+ * come from the user resource, which loads independently of session status.
  */
 export default function AppLayout() {
-  const { isLoaded: authLoaded, isSignedIn } = useAuth({
+  const {
+    isLoaded: authLoaded,
+    isSignedIn,
+    orgId,
+  } = useAuth({
     treatPendingAsSignedOut: false,
   });
-  const { isLoaded: orgLoaded, organization } = useOrganization();
-  const {
-    isLoaded: listLoaded,
-    userMemberships,
-    setActive,
-  } = useOrganizationList({
-    userMemberships: { infinite: true },
-  });
+  const { isLoaded: userLoaded, user } = useUser();
+  const { session } = useSession();
+  const { setActive } = useClerk();
   const { t } = useTranslation();
-  useAppointmentsRealtime(Boolean(isSignedIn && organization));
+  // Per-user flags: they reset on sign-out or when another account signs in.
+  const userId = isSignedIn ? (user?.id ?? null) : null;
+  const isOnline = useIsOnline();
+  const [inOnboarding, setInOnboarding] = useUserScopedState(userId, false);
+  const [joinDeclined, setJoinDeclined] = useUserScopedState(userId, false);
 
-  const memberships = userMemberships.data;
-  const hasNoMemberships = listLoaded && (memberships?.length ?? 0) === 0;
-  const shouldActivateFirst = Boolean(
-    authLoaded &&
-    isSignedIn &&
-    orgLoaded &&
-    listLoaded &&
-    !organization &&
-    memberships &&
-    memberships.length > 0,
+  const cachedOrgIds = React.useMemo(
+    () => (user?.organizationMemberships ?? []).map((m) => m.organization.id),
+    [user?.organizationMemberships],
+  );
+  // No authenticated query before Clerk has an active session to mint a token.
+  const hasOrg = Boolean(isSignedIn && orgId && session?.status === 'active');
+  // Clerk's cached memberships are empty right after a fresh sign-in, so with
+  // no active org and nothing cached, ask Clerk before deciding anything.
+  const asksMemberships = Boolean(
+    isSignedIn && userLoaded && !orgId && cachedOrgIds.length === 0,
+  );
+  const memberships = useMembershipOrgIds(asksMemberships);
+  const membershipOrgIds = cachedOrgIds.length
+    ? cachedOrgIds
+    : (memberships.data ?? cachedOrgIds);
+  // Invitations are only used when there is no organisation to open, but asking
+  // them alongside the memberships saves a round trip on a fresh sign-in.
+  const asksInvitations = asksMemberships;
+  const invitations = usePendingInvitations(asksInvitations);
+  const me = useMe({ enabled: hasOrg });
+  const business = useBusinessInput(me.data);
+
+  const route: AppRoute = resolveAppRoute({
+    authLoaded,
+    isSignedIn: Boolean(isSignedIn),
+    sessionStatus:
+      session?.status === 'pending'
+        ? 'pending'
+        : session?.status === 'active'
+          ? 'active'
+          : null,
+    taskKey: (session?.currentTask?.key as SessionTaskKey | undefined) ?? null,
+    userLoaded,
+    activeOrgId: orgId ?? null,
+    membershipOrgIds,
+    membershipsStatus: toLookupStatus(asksMemberships, memberships),
+    me: toMeStatus(hasOrg, me),
+    business,
+    invitations: toInvitationsInput(asksInvitations, invitations),
+    joinDeclined,
+    inOnboarding,
+  });
+
+  // Offline, the session and business lookups wait for the network: show that
+  // (with Retry) instead of an endless splash.
+  const isOfflineStart = route.kind === 'splash' && !isOnline;
+  useHideSplashWhen(
+    isOfflineStart ||
+      (route.kind !== 'splash' && route.kind !== 'activate-org'),
   );
 
+  const activateOrgId = route.kind === 'activate-org' ? route.orgId : null;
   React.useEffect(() => {
-    if (shouldActivateFirst && memberships) {
-      void setActive?.({ organization: memberships[0].organization.id });
+    // `navigate` is explicit: routing is driven by this layout, not by Clerk.
+    if (activateOrgId) {
+      void setActive({ organization: activateOrgId, navigate: async () => {} });
     }
-  }, [shouldActivateFirst, memberships, setActive]);
+  }, [activateOrgId, setActive]);
 
-  if (!authLoaded) return <CenteredSpinner />;
-  if (!isSignedIn) return <Redirect href="/sign-in" />;
-  if (!orgLoaded || !listLoaded) return <CenteredSpinner />;
-  if (!organization && hasNoMemberships) return <NoBusinessScreen />;
-  if (!organization) return <CenteredSpinner />;
+  const isOnboarding = route.kind === 'onboarding';
+  // Keep onboarding mounted once started, even as the new org makes the route flip.
+  React.useEffect(() => {
+    if (isOnboarding) setInOnboarding(true);
+  }, [isOnboarding, setInOnboarding]);
+
+  const renderContent = (): React.ReactNode => {
+    if (isOfflineStart) {
+      return (
+        <OfflineStartScreen
+          onRetry={() => {
+            void NetInfo.refresh();
+            void session?.reload();
+            if (memberships.isError) void memberships.refetch();
+            if (me.isError) void me.refetch();
+          }}
+        />
+      );
+    }
+
+    switch (route.kind) {
+      case 'splash':
+      case 'activate-org':
+        return <ClovieLoading />;
+      case 'signed-out':
+        // Signed out: first-run onboarding, which hands over to sign-in after the name.
+        return <Redirect href="/onboarding" />;
+      case 'join':
+        return (
+          <JoinScreen
+            invitations={invitations.data ?? []}
+            onDecline={() => setJoinDeclined(true)}
+          />
+        );
+      case 'onboarding':
+        return (
+          <OnboardingFlow isSignedIn onDone={() => setInOnboarding(false)} />
+        );
+      case 'unsupported-task':
+        return (
+          <SessionErrorScreen
+            error={
+              new Error(t('session.unsupportedTask', { task: route.task }))
+            }
+            onRetry={() => void session?.reload()}
+            isRetrying={false}
+          />
+        );
+      case 'session-error':
+        return (
+          <SessionErrorScreen
+            error={memberships.error ?? me.error}
+            onRetry={() =>
+              void (memberships.isError ? memberships.refetch() : me.refetch())
+            }
+            isRetrying={memberships.isFetching || me.isFetching}
+          />
+        );
+      case 'tabs':
+        break;
+    }
+
+    return (
+      <>
+        <PushRegistration enabled />
+        <ShellStack />
+      </>
+    );
+  };
 
   return (
-    <Tabs
-      // Detail pages are hidden tabs, so back must follow history, not jump to the first tab.
-      backBehavior="history"
-      // The floating capsule draws itself (icons, labels and the centre "+").
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="index" options={{ title: t('tabs.today') }} />
-      <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
-      <Tabs.Screen name="add" options={{ title: t('tabs.add') }} />
-      <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />
-      <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
-      <Tabs.Screen name="inbox" options={{ href: null }} />
-      <Tabs.Screen
-        name="bookings/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
+    <>
+      <ShellEffects
+        routeKind={route.kind}
+        hasOrg={hasOrg}
+        userId={userId}
+        businessId={me.data?.business.id}
       />
-      <Tabs.Screen
-        name="clients/[id]"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/operating-hours"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/services"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/business-details"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/staff"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-      <Tabs.Screen
-        name="settings/staff-management"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-    </Tabs>
+      {renderContent()}
+    </>
   );
 }
