@@ -83,9 +83,8 @@ export type Database = {
           checked_in_at: string | null
           client_confirmed_at: string | null
           client_confirmed_via: string | null
-          client_notify_after: string | null
-          voided_at: string | null
           client_id: string
+          client_notify_after: string | null
           created_at: string
           created_by: string | null
           duration_minutes: number
@@ -101,6 +100,7 @@ export type Database = {
           starts_at: string
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
+          voided_at: string | null
         }
         Insert: {
           billing_reported_at?: string | null
@@ -109,11 +109,10 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_at?: string | null
           checked_in_at?: string | null
-          client_confirmed_at: string | null
-          client_confirmed_via: string | null
-          client_notify_after: string | null
-          voided_at: string | null
+          client_confirmed_at?: string | null
+          client_confirmed_via?: string | null
           client_id: string
+          client_notify_after?: string | null
           created_at?: string
           created_by?: string | null
           duration_minutes: number
@@ -129,6 +128,7 @@ export type Database = {
           starts_at?: never
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
+          voided_at?: string | null
         }
         Update: {
           billing_reported_at?: string | null
@@ -139,9 +139,8 @@ export type Database = {
           checked_in_at?: string | null
           client_confirmed_at?: string | null
           client_confirmed_via?: string | null
-          client_notify_after?: string | null
-          voided_at?: string | null
           client_id?: string
+          client_notify_after?: string | null
           created_at?: string
           created_by?: string | null
           duration_minutes?: number
@@ -157,6 +156,7 @@ export type Database = {
           starts_at?: never
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
+          voided_at?: string | null
         }
         Relationships: [
           {

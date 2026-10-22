@@ -18,6 +18,14 @@ jest.mock('../toast', () => ({
 
 const mutationFn = jest.fn();
 
+// Unmount so pending query notifications cannot fire after the suite ends.
+const mounted: renderer.ReactTestRenderer[] = [];
+afterEach(() => {
+  act(() => {
+    mounted.splice(0).forEach((tree) => tree.unmount());
+  });
+});
+
 function mount() {
   const ref: { current: ReturnType<typeof useApiMutation<string>> | null } = {
     current: null,
@@ -27,10 +35,12 @@ function mount() {
     return null;
   }
   act(() => {
-    renderer.create(
-      <QueryClientProvider client={new QueryClient()}>
-        <Probe />
-      </QueryClientProvider>,
+    mounted.push(
+      renderer.create(
+        <QueryClientProvider client={new QueryClient()}>
+          <Probe />
+        </QueryClientProvider>,
+      ),
     );
   });
   return ref as { current: NonNullable<typeof ref.current> };
