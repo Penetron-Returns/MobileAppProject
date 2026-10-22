@@ -12,7 +12,7 @@ const renderTabBar: React.ComponentProps<typeof Tabs>['tabBar'] = (props) => (
 );
 
 /**
- * The tab routes (the bar shows four: Calendar, Reports, Clients, Settings). Detail pages (booking, client, settings sub-pages) live in
+ * The tab routes (the bar shows five: Dashboard, Calendar, Reports, Clients, Settings). Detail pages (booking, client, settings sub-pages) live in
  * the parent stack so they slide over the tab bar instead of hiding it.
  */
 export default function TabsLayout() {
@@ -40,11 +40,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       backBehavior="history"
-      initialRouteName="calendar"
+      initialRouteName="index"
       tabBar={renderTabBar}
       screenOptions={screenOptions}
     >
-      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="index" options={{ title: t('tabs.dashboard') }} />
       <Tabs.Screen name="calendar" options={{ title: t('tabs.calendar') }} />
       <Tabs.Screen name="reports" options={{ title: t('tabs.reports') }} />
       <Tabs.Screen name="clients" options={{ title: t('tabs.clients') }} />

@@ -38,6 +38,8 @@ export const qk = {
   appointments: ['appointments'] as const,
   appointmentsRange: (from: string, to: string, staffId?: string | null) =>
     ['appointments', 'range', from, to, staffId ?? 'all'] as const,
+  /** The dashboard summary RPC; under `appointments` so Realtime refreshes it. */
+  dashboard: (date: string) => ['appointments', 'dashboard', date] as const,
   appointment: (id: string) => ['appointments', 'one', id] as const,
   clientAppointments: (clientId: string) =>
     ['appointments', 'client', clientId] as const,
