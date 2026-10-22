@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
+import { DashboardScreen } from '@/features/dashboard/components/DashboardScreen';
 
-/** The app opens on the Calendar. */
+/** The first tab, and where the app opens. */
 export default function IndexRoute() {
-  return <Redirect href="/calendar" />;
+  return <DashboardScreen />;
 }

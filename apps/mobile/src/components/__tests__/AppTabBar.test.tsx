@@ -52,12 +52,13 @@ beforeEach(() => {
 });
 
 describe('AppTabBar', () => {
-  it('shows Calendar, Reports, Clients and Settings, and no Clovie tab', () => {
+  it('shows Dashboard, Calendar, Reports, Clients and Settings, and no Clovie tab', () => {
     const tree = bar();
     const tabs = tree.root
       .findAll((n) => n.props.accessibilityRole === 'tab')
       .map((n) => n.props.accessibilityLabel as string);
     expect([...new Set(tabs)]).toEqual([
+      'Dashboard',
       'Calendar',
       'Reports',
       'Clients',

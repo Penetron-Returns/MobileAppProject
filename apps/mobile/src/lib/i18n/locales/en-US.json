@@ -142,7 +142,35 @@
     "expand": "Show larger",
     "collapse": "Show smaller"
   },
+  "dashboard": {
+    "monthlyRevenue": "Monthly revenue",
+    "todaysBookings": "Today's bookings",
+    "statusCount": {
+      "confirmed": "{{count}} confirmed",
+      "checked_in": "{{count}} checked in",
+      "completed": "{{count}} completed",
+      "no_show": "{{count}} no-show"
+    },
+    "nextAppointment": "Next appointment",
+    "noNextAppointment": "No more appointments today",
+    "checkIn": "Check in",
+    "checkedIn": "{{name}} checked in",
+    "checkedInBadge": "Checked in",
+    "todaysSchedule": "Today's schedule",
+    "viewAll": "View all",
+    "next": "Next",
+    "serviceLine": "{{service}} · {{duration}}",
+    "unknownClient": "Walk-in client",
+    "messageOnWhatsApp": "Message {{name}} on WhatsApp",
+    "whatsAppGreeting": "Hi {{name}}, confirming your appointment with us today.",
+    "openingWhatsApp": "Opening WhatsApp chat for {{name}}",
+    "emptySchedule": {
+      "title": "No appointments today",
+      "description": "Bookings from WhatsApp, the web page and this app show up here."
+    }
+  },
   "tabs": {
+    "dashboard": "Dashboard",
     "today": "Home",
     "calendar": "Calendar",
     "add": "New booking",
