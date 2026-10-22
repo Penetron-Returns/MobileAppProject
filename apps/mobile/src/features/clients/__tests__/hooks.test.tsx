@@ -36,6 +36,14 @@ jest.mock('@/lib/toast', () => ({
 
 const NOTE = { id: 'n-1', body: 'Old', kind: 'general', created_at: 'x' };
 
+// Unmount so pending query notifications cannot fire after the suite ends.
+const mounted: renderer.ReactTestRenderer[] = [];
+afterEach(() => {
+  act(() => {
+    mounted.splice(0).forEach((tree) => tree.unmount());
+  });
+});
+
 function mountHook<T>(qc: QueryClient, useHook: () => T) {
   const ref = { current: null as unknown as T };
   function Probe() {
@@ -43,10 +51,12 @@ function mountHook<T>(qc: QueryClient, useHook: () => T) {
     return null;
   }
   act(() => {
-    renderer.create(
-      <QueryClientProvider client={qc}>
-        <Probe />
-      </QueryClientProvider>,
+    mounted.push(
+      renderer.create(
+        <QueryClientProvider client={qc}>
+          <Probe />
+        </QueryClientProvider>,
+      ),
     );
   });
   return ref;

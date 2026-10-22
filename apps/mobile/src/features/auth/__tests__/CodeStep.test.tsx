@@ -19,6 +19,14 @@ const metrics = {
 
 type Props = React.ComponentProps<typeof CodeStep>;
 
+// useNow keeps a 1s interval alive; unmount so Jest can exit.
+const mounted: renderer.ReactTestRenderer[] = [];
+afterEach(() => {
+  act(() => {
+    mounted.splice(0).forEach((tree) => tree.unmount());
+  });
+});
+
 function mount(initial: Partial<Props> = {}) {
   const onVerify = jest.fn();
   const element = (extra: Partial<Props>) => (
@@ -43,6 +51,7 @@ function mount(initial: Partial<Props> = {}) {
   act(() => {
     tree = renderer.create(element({}));
   });
+  mounted.push(tree);
   return {
     tree,
     onVerify,

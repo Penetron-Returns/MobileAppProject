@@ -177,13 +177,13 @@ describe('GET /v1/reports/summary', () => {
     for (const token of ['owner', 'staff']) {
       const res = await get('/v1/reports/summary', token);
       expect(res.status).toBe(200);
-      expect((await res.json()).data).toMatchObject({ month: '2026-10', completed_jobs: 1, revenue_cents: 25000 });
+      expect(((await res.json()) as { data: unknown }).data).toMatchObject({ month: '2026-10', completed_jobs: 1, revenue_cents: 25000 });
     }
   });
 
   it('answers an explicit month', async () => {
     const res = await get('/v1/reports/summary?month=2026-09');
-    expect((await res.json()).data).toMatchObject({ month: '2026-09', completed_jobs: 1 });
+    expect(((await res.json()) as { data: unknown }).data).toMatchObject({ month: '2026-09', completed_jobs: 1 });
   });
 
   it('rejects a malformed month with 400', async () => {

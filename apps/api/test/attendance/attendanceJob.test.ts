@@ -203,6 +203,6 @@ describe('attendance cron job', () => {
     expect(denied.status).toBe(401);
     const ok = await h.app.request('/cron/attendance', { headers: { 'x-cron-secret': 'cron-secret' } });
     expect(ok.status).toBe(200);
-    expect((await ok.json()).data).toMatchObject({ job: 'attendance', result: { created: 0, pushes: 0, errors: 0 } });
+    expect(((await ok.json()) as { data: unknown }).data).toMatchObject({ job: 'attendance', result: { created: 0, pushes: 0, errors: 0 } });
   });
 });
